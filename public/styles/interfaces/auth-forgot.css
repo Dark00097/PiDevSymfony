@@ -1,0 +1,10 @@
+@import url('/styles/interfaces/auth-login.css');
+
+body.auth-body .auth-side h1 {
+    color: #c5e8ff;
+}
+
+body.auth-body .btn-primary {
+    background: linear-gradient(90deg, #17b0d2, #6cd4ff);
+    color: #07314a;
+}

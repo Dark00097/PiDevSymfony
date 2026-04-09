@@ -1,0 +1,1615 @@
+{% set total_users = summary.users_total|default(items|length) %}
+{% set ai_assistant = support.ai_assistant|default({}) %}
+{% set gemini_enabled = support.gemini_enabled|default(false) %}
+{% set active_users = 0 %}
+{% set admin_users = 0 %}
+{% for item in items %}
+    {% if item.status|default('') == 'ACTIVE' %}
+        {% set active_users = active_users + 1 %}
+    {% endif %}
+    {% if item.role|default('') == 'ROLE_ADMIN' %}
+        {% set admin_users = admin_users + 1 %}
+    {% endif %}
+{% endfor %}
+{% set selected_user = support.selected_user|default(null) %}
+
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   NX USERS MANAGEMENT — CLEAN WHITE INTERFACE
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+    --nx-primary:        #6c63ff;
+    --nx-primary-dark:   #4f46e5;
+    --nx-primary-glow:   rgba(108, 99, 255, 0.12);
+    --nx-accent:         #00b894;
+    --nx-accent-dark:    #00a381;
+    --nx-danger:         #e84545;
+    --nx-danger-dark:    #c0392b;
+    --nx-warning:        #f39c12;
+    --nx-success:        #00b894;
+    --nx-purple:         #a855f7;
+    --nx-purple-dark:    #7c3aed;
+
+    --nx-bg:             #f4f6fb;
+    --nx-bg-card:        #ffffff;
+    --nx-bg-card2:       #f9fafc;
+    --nx-bg-hover:       #f0f2ff;
+    --nx-border:         rgba(108, 99, 255, 0.15);
+    --nx-border-light:   rgba(0, 0, 0, 0.07);
+
+    --nx-text:           #1a1f36;
+    --nx-text-muted:     #5a6282;
+    --nx-text-faint:     #9aa0b8;
+
+    --nx-radius-sm:      8px;
+    --nx-radius:         14px;
+    --nx-radius-lg:      20px;
+    --nx-radius-xl:      28px;
+
+    --nx-shadow:         0 2px 12px rgba(108,99,255,0.08);
+    --nx-shadow-glow:    0 0 32px rgba(108, 99, 255, 0.08);
+    --nx-shadow-card:    0 4px 24px rgba(108,99,255,0.10);
+
+    --nx-transition:     0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    --nx-transition-slow:0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── RESET & BASE ── */
+.nx-users-screen *,
+.nx-users-screen *::before,
+.nx-users-screen *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+.nx-users-screen {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    padding: 32px 28px;
+    background: var(--nx-bg);
+    min-height: 100vh;
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: var(--nx-text);
+    position: relative;
+    overflow-x: hidden;
+}
+
+/* ── SUBTLE BACKGROUND ── */
+.nx-users-screen::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+        radial-gradient(ellipse 80% 60% at 20% 10%, rgba(108,99,255,0.04) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 80% 80%, rgba(0,184,148,0.03) 0%, transparent 55%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.nx-users-screen > * { position: relative; z-index: 1; }
+
+/* ══════════════════════════════════════════
+   HERO HEADER
+══════════════════════════════════════════ */
+.nx-users-hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    background: linear-gradient(135deg, #ffffff 0%, #f5f3ff 50%, #ffffff 100%);
+    border: 1px solid rgba(108,99,255,0.15);
+    border-radius: var(--nx-radius-xl);
+    padding: 32px 36px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--nx-shadow-card);
+}
+
+.nx-users-hero::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 280px; height: 280px;
+    background: radial-gradient(circle, rgba(108,99,255,0.07) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.nx-users-hero::after {
+    content: '';
+    position: absolute;
+    bottom: -40px; left: 30%;
+    width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(0,184,148,0.05) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.nx-users-hero-deco {
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(108,99,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(108,99,255,0.025) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+}
+
+.nx-users-hero-main {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex: 1;
+    position: relative;
+    z-index: 2;
+}
+
+.nx-users-hero-icon {
+    width: 64px; height: 64px;
+    background: linear-gradient(135deg, var(--nx-primary), var(--nx-purple));
+    border-radius: var(--nx-radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    color: #fff;
+    flex-shrink: 0;
+    box-shadow: 0 8px 24px rgba(108,99,255,0.25);
+    position: relative;
+}
+
+.nx-users-hero-icon::after {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: calc(var(--nx-radius) + 2px);
+    background: linear-gradient(135deg, var(--nx-primary), var(--nx-purple), var(--nx-accent));
+    z-index: -1;
+    opacity: 0.3;
+    filter: blur(6px);
+}
+
+.nx-users-hero-main h2 {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #1a1f36 30%, var(--nx-primary) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1.2;
+}
+
+.nx-users-hero-main p {
+    color: var(--nx-text-muted);
+    font-size: 13.5px;
+    margin-top: 4px;
+    font-weight: 400;
+}
+
+.nx-users-hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(135deg, var(--nx-primary-dark), var(--nx-purple-dark));
+    color: #fff;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    padding: 5px 14px;
+    border-radius: 30px;
+    text-transform: uppercase;
+    box-shadow: 0 4px 14px rgba(108,99,255,0.3);
+    align-self: flex-start;
+    margin-top: 4px;
+}
+
+.nx-users-hero-badge::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: #a8f5e5;
+    border-radius: 50%;
+    animation: nx-pulse 2s infinite;
+}
+
+@keyframes nx-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.5; transform: scale(1.3); }
+}
+
+.nx-users-hero-actions {
+    display: flex;
+    gap: 10px;
+    position: relative;
+    z-index: 2;
+}
+
+.nx-users-icon-btn {
+    width: 44px; height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    border: 1px solid rgba(108,99,255,0.15);
+    border-radius: var(--nx-radius-sm);
+    color: var(--nx-text-muted);
+    font-size: 16px;
+    text-decoration: none;
+    transition: var(--nx-transition);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.nx-users-icon-btn:hover {
+    background: var(--nx-primary-glow);
+    border-color: var(--nx-primary);
+    color: var(--nx-primary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(108,99,255,0.15);
+}
+
+/* ══════════════════════════════════════════
+   STATS STRIP
+══════════════════════════════════════════ */
+.nx-users-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+.nx-users-stats article {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--nx-bg-card);
+    border: 1px solid var(--nx-border-light);
+    border-radius: var(--nx-radius-lg);
+    padding: 22px 24px;
+    transition: var(--nx-transition);
+    position: relative;
+    overflow: hidden;
+    cursor: default;
+    box-shadow: var(--nx-shadow);
+}
+
+.nx-users-stats article::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--nx-primary), var(--nx-purple));
+    opacity: 0;
+    transition: var(--nx-transition);
+}
+
+.nx-users-stats article:hover {
+    border-color: rgba(108,99,255,0.2);
+    background: #fff;
+    transform: translateY(-3px);
+    box-shadow: var(--nx-shadow-card);
+}
+
+.nx-users-stats article:hover::before { opacity: 1; }
+
+.nx-users-stat-icon {
+    width: 52px; height: 52px;
+    border-radius: var(--nx-radius-sm);
+    background: linear-gradient(135deg, rgba(108,99,255,0.12), rgba(108,99,255,0.06));
+    border: 1px solid rgba(108,99,255,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: var(--nx-primary);
+    flex-shrink: 0;
+    transition: var(--nx-transition);
+}
+
+.nx-users-stat-icon.is-green {
+    background: linear-gradient(135deg, rgba(0,184,148,0.12), rgba(0,184,148,0.05));
+    border-color: rgba(0,184,148,0.2);
+    color: var(--nx-accent);
+}
+
+.nx-users-stat-icon.is-purple {
+    background: linear-gradient(135deg, rgba(168,85,247,0.12), rgba(168,85,247,0.05));
+    border-color: rgba(168,85,247,0.2);
+    color: var(--nx-purple);
+}
+
+.nx-users-stats article:hover .nx-users-stat-icon {
+    transform: scale(1.08);
+    box-shadow: 0 4px 16px rgba(108,99,255,0.15);
+}
+
+.nx-users-stats article > div { flex: 1; min-width: 0; }
+
+.nx-users-stats small {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--nx-text-muted);
+    margin-bottom: 4px;
+}
+
+.nx-users-stats strong {
+    display: block;
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--nx-text);
+    letter-spacing: -1px;
+    line-height: 1;
+}
+
+.nx-users-stats span {
+    font-size: 11px;
+    color: var(--nx-text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+    display: block;
+}
+
+/* ══════════════════════════════════════════
+   MAIN GRID
+══════════════════════════════════════════ */
+.nx-users-main-grid {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 20px;
+    align-items: start;
+}
+
+/* ══════════════════════════════════════════
+   PANELS
+══════════════════════════════════════════ */
+.nx-users-panel {
+    background: var(--nx-bg-card);
+    border: 1px solid var(--nx-border-light);
+    border-radius: var(--nx-radius-lg);
+    overflow: hidden;
+    box-shadow: var(--nx-shadow);
+    transition: var(--nx-transition);
+}
+
+.nx-users-panel:hover {
+    border-color: rgba(108,99,255,0.2);
+    box-shadow: var(--nx-shadow-card);
+}
+
+.nx-users-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 22px 26px;
+    border-bottom: 1px solid var(--nx-border-light);
+    background: linear-gradient(135deg, rgba(108,99,255,0.03), transparent);
+    flex-wrap: wrap;
+}
+
+.nx-users-panel-title {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.nx-users-panel-icon {
+    width: 42px; height: 42px;
+    background: linear-gradient(135deg, rgba(108,99,255,0.15), rgba(108,99,255,0.06));
+    border: 1px solid rgba(108,99,255,0.2);
+    border-radius: var(--nx-radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    color: var(--nx-primary);
+    flex-shrink: 0;
+}
+
+.nx-users-panel-icon.is-purple {
+    background: linear-gradient(135deg, rgba(168,85,247,0.15), rgba(168,85,247,0.06));
+    border-color: rgba(168,85,247,0.2);
+    color: var(--nx-purple);
+}
+
+.nx-users-panel-title h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--nx-text);
+    letter-spacing: -0.2px;
+}
+
+.nx-users-panel-title p {
+    font-size: 12px;
+    color: var(--nx-text-muted);
+    margin-top: 2px;
+}
+
+/* ── TOOLBAR ── */
+.nx-users-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.nx-users-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--nx-bg);
+    border: 1px solid var(--nx-border-light);
+    border-radius: var(--nx-radius-sm);
+    padding: 0 12px;
+    transition: var(--nx-transition);
+}
+
+.nx-users-search:focus-within {
+    border-color: var(--nx-primary);
+    box-shadow: 0 0 0 3px var(--nx-primary-glow);
+    background: #fff;
+}
+
+.nx-users-search i {
+    color: var(--nx-text-faint);
+    font-size: 13px;
+}
+
+.nx-users-search input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--nx-text);
+    font-size: 13px;
+    padding: 9px 0;
+    width: 200px;
+}
+
+.nx-users-search input::placeholder { color: var(--nx-text-faint); }
+
+/* ══════════════════════════════════════════
+   TABLE
+══════════════════════════════════════════ */
+.table-wrap {
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: 520px;
+}
+
+.table-wrap::-webkit-scrollbar { width: 5px; height: 5px; }
+.table-wrap::-webkit-scrollbar-track { background: #f4f6fb; }
+.table-wrap::-webkit-scrollbar-thumb {
+    background: rgba(108,99,255,0.2);
+    border-radius: 3px;
+}
+.table-wrap::-webkit-scrollbar-thumb:hover { background: var(--nx-primary); }
+
+.nx-users-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.nx-users-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+}
+
+.nx-users-table thead tr {
+    background: #f8f9fe;
+    border-bottom: 2px solid rgba(108,99,255,0.1);
+}
+
+.nx-users-table th {
+    padding: 13px 16px;
+    text-align: left;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--nx-text-muted);
+    white-space: nowrap;
+    user-select: none;
+}
+
+.nx-users-table th:first-child { padding-left: 20px; }
+.nx-users-table th:last-child  { padding-right: 20px; }
+
+.nx-users-table tbody tr {
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    transition: var(--nx-transition);
+}
+
+.nx-users-table tbody tr:last-child { border-bottom: none; }
+
+.nx-users-table tbody tr:hover {
+    background: #f5f3ff;
+}
+
+.nx-users-table tbody tr:hover td { color: var(--nx-text); }
+
+.nx-users-table td {
+    padding: 13px 16px;
+    color: var(--nx-text-muted);
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.nx-users-table td:first-child {
+    padding-left: 20px;
+    font-weight: 700;
+    color: var(--nx-text-faint);
+    font-size: 11px;
+    letter-spacing: 0.5px;
+}
+
+.nx-users-table td:last-child { padding-right: 20px; }
+
+/* ── AVATAR ── */
+.nx-users-avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--nx-primary-dark), var(--nx-purple-dark));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    color: #fff;
+    overflow: hidden;
+    border: 2px solid rgba(108,99,255,0.2);
+    flex-shrink: 0;
+}
+
+.nx-users-avatar img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+}
+
+/* ── BADGES ── */
+.nx-user-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.nx-user-badge-role {
+    background: rgba(108,99,255,0.1);
+    border: 1px solid rgba(108,99,255,0.2);
+    color: var(--nx-primary-dark);
+}
+
+.nx-user-badge.is-success {
+    background: rgba(0,184,148,0.1);
+    border: 1px solid rgba(0,184,148,0.2);
+    color: #007a63;
+}
+
+.nx-user-badge.is-success::before {
+    content: '';
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--nx-accent);
+    animation: nx-pulse 2s infinite;
+}
+
+.nx-user-badge.is-warning {
+    background: rgba(243,156,18,0.1);
+    border: 1px solid rgba(243,156,18,0.25);
+    color: #a06b00;
+}
+
+.nx-user-badge.is-danger {
+    background: rgba(232,69,69,0.1);
+    border: 1px solid rgba(232,69,69,0.2);
+    color: var(--nx-danger);
+}
+
+/* ── TABLE ACTIONS ── */
+.nx-users-actions-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+}
+
+.nx-users-inline-form {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.nx-users-inline-form select,
+.nx-users-inline-form input[type="number"] {
+    background: #f8f9fe;
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: var(--nx-radius-sm);
+    color: var(--nx-text);
+    font-size: 11px;
+    padding: 5px 8px;
+    outline: none;
+    transition: var(--nx-transition);
+    max-width: 120px;
+}
+
+.nx-users-inline-form select:focus,
+.nx-users-inline-form input[type="number"]:focus {
+    border-color: var(--nx-primary);
+    box-shadow: 0 0 0 2px var(--nx-primary-glow);
+}
+
+/* ── EMPTY STATE ── */
+.nx-users-empty-table {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 60px 24px;
+    color: var(--nx-text-faint);
+}
+
+.nx-users-empty-table i {
+    font-size: 48px;
+    color: rgba(108,99,255,0.15);
+    margin-bottom: 4px;
+}
+
+.nx-users-empty-table strong {
+    font-size: 15px;
+    color: var(--nx-text-muted);
+}
+
+.nx-users-empty-table span { font-size: 13px; }
+
+/* ── PANEL FOOTER ── */
+.nx-users-panel-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 26px;
+    border-top: 1px solid var(--nx-border-light);
+    background: #fafbff;
+    font-size: 12px;
+    color: var(--nx-text-muted);
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+/* ══════════════════════════════════════════
+   FORM PANEL
+══════════════════════════════════════════ */
+.nx-users-form {
+    padding: 24px 26px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    border-bottom: 1px solid var(--nx-border-light);
+}
+
+.nx-users-col-full { grid-column: 1 / -1; }
+
+.nx-users-form label,
+.nx-users-ban-form label,
+.nx-users-ai-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.nx-users-form label span,
+.nx-users-ban-form label span,
+.nx-users-ai-form label span {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--nx-text-muted);
+}
+
+.nx-users-form input,
+.nx-users-form select,
+.nx-users-form textarea,
+.nx-users-ban-form input,
+.nx-users-ban-form select,
+.nx-users-ban-form textarea,
+.nx-users-ai-form input,
+.nx-users-ai-form select,
+.nx-users-ai-form textarea {
+    background: #f8f9fe;
+    border: 1px solid rgba(0,0,0,0.09);
+    border-radius: var(--nx-radius-sm);
+    color: var(--nx-text);
+    font-size: 13px;
+    padding: 10px 14px;
+    outline: none;
+    transition: var(--nx-transition);
+    font-family: inherit;
+    width: 100%;
+}
+
+.nx-users-form input:focus,
+.nx-users-form select:focus,
+.nx-users-form textarea:focus,
+.nx-users-ban-form input:focus,
+.nx-users-ban-form select:focus,
+.nx-users-ban-form textarea:focus,
+.nx-users-ai-form input:focus,
+.nx-users-ai-form select:focus,
+.nx-users-ai-form textarea:focus {
+    border-color: var(--nx-primary);
+    box-shadow: 0 0 0 3px var(--nx-primary-glow);
+    background: #fff;
+}
+
+.nx-users-form input::placeholder,
+.nx-users-ban-form input::placeholder,
+.nx-users-ai-form input::placeholder,
+.nx-users-form textarea::placeholder,
+.nx-users-ban-form textarea::placeholder,
+.nx-users-ai-form textarea::placeholder {
+    color: var(--nx-text-faint);
+}
+
+.nx-users-form input[type="file"] {
+    padding: 8px 12px;
+    cursor: pointer;
+}
+
+.nx-users-form select,
+.nx-users-ban-form select,
+.nx-users-ai-form select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%235a6282' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+    cursor: pointer;
+}
+
+.nx-users-form-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    padding-top: 4px;
+}
+
+/* ── SECONDARY ACTIONS ── */
+.nx-users-secondary-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 20px 26px;
+    border-bottom: 1px solid var(--nx-border-light);
+    background: #fafbff;
+}
+
+.nx-users-secondary-actions .nx-users-inline-form {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+}
+
+.nx-users-secondary-actions .nx-users-inline-form input {
+    background: #f8f9fe;
+    border: 1px solid rgba(0,0,0,0.09);
+    border-radius: var(--nx-radius-sm);
+    color: var(--nx-text);
+    font-size: 13px;
+    padding: 9px 12px;
+    outline: none;
+    transition: var(--nx-transition);
+    width: 100%;
+}
+
+.nx-users-secondary-actions .nx-users-inline-form input:focus {
+    border-color: var(--nx-primary);
+    box-shadow: 0 0 0 2px var(--nx-primary-glow);
+    background: #fff;
+}
+
+/* ══════════════════════════════════════════
+   AI ASSISTANT
+══════════════════════════════════════════ */
+.nx-users-ai-assistant {
+    padding: 22px 26px;
+}
+
+.nx-users-ai-assistant > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--nx-border-light);
+}
+
+.nx-users-ai-assistant > header h4 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--nx-text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.nx-users-ai-assistant > header h4::before {
+    content: '✦';
+    font-size: 12px;
+    color: var(--nx-purple);
+}
+
+.nx-users-ai-assistant > header span {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: rgba(168,85,247,0.1);
+    border: 1px solid rgba(168,85,247,0.2);
+    color: var(--nx-purple-dark);
+    text-transform: uppercase;
+}
+
+.nx-users-ai-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.nx-users-ai-form .nx-users-col-full { grid-column: 1 / -1; }
+.nx-users-ai-form button { grid-column: 1 / -1; margin-top: 4px; }
+
+.nx-users-ai-result {
+    margin-top: 16px;
+    background: linear-gradient(135deg, rgba(168,85,247,0.06), rgba(108,99,255,0.04));
+    border: 1px solid rgba(168,85,247,0.15);
+    border-radius: var(--nx-radius);
+    padding: 16px 18px;
+    position: relative;
+    overflow: hidden;
+}
+
+.nx-users-ai-result::before {
+    content: '✦';
+    position: absolute;
+    top: 12px; right: 14px;
+    font-size: 18px;
+    color: rgba(168,85,247,0.15);
+}
+
+.nx-users-ai-result small {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--nx-purple-dark);
+    margin-bottom: 8px;
+}
+
+.nx-users-ai-result p {
+    font-size: 13px;
+    color: var(--nx-text-muted);
+    line-height: 1.6;
+}
+
+/* ══════════════════════════════════════════
+   BAN PANEL
+══════════════════════════════════════════ */
+.nx-users-ban-panel {
+    background: var(--nx-bg-card);
+    border: 1px solid rgba(232,69,69,0.12);
+    border-radius: var(--nx-radius-lg);
+    overflow: hidden;
+    box-shadow: var(--nx-shadow), 0 0 24px rgba(232,69,69,0.04);
+    transition: var(--nx-transition);
+}
+
+.nx-users-ban-panel:hover {
+    border-color: rgba(232,69,69,0.2);
+    box-shadow: var(--nx-shadow-card), 0 0 32px rgba(232,69,69,0.06);
+}
+
+.nx-users-ban-panel > header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 22px 28px;
+    border-bottom: 1px solid rgba(232,69,69,0.08);
+    background: linear-gradient(135deg, rgba(232,69,69,0.03), transparent);
+}
+
+.nx-users-ban-icon {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, rgba(232,69,69,0.12), rgba(232,69,69,0.05));
+    border: 1px solid rgba(232,69,69,0.2);
+    border-radius: var(--nx-radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: var(--nx-danger);
+    flex-shrink: 0;
+}
+
+.nx-users-ban-panel > header h3 {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--nx-text);
+    letter-spacing: -0.2px;
+}
+
+.nx-users-ban-panel > header p {
+    font-size: 12px;
+    color: var(--nx-text-muted);
+    margin-top: 2px;
+}
+
+.nx-users-ban-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+}
+
+.nx-users-ban-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 24px 28px;
+}
+
+.nx-users-ban-grid .nx-users-ban-form:first-child {
+    border-right: 1px solid rgba(232,69,69,0.08);
+}
+
+/* ══════════════════════════════════════════
+   BUTTONS
+══════════════════════════════════════════ */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 9px 18px;
+    border-radius: var(--nx-radius-sm);
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    transition: var(--nx-transition);
+    border: none;
+    text-decoration: none;
+    white-space: nowrap;
+    font-family: inherit;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,0);
+    transition: var(--nx-transition);
+}
+
+.btn:hover::after { background: rgba(255,255,255,0.1); }
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--nx-primary), var(--nx-primary-dark));
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(108,99,255,0.3);
+}
+
+.btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(108,99,255,0.4);
+}
+
+.btn-primary:active { transform: translateY(0); }
+
+.btn-secondary {
+    background: #f4f6fb;
+    color: var(--nx-text-muted);
+    border: 1px solid rgba(0,0,0,0.08);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+}
+
+.btn-secondary:hover {
+    background: var(--nx-primary-glow);
+    border-color: rgba(108,99,255,0.3);
+    color: var(--nx-primary);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(108,99,255,0.12);
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, var(--nx-danger), var(--nx-danger-dark));
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(232,69,69,0.25);
+}
+
+.btn-danger:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(232,69,69,0.35);
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 11.5px;
+}
+
+/* ══════════════════════════════════════════
+   RESPONSIVE
+══════════════════════════════════════════ */
+@media (max-width: 1200px) {
+    .nx-users-main-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 900px) {
+    .nx-users-screen { padding: 20px 14px; gap: 18px; }
+    .nx-users-hero   { padding: 24px 20px; }
+    .nx-users-stats  { grid-template-columns: 1fr; }
+    .nx-users-ban-grid { grid-template-columns: 1fr; }
+    .nx-users-ban-grid .nx-users-ban-form:first-child {
+        border-right: none;
+        border-bottom: 1px solid rgba(232,69,69,0.08);
+    }
+}
+
+@media (max-width: 640px) {
+    .nx-users-hero-main h2 { font-size: 20px; }
+    .nx-users-form { grid-template-columns: 1fr; }
+    .nx-users-col-full { grid-column: 1; }
+    .nx-users-ai-form { grid-template-columns: 1fr; }
+    .nx-users-toolbar { width: 100%; }
+    .nx-users-search input { width: 140px; }
+}
+
+/* ── SCROLLBAR GLOBAL ── */
+.nx-users-screen ::-webkit-scrollbar { width: 4px; }
+.nx-users-screen ::-webkit-scrollbar-track { background: #f4f6fb; }
+.nx-users-screen ::-webkit-scrollbar-thumb {
+    background: rgba(108,99,255,0.2);
+    border-radius: 2px;
+}
+
+/* ── ENTRY ANIMATIONS ── */
+@keyframes nx-fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.nx-users-hero      { animation: nx-fadeUp 0.5s ease both; }
+.nx-users-stats     { animation: nx-fadeUp 0.5s 0.1s ease both; }
+.nx-users-main-grid { animation: nx-fadeUp 0.5s 0.2s ease both; }
+.nx-users-ban-panel { animation: nx-fadeUp 0.5s 0.3s ease both; }
+</style>
+
+<!-- ─────────────────────────────────────────────────
+     TEMPLATE
+───────────────────────────────────────────────── -->
+<section class="nx-users-screen">
+
+    <!-- ══ HERO ══ -->
+    <header class="nx-users-hero">
+        <div class="nx-users-hero-deco"></div>
+        <div class="nx-users-hero-main">
+            <span class="nx-users-hero-icon">
+                <i class="fa-solid fa-users"></i>
+            </span>
+            <div>
+                <h2>Gestion Utilisateurs</h2>
+                <p>Créez, modifiez et gérez les comptes utilisateurs de votre système bancaire</p>
+            </div>
+            <span class="nx-users-hero-badge">ADMIN</span>
+        </div>
+
+        <div class="nx-users-hero-actions">
+            <a class="nx-users-icon-btn"
+               href="{{ path('admin_features', { section: 'statistics' }) }}"
+               title="Exporter PDF">
+                <i class="fa-solid fa-file-pdf"></i>
+            </a>
+            <a class="nx-users-icon-btn"
+               href="{{ path(route_name, { tab: 'notifications' }) }}"
+               title="Notifications">
+                <i class="fa-solid fa-bell"></i>
+            </a>
+        </div>
+    </header>
+
+    <!-- ══ STATS ══ -->
+    <div class="nx-users-stats">
+        <article>
+            <div class="nx-users-stat-icon">
+                <i class="fa-solid fa-user-group"></i>
+            </div>
+            <div>
+                <small>Total Utilisateurs</small>
+                <strong>{{ total_users }}</strong>
+                <span>comptes enregistrés</span>
+            </div>
+        </article>
+        <article>
+            <div class="nx-users-stat-icon is-green">
+                <i class="fa-solid fa-circle-check"></i>
+            </div>
+            <div>
+                <small>Utilisateurs Actifs</small>
+                <strong>{{ active_users }}</strong>
+                <span>comptes actifs</span>
+            </div>
+        </article>
+        <article>
+            <div class="nx-users-stat-icon is-purple">
+                <i class="fa-solid fa-user-shield"></i>
+            </div>
+            <div>
+                <small>Administrateurs</small>
+                <strong>{{ admin_users }}</strong>
+                <span>privilèges admin</span>
+            </div>
+        </article>
+    </div>
+
+    <!-- ══ MAIN GRID ══ -->
+    <div class="nx-users-main-grid">
+
+        <!-- ── TABLE PANEL ── -->
+        <article class="nx-users-panel nx-users-table-panel">
+            <header class="nx-users-panel-head">
+                <div class="nx-users-panel-title">
+                    <span class="nx-users-panel-icon">
+                        <i class="fa-solid fa-table-list"></i>
+                    </span>
+                    <div>
+                        <h3>Liste des Utilisateurs</h3>
+                        <p>Recherche et gestion en temps réel</p>
+                    </div>
+                </div>
+
+                <div class="nx-users-toolbar">
+                    <label class="nx-users-search">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text"
+                               id="nx-user-search"
+                               placeholder="Rechercher un utilisateur…">
+                    </label>
+                    <a class="btn btn-secondary btn-sm"
+                       href="{{ path('admin_features', { section: 'statistics' }) }}">
+                        <i class="fa-solid fa-file-export"></i>
+                        Export
+                    </a>
+                </div>
+            </header>
+
+            <div class="table-wrap">
+                <table class="nx-users-table" id="nx-user-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Avatar</th>
+                            <th>Nom</th>
+                            <th>Prénom</th>
+                            <th>Email</th>
+                            <th>Téléphone</th>
+                            <th>Rôle</th>
+                            <th>Statut</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for item in items %}
+                        <tr>
+                            <td>{{ item.idUser }}</td>
+                            <td>
+                                <span class="nx-users-avatar">
+                                    {% if item.profile_image_path|default('') %}
+                                        <img src="{{ asset(item.profile_image_path) }}"
+                                             alt="{{ item.prenom }} {{ item.nom }}">
+                                    {% else %}
+                                        <i class="fa-solid fa-user"></i>
+                                    {% endif %}
+                                </span>
+                            </td>
+                            <td>{{ item.nom }}</td>
+                            <td>{{ item.prenom }}</td>
+                            <td>{{ item.email }}</td>
+                            <td>{{ item.telephone }}</td>
+                            <td>
+                                <span class="nx-user-badge nx-user-badge-role">
+                                    {{ item.role }}
+                                </span>
+                            </td>
+                            <td>
+                                {% set s = item.status|default('') %}
+                                {% set sc = s == 'ACTIVE' ? 'is-success'
+                                          : (s == 'PENDING' ? 'is-warning' : 'is-danger') %}
+                                <span class="nx-user-badge {{ sc }}">{{ s }}</span>
+                            </td>
+                            <td class="nx-users-actions-cell">
+                                <a class="btn btn-secondary btn-sm nx-users-edit-btn"
+                                   href="{{ path(route_name, { tab: 'users', edit: item.idUser }) }}"
+                                   title="Modifier cet utilisateur"
+                                   data-id="{{ item.idUser }}"
+                                   data-nom="{{ item.nom|default('')|e('html_attr') }}"
+                                   data-prenom="{{ item.prenom|default('')|e('html_attr') }}"
+                                   data-email="{{ item.email|default('')|e('html_attr') }}"
+                                   data-telephone="{{ item.telephone|default('')|e('html_attr') }}"
+                                   data-role="{{ item.role|default('')|e('html_attr') }}"
+                                   data-status="{{ item.status|default('')|e('html_attr') }}">
+                                    <i class="fa-solid fa-user-pen"></i>
+                                </a>
+
+                                <form method="post" class="nx-users-inline-form">
+                                    <input type="hidden" name="tab"    value="users">
+                                    <input type="hidden" name="action" value="user_status">
+                                    <input type="hidden" name="idUser" value="{{ item.idUser }}">
+                                    <select name="status">
+                                        {% for status in ['PENDING','ACTIVE','DECLINED','INACTIVE','BANNED'] %}
+                                            <option value="{{ status }}"
+                                                {{ item.status == status ? 'selected' : '' }}>
+                                                {{ status }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                    <button class="btn btn-secondary btn-sm" type="submit">
+                                        <i class="fa-solid fa-pen-to-square"></i>
+                                    </button>
+                                </form>
+
+                                <form method="post" class="nx-users-inline-form">
+                                    <input type="hidden" name="tab"    value="users">
+                                    <input type="hidden" name="action" value="user_delete">
+                                    <input type="hidden" name="idUser" value="{{ item.idUser }}">
+                                    <button class="btn btn-danger btn-sm" type="submit"
+                                            onclick="return confirm('Supprimer cet utilisateur ?')">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="9">
+                                <div class="nx-users-empty-table">
+                                    <i class="fa-solid fa-user-slash"></i>
+                                    <strong>Aucun utilisateur trouvé</strong>
+                                    <span>Commencez par créer un nouveau compte</span>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <footer class="nx-users-panel-foot">
+                <span>
+                    <i class="fa-solid fa-layer-group"
+                       style="color:var(--nx-primary);margin-right:6px;"></i>
+                    {{ items|length }} entrées affichées
+                </span>
+                <a class="btn btn-secondary btn-sm"
+                   href="{{ path(route_name, { tab: 'notifications' }) }}">
+                    <i class="fa-solid fa-envelope"></i>
+                    Relancer Emails Pending
+                </a>
+            </footer>
+        </article>
+
+        <!-- ── FORM PANEL ── -->
+        <article class="nx-users-panel nx-users-form-panel">
+            <header class="nx-users-panel-head nx-users-form-head">
+                <div class="nx-users-panel-title">
+                    <span class="nx-users-panel-icon is-purple">
+                        <i class="fa-solid fa-user-gear"></i>
+                    </span>
+                    <div>
+                        <h3>Détails Utilisateur</h3>
+                        <p>Créer ou modifier un compte</p>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Create / Edit form -->
+            <form method="post" class="nx-users-form" enctype="multipart/form-data">
+                <input type="hidden" name="tab"    value="users">
+                <input type="hidden" name="action" value="user_save">
+
+                <label class="nx-users-col-full">
+                    <span>ID pour modifier (laisser vide pour créer)</span>
+                    <input type="number" name="idUser"
+                           value="{{ selected_user ? selected_user.idUser : '' }}"
+                           placeholder="Laisser vide pour créer">
+                </label>
+                <label>
+                    <span>Nom *</span>
+                    <input type="text" name="nom"
+                           value="{{ selected_user ? selected_user.nom : '' }}"
+                           placeholder="Dupont">
+                </label>
+                <label>
+                    <span>Prénom *</span>
+                    <input type="text" name="prenom"
+                           value="{{ selected_user ? selected_user.prenom : '' }}"
+                           placeholder="Jean">
+                </label>
+                <label class="nx-users-col-full">
+                    <span>Adresse Email *</span>
+                    <input type="email" name="email"
+                           value="{{ selected_user ? selected_user.email : '' }}"
+                           placeholder="jean@banque.fr">
+                </label>
+                <label class="nx-users-col-full">
+                    <span>Téléphone</span>
+                    <input type="text" name="telephone"
+                           value="{{ selected_user ? selected_user.telephone : '' }}"
+                           placeholder="+33 6 …">
+                </label>
+                <label>
+                    <span>Rôle *</span>
+                    <select name="role">
+                        <option value="" {{ selected_user ? '' : 'selected' }}>Conserver (update)</option>
+                        <option value="ROLE_USER" {{ selected_user and selected_user.role == 'ROLE_USER' ? 'selected' : '' }}>ROLE_USER</option>
+                        <option value="ROLE_ADMIN" {{ selected_user and selected_user.role == 'ROLE_ADMIN' ? 'selected' : '' }}>ROLE_ADMIN</option>
+                    </select>
+                </label>
+                <label>
+                    <span>Statut *</span>
+                    <select name="status">
+                        <option value="" {{ selected_user ? '' : 'selected' }}>Conserver (update)</option>
+                        {% for status in ['PENDING','ACTIVE','DECLINED','INACTIVE','BANNED'] %}
+                            <option value="{{ status }}"
+                                {{ selected_user and selected_user.status == status ? 'selected' : '' }}>
+                                {{ status }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label class="nx-users-col-full">
+                    <span>Nouveau mot de passe</span>
+                    <input type="text" name="password"
+                           placeholder="Laisser vide pour ne pas changer">
+                </label>
+                <label class="nx-users-col-full">
+                    <span>Photo de profil</span>
+                    <input type="file" name="profile_image"
+                           accept="image/png,image/jpeg,image/webp,image/gif">
+                </label>
+
+                <div class="nx-users-form-actions">
+                    <button class="btn btn-secondary" type="reset">
+                        <i class="fa-solid fa-xmark"></i> Annuler
+                    </button>
+                    <button class="btn btn-primary" type="submit">
+                        <i class="fa-solid fa-floppy-disk"></i> Enregistrer
+                    </button>
+                </div>
+            </form>
+
+            <!-- Quick actions -->
+            <div class="nx-users-secondary-actions">
+                <form method="post" class="nx-users-inline-form">
+                    <input type="hidden" name="tab"    value="users">
+                    <input type="hidden" name="action" value="user_status">
+                    <input type="hidden" name="status" value="ACTIVE">
+                    <input type="number" name="idUser"
+                           placeholder="ID utilisateur" required>
+                    <button class="btn btn-secondary btn-sm" type="submit">
+                        <i class="fa-solid fa-circle-check"></i> Approuver
+                    </button>
+                </form>
+                <form method="post" class="nx-users-inline-form">
+                    <input type="hidden" name="tab"    value="users">
+                    <input type="hidden" name="action" value="user_status">
+                    <input type="hidden" name="status" value="DECLINED">
+                    <input type="number" name="idUser"
+                           placeholder="ID utilisateur" required>
+                    <button class="btn btn-secondary btn-sm" type="submit">
+                        <i class="fa-solid fa-circle-xmark"></i> Refuser
+                    </button>
+                </form>
+                <form method="post" class="nx-users-inline-form">
+                    <input type="hidden" name="tab"    value="users">
+                    <input type="hidden" name="action" value="user_delete">
+                    <input type="number" name="idUser"
+                           placeholder="ID utilisateur" required>
+                    <button class="btn btn-danger btn-sm" type="submit">
+                        <i class="fa-solid fa-trash-can"></i> Supprimer
+                    </button>
+                </form>
+            </div>
+
+            <!-- AI Assistant -->
+            <div class="nx-users-ai-assistant">
+                <header>
+                    <h4>Assistant IA Utilisateurs</h4>
+                    <span>
+                        {{ gemini_enabled
+                            ? 'Gemini · actif'
+                            : 'Fallback · ajoutez GEMINI_API_KEY' }}
+                    </span>
+                </header>
+
+                <form method="post" class="nx-users-ai-form">
+                    <input type="hidden" name="tab"    value="users">
+                    <input type="hidden" name="action" value="user_ai_assist">
+
+                    <label>
+                        <span>Nom</span>
+                        <input type="text" name="nom" placeholder="Nom">
+                    </label>
+                    <label>
+                        <span>Prénom</span>
+                        <input type="text" name="prenom" placeholder="Prénom">
+                    </label>
+                    <label>
+                        <span>Rôle</span>
+                        <select name="role">
+                            <option value="ROLE_USER">ROLE_USER</option>
+                            <option value="ROLE_ADMIN">ROLE_ADMIN</option>
+                        </select>
+                    </label>
+                    <label>
+                        <span>Statut</span>
+                        <select name="status">
+                            {% for status in ['PENDING','ACTIVE','DECLINED','INACTIVE','BANNED'] %}
+                                <option value="{{ status }}">{{ status }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label class="nx-users-col-full">
+                        <span>Contexte / Motif</span>
+                        <textarea name="reason" rows="2"
+                            placeholder="Ex : suspicion, inactivité, demande client…"></textarea>
+                    </label>
+                    <button class="btn btn-primary" type="submit">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        Générer recommandation IA
+                    </button>
+                </form>
+
+                {% if ai_assistant.text|default('') %}
+                    <article class="nx-users-ai-result">
+                        <small>
+                            <i class="fa-solid fa-microchip"></i>
+                            Provider : {{ ai_assistant.provider|default('Fallback') }}
+                        </small>
+                        <p>{{ ai_assistant.text }}</p>
+                    </article>
+                {% endif %}
+            </div>
+        </article>
+    </div>
+
+    <!-- ══ BAN PANEL ══ -->
+    <article class="nx-users-ban-panel">
+        <header>
+            <span class="nx-users-ban-icon">
+                <i class="fa-solid fa-shield-halved"></i>
+            </span>
+            <div>
+                <h3>Gestion des Restrictions</h3>
+                <p>Bannir ou débannir les utilisateurs du système</p>
+            </div>
+        </header>
+
+        <div class="nx-users-ban-grid">
+            <!-- Ban -->
+            <form method="post" class="nx-users-ban-form">
+                <input type="hidden" name="tab"    value="users">
+                <input type="hidden" name="action" value="user_status">
+                <input type="hidden" name="status" value="BANNED">
+
+                <label>
+                    <span>ID utilisateur</span>
+                    <input type="number" name="idUser"
+                           placeholder="Identifiant numérique" required>
+                </label>
+                <label>
+                    <span>Motif de la restriction</span>
+                    <textarea name="reason" rows="3"
+                        placeholder="Saisissez le motif du bannissement…"></textarea>
+                </label>
+                <button class="btn btn-danger" type="submit">
+                    <i class="fa-solid fa-ban"></i>
+                    Bannir l'utilisateur
+                </button>
+            </form>
+
+            <!-- Unban -->
+            <form method="post" class="nx-users-ban-form">
+                <input type="hidden" name="tab"    value="users">
+                <input type="hidden" name="action" value="user_status">
+                <input type="hidden" name="status" value="ACTIVE">
+
+                <label>
+                    <span>ID utilisateur</span>
+                    <input type="number" name="idUser"
+                           placeholder="Identifiant numérique" required>
+                </label>
+                <label>
+                    <span>Commentaire de levée</span>
+                    <textarea name="reason" rows="3"
+                        placeholder="Commentaire facultatif…"></textarea>
+                </label>
+                <button class="btn btn-primary" type="submit">
+                    <i class="fa-solid fa-lock-open"></i>
+                    Lever la restriction
+                </button>
+            </form>
+        </div>
+    </article>
+
+</section>
+
+<!-- ── LIVE SEARCH ── -->
+<script>
+(function () {
+    const input = document.getElementById('nx-user-search');
+    const tbody = document.querySelector('#nx-user-table tbody');
+    if (!input || !tbody) return;
+
+    input.addEventListener('input', function () {
+        const q = this.value.toLowerCase().trim();
+        tbody.querySelectorAll('tr').forEach(function (row) {
+            const txt = row.textContent.toLowerCase();
+            row.style.display = (!q || txt.includes(q)) ? '' : 'none';
+        });
+    });
+})();
+
+(function () {
+    const form = document.querySelector('.nx-users-form');
+    if (!form) return;
+
+    const getField = (name) => form.querySelector(`[name="${name}"]`);
+    const idField = getField('idUser');
+    const nomField = getField('nom');
+    const prenomField = getField('prenom');
+    const emailField = getField('email');
+    const telField = getField('telephone');
+    const roleField = getField('role');
+    const statusField = getField('status');
+    const passwordField = getField('password');
+    const fileField = getField('profile_image');
+
+    const applyUserToForm = (btn) => {
+        if (idField) idField.value = btn.dataset.id || '';
+        if (nomField) nomField.value = btn.dataset.nom || '';
+        if (prenomField) prenomField.value = btn.dataset.prenom || '';
+        if (emailField) emailField.value = btn.dataset.email || '';
+        if (telField) telField.value = btn.dataset.telephone || '';
+        if (roleField) roleField.value = btn.dataset.role || '';
+        if (statusField) statusField.value = btn.dataset.status || '';
+        if (passwordField) passwordField.value = '';
+        if (fileField) fileField.value = '';
+
+        form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    document.querySelectorAll('.nx-users-edit-btn').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            applyUserToForm(btn);
+        });
+    });
+})();
+</script>

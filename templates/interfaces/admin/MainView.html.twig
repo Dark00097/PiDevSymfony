@@ -1,0 +1,1116 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Nexora Admin - {{ tab|replace({'_': ' '})|title }}{% endblock %}
+{% block body_class %}admin-main-body{% endblock %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="{{ asset('styles/interfaces/admin-main.css') }}">
+{% for stylesheet in tab_stylesheets|default([]) %}
+<link rel="stylesheet" href="{{ asset(stylesheet) }}">
+{% endfor %}
+
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   NEXORA ADMIN — PROFESSIONAL WHITE SIDEBAR LAYOUT
+   ═══════════════════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+    --nx-primary:       #6c63ff;
+    --nx-primary-dark:  #4f46e5;
+    --nx-primary-soft:  rgba(108,99,255,0.10);
+    --nx-primary-glow:  rgba(108,99,255,0.18);
+    --nx-purple:        #a855f7;
+    --nx-accent:        #00b894;
+    --nx-danger:        #e84545;
+
+    --nx-bg:            #f4f6fb;
+    --nx-bg-card:       #ffffff;
+    --nx-sidebar-bg:    #ffffff;
+    --nx-topbar-bg:     rgba(255,255,255,0.85);
+
+    --nx-text:          #1a1f36;
+    --nx-text-muted:    #5a6282;
+    --nx-text-faint:    #9aa0b8;
+
+    --nx-border:        rgba(0,0,0,0.07);
+    --nx-border-accent: rgba(108,99,255,0.15);
+
+    --nx-radius-sm:     8px;
+    --nx-radius:        14px;
+    --nx-radius-lg:     20px;
+
+    --nx-shadow-sm:     0 1px 4px rgba(0,0,0,0.06);
+    --nx-shadow:        0 4px 20px rgba(108,99,255,0.09);
+    --nx-shadow-lg:     0 8px 40px rgba(108,99,255,0.13);
+
+    --sidebar-w:        260px;
+    --sidebar-collapsed:72px;
+    --topbar-h:         64px;
+    --transition:       0.32s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* ══════════════════════════════════════════
+   APP SHELL
+══════════════════════════════════════════ */
+html, body { height: 100%; background: var(--nx-bg); }
+
+.admin-main-body {
+    background: var(--nx-bg);
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: var(--nx-text);
+    overflow-x: hidden;
+}
+
+.nx-admin-app {
+    display: flex;
+    min-height: 100vh;
+    position: relative;
+}
+
+/* ══════════════════════════════════════════
+   SIDEBAR
+══════════════════════════════════════════ */
+.nx-admin-sidebar {
+    position: fixed;
+    top: 0; left: 0;
+    width: var(--sidebar-w);
+    height: 100vh;
+    background: var(--nx-sidebar-bg);
+    border-right: 1px solid var(--nx-border);
+    display: flex;
+    flex-direction: column;
+    z-index: 100;
+    transition: width var(--transition);
+    overflow: hidden;
+    box-shadow: 4px 0 32px rgba(108,99,255,0.07);
+}
+
+/* Subtle gradient top accent */
+.nx-admin-sidebar::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--nx-primary), var(--nx-purple), var(--nx-accent));
+    z-index: 10;
+}
+
+/* Decorative background blob */
+.nx-admin-sidebar::after {
+    content: '';
+    position: absolute;
+    bottom: -60px; right: -60px;
+    width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(108,99,255,0.06) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+/* ── COLLAPSED STATE ── */
+.nx-admin-sidebar.is-collapsed {
+    width: var(--sidebar-collapsed);
+}
+
+/* ── BRAND ── */
+.nx-sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 18px 16px;
+    border-bottom: 1px solid var(--nx-border);
+    flex-shrink: 0;
+    min-height: 72px;
+    position: relative;
+    z-index: 2;
+}
+
+.nx-admin-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    overflow: hidden;
+    text-decoration: none;
+}
+
+.nx-admin-brand img {
+    width: 36px;
+    height: 36px;
+    object-fit: contain;
+    border-radius: var(--nx-radius-sm);
+    flex-shrink: 0;
+    filter: drop-shadow(0 2px 6px rgba(108,99,255,0.2));
+    transition: transform var(--transition);
+}
+
+.nx-admin-brand:hover img { transform: scale(1.08) rotate(-3deg); }
+
+.nx-admin-brand > div {
+    overflow: hidden;
+    transition: opacity var(--transition), width var(--transition);
+}
+
+.nx-admin-brand strong {
+    display: block;
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    background: linear-gradient(135deg, #1a1f36 30%, var(--nx-primary) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    white-space: nowrap;
+}
+
+.nx-admin-brand small {
+    display: block;
+    font-size: 10px;
+    color: var(--nx-text-faint);
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+/* ── TOGGLE BUTTON ── */
+.nx-sidebar-toggle {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--nx-bg);
+    border: 1.5px solid var(--nx-border-accent);
+    color: var(--nx-primary);
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+    flex-shrink: 0;
+    box-shadow: var(--nx-shadow-sm);
+}
+
+.nx-sidebar-toggle:hover {
+    background: var(--nx-primary);
+    color: #fff;
+    border-color: var(--nx-primary);
+    transform: scale(1.1);
+    box-shadow: 0 4px 14px rgba(108,99,255,0.3);
+}
+
+/* ── NAV SECTION LABEL ── */
+.nx-nav-section-label {
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--nx-text-faint);
+    padding: 16px 20px 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    transition: opacity var(--transition);
+}
+
+.nx-admin-sidebar.is-collapsed .nx-nav-section-label {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* ── NAV ── */
+.nx-admin-nav {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 10px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    scrollbar-width: none;
+}
+
+.nx-admin-nav::-webkit-scrollbar { display: none; }
+
+.nx-admin-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    padding: 11px 12px;
+    border-radius: var(--nx-radius-sm);
+    text-decoration: none;
+    color: var(--nx-text-muted);
+    font-size: 13.5px;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+    letter-spacing: 0.1px;
+}
+
+/* Hover shimmer */
+.nx-admin-nav-link::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(108,99,255,0.04), transparent);
+    transform: translateX(-100%);
+    transition: transform 0.5s ease;
+}
+
+.nx-admin-nav-link:hover::before { transform: translateX(100%); }
+
+.nx-admin-nav-link:hover {
+    background: var(--nx-primary-soft);
+    color: var(--nx-primary-dark);
+}
+
+.nx-admin-nav-link.is-active {
+    background: linear-gradient(135deg, var(--nx-primary-soft), rgba(168,85,247,0.08));
+    color: var(--nx-primary-dark);
+    font-weight: 700;
+    border: 1px solid var(--nx-border-accent);
+    box-shadow: var(--nx-shadow-sm);
+}
+
+/* Active left indicator */
+.nx-admin-nav-link.is-active::after {
+    content: '';
+    position: absolute;
+    left: 0; top: 20%; bottom: 20%;
+    width: 3px;
+    background: linear-gradient(180deg, var(--nx-primary), var(--nx-purple));
+    border-radius: 0 3px 3px 0;
+}
+
+.nx-admin-nav-icon {
+    width: 34px; height: 34px;
+    border-radius: var(--nx-radius-sm);
+    background: rgba(0,0,0,0.04);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+    transition: var(--transition);
+}
+
+.nx-admin-nav-link:hover .nx-admin-nav-icon {
+    background: rgba(108,99,255,0.12);
+    color: var(--nx-primary);
+    transform: scale(1.05);
+}
+
+.nx-admin-nav-link.is-active .nx-admin-nav-icon {
+    background: linear-gradient(135deg, var(--nx-primary), var(--nx-primary-dark));
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(108,99,255,0.3);
+}
+
+.nx-admin-nav-link > span:last-child {
+    overflow: hidden;
+    transition: opacity var(--transition), max-width var(--transition);
+    max-width: 160px;
+}
+
+/* ── NAV TOOLTIP when collapsed ── */
+.nx-admin-sidebar.is-collapsed .nx-admin-nav-link > span:last-child {
+    opacity: 0;
+    max-width: 0;
+}
+
+.nx-admin-sidebar.is-collapsed .nx-admin-nav-link {
+    justify-content: center;
+    padding: 11px;
+}
+
+.nx-admin-sidebar.is-collapsed .nx-admin-nav-icon {
+    width: 36px; height: 36px;
+    font-size: 15px;
+}
+
+/* Tooltip */
+.nx-admin-nav-link[data-tooltip] {
+    position: relative;
+}
+
+.nx-admin-sidebar.is-collapsed .nx-admin-nav-link::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: calc(100% + 12px);
+    top: 50%;
+    transform: translateY(-50%) translateX(-6px);
+    background: var(--nx-text);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: var(--nx-radius-sm);
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
+    z-index: 200;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+
+.nx-admin-sidebar.is-collapsed .nx-admin-nav-link:hover::after {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+}
+
+/* ── NAV DIVIDER ── */
+.nx-nav-divider {
+    height: 1px;
+    background: var(--nx-border);
+    margin: 8px 4px;
+    opacity: 0.6;
+}
+
+/* ── SIDEBAR FOOTER ── */
+.nx-admin-footer {
+    padding: 14px 12px;
+    border-top: 1px solid var(--nx-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, rgba(108,99,255,0.02), transparent);
+    position: relative;
+    z-index: 2;
+}
+
+.nx-admin-footer-user {
+    overflow: hidden;
+    transition: opacity var(--transition), width var(--transition);
+    min-width: 0;
+}
+
+.nx-admin-sidebar.is-collapsed .nx-admin-footer-user {
+    opacity: 0;
+    width: 0;
+    pointer-events: none;
+}
+
+.nx-admin-footer-user strong {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--nx-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.nx-admin-footer-user small {
+    display: block;
+    font-size: 10.5px;
+    color: var(--nx-text-faint);
+    white-space: nowrap;
+    margin-top: 1px;
+}
+
+.nx-admin-footer-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.nx-logout-btn {
+    width: 34px; height: 34px;
+    border-radius: var(--nx-radius-sm);
+    background: var(--nx-bg);
+    border: 1px solid var(--nx-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--nx-text-muted);
+    font-size: 13px;
+    text-decoration: none;
+    transition: var(--transition);
+    box-shadow: var(--nx-shadow-sm);
+}
+
+.nx-logout-btn:hover {
+    background: var(--nx-primary);
+    color: #fff;
+    border-color: var(--nx-primary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(108,99,255,0.3);
+}
+
+.nx-logout-btn:last-child:hover {
+    background: var(--nx-danger);
+    border-color: var(--nx-danger);
+    box-shadow: 0 4px 14px rgba(232,69,69,0.3);
+}
+
+/* ══════════════════════════════════════════
+   MAIN AREA
+══════════════════════════════════════════ */
+.nx-admin-main {
+    margin-left: var(--sidebar-w);
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    transition: margin-left var(--transition);
+}
+
+.nx-admin-app.is-sidebar-collapsed .nx-admin-main {
+    margin-left: var(--sidebar-collapsed);
+}
+
+/* ══════════════════════════════════════════
+   TOPBAR
+══════════════════════════════════════════ */
+.nx-topbar-shell {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    height: var(--topbar-h);
+    background: var(--nx-topbar-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--nx-border);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 28px;
+    box-shadow: 0 1px 12px rgba(108,99,255,0.06);
+}
+
+/* ── BREADCRUMB ── */
+.nx-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--nx-text-muted);
+    white-space: nowrap;
+}
+
+.nx-breadcrumb i { color: var(--nx-primary); font-size: 12px; }
+.nx-breadcrumb span:last-child { color: var(--nx-text); font-weight: 600; }
+
+/* ── SEARCH ── */
+.nx-search-wrapper {
+    flex: 1;
+    max-width: 420px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--nx-bg);
+    border: 1px solid var(--nx-border);
+    border-radius: 50px;
+    padding: 0 16px;
+    cursor: text;
+    transition: var(--transition);
+}
+
+.nx-search-wrapper:focus-within {
+    border-color: var(--nx-primary);
+    box-shadow: 0 0 0 3px var(--nx-primary-soft);
+    background: #fff;
+}
+
+.nx-search-wrapper i {
+    color: var(--nx-text-faint);
+    font-size: 13px;
+    flex-shrink: 0;
+}
+
+.nx-search-wrapper input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    font-size: 13px;
+    color: var(--nx-text);
+    font-family: inherit;
+    padding: 10px 0;
+}
+
+.nx-search-wrapper input::placeholder { color: var(--nx-text-faint); }
+
+.nx-search-wrapper span {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--nx-text-faint);
+    background: var(--nx-border);
+    padding: 2px 7px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+/* ── TOPBAR ACTIONS ── */
+.nx-topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+}
+
+.nx-topbar-action {
+    position: relative;
+    width: 38px; height: 38px;
+    border-radius: var(--nx-radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--nx-text-muted);
+    font-size: 15px;
+    text-decoration: none;
+    transition: var(--transition);
+}
+
+.nx-topbar-action:hover {
+    background: var(--nx-primary-soft);
+    color: var(--nx-primary);
+}
+
+.nx-topbar-action b {
+    position: absolute;
+    top: 4px; right: 4px;
+    min-width: 16px; height: 16px;
+    background: linear-gradient(135deg, var(--nx-primary), var(--nx-purple));
+    color: #fff;
+    font-size: 9px;
+    font-weight: 800;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 3px;
+    line-height: 1;
+    border: 2px solid #fff;
+    font-style: normal;
+    animation: nx-badge-pop 0.4s cubic-bezier(0.4,0,0.2,1) both;
+}
+
+@keyframes nx-badge-pop {
+    from { transform: scale(0); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+}
+
+/* ── USER MENU ── */
+.nx-topbar-user-menu {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 12px 6px 8px;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: var(--transition);
+    border: 1px solid transparent;
+}
+
+.nx-topbar-user-menu:hover {
+    background: var(--nx-bg);
+    border-color: var(--nx-border-accent);
+    box-shadow: var(--nx-shadow-sm);
+}
+
+.nx-topbar-user-menu > div strong {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--nx-text);
+    white-space: nowrap;
+}
+
+.nx-topbar-user-menu > div small {
+    display: block;
+    font-size: 10.5px;
+    color: var(--nx-accent);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.nx-topbar-user-menu > i {
+    font-size: 11px;
+    color: var(--nx-text-faint);
+    transition: transform var(--transition);
+}
+
+.nx-topbar-user-menu:hover > i { transform: rotate(180deg); }
+
+.nx-user-avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--nx-primary), var(--nx-purple));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 800;
+    color: #fff;
+    overflow: hidden;
+    flex-shrink: 0;
+    border: 2px solid rgba(108,99,255,0.2);
+    box-shadow: 0 2px 10px rgba(108,99,255,0.2);
+}
+
+.nx-user-avatar-image {
+    width: 100%; height: 100%;
+    object-fit: cover;
+}
+
+/* ── Online dot ── */
+.nx-topbar-user-menu > div {
+    position: relative;
+}
+
+/* ══════════════════════════════════════════
+   PAGE HEAD BANNER
+══════════════════════════════════════════ */
+.nx-admin-page-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 22px 28px 0;
+    flex-wrap: wrap;
+    animation: nx-fadeDown 0.4s ease both;
+}
+
+@keyframes nx-fadeDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.nx-meta-line {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--nx-primary);
+    margin-bottom: 4px;
+}
+
+.nx-admin-page-head h1 {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--nx-text);
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #1a1f36 40%, var(--nx-primary) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.nx-admin-topbar-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.nx-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--nx-bg-card);
+    border: 1px solid var(--nx-border);
+    color: var(--nx-text-muted);
+    box-shadow: var(--nx-shadow-sm);
+    white-space: nowrap;
+    transition: var(--transition);
+}
+
+.nx-pill:first-child {
+    background: var(--nx-primary-soft);
+    border-color: var(--nx-border-accent);
+    color: var(--nx-primary-dark);
+}
+
+/* ══════════════════════════════════════════
+   CONTENT AREA
+══════════════════════════════════════════ */
+.nx-admin-content {
+    flex: 1;
+    padding: 24px 28px 40px;
+    animation: nx-fadeUp 0.45s 0.05s ease both;
+}
+
+@keyframes nx-fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ══════════════════════════════════════════
+   RESPONSIVE
+══════════════════════════════════════════ */
+@media (max-width: 1024px) {
+    .nx-search-wrapper { max-width: 260px; }
+    .nx-admin-content  { padding: 20px 18px 40px; }
+}
+
+@media (max-width: 768px) {
+    .nx-admin-sidebar { transform: translateX(-100%); transition: transform var(--transition), width var(--transition); }
+    .nx-admin-sidebar.is-mobile-open { transform: translateX(0); }
+    .nx-admin-main { margin-left: 0 !important; }
+    .nx-search-wrapper { display: none; }
+    .nx-topbar-shell { padding: 0 16px; }
+    .nx-admin-content { padding: 16px 14px 40px; }
+    .nx-admin-page-head { padding: 16px 14px 0; }
+}
+
+/* ══════════════════════════════════════════
+   SCROLLBAR
+══════════════════════════════════════════ */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(108,99,255,0.2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--nx-primary); }
+
+/* ══════════════════════════════════════════
+   SIDEBAR ACTIVE INDICATOR PULSE
+══════════════════════════════════════════ */
+@keyframes nx-active-pulse {
+    0%,100% { box-shadow: 0 4px 12px rgba(108,99,255,0.3); }
+    50%      { box-shadow: 0 4px 20px rgba(108,99,255,0.5); }
+}
+
+.nx-admin-nav-link.is-active .nx-admin-nav-icon {
+    animation: nx-active-pulse 3s ease infinite;
+}
+
+/* ══════════════════════════════════════════
+   ENTRY STAGGER ANIMATION FOR NAV LINKS
+══════════════════════════════════════════ */
+.nx-admin-nav-link {
+    animation: nx-slideIn 0.4s ease both;
+}
+
+.nx-admin-nav-link:nth-child(1)  { animation-delay: 0.05s; }
+.nx-admin-nav-link:nth-child(2)  { animation-delay: 0.09s; }
+.nx-admin-nav-link:nth-child(3)  { animation-delay: 0.13s; }
+.nx-admin-nav-link:nth-child(4)  { animation-delay: 0.17s; }
+.nx-admin-nav-link:nth-child(5)  { animation-delay: 0.21s; }
+.nx-admin-nav-link:nth-child(6)  { animation-delay: 0.25s; }
+.nx-admin-nav-link:nth-child(7)  { animation-delay: 0.29s; }
+.nx-admin-nav-link:nth-child(8)  { animation-delay: 0.33s; }
+.nx-admin-nav-link:nth-child(9)  { animation-delay: 0.37s; }
+.nx-admin-nav-link:nth-child(10) { animation-delay: 0.41s; }
+
+@keyframes nx-slideIn {
+    from { opacity: 0; transform: translateX(-14px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ── Sidebar header animation ── */
+.nx-sidebar-header {
+    animation: nx-fadeDown 0.5s ease both;
+}
+
+.nx-admin-footer {
+    animation: nx-fadeUp 0.5s 0.3s ease both;
+}
+</style>
+{% endblock %}
+
+{% block body %}
+{% set sidebar_tabs = [
+    { key: 'dashboard', label: 'Tableau de Bord' },
+    { key: 'users', label: 'Gestion Utilisateurs' },
+    { key: 'admin_account', label: 'Compte admin' },
+    { key: 'accounts', label: 'Comptes Bancaires' },
+    { key: 'transactions', label: 'Transactions' },
+    { key: 'credits', label: 'Gestion Credit' },
+    { key: 'cashback', label: 'Gestion Cashback' },
+    { key: 'notifications', label: 'Notifications' }
+] %}
+{% set active_tab_label = tab %}
+{% for item in sidebar_tabs %}
+    {% if item.key == tab %}
+        {% set active_tab_label = item.label %}
+    {% endif %}
+{% endfor %}
+
+{% set primary_tab_keys = [
+    'dashboard', 'users', 'admin_account', 'accounts',
+    'transactions', 'credits', 'cashback'
+] %}
+
+{% set nav_icons = {
+    dashboard:     'fa-tachometer-alt',
+    users:         'fa-users',
+    admin_account: 'fa-user-shield',
+    accounts:      'fa-university',
+    transactions:  'fa-exchange-alt',
+    credits:       'fa-credit-card',
+    cashback:      'fa-coins',
+    database:      'fa-database',
+    garanties:     'fa-shield-halved',
+    partners:      'fa-handshake',
+    complaints:    'fa-comment-dots',
+    vaults:        'fa-vault',
+    notifications: 'fa-bell'
+} %}
+
+{% set nav_colors = {
+    dashboard:     '#6c63ff',
+    users:         '#a855f7',
+    admin_account: '#6c63ff',
+    accounts:      '#00b894',
+    transactions:  '#f39c12',
+    credits:       '#3b82f6',
+    cashback:      '#f59e0b',
+    database:      '#0ea5e9'
+} %}
+
+<div class="nx-admin-app">
+
+    <!-- ══════════════════════════════════════
+         SIDEBAR
+    ══════════════════════════════════════ -->
+    <aside class="nx-admin-sidebar">
+
+        <!-- Brand -->
+        <div class="nx-sidebar-header">
+            <a class="nx-admin-brand"
+               href="{{ path(route_name, { tab: 'dashboard' }) }}">
+                <img src="{{ asset('images/logo.png') }}" alt="Nexora">
+                <div>
+                    <strong>NEXORA</strong>
+                    <small>Banking System</small>
+                </div>
+            </a>
+            <button type="button"
+                    class="nx-sidebar-toggle"
+                    title="Réduire le menu">
+                <i class="fa-solid fa-angle-left"></i>
+            </button>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="nx-admin-nav">
+            <div class="nx-nav-section-label">Navigation</div>
+
+            {% for item in sidebar_tabs %}
+                {% if item.key in primary_tab_keys %}
+                    <a class="nx-admin-nav-link {{ item.key == tab ? 'is-active' : '' }}"
+                       href="{{ path(route_name, { tab: item.key }) }}"
+                       data-tooltip="{{ item.label }}">
+                        <span class="nx-admin-nav-icon">
+                            <i class="fa-solid {{ nav_icons[item.key]|default('fa-circle') }}"></i>
+                        </span>
+                        <span>{{ item.label }}</span>
+                    </a>
+                {% endif %}
+            {% endfor %}
+
+            <div class="nx-nav-divider"></div>
+            <div class="nx-nav-section-label">Système</div>
+
+            {% for item in sidebar_tabs %}
+                {% if item.key not in primary_tab_keys %}
+                    <a class="nx-admin-nav-link {{ item.key == tab ? 'is-active' : '' }}"
+                       href="{{ path(route_name, { tab: item.key }) }}"
+                       data-tooltip="{{ item.label }}">
+                        <span class="nx-admin-nav-icon">
+                            <i class="fa-solid {{ nav_icons[item.key]|default('fa-circle') }}"></i>
+                        </span>
+                        <span>{{ item.label }}</span>
+                    </a>
+                {% endif %}
+            {% endfor %}
+        </nav>
+
+        <!-- Footer -->
+        <div class="nx-admin-footer">
+            <div class="nx-admin-footer-user">
+                <strong>{{ current_user.prenom }} {{ current_user.nom }}</strong>
+                <small>{{ current_user.role }}</small>
+            </div>
+            <div class="nx-admin-footer-actions">
+                <a class="nx-logout-btn"
+                   href="{{ path(route_name, { tab: 'dashboard' }) }}"
+                   title="Accueil">
+                    <i class="fa-solid fa-house"></i>
+                </a>
+                <a class="nx-logout-btn"
+                   href="{{ path('logout') }}"
+                   title="Déconnexion">
+                    <i class="fa-solid fa-sign-out-alt"></i>
+                </a>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ══════════════════════════════════════
+         MAIN AREA
+    ══════════════════════════════════════ -->
+    <main class="nx-admin-main">
+
+        <!-- Topbar -->
+        <header class="nx-topbar-shell">
+            <div class="nx-breadcrumb">
+                <i class="fa-solid fa-house"></i>
+                <span>/</span>
+                <span>{{ active_tab_label }}</span>
+            </div>
+
+            <label class="nx-search-wrapper">
+                <i class="fa-solid fa-search"></i>
+                <input type="text"
+                       placeholder="Rechercher utilisateurs, comptes…">
+                <span>Ctrl+K</span>
+            </label>
+
+            <div class="nx-topbar-actions">
+                <a class="nx-topbar-action"
+                   href="{{ path(route_name, { tab: tab }) }}"
+                   title="Thème">
+                    <i class="fa-solid fa-moon"></i>
+                </a>
+                <a class="nx-topbar-action"
+                   href="{{ path(route_name, { tab: 'notifications' }) }}"
+                   title="Notifications">
+                    <i class="fa-solid fa-bell"></i>
+                    {% if notifications_count > 0 %}
+                        <b>{{ notifications_count > 99 ? '99+' : notifications_count }}</b>
+                    {% endif %}
+                </a>
+                <a class="nx-topbar-action"
+                   href="{{ path(route_name, { tab: 'transactions' }) }}"
+                   title="Historique">
+                    <i class="fa-solid fa-history"></i>
+                </a>
+                <a class="nx-topbar-action"
+                   href="{{ path('admin_features', { section: 'security' }) }}"
+                   title="Paramètres">
+                    <i class="fa-solid fa-cog"></i>
+                </a>
+            </div>
+
+            <div class="nx-topbar-user-menu">
+                <div>
+                    <strong>{{ current_user.prenom }} {{ current_user.nom }}</strong>
+                    <small>● En ligne</small>
+                </div>
+                <span class="nx-user-avatar">
+                    {% if current_user.profile_image_path|default('') %}
+                        <img src="{{ asset(current_user.profile_image_path) }}"
+                             alt="Avatar"
+                             class="nx-user-avatar-image">
+                    {% else %}
+                        {{ (current_user.prenom|default('A')|slice(0,1))|upper }}
+                    {% endif %}
+                </span>
+                <i class="fa-solid fa-chevron-down"></i>
+            </div>
+        </header>
+
+        <!-- Page head -->
+        {% if tab != 'dashboard' %}
+            <section class="nx-admin-page-head">
+                <div>
+                    <p class="nx-meta-line">
+                        <i class="fa-solid {{ nav_icons[tab]|default('fa-circle') }}"
+                           style="margin-right:5px;"></i>
+                        Administration Nexora
+                    </p>
+                    <h1>{{ active_tab_label }}</h1>
+                </div>
+                <div class="nx-admin-topbar-meta">
+                    <span class="nx-pill">
+                        <i class="fa-solid fa-bell"></i>
+                        {{ notifications_count }} notifications
+                    </span>
+                    <span class="nx-pill">
+                        <i class="fa-solid fa-clock"></i>
+                        {{ "now"|date("d/m/Y H:i") }}
+                    </span>
+                    <span class="nx-pill">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        {{ current_user.role }}
+                    </span>
+                </div>
+            </section>
+        {% endif %}
+
+        <!-- Content -->
+        <section class="nx-admin-content">
+            {% include '_flashes.html.twig' %}
+            {% include tab_template %}
+        </section>
+
+    </main>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCRIPTS
+══════════════════════════════════════ -->
+<script>
+(() => {
+    /* ── Sidebar collapse ── */
+    const sidebar = document.querySelector('.nx-admin-sidebar');
+    const app     = document.querySelector('.nx-admin-app');
+    const toggle  = document.querySelector('.nx-sidebar-toggle');
+    if (!sidebar || !app || !toggle) return;
+
+    const KEY = 'nexora-sidebar-collapsed';
+
+    const apply = (collapsed) => {
+        app.classList.toggle('is-sidebar-collapsed', collapsed);
+        sidebar.classList.toggle('is-collapsed', collapsed);
+        toggle.innerHTML = collapsed
+            ? '<i class="fa-solid fa-angle-right"></i>'
+            : '<i class="fa-solid fa-angle-left"></i>';
+        toggle.title = collapsed ? 'Développer le menu' : 'Réduire le menu';
+    };
+
+    apply(localStorage.getItem(KEY) === '1');
+
+    toggle.addEventListener('click', () => {
+        const collapsed = !sidebar.classList.contains('is-collapsed');
+        localStorage.setItem(KEY, collapsed ? '1' : '0');
+        apply(collapsed);
+    });
+
+    /* ── Search shortcut Ctrl+K ── */
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            const input = document.querySelector('.nx-search-wrapper input');
+            if (input) input.focus();
+        }
+    });
+
+    /* ── Active nav link ripple on click ── */
+    document.querySelectorAll('.nx-admin-nav-link').forEach(link => {
+        link.addEventListener('click', function(e) {
+            const ripple = document.createElement('span');
+            const rect   = this.getBoundingClientRect();
+            ripple.style.cssText = `
+                position:absolute;
+                width:6px;height:6px;
+                background:rgba(108,99,255,0.35);
+                border-radius:50%;
+                left:${e.clientX - rect.left - 3}px;
+                top:${e.clientY - rect.top - 3}px;
+                transform:scale(0);
+                animation:nx-ripple 0.5s ease forwards;
+                pointer-events:none;
+            `;
+            this.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 600);
+        });
+    });
+})();
+</script>
+
+<style>
+@keyframes nx-ripple {
+    to { transform: scale(20); opacity: 0; }
+}
+</style>
+
+{% endblock %}

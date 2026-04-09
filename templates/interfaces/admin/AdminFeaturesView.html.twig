@@ -1,0 +1,180 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Admin Features - {{ section|title }}{% endblock %}
+{% block body_class %}admin-main-body{% endblock %}
+{% block stylesheets %}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="stylesheet" href="{{ asset('styles/interfaces/admin-features.css') }}">
+    {% for stylesheet in tab_stylesheets|default([]) %}
+        <link rel="stylesheet" href="{{ asset(stylesheet) }}">
+    {% endfor %}
+{% endblock %}
+
+{% block body %}
+    {% set active_section_label = section|replace({'_': ' '})|title %}
+    {% for item in sections %}
+        {% if item.key == section %}
+            {% set active_section_label = item.label %}
+        {% endif %}
+    {% endfor %}
+
+    {% set primary_tab_keys = ['dashboard', 'users', 'admin_account', 'accounts', 'transactions', 'credits', 'cashback'] %}
+
+    {% set nav_icons = {
+        dashboard: 'fa-tachometer-alt',
+        users: 'fa-users',
+        admin_account: 'fa-user-shield',
+        accounts: 'fa-university',
+        transactions: 'fa-exchange-alt',
+        credits: 'fa-credit-card',
+        cashback: 'fa-coins',
+        garanties: 'fa-shield-halved',
+        partners: 'fa-handshake',
+        complaints: 'fa-comment-dots',
+        vaults: 'fa-vault',
+        notifications: 'fa-bell'
+    } %}
+
+    <div class="nx-admin-app">
+        <aside class="nx-admin-sidebar">
+            <div class="nx-sidebar-header">
+                <div class="nx-admin-brand">
+                    <img src="{{ asset('images/logo.png') }}" alt="Nexora logo">
+                    <div>
+                        <strong>NEXORA</strong>
+                        <small>Banking System</small>
+                    </div>
+                </div>
+                <button type="button" class="nx-sidebar-toggle" title="Toggle sidebar">
+                    <i class="fa-solid fa-angle-left"></i>
+                </button>
+            </div>
+
+            <nav class="nx-admin-nav">
+                {% for item in tabs %}
+                    {% if item.key in primary_tab_keys %}
+                        <a class="nx-admin-nav-link"
+                           href="{{ path(dashboard_route, { tab: item.key }) }}">
+                            <span class="nx-admin-nav-icon"><i class="fa-solid {{ nav_icons[item.key]|default('fa-circle') }}"></i></span>
+                            <span>{{ item.label }}</span>
+                        </a>
+                    {% endif %}
+                {% endfor %}
+            </nav>
+
+            <div class="nx-admin-footer">
+                <div class="nx-admin-footer-user">
+                    <strong>{{ current_user.prenom }} {{ current_user.nom }}</strong>
+                    <small>{{ current_user.role }}</small>
+                </div>
+                <div class="nx-admin-footer-actions">
+                    <a class="nx-logout-btn" href="{{ path(dashboard_route, { tab: 'dashboard' }) }}" title="Accueil">
+                        <i class="fa-solid fa-house"></i>
+                    </a>
+                    <a class="nx-logout-btn" href="{{ path('logout') }}" title="Deconnexion">
+                        <i class="fa-solid fa-sign-out-alt"></i>
+                    </a>
+                </div>
+            </div>
+        </aside>
+
+        <main class="nx-admin-main">
+            <header class="nx-topbar-shell">
+                <div class="nx-breadcrumb">
+                    <i class="fa-solid fa-house"></i>
+                    <span>/</span>
+                    <span>{{ active_section_label }}</span>
+                </div>
+
+                <label class="nx-search-wrapper">
+                    <i class="fa-solid fa-search"></i>
+                    <input type="text" placeholder="Rechercher utilisateurs, comptes, transactions...">
+                    <span>Ctrl+K</span>
+                </label>
+
+                <div class="nx-topbar-actions">
+                    <a class="nx-topbar-action" href="{{ path(dashboard_route, { tab: 'dashboard' }) }}" title="Theme">
+                        <i class="fa-solid fa-moon"></i>
+                    </a>
+                    <a class="nx-topbar-action" href="{{ path(dashboard_route, { tab: 'notifications' }) }}" title="Messages">
+                        <i class="fa-solid fa-envelope"></i>
+                        <b>{{ notifications_count > 99 ? '99+' : notifications_count }}</b>
+                    </a>
+                    <a class="nx-topbar-action" href="{{ path(dashboard_route, { tab: 'transactions' }) }}" title="Historique">
+                        <i class="fa-solid fa-history"></i>
+                    </a>
+                    <a class="nx-topbar-action" href="{{ path(dashboard_route, { tab: 'notifications' }) }}" title="Notifications">
+                        <i class="fa-solid fa-bell"></i>
+                        <b>{{ notifications_count > 99 ? '99+' : notifications_count }}</b>
+                    </a>
+                    <a class="nx-topbar-action" href="{{ path(feature_route, { section: 'security' }) }}" title="Parametres">
+                        <i class="fa-solid fa-cog"></i>
+                    </a>
+                </div>
+
+                <div class="nx-topbar-user-menu">
+                    <div>
+                        <strong>{{ current_user.prenom }} {{ current_user.nom }}</strong>
+                        <small>En ligne</small>
+                    </div>
+                    <span class="nx-user-avatar">
+                        {% if current_user.profile_image_path|default('') %}
+                            <img src="{{ asset(current_user.profile_image_path) }}" alt="Avatar admin" class="nx-user-avatar-image">
+                        {% else %}
+                            {{ (current_user.prenom|default('A')|slice(0, 1))|upper }}
+                        {% endif %}
+                    </span>
+                    <i class="fa-solid fa-chevron-down"></i>
+                </div>
+            </header>
+
+            <section class="nx-admin-page-head">
+                <div>
+                    <p class="nx-meta-line">Administration Nexora</p>
+                    <h1>{{ active_section_label }}</h1>
+                </div>
+                <div class="nx-admin-topbar-meta">
+                    <span class="nx-pill">{{ notifications_count }} notifications</span>
+                    <span class="nx-pill">{{ "now"|date("d/m/Y H:i") }}</span>
+                    <span class="nx-pill">{{ current_user.role }}</span>
+                </div>
+            </section>
+
+            <section class="nx-admin-content">
+                {% include '_flashes.html.twig' %}
+                {% if section == 'statistics' %}
+                    {% include 'interfaces/admin/features/statistics.html.twig' %}
+                {% else %}
+                    {% include 'interfaces/admin/features/security.html.twig' %}
+                {% endif %}
+            </section>
+        </main>
+    </div>
+
+    <script>
+        (() => {
+            const sidebar = document.querySelector('.nx-admin-sidebar');
+            const app = document.querySelector('.nx-admin-app');
+            const toggle = document.querySelector('.nx-sidebar-toggle');
+            if (!sidebar || !app || !toggle) {
+                return;
+            }
+
+            const storageKey = 'nexora-admin-sidebar-collapsed';
+            const apply = (collapsed) => {
+                app.classList.toggle('is-sidebar-collapsed', collapsed);
+                sidebar.classList.toggle('is-collapsed', collapsed);
+                toggle.innerHTML = collapsed
+                    ? '<i class="fa-solid fa-angle-right"></i>'
+                    : '<i class="fa-solid fa-angle-left"></i>';
+            };
+
+            apply(localStorage.getItem(storageKey) === '1');
+            toggle.addEventListener('click', () => {
+                const collapsed = !sidebar.classList.contains('is-collapsed');
+                localStorage.setItem(storageKey, collapsed ? '1' : '0');
+                apply(collapsed);
+            });
+        })();
+    </script>
+{% endblock %}

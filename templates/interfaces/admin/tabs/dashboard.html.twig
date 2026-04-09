@@ -1,0 +1,1139 @@
+{% set monthly = summary.monthly_transactions|default({ labels: [], entries: [], exits: [] }) %}
+{% set type_distribution = summary.account_type_distribution|default([]) %}
+
+<style>
+/* ═══════════════════════════════════════════
+   NEXORA · Admin Dashboard  (nx-dash)
+═══════════════════════════════════════════ */
+
+/* ── Tokens ── */
+:root {
+  --nx-bg:        #f0f4f9;
+  --nx-surface:   #ffffff;
+  --nx-border:    #e4ecf4;
+  --nx-txt:       #1a2b3c;
+  --nx-muted:     #6b85a0;
+  --nx-radius:    14px;
+  --nx-shadow:    0 2px 16px rgba(0,0,0,.07);
+  --nx-shadow-lg: 0 6px 32px rgba(0,0,0,.10);
+
+  --nx-teal:      #11b7aa;
+  --nx-teal-dk:   #0d9e93;
+  --nx-blue:      #2b7de9;
+  --nx-blue-dk:   #1f6cd6;
+  --nx-gold:      #e8a202;
+  --nx-gold-dk:   #cc8f00;
+  --nx-purple:    #7c4dff;
+  --nx-purple-dk: #6a3de0;
+  --nx-red:       #e53935;
+  --nx-green:     #43a047;
+}
+
+/* ── Shell ── */
+.nx-dash {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.75rem 2rem;
+  background: var(--nx-bg);
+  min-height: 100%;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--nx-txt);
+}
+
+/* ══════════════════════════════
+   TOP BAR
+══════════════════════════════ */
+.nx-dash__topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--nx-surface);
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-radius);
+  padding: 1.1rem 1.5rem;
+  box-shadow: var(--nx-shadow);
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.nx-dash__topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.nx-dash__avatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--nx-teal), var(--nx-blue));
+  color: #fff;
+  font-weight: 700;
+  font-size: .9rem;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  letter-spacing: .5px;
+  box-shadow: 0 3px 10px rgba(17,183,170,.35);
+}
+
+.nx-dash__topbar-text h2 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0 0 .2rem;
+  color: var(--nx-txt);
+}
+
+.nx-dash__topbar-text h2 span { color: var(--nx-teal); }
+
+.nx-dash__topbar-text h2 i {
+  margin-left: .35rem;
+  color: #f1c232;
+  font-size: .95rem;
+}
+
+.nx-dash__topbar-text p {
+  font-size: .78rem;
+  color: var(--nx-muted);
+  margin: 0;
+}
+
+.nx-dash__topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.nx-dash__clock {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  font-size: .82rem;
+  color: var(--nx-muted);
+  background: var(--nx-bg);
+  border: 1px solid var(--nx-border);
+  border-radius: 8px;
+  padding: .45rem .8rem;
+}
+
+.nx-dash__clock i { color: var(--nx-teal); font-size: .78rem; }
+.nx-dash__clock-sep { color: var(--nx-border); }
+.nx-dash__topbar-actions { display: flex; align-items: center; gap: .6rem; }
+
+/* ── Shared Buttons ── */
+.nx-dash__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .5rem 1rem;
+  border-radius: 8px;
+  font-size: .82rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all .2s ease;
+  cursor: pointer;
+  border: none;
+  position: relative;
+}
+
+.nx-dash__btn--primary {
+  background: linear-gradient(135deg, var(--nx-teal), var(--nx-teal-dk));
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(17,183,170,.3);
+}
+.nx-dash__btn--primary:hover {
+  box-shadow: 0 5px 16px rgba(17,183,170,.45);
+  transform: translateY(-1px);
+}
+
+.nx-dash__btn--ghost {
+  background: var(--nx-bg);
+  color: var(--nx-muted);
+  border: 1px solid var(--nx-border);
+  padding: .5rem .7rem;
+  font-size: 1rem;
+}
+.nx-dash__btn--ghost:hover { background: var(--nx-border); color: var(--nx-txt); }
+
+.nx-dash__btn--ghost-dark {
+  background: transparent;
+  color: var(--nx-teal);
+  border: 1px solid rgba(17,183,170,.3);
+  font-size: .78rem;
+}
+.nx-dash__btn--ghost-dark:hover { background: rgba(17,183,170,.06); }
+
+.nx-dash__btn--alert {
+  background: rgba(229,57,53,.08);
+  color: var(--nx-red);
+  border: 1px solid rgba(229,57,53,.2);
+  white-space: nowrap;
+}
+.nx-dash__btn--alert:hover { background: rgba(229,57,53,.14); }
+
+.nx-dash__badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 17px;
+  height: 17px;
+  background: var(--nx-red);
+  color: #fff;
+  border-radius: 50%;
+  font-size: .65rem;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--nx-surface);
+}
+
+/* ══════════════════════════════
+   ALERT BANNER
+══════════════════════════════ */
+.nx-dash__alert {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: linear-gradient(135deg, #fff5f5, #fff8f8);
+  border: 1px solid rgba(229,57,53,.22);
+  border-left: 4px solid var(--nx-red);
+  border-radius: var(--nx-radius);
+  padding: 1rem 1.25rem;
+  box-shadow: 0 2px 12px rgba(229,57,53,.08);
+  flex-wrap: wrap;
+}
+
+.nx-dash__alert-icon {
+  width: 38px;
+  height: 38px;
+  background: rgba(229,57,53,.1);
+  color: var(--nx-red);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.nx-dash__alert-body { flex: 1; }
+.nx-dash__alert-body strong { font-size: .9rem; color: var(--nx-red); display: block; }
+.nx-dash__alert-body span { font-size: .82rem; color: #a84040; }
+
+/* ══════════════════════════════
+   KPI GRID
+══════════════════════════════ */
+.nx-dash__kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.25rem;
+}
+
+.nx-dash__kpi {
+  border-radius: var(--nx-radius);
+  padding: 1.4rem 1.3rem 1.1rem;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: .55rem;
+  box-shadow: var(--nx-shadow-lg);
+  position: relative;
+  overflow: hidden;
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+.nx-dash__kpi:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 36px rgba(0,0,0,.15);
+}
+
+.nx-dash__kpi::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 80% 20%, rgba(255,255,255,.18) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+.nx-dash__kpi--teal   { background: linear-gradient(135deg, #11b7aa, #08887e); }
+.nx-dash__kpi--blue   { background: linear-gradient(135deg, #2b7de9, #1a5cbf); }
+.nx-dash__kpi--gold   { background: linear-gradient(135deg, #e8a202, #b87d00); }
+.nx-dash__kpi--purple { background: linear-gradient(135deg, #7c4dff, #5130c9); }
+
+.nx-dash__kpi-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nx-dash__kpi-icon {
+  width: 38px;
+  height: 38px;
+  background: rgba(255,255,255,.2);
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-size: 1.1rem;
+}
+
+.nx-dash__kpi-trend {
+  font-size: .75rem;
+  font-weight: 700;
+  padding: .25rem .55rem;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: .25rem;
+}
+.nx-dash__kpi-trend--up   { background: rgba(255,255,255,.22); }
+.nx-dash__kpi-trend--down { background: rgba(0,0,0,.15); }
+
+.nx-dash__kpi-value {
+  font-size: 1.75rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -.5px;
+}
+.nx-dash__kpi-value em {
+  font-size: .9rem;
+  font-style: normal;
+  opacity: .8;
+  margin-left: .2rem;
+}
+
+.nx-dash__kpi-label {
+  font-size: .78rem;
+  opacity: .8;
+  font-weight: 500;
+}
+
+/* Mini bars */
+.nx-dash__kpi-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 30px;
+  margin-top: .2rem;
+}
+.nx-dash__kpi-bars span {
+  flex: 1;
+  height: var(--h, 50%);
+  background: rgba(255,255,255,.35);
+  border-radius: 3px 3px 0 0;
+  transition: height .3s ease;
+}
+.nx-dash__kpi-bars span:last-child { background: rgba(255,255,255,.75); }
+
+/* Ring */
+.nx-dash__kpi-ring {
+  width: 56px;
+  height: 56px;
+  position: relative;
+  margin-top: .2rem;
+}
+.nx-dash__kpi-ring svg { width: 100%; height: 100%; }
+.nx-dash__kpi-ring span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: .72rem;
+  font-weight: 800;
+  opacity: .9;
+}
+
+/* Sparkline */
+.nx-dash__kpi-sparkline {
+  width: 100%;
+  height: 30px;
+  margin-top: .2rem;
+}
+.nx-dash__kpi-sparkline svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Dot row */
+.nx-dash__kpi-dots {
+  display: flex;
+  gap: 5px;
+  margin-top: .2rem;
+}
+.nx-dash__kpi-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.5);
+  animation: nx-pulse 1.8s ease-in-out infinite;
+}
+.nx-dash__kpi-dots span:nth-child(2) { animation-delay: .3s; }
+.nx-dash__kpi-dots span:nth-child(3) { animation-delay: .6s; }
+.nx-dash__kpi-dots span:nth-child(4) { animation-delay: .9s; }
+.nx-dash__kpi-dots span:nth-child(5) { animation-delay: 1.2s; }
+.nx-dash__kpi-dots span:nth-child(6) { animation-delay: 1.5s; }
+
+@keyframes nx-pulse {
+  0%,100% { opacity: .4; transform: scale(.8); }
+  50%      { opacity: 1;  transform: scale(1.1); }
+}
+
+.nx-dash__kpi-link {
+  font-size: .75rem;
+  font-weight: 600;
+  color: rgba(255,255,255,.85);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+  margin-top: auto;
+  transition: color .2s;
+}
+.nx-dash__kpi-link:hover { color: #fff; }
+.nx-dash__kpi-link i { font-size: .65rem; }
+
+/* ══════════════════════════════
+   ANALYTICS ROW
+══════════════════════════════ */
+.nx-dash__analytics {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 1.25rem;
+}
+
+.nx-dash__panel {
+  background: var(--nx-surface);
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-radius);
+  padding: 1.4rem;
+  box-shadow: var(--nx-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.nx-dash__panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.nx-dash__panel-head h3 {
+  font-size: .95rem;
+  font-weight: 700;
+  margin: 0 0 .2rem;
+  color: var(--nx-txt);
+}
+.nx-dash__panel-head p {
+  font-size: .75rem;
+  color: var(--nx-muted);
+  margin: 0;
+}
+
+.nx-dash__legend {
+  display: flex;
+  align-items: center;
+  font-size: .76rem;
+  color: var(--nx-muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.nx-dash__legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: .35rem;
+}
+.nx-dash__legend-dot--teal { background: var(--nx-teal); }
+.nx-dash__legend-dot--gold { background: var(--nx-gold); }
+
+.nx-dash__canvas-wrap {
+  position: relative;
+  height: 220px;
+}
+.nx-dash__canvas-wrap--pie { height: 190px; }
+
+/* Type legend */
+.nx-dash__type-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .65rem;
+}
+
+.nx-dash__type-legend li {
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  align-items: center;
+  gap: .5rem .6rem;
+}
+
+.nx-dash__type-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.nx-dash__type-name { font-size: .8rem; color: var(--nx-txt); font-weight: 500; }
+.nx-dash__type-pct  { font-size: .78rem; font-weight: 700; color: var(--nx-muted); grid-column: 3; }
+
+.nx-dash__type-bar-wrap {
+  grid-column: 2 / 4;
+  height: 4px;
+  background: var(--nx-bg);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.nx-dash__type-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width .6s ease;
+}
+
+/* ══════════════════════════════
+   BOTTOM ROW
+══════════════════════════════ */
+.nx-dash__bottom {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 1.25rem;
+}
+
+/* ── Table ── */
+.nx-dash__table-wrap { overflow-x: auto; }
+
+.nx-dash__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .82rem;
+}
+
+.nx-dash__table thead th {
+  padding: .65rem 1rem;
+  text-align: left;
+  font-size: .72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--nx-muted);
+  background: var(--nx-bg);
+  border-bottom: 1px solid var(--nx-border);
+}
+.nx-dash__table thead th:first-child { border-radius: 8px 0 0 8px; }
+.nx-dash__table thead th:last-child  { border-radius: 0 8px 8px 0; }
+
+.nx-dash__table tbody td {
+  padding: .8rem 1rem;
+  border-bottom: 1px solid var(--nx-border);
+  vertical-align: middle;
+  color: var(--nx-txt);
+}
+.nx-dash__table tbody tr:last-child td { border-bottom: none; }
+.nx-dash__table tbody tr:hover td { background: rgba(17,183,170,.03); }
+
+.nx-dash__tid {
+  font-family: monospace;
+  font-size: .78rem;
+  background: var(--nx-bg);
+  padding: .2rem .5rem;
+  border-radius: 5px;
+  color: var(--nx-muted);
+  font-weight: 600;
+}
+
+.nx-dash__user-cell {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.nx-dash__user-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--nx-teal), var(--nx-blue));
+  color: #fff;
+  font-size: .68rem;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.nx-dash__tag {
+  display: inline-block;
+  background: var(--nx-bg);
+  color: var(--nx-muted);
+  border: 1px solid var(--nx-border);
+  border-radius: 6px;
+  padding: .18rem .55rem;
+  font-size: .75rem;
+  font-weight: 500;
+}
+
+.nx-dash__amount { font-weight: 700; color: var(--nx-txt); }
+.nx-dash__amount em {
+  font-style: normal;
+  font-size: .75rem;
+  color: var(--nx-muted);
+  margin-left: .15rem;
+}
+
+.nx-dash__status {
+  display: inline-block;
+  padding: .22rem .65rem;
+  border-radius: 20px;
+  font-size: .72rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+.nx-dash__status--validé,
+.nx-dash__status--approuvé,
+.nx-dash__status--completed { background: rgba(67,160,71,.1); color: #2e7d32; }
+.nx-dash__status--pending   { background: rgba(232,162,2,.1);  color: #946800; }
+.nx-dash__status--rejeté,
+.nx-dash__status--refusé,
+.nx-dash__status--failed    { background: rgba(229,57,53,.1);  color: #c62828; }
+
+/* ── Notifications ── */
+.nx-dash__notif-count {
+  min-width: 22px;
+  height: 22px;
+  background: var(--nx-teal);
+  color: #fff;
+  border-radius: 20px;
+  font-size: .68rem;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  padding: 0 .35rem;
+}
+
+.nx-dash__notif-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-height: 340px;
+  overflow-y: auto;
+}
+.nx-dash__notif-list::-webkit-scrollbar { width: 4px; }
+.nx-dash__notif-list::-webkit-scrollbar-track { background: transparent; }
+.nx-dash__notif-list::-webkit-scrollbar-thumb { background: var(--nx-border); border-radius: 4px; }
+
+.nx-dash__notif-item {
+  display: flex;
+  gap: .75rem;
+  padding: .85rem 0;
+  border-bottom: 1px solid var(--nx-border);
+  align-items: flex-start;
+}
+.nx-dash__notif-item:last-child { border-bottom: none; }
+
+.nx-dash__notif-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(17,183,170,.1);
+  color: var(--nx-teal);
+  display: grid;
+  place-items: center;
+  font-size: .85rem;
+  flex-shrink: 0;
+}
+
+.nx-dash__notif-body strong {
+  display: block;
+  font-size: .83rem;
+  font-weight: 700;
+  color: var(--nx-txt);
+  margin-bottom: .2rem;
+}
+.nx-dash__notif-body p {
+  font-size: .78rem;
+  color: var(--nx-muted);
+  margin: 0 0 .3rem;
+  line-height: 1.4;
+}
+.nx-dash__notif-body small {
+  font-size: .7rem;
+  color: #afc0d0;
+  display: flex;
+  align-items: center;
+  gap: .25rem;
+}
+
+.nx-dash__empty-notif {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  padding: 3rem 1rem;
+  color: var(--nx-muted);
+  text-align: center;
+}
+.nx-dash__empty-notif i { font-size: 2rem; opacity: .4; }
+.nx-dash__empty-notif p { font-size: .82rem; margin: 0; }
+
+.nx-dash__empty {
+  text-align: center;
+  color: var(--nx-muted);
+  font-size: .82rem;
+  padding: 2rem 1rem;
+}
+
+/* ══════════════════════════════
+   RESPONSIVE
+══════════════════════════════ */
+@media (max-width: 1280px) {
+  .nx-dash__kpi-grid  { grid-template-columns: repeat(2, 1fr); }
+  .nx-dash__analytics { grid-template-columns: 1fr; }
+  .nx-dash__bottom    { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  .nx-dash              { padding: 1rem; gap: 1rem; }
+  .nx-dash__kpi-grid    { grid-template-columns: 1fr 1fr; }
+  .nx-dash__topbar      { flex-direction: column; align-items: flex-start; }
+  .nx-dash__topbar-right{ width: 100%; justify-content: space-between; }
+}
+
+@media (max-width: 420px) {
+  .nx-dash__kpi-grid { grid-template-columns: 1fr; }
+}
+</style>
+
+{# ═══════════════════════════════════════════
+   MARKUP
+═══════════════════════════════════════════ #}
+<section class="nx-dash">
+
+  {# ── TOP WELCOME BAR ── #}
+  <div class="nx-dash__topbar">
+    <div class="nx-dash__topbar-left">
+      <div class="nx-dash__avatar">
+        {{ current_user.prenom|first|upper }}{{ current_user.nom|first|upper }}
+      </div>
+      <div class="nx-dash__topbar-text">
+        <h2>
+          Bonjour, <span>{{ current_user.prenom }} {{ current_user.nom }}</span>
+          <i class="fa-solid fa-hand-sparkles"></i>
+        </h2>
+        <p>Tableau de bord administrateur · NEXORA Bank</p>
+      </div>
+    </div>
+    <div class="nx-dash__topbar-right">
+      <div class="nx-dash__clock">
+        <i class="fa-regular fa-calendar"></i>
+        <span id="nx-dash-date">{{ "now"|date("d F Y") }}</span>
+        <span class="nx-dash__clock-sep">·</span>
+        <i class="fa-regular fa-clock"></i>
+        <span id="nx-dash-time">{{ "now"|date("H:i:s") }}</span>
+      </div>
+      <div class="nx-dash__topbar-actions">
+        <a class="nx-dash__btn nx-dash__btn--ghost"
+           href="{{ path(route_name, { tab: 'credits' }) }}">
+          <i class="fa-solid fa-bell"></i>
+          {% if summary.credits_pending|default(0) > 0 %}
+            <span class="nx-dash__badge">{{ summary.credits_pending }}</span>
+          {% endif %}
+        </a>
+        <a class="nx-dash__btn nx-dash__btn--primary"
+           href="{{ path('admin_features', { section: 'statistics' }) }}">
+          <i class="fa-solid fa-file-export"></i> Rapport
+        </a>
+      </div>
+    </div>
+  </div>
+
+  {# ── ALERT BANNER ── #}
+  {% if summary.credits_pending|default(0) > 0 %}
+    <div class="nx-dash__alert">
+      <div class="nx-dash__alert-icon">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+      </div>
+      <div class="nx-dash__alert-body">
+        <strong>Action requise</strong>
+        <span>
+          {{ summary.credits_pending }}
+          demande{% if summary.credits_pending > 1 %}s{% endif %}
+          de crédit en attente de vérification
+        </span>
+      </div>
+      <a class="nx-dash__btn nx-dash__btn--alert"
+         href="{{ path(route_name, { tab: 'credits' }) }}">
+        Traiter maintenant <i class="fa-solid fa-arrow-right"></i>
+      </a>
+    </div>
+  {% endif %}
+
+  {# ── KPI GRID ── #}
+  <div class="nx-dash__kpi-grid">
+
+    {# Users #}
+    <div class="nx-dash__kpi nx-dash__kpi--teal">
+      <div class="nx-dash__kpi-top">
+        <div class="nx-dash__kpi-icon"><i class="fa-solid fa-users"></i></div>
+        <span class="nx-dash__kpi-trend nx-dash__kpi-trend--up">
+          <i class="fa-solid fa-arrow-trend-up"></i> +12%
+        </span>
+      </div>
+      <div class="nx-dash__kpi-value">{{ summary.users_total }}</div>
+      <div class="nx-dash__kpi-label">Utilisateurs</div>
+      <div class="nx-dash__kpi-bars">
+        <span style="--h:40%"></span>
+        <span style="--h:65%"></span>
+        <span style="--h:50%"></span>
+        <span style="--h:80%"></span>
+        <span style="--h:60%"></span>
+        <span style="--h:100%"></span>
+      </div>
+      <a class="nx-dash__kpi-link" href="{{ path(route_name, { tab: 'users' }) }}">
+        Voir détails <i class="fa-solid fa-arrow-right"></i>
+      </a>
+    </div>
+
+    {# Accounts #}
+    <div class="nx-dash__kpi nx-dash__kpi--blue">
+      <div class="nx-dash__kpi-top">
+        <div class="nx-dash__kpi-icon"><i class="fa-solid fa-building-columns"></i></div>
+        <span class="nx-dash__kpi-trend nx-dash__kpi-trend--up">
+          <i class="fa-solid fa-arrow-trend-up"></i> +8%
+        </span>
+      </div>
+      <div class="nx-dash__kpi-value">{{ summary.accounts_total }}</div>
+      <div class="nx-dash__kpi-label">Comptes actifs</div>
+      <div class="nx-dash__kpi-ring">
+        <svg viewBox="0 0 36 36">
+          <circle cx="18" cy="18" r="15.9"
+                  fill="none" stroke="rgba(255,255,255,.15)" stroke-width="3"/>
+          <circle cx="18" cy="18" r="15.9"
+                  fill="none" stroke="rgba(255,255,255,.85)" stroke-width="3"
+                  stroke-dasharray="75 25" stroke-linecap="round"
+                  transform="rotate(-90 18 18)"/>
+        </svg>
+        <span>75%</span>
+      </div>
+      <a class="nx-dash__kpi-link" href="{{ path(route_name, { tab: 'accounts' }) }}">
+        Voir détails <i class="fa-solid fa-arrow-right"></i>
+      </a>
+    </div>
+
+    {# Deposits #}
+    <div class="nx-dash__kpi nx-dash__kpi--gold">
+      <div class="nx-dash__kpi-top">
+        <div class="nx-dash__kpi-icon"><i class="fa-solid fa-piggy-bank"></i></div>
+        <span class="nx-dash__kpi-trend nx-dash__kpi-trend--up">
+          <i class="fa-solid fa-arrow-trend-up"></i> +15%
+        </span>
+      </div>
+      <div class="nx-dash__kpi-value">
+        {{ summary.deposits_total|default(0)|number_format(2, '.', ' ') }}
+        <em>DT</em>
+      </div>
+      <div class="nx-dash__kpi-label">Total dépôts</div>
+      <div class="nx-dash__kpi-sparkline">
+        <svg viewBox="0 0 120 40" preserveAspectRatio="none">
+          <polyline
+            points="0,35 20,28 40,32 60,18 80,22 100,10 120,15"
+            fill="none" stroke="rgba(255,255,255,.7)" stroke-width="2" stroke-linecap="round"/>
+          <polyline
+            points="0,35 20,28 40,32 60,18 80,22 100,10 120,15 120,40 0,40"
+            fill="rgba(255,255,255,.12)" stroke="none"/>
+        </svg>
+      </div>
+      <a class="nx-dash__kpi-link" href="{{ path(route_name, { tab: 'accounts' }) }}">
+        Voir détails <i class="fa-solid fa-arrow-right"></i>
+      </a>
+    </div>
+
+    {# Transactions #}
+    <div class="nx-dash__kpi nx-dash__kpi--purple">
+      <div class="nx-dash__kpi-top">
+        <div class="nx-dash__kpi-icon"><i class="fa-solid fa-right-left"></i></div>
+        <span class="nx-dash__kpi-trend nx-dash__kpi-trend--down">
+          <i class="fa-solid fa-arrow-trend-down"></i> -3%
+        </span>
+      </div>
+      <div class="nx-dash__kpi-value">{{ summary.transactions_total }}</div>
+      <div class="nx-dash__kpi-label">Transactions</div>
+      <div class="nx-dash__kpi-dots">
+        <span></span><span></span><span></span>
+        <span></span><span></span><span></span>
+      </div>
+      <a class="nx-dash__kpi-link" href="{{ path(route_name, { tab: 'transactions' }) }}">
+        Voir détails <i class="fa-solid fa-arrow-right"></i>
+      </a>
+    </div>
+
+  </div>
+
+  {# ── ANALYTICS ROW ── #}
+  <div class="nx-dash__analytics">
+
+    {# Line chart #}
+    <div class="nx-dash__panel nx-dash__panel--chart">
+      <div class="nx-dash__panel-head">
+        <div>
+          <h3>Aperçu des Transactions</h3>
+          <p>Évolution mensuelle en DT</p>
+        </div>
+        <div class="nx-dash__legend">
+          <span class="nx-dash__legend-dot nx-dash__legend-dot--teal"></span> Entrées
+          <span class="nx-dash__legend-dot nx-dash__legend-dot--gold"
+                style="margin-left:1rem"></span> Sorties
+        </div>
+      </div>
+      <div class="nx-dash__canvas-wrap">
+        <canvas id="nx-dash-tx-chart"></canvas>
+      </div>
+    </div>
+
+    {# Donut + legend #}
+    <div class="nx-dash__panel nx-dash__panel--donut">
+      <div class="nx-dash__panel-head">
+        <div>
+          <h3>Types de Comptes</h3>
+          <p>Répartition globale</p>
+        </div>
+      </div>
+      <div class="nx-dash__canvas-wrap nx-dash__canvas-wrap--pie">
+        <canvas id="nx-dash-type-chart"></canvas>
+      </div>
+      <ul class="nx-dash__type-legend">
+        {% for item in type_distribution %}
+          <li>
+            <span class="nx-dash__type-dot"
+                  style="background:{{ item.color|default('#11b7aa') }}"></span>
+            <span class="nx-dash__type-name">{{ item.label }}</span>
+            <span class="nx-dash__type-pct">{{ item.percent }}%</span>
+            <div class="nx-dash__type-bar-wrap">
+              <div class="nx-dash__type-bar"
+                   style="width:{{ item.percent }}%;background:{{ item.color|default('#11b7aa') }}">
+              </div>
+            </div>
+          </li>
+        {% else %}
+          <li class="nx-dash__empty">Aucune donnée disponible.</li>
+        {% endfor %}
+      </ul>
+    </div>
+
+  </div>
+
+  {# ── BOTTOM ROW ── #}
+  <div class="nx-dash__bottom">
+
+    {# Recent transactions table #}
+    <div class="nx-dash__panel nx-dash__panel--table">
+      <div class="nx-dash__panel-head">
+        <div>
+          <h3>Transactions récentes</h3>
+          <p>Dernières opérations enregistrées</p>
+        </div>
+        <a class="nx-dash__btn nx-dash__btn--ghost-dark"
+           href="{{ path(route_name, { tab: 'transactions' }) }}">
+          Tout voir <i class="fa-solid fa-arrow-right"></i>
+        </a>
+      </div>
+      <div class="nx-dash__table-wrap">
+        <table class="nx-dash__table">
+          <thead>
+            <tr>
+              <th>#ID</th>
+              <th>Utilisateur</th>
+              <th>Catégorie</th>
+              <th>Montant</th>
+              <th>Statut</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in summary.recent_transactions %}
+              <tr>
+                <td><span class="nx-dash__tid">#{{ item.idTransaction }}</span></td>
+                <td>
+                  <div class="nx-dash__user-cell">
+                    <span class="nx-dash__user-dot">
+                      {{ item.user_name|default('?')|first|upper }}
+                    </span>
+                    {{ item.user_name|default('—') }}
+                  </div>
+                </td>
+                <td><span class="nx-dash__tag">{{ item.categorie }}</span></td>
+                <td class="nx-dash__amount">
+                  {{ item.montant_value|number_format(2, '.', ' ') }}
+                  <em>DT</em>
+                </td>
+                <td>
+                  {% set st = item.statutTransaction ?? item.statut ?? '' %}
+                  <span class="nx-dash__status nx-dash__status--{{ st|lower }}">
+                    {{ st ?: '—' }}
+                  </span>
+                </td>
+              </tr>
+            {% else %}
+              <tr>
+                <td colspan="5" class="nx-dash__empty">Aucune transaction.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {# Notifications #}
+    <div class="nx-dash__panel nx-dash__panel--notif">
+      <div class="nx-dash__panel-head">
+        <div>
+          <h3>Notifications</h3>
+          <p>Activité récente du système</p>
+        </div>
+        {% if notifications|length > 0 %}
+          <span class="nx-dash__notif-count">{{ notifications|length }}</span>
+        {% endif %}
+      </div>
+      <div class="nx-dash__notif-list">
+        {% for item in notifications %}
+          <div class="nx-dash__notif-item">
+            <div class="nx-dash__notif-icon">
+              <i class="fa-solid fa-circle-info"></i>
+            </div>
+            <div class="nx-dash__notif-body">
+              <strong>{{ item.title }}</strong>
+              <p>{{ item.message }}</p>
+              <small>
+                <i class="fa-regular fa-clock"></i>
+                {{ item.created_at }}
+              </small>
+            </div>
+          </div>
+        {% else %}
+          <div class="nx-dash__empty-notif">
+            <i class="fa-regular fa-bell-slash"></i>
+            <p>Aucune notification</p>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+
+</section>
+
+{# ── Scripts ── #}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(() => {
+  /* ── Live clock ── */
+  const tick = () => {
+    const now = new Date();
+    const d = document.getElementById('nx-dash-date');
+    const t = document.getElementById('nx-dash-time');
+    if (d) d.textContent = now.toLocaleDateString('fr-FR', {
+      day: '2-digit', month: 'long', year: 'numeric'
+    });
+    if (t) t.textContent = now.toLocaleTimeString('fr-FR', { hour12: false });
+  };
+  tick();
+  setInterval(tick, 1000);
+
+  if (!window.Chart) return;
+
+  const monthly          = {{ monthly|json_encode|raw }};
+  const typeDistribution = {{ type_distribution|json_encode|raw }};
+
+  /* ── Line chart: monthly transactions ── */
+  const txCanvas = document.getElementById('nx-dash-tx-chart');
+  if (txCanvas) {
+    new Chart(txCanvas, {
+      type: 'line',
+      data: {
+        labels: monthly.labels || [],
+        datasets: [
+          {
+            label: 'Entrées',
+            data: monthly.entries || [],
+            borderColor: '#11b7aa',
+            backgroundColor: 'rgba(17,183,170,.12)',
+            fill: true,
+            tension: 0.38,
+            borderWidth: 2.5,
+            pointBackgroundColor: '#11b7aa',
+            pointRadius: 4,
+            pointHoverRadius: 6
+          },
+          {
+            label: 'Sorties',
+            data: monthly.exits || [],
+            borderColor: '#e8a202',
+            backgroundColor: 'rgba(232,162,2,.10)',
+            fill: true,
+            tension: 0.38,
+            borderWidth: 2.5,
+            pointBackgroundColor: '#e8a202',
+            pointRadius: 4,
+            pointHoverRadius: 6
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { mode: 'index', intersect: false }
+        },
+        interaction: { mode: 'index', intersect: false },
+        scales: {
+          x: {
+            grid: { color: 'rgba(0,0,0,.04)' },
+            ticks: { color: '#8fa3b8', font: { size: 11 } }
+          },
+          y: {
+            beginAtZero: true,
+            grid: { color: 'rgba(0,0,0,.04)' },
+            ticks: { color: '#8fa3b8', font: { size: 11 } }
+          }
+        }
+      }
+    });
+  }
+
+  /* ── Doughnut chart: account types ── */
+  const typeCanvas = document.getElementById('nx-dash-type-chart');
+  if (typeCanvas) {
+    new Chart(typeCanvas, {
+      type: 'doughnut',
+      data: {
+        labels:   typeDistribution.map(e => e.label),
+        datasets: [{
+          data:            typeDistribution.map(e => e.count),
+          backgroundColor: typeDistribution.map(e => e.color),
+          borderColor: '#ffffff',
+          borderWidth: 3,
+          hoverOffset: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '60%',
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => ` ${ctx.label} : ${ctx.parsed} compte(s)`
+            }
+          }
+        }
+      }
+    });
+  }
+})();
+</script>

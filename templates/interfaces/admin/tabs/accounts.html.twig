@@ -1,0 +1,1117 @@
+{% set active_panel  = panel|default(support.active_panel|default('compte')) %}
+{% set account_items = support.accounts|default(items) %}
+{% set vault_items   = support.vaults|default([]) %}
+{% set users         = support.users|default([]) %}
+{% set all_accounts  = support.accounts|default([]) %}
+
+<style>
+/* ═══════════════════════════════════════════
+   NEXORA · Accounts Module  (nx-acc)
+═══════════════════════════════════════════ */
+
+:root {
+  --na-bg:        #f0f4f9;
+  --na-surface:   #ffffff;
+  --na-border:    #e4ecf4;
+  --na-txt:       #1a2b3c;
+  --na-muted:     #6b85a0;
+  --na-radius:    14px;
+  --na-shadow:    0 2px 16px rgba(0,0,0,.07);
+  --na-shadow-lg: 0 6px 32px rgba(0,0,0,.10);
+  --na-teal:      #11b7aa;
+  --na-teal-dk:   #0d9e93;
+  --na-blue:      #2b7de9;
+  --na-blue-dk:   #1f6cd6;
+  --na-gold:      #e8a202;
+  --na-purple:    #7c4dff;
+  --na-red:       #e53935;
+  --na-green:     #43a047;
+}
+
+/* ── Shell ── */
+.nx-acc {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.75rem 2rem;
+  background: var(--na-bg);
+  min-height: 100%;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--na-txt);
+}
+
+/* ══════════════════════════════
+   HERO HEADER
+══════════════════════════════ */
+.nx-acc__hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  background: linear-gradient(135deg, #1a2b3c 0%, #1e3448 60%, #1a3050 100%);
+  border-radius: var(--na-radius);
+  padding: 1.5rem 1.8rem;
+  box-shadow: var(--na-shadow-lg);
+  flex-wrap: wrap;
+  position: relative;
+  overflow: hidden;
+}
+.nx-acc__hero::before {
+  content: '';
+  position: absolute;
+  width: 260px; height: 260px;
+  top: -80px; right: -50px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(17,183,170,.22) 0%, transparent 70%);
+  pointer-events: none;
+}
+.nx-acc__hero::after {
+  content: '';
+  position: absolute;
+  width: 160px; height: 160px;
+  bottom: -60px; left: 30%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(43,125,233,.18) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.nx-acc__hero-left {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  position: relative;
+  z-index: 1;
+}
+
+.nx-acc__hero-icon {
+  width: 50px; height: 50px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, var(--na-teal), var(--na-teal-dk));
+  display: grid;
+  place-items: center;
+  font-size: 1.3rem;
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(17,183,170,.4);
+  flex-shrink: 0;
+}
+
+.nx-acc__hero-text h2 {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0 0 .25rem;
+}
+.nx-acc__hero-text p {
+  font-size: .76rem;
+  color: rgba(255,255,255,.5);
+  margin: 0;
+}
+
+.nx-acc__hero-actions {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  position: relative;
+  z-index: 1;
+  flex-wrap: wrap;
+}
+
+/* ── Shared buttons ── */
+.na-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .52rem 1.1rem;
+  border-radius: 9px;
+  font-size: .82rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all .2s ease;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.na-btn--primary {
+  background: linear-gradient(135deg, var(--na-teal), var(--na-teal-dk));
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(17,183,170,.35);
+}
+.na-btn--primary:hover {
+  box-shadow: 0 5px 18px rgba(17,183,170,.5);
+  transform: translateY(-1px);
+}
+.na-btn--ghost {
+  background: rgba(255,255,255,.1);
+  color: rgba(255,255,255,.85);
+  border: 1px solid rgba(255,255,255,.18);
+  backdrop-filter: blur(4px);
+}
+.na-btn--ghost:hover {
+  background: rgba(255,255,255,.18);
+  color: #fff;
+}
+.na-btn--ghost-dark {
+  background: transparent;
+  color: var(--na-teal);
+  border: 1px solid rgba(17,183,170,.3);
+  font-size: .78rem;
+}
+.na-btn--ghost-dark:hover { background: rgba(17,183,170,.06); }
+.na-btn--danger {
+  background: rgba(229,57,53,.09);
+  color: var(--na-red);
+  border: 1px solid rgba(229,57,53,.22);
+  font-size: .76rem;
+  padding: .38rem .8rem;
+}
+.na-btn--danger:hover { background: rgba(229,57,53,.18); }
+.na-btn--save {
+  background: linear-gradient(135deg, var(--na-teal), var(--na-teal-dk));
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(17,183,170,.3);
+}
+.na-btn--save:hover {
+  box-shadow: 0 5px 16px rgba(17,183,170,.45);
+  transform: translateY(-1px);
+}
+.na-btn--reset {
+  background: var(--na-bg);
+  color: var(--na-muted);
+  border: 1px solid var(--na-border);
+}
+.na-btn--reset:hover { background: var(--na-border); color: var(--na-txt); }
+
+/* ══════════════════════════════
+   SUBTABS
+══════════════════════════════ */
+.nx-acc__tabs {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  background: var(--na-surface);
+  border: 1px solid var(--na-border);
+  border-radius: var(--na-radius);
+  padding: .55rem .65rem;
+  box-shadow: var(--na-shadow);
+  flex-wrap: wrap;
+}
+
+.nx-acc__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  padding: .5rem 1.1rem;
+  border-radius: 9px;
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--na-muted);
+  text-decoration: none;
+  transition: all .2s ease;
+  border: 1px solid transparent;
+}
+.nx-acc__tab i { font-size: .85rem; }
+.nx-acc__tab:hover {
+  background: var(--na-bg);
+  color: var(--na-txt);
+}
+.nx-acc__tab.is-active {
+  background: linear-gradient(135deg, var(--na-teal), var(--na-teal-dk));
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(17,183,170,.3);
+}
+
+.nx-acc__tabs-spacer { flex: 1; }
+
+.nx-acc__stats-link {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .5rem 1rem;
+  border-radius: 9px;
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--na-blue);
+  text-decoration: none;
+  background: rgba(43,125,233,.07);
+  border: 1px solid rgba(43,125,233,.18);
+  transition: all .2s;
+}
+.nx-acc__stats-link:hover { background: rgba(43,125,233,.14); }
+
+/* ══════════════════════════════
+   KPI ROW
+══════════════════════════════ */
+.nx-acc__kpis {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.nx-acc__kpi {
+  background: var(--na-surface);
+  border: 1px solid var(--na-border);
+  border-radius: var(--na-radius);
+  padding: 1.1rem 1.25rem;
+  box-shadow: var(--na-shadow);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: transform .2s, box-shadow .2s;
+  position: relative;
+  overflow: hidden;
+}
+.nx-acc__kpi:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--na-shadow-lg);
+}
+.nx-acc__kpi::after {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+}
+.nx-acc__kpi:nth-child(1)::after { background: var(--na-teal); }
+.nx-acc__kpi:nth-child(2)::after { background: var(--na-blue); }
+.nx-acc__kpi:nth-child(3)::after { background: var(--na-gold); }
+
+.nx-acc__kpi-icon {
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+.nx-acc__kpi:nth-child(1) .nx-acc__kpi-icon {
+  background: rgba(17,183,170,.1); color: var(--na-teal);
+}
+.nx-acc__kpi:nth-child(2) .nx-acc__kpi-icon {
+  background: rgba(43,125,233,.1); color: var(--na-blue);
+}
+.nx-acc__kpi:nth-child(3) .nx-acc__kpi-icon {
+  background: rgba(232,162,2,.1); color: var(--na-gold);
+}
+
+.nx-acc__kpi-body strong {
+  display: block;
+  font-size: 1.55rem;
+  font-weight: 800;
+  color: var(--na-txt);
+  line-height: 1;
+  margin-bottom: .2rem;
+}
+.nx-acc__kpi-body small {
+  font-size: .74rem;
+  color: var(--na-muted);
+  font-weight: 500;
+}
+
+/* ══════════════════════════════
+   CONTENT GRID
+══════════════════════════════ */
+.nx-acc__grid {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+/* ── Panel card shared ── */
+.nx-acc__panel {
+  background: var(--na-surface);
+  border: 1px solid var(--na-border);
+  border-radius: var(--na-radius);
+  box-shadow: var(--na-shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.nx-acc__panel-head {
+  padding: 1.1rem 1.3rem;
+  border-bottom: 1px solid var(--na-border);
+  background: linear-gradient(to right, #fafcff, #f5f8fd);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.nx-acc__panel-head-left h3 {
+  font-size: .9rem;
+  font-weight: 700;
+  color: var(--na-txt);
+  margin: 0 0 .15rem;
+}
+.nx-acc__panel-head-left p {
+  font-size: .73rem;
+  color: var(--na-muted);
+  margin: 0;
+}
+
+/* ══════════════════════════════
+   FORM PANEL
+══════════════════════════════ */
+.nx-acc__form {
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+  padding: 1.2rem 1.3rem;
+}
+
+.nx-acc__form label {
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+}
+.nx-acc__form label span {
+  font-size: .71rem;
+  font-weight: 700;
+  color: var(--na-muted);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+
+.nx-acc__form input[type="text"],
+.nx-acc__form input[type="number"],
+.nx-acc__form input[type="date"],
+.nx-acc__form select {
+  height: 38px;
+  padding: 0 .8rem;
+  border: 1px solid var(--na-border);
+  border-radius: 9px;
+  font-size: .82rem;
+  color: var(--na-txt);
+  background: var(--na-bg);
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: border-color .2s, box-shadow .2s;
+}
+.nx-acc__form input:focus,
+.nx-acc__form select:focus {
+  border-color: var(--na-teal);
+  box-shadow: 0 0 0 3px rgba(17,183,170,.12);
+  background: #fff;
+}
+
+.nx-acc__form-divider {
+  height: 1px;
+  background: var(--na-border);
+  margin: .2rem 0;
+}
+
+.nx-acc__form-label-id {
+  font-size: .7rem;
+  color: var(--na-muted);
+  background: rgba(43,125,233,.06);
+  border: 1px solid rgba(43,125,233,.15);
+  border-radius: 7px;
+  padding: .5rem .7rem;
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  margin-bottom: .1rem;
+}
+.nx-acc__form-label-id i { color: var(--na-blue); }
+
+.nx-acc__form-actions {
+  display: flex;
+  gap: .55rem;
+  padding-top: .4rem;
+  border-top: 1px solid var(--na-border);
+}
+.nx-acc__form-actions .na-btn { flex: 1; justify-content: center; }
+
+/* ══════════════════════════════
+   TABLE PANEL
+══════════════════════════════ */
+.nx-acc__table-wrap { overflow-x: auto; }
+
+.nx-acc__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .81rem;
+}
+
+.nx-acc__table thead th {
+  padding: .65rem 1rem;
+  text-align: left;
+  font-size: .7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--na-muted);
+  background: var(--na-bg);
+  border-bottom: 1px solid var(--na-border);
+  white-space: nowrap;
+}
+.nx-acc__table thead th:first-child { border-radius: 8px 0 0 8px; }
+.nx-acc__table thead th:last-child  { border-radius: 0 8px 8px 0; }
+
+.nx-acc__table tbody td {
+  padding: .75rem 1rem;
+  border-bottom: 1px solid var(--na-border);
+  vertical-align: middle;
+  color: var(--na-txt);
+}
+.nx-acc__table tbody tr:last-child td { border-bottom: none; }
+.nx-acc__table tbody tr:hover td     { background: rgba(17,183,170,.03); }
+
+.nx-acc__tid {
+  font-family: monospace;
+  font-size: .76rem;
+  background: var(--na-bg);
+  padding: .18rem .5rem;
+  border-radius: 5px;
+  color: var(--na-muted);
+  font-weight: 600;
+}
+
+.nx-acc__num {
+  font-family: monospace;
+  font-size: .78rem;
+  color: var(--na-blue);
+  font-weight: 600;
+  letter-spacing: .3px;
+}
+
+.nx-acc__amount {
+  font-weight: 700;
+  color: var(--na-txt);
+}
+.nx-acc__amount em {
+  font-style: normal;
+  font-size: .72rem;
+  color: var(--na-muted);
+  margin-left: .15rem;
+}
+
+.nx-acc__tag {
+  display: inline-block;
+  padding: .2rem .6rem;
+  border-radius: 20px;
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .3px;
+  background: var(--na-bg);
+  color: var(--na-muted);
+  border: 1px solid var(--na-border);
+  text-transform: capitalize;
+}
+.nx-acc__tag.is-actif,
+.nx-acc__tag.is-active {
+  background: rgba(67,160,71,.1);
+  color: #2e7d32;
+  border-color: rgba(67,160,71,.22);
+}
+.nx-acc__tag.is-inactif,
+.nx-acc__tag.is-inactive {
+  background: rgba(229,57,53,.1);
+  color: #c62828;
+  border-color: rgba(229,57,53,.22);
+}
+.nx-acc__tag.is-courant,
+.nx-acc__tag.is-courant  { background: rgba(43,125,233,.1); color: var(--na-blue); border-color: rgba(43,125,233,.2); }
+.nx-acc__tag.is-epargne  { background: rgba(124,77,255,.1); color: var(--na-purple); border-color: rgba(124,77,255,.2); }
+
+.nx-acc__owner {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+}
+.nx-acc__owner-dot {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--na-teal), var(--na-blue));
+  color: #fff;
+  font-size: .62rem;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.nx-acc__owner-name {
+  font-size: .8rem;
+  font-weight: 500;
+}
+
+/* vault progress */
+.nx-acc__progress-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  min-width: 120px;
+}
+.nx-acc__progress-bar {
+  height: 6px;
+  background: var(--na-bg);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.nx-acc__progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--na-teal), var(--na-blue));
+  border-radius: 6px;
+  transition: width .4s ease;
+}
+.nx-acc__progress-label {
+  font-size: .68rem;
+  color: var(--na-muted);
+  font-weight: 600;
+}
+
+.nx-acc__empty {
+  text-align: center;
+  color: var(--na-muted);
+  font-size: .82rem;
+  padding: 2.5rem 1rem;
+}
+.nx-acc__empty i {
+  display: block;
+  font-size: 2rem;
+  opacity: .25;
+  margin-bottom: .6rem;
+}
+
+/* search bar */
+.nx-acc__search {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .8rem 1rem;
+  border-bottom: 1px solid var(--na-border);
+}
+.nx-acc__search-wrap {
+  position: relative;
+  flex: 1;
+}
+.nx-acc__search-wrap i {
+  position: absolute;
+  left: .75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--na-muted);
+  font-size: .8rem;
+  pointer-events: none;
+}
+.nx-acc__search-input {
+  width: 100%;
+  height: 36px;
+  padding: 0 .85rem 0 2.1rem;
+  border: 1px solid var(--na-border);
+  border-radius: 8px;
+  font-size: .81rem;
+  color: var(--na-txt);
+  background: var(--na-bg);
+  outline: none;
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: border-color .2s, box-shadow .2s;
+}
+.nx-acc__search-input:focus {
+  border-color: var(--na-teal);
+  box-shadow: 0 0 0 3px rgba(17,183,170,.1);
+  background: #fff;
+}
+.nx-acc__row-count {
+  font-size: .72rem;
+  color: var(--na-muted);
+  background: var(--na-bg);
+  border: 1px solid var(--na-border);
+  border-radius: 20px;
+  padding: .22rem .65rem;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+/* ══════════════════════════════
+   RESPONSIVE
+══════════════════════════════ */
+@media (max-width: 1100px) {
+  .nx-acc__grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .nx-acc__kpis { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 560px) {
+  .nx-acc             { padding: 1rem; gap: 1rem; }
+  .nx-acc__hero       { flex-direction: column; align-items: flex-start; }
+  .nx-acc__kpis       { grid-template-columns: 1fr; }
+  .nx-acc__tabs       { gap: .25rem; }
+}
+</style>
+
+{# ═══════════════════════════════════════════
+   MARKUP
+═══════════════════════════════════════════ #}
+<section class="nx-acc">
+
+  {# ── HERO ── #}
+  <header class="nx-acc__hero">
+    <div class="nx-acc__hero-left">
+      <span class="nx-acc__hero-icon">
+        <i class="fa-solid fa-building-columns"></i>
+      </span>
+      <div class="nx-acc__hero-text">
+        <h2>Gestion Comptes Bancaires</h2>
+        <p>Gérer et superviser les données bancaires</p>
+      </div>
+    </div>
+    <div class="nx-acc__hero-actions">
+      <a class="na-btn na-btn--ghost"
+         href="{{ path('admin_features', { section: 'statistics' }) }}">
+        <i class="fa-solid fa-download"></i> Exporter
+      </a>
+      <a class="na-btn na-btn--primary" href="#nx-acc-form">
+        <i class="fa-solid fa-plus"></i> Ajouter
+      </a>
+    </div>
+  </header>
+
+  {# ── SUBTABS ── #}
+  <div class="nx-acc__tabs">
+    <a class="nx-acc__tab {{ active_panel == 'compte' ? 'is-active' : '' }}"
+       href="{{ path(route_name, { tab: 'accounts', panel: 'compte' }) }}">
+      <i class="fa-solid fa-credit-card"></i> Compte Bancaire
+    </a>
+    <a class="nx-acc__tab {{ active_panel == 'coffre' ? 'is-active' : '' }}"
+       href="{{ path(route_name, { tab: 'accounts', panel: 'coffre' }) }}">
+      <i class="fa-solid fa-vault"></i> Coffre Virtuel
+    </a>
+    <span class="nx-acc__tabs-spacer"></span>
+    <a class="nx-acc__stats-link"
+       href="{{ path('admin_features', { section: 'statistics' }) }}">
+      <i class="fa-solid fa-chart-pie"></i> Statistiques
+    </a>
+  </div>
+
+  {# ════════════════════════════
+     COFFRE PANEL
+  ════════════════════════════ #}
+  {% if active_panel == 'coffre' %}
+
+    {# KPIs #}
+    <div class="nx-acc__kpis">
+      <div class="nx-acc__kpi">
+        <span class="nx-acc__kpi-icon"><i class="fa-solid fa-vault"></i></span>
+        <div class="nx-acc__kpi-body">
+          <strong>{{ vault_items|length }}</strong>
+          <small>Coffres créés</small>
+        </div>
+      </div>
+      <div class="nx-acc__kpi">
+        <span class="nx-acc__kpi-icon"><i class="fa-solid fa-user-group"></i></span>
+        <div class="nx-acc__kpi-body">
+          <strong>{{ users|length }}</strong>
+          <small>Utilisateurs reliés</small>
+        </div>
+      </div>
+      <div class="nx-acc__kpi">
+        <span class="nx-acc__kpi-icon"><i class="fa-solid fa-building-columns"></i></span>
+        <div class="nx-acc__kpi-body">
+          <strong>{{ all_accounts|length }}</strong>
+          <small>Comptes reliés</small>
+        </div>
+      </div>
+    </div>
+
+    {# Content grid #}
+    <div class="nx-acc__grid">
+
+      {# Form #}
+      <article class="nx-acc__panel" id="nx-acc-form">
+        <div class="nx-acc__panel-head">
+          <div class="nx-acc__panel-head-left">
+            <h3><i class="fa-solid fa-vault" style="color:var(--na-teal);margin-right:.4rem"></i>Coffre Virtuel</h3>
+            <p>Créer ou modifier un coffre</p>
+          </div>
+        </div>
+
+        <form method="post" class="nx-acc__form">
+          <input type="hidden" name="tab"    value="accounts">
+          <input type="hidden" name="panel"  value="coffre">
+          <input type="hidden" name="action" value="vault_save">
+
+          <div class="nx-acc__form-label-id">
+            <i class="fa-solid fa-pen-to-square"></i>
+            Remplir l'ID uniquement pour modifier
+          </div>
+
+          <label>
+            <span>ID pour modifier</span>
+            <input type="number" name="idCoffre" placeholder="Laisser vide pour créer">
+          </label>
+
+          <div class="nx-acc__form-divider"></div>
+
+          <label>
+            <span>Utilisateur</span>
+            <select name="idUser">
+              <option value="">— Sans utilisateur —</option>
+              {% for u in users %}
+                <option value="{{ u.idUser }}">
+                  #{{ u.idUser }} · {{ u.prenom }} {{ u.nom }}
+                </option>
+              {% endfor %}
+            </select>
+          </label>
+
+          <label>
+            <span>Compte lié</span>
+            <select name="idCompte">
+              <option value="">— Sans compte —</option>
+              {% for account in all_accounts %}
+                <option value="{{ account.idCompte }}">
+                  #{{ account.idCompte }} · {{ account.numeroCompte }}
+                </option>
+              {% endfor %}
+            </select>
+          </label>
+
+          <label>
+            <span>Nom du coffre</span>
+            <input type="text" name="nom" required placeholder="Ex: Vacances 2025">
+          </label>
+          <label>
+            <span>Objectif (DT)</span>
+            <input type="number" step="0.01" name="objectifMontant" required placeholder="0.00">
+          </label>
+          <label>
+            <span>Montant actuel (DT)</span>
+            <input type="number" step="0.01" name="montantActuel" placeholder="0.00">
+          </label>
+          <label>
+            <span>Statut</span>
+            <input type="text" name="status" value="Actif">
+          </label>
+
+          <div class="nx-acc__form-actions">
+            <button class="na-btn na-btn--save" type="submit">
+              <i class="fa-solid fa-floppy-disk"></i> Enregistrer
+            </button>
+            <button class="na-btn na-btn--reset" type="reset">
+              <i class="fa-solid fa-rotate-left"></i> Annuler
+            </button>
+          </div>
+        </form>
+      </article>
+
+      {# Table #}
+      <article class="nx-acc__panel">
+        <div class="nx-acc__panel-head">
+          <div class="nx-acc__panel-head-left">
+            <h3>Liste des coffres</h3>
+            <p>Suivi de l'objectif et du montant actuel</p>
+          </div>
+          <span class="nx-acc__row-count">
+            {{ vault_items|length }} coffre{{ vault_items|length != 1 ? 's' : '' }}
+          </span>
+        </div>
+
+        <div class="nx-acc__search">
+          <div class="nx-acc__search-wrap">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input class="nx-acc__search-input"
+                   type="text" placeholder="Rechercher un coffre…"
+                   id="nx-acc-vault-search">
+          </div>
+        </div>
+
+        <div class="nx-acc__table-wrap">
+          <table class="nx-acc__table" id="nx-vault-table">
+            <thead>
+              <tr>
+                <th>#ID</th>
+                <th>Nom</th>
+                <th>Objectif</th>
+                <th>Progression</th>
+                <th>Statut</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in vault_items %}
+                {% set pct = item.objectifMontant > 0
+                    ? ((item.montantActuel / item.objectifMontant) * 100)|round(1)
+                    : 0 %}
+                <tr>
+                  <td><span class="nx-acc__tid">#{{ item.idCoffre }}</span></td>
+                  <td><strong>{{ item.nom }}</strong></td>
+                  <td class="nx-acc__amount">
+                    {{ item.objectifMontant|number_format(2, '.', ' ') }}
+                    <em>DT</em>
+                  </td>
+                  <td>
+                    <div class="nx-acc__progress-wrap">
+                      <div class="nx-acc__progress-bar">
+                        <div class="nx-acc__progress-fill"
+                             style="width:{{ min(pct, 100) }}%"></div>
+                      </div>
+                      <span class="nx-acc__progress-label">
+                        {{ item.montantActuel|number_format(2, '.', ' ') }} DT
+                        ({{ pct }}%)
+                      </span>
+                    </div>
+                  </td>
+                  <td>
+                    {% set st = item.status|default('-')|lower %}
+                    <span class="nx-acc__tag is-{{ st }}">{{ item.status|default('—') }}</span>
+                  </td>
+                  <td>
+                    <form method="post">
+                      <input type="hidden" name="tab"      value="accounts">
+                      <input type="hidden" name="panel"    value="coffre">
+                      <input type="hidden" name="action"   value="vault_delete">
+                      <input type="hidden" name="idCoffre" value="{{ item.idCoffre }}">
+                      <button class="na-btn na-btn--danger" type="submit">
+                        <i class="fa-solid fa-trash-can"></i> Supprimer
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              {% else %}
+                <tr>
+                  <td colspan="6" class="nx-acc__empty">
+                    <i class="fa-solid fa-vault"></i>
+                    Aucun coffre enregistré.
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+    </div>
+
+  {# ════════════════════════════
+     COMPTE PANEL
+  ════════════════════════════ #}
+  {% else %}
+
+    {# KPIs #}
+    <div class="nx-acc__kpis">
+      <div class="nx-acc__kpi">
+        <span class="nx-acc__kpi-icon"><i class="fa-solid fa-users"></i></span>
+        <div class="nx-acc__kpi-body">
+          <strong>{{ users|length }}</strong>
+          <small>Clients actifs</small>
+        </div>
+      </div>
+      <div class="nx-acc__kpi">
+        <span class="nx-acc__kpi-icon"><i class="fa-solid fa-building-columns"></i></span>
+        <div class="nx-acc__kpi-body">
+          <strong>{{ summary.accounts_total|default(account_items|length) }}</strong>
+          <small>Comptes total</small>
+        </div>
+      </div>
+      <div class="nx-acc__kpi">
+        <span class="nx-acc__kpi-icon"><i class="fa-solid fa-layer-group"></i></span>
+        <div class="nx-acc__kpi-body">
+          <strong>{{ account_items|length }}</strong>
+          <small>Lignes affichées</small>
+        </div>
+      </div>
+    </div>
+
+    {# Content grid #}
+    <div class="nx-acc__grid">
+
+      {# Form #}
+      <article class="nx-acc__panel" id="nx-acc-form">
+        <div class="nx-acc__panel-head">
+          <div class="nx-acc__panel-head-left">
+            <h3><i class="fa-solid fa-credit-card" style="color:var(--na-teal);margin-right:.4rem"></i>Compte Bancaire</h3>
+            <p>Ajouter ou modifier un compte</p>
+          </div>
+        </div>
+
+        <form method="post" class="nx-acc__form">
+          <input type="hidden" name="tab"    value="accounts">
+          <input type="hidden" name="panel"  value="compte">
+          <input type="hidden" name="action" value="account_save">
+
+          <div class="nx-acc__form-label-id">
+            <i class="fa-solid fa-pen-to-square"></i>
+            Remplir l'ID uniquement pour modifier
+          </div>
+
+          <label>
+            <span>ID pour modifier</span>
+            <input type="number" name="idCompte" placeholder="Laisser vide pour créer">
+          </label>
+
+          <div class="nx-acc__form-divider"></div>
+
+          <label>
+            <span>Propriétaire</span>
+            <select name="idUser">
+              <option value="">— Sans propriétaire —</option>
+              {% for u in users %}
+                <option value="{{ u.idUser }}">
+                  #{{ u.idUser }} · {{ u.prenom }} {{ u.nom }}
+                </option>
+              {% endfor %}
+            </select>
+          </label>
+
+          <label>
+            <span>Numéro de Compte</span>
+            <input type="text" name="numeroCompte" required placeholder="TN59XXXX…">
+          </label>
+          <label>
+            <span>Solde (DT)</span>
+            <input type="number" step="0.01" name="solde" required placeholder="0.00">
+          </label>
+          <label>
+            <span>Date d'Ouverture</span>
+            <input type="date" name="dateOuverture" value="{{ 'now'|date('Y-m-d') }}">
+          </label>
+          <label>
+            <span>Statut du Compte</span>
+            <input type="text" name="statutCompte" value="Actif">
+          </label>
+          <label>
+            <span>Plafond Retrait (DT)</span>
+            <input type="number" step="0.01" name="plafondRetrait" placeholder="0.00">
+          </label>
+          <label>
+            <span>Plafond Virement (DT)</span>
+            <input type="number" step="0.01" name="plafondVirement" placeholder="0.00">
+          </label>
+          <label>
+            <span>Type de Compte</span>
+            <input type="text" name="typeCompte" value="Courant">
+          </label>
+
+          <div class="nx-acc__form-actions">
+            <button class="na-btn na-btn--save" type="submit">
+              <i class="fa-solid fa-floppy-disk"></i> Enregistrer
+            </button>
+            <button class="na-btn na-btn--reset" type="reset">
+              <i class="fa-solid fa-rotate-left"></i> Annuler
+            </button>
+          </div>
+        </form>
+      </article>
+
+      {# Table #}
+      <article class="nx-acc__panel">
+        <div class="nx-acc__panel-head">
+          <div class="nx-acc__panel-head-left">
+            <h3>Liste des Comptes</h3>
+            <p>Gestion complète des comptes bancaires</p>
+          </div>
+          <span class="nx-acc__row-count">
+            {{ account_items|length }} compte{{ account_items|length != 1 ? 's' : '' }}
+          </span>
+        </div>
+
+        <div class="nx-acc__search">
+          <div class="nx-acc__search-wrap">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input class="nx-acc__search-input"
+                   type="text" placeholder="Rechercher un compte…"
+                   id="nx-acc-account-search">
+          </div>
+        </div>
+
+        <div class="nx-acc__table-wrap">
+          <table class="nx-acc__table" id="nx-account-table">
+            <thead>
+              <tr>
+                <th>#ID</th>
+                <th>N° Compte</th>
+                <th>Solde</th>
+                <th>Ouverture</th>
+                <th>Statut</th>
+                <th>Type</th>
+                <th>Propriétaire</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in account_items %}
+                <tr>
+                  <td><span class="nx-acc__tid">#{{ item.idCompte }}</span></td>
+                  <td><span class="nx-acc__num">{{ item.numeroCompte }}</span></td>
+                  <td class="nx-acc__amount">
+                    {{ item.solde|number_format(2, '.', ' ') }} <em>DT</em>
+                  </td>
+                  <td style="font-size:.78rem;color:var(--na-muted)">
+                    {{ item.dateOuverture|default('—') }}
+                  </td>
+                  <td>
+                    {% set st = item.statutCompte|default('')|lower %}
+                    <span class="nx-acc__tag is-{{ st }}">
+                      {{ item.statutCompte|default('—') }}
+                    </span>
+                  </td>
+                  <td>
+                    {% set tp = item.typeCompte|default('')|lower %}
+                    <span class="nx-acc__tag is-{{ tp }}">
+                      {{ item.typeCompte|default('—') }}
+                    </span>
+                  </td>
+                  <td>
+                    <div class="nx-acc__owner">
+                      <span class="nx-acc__owner-dot">
+                        {{ item.owner_name|default('?')|first|upper }}
+                      </span>
+                      <span class="nx-acc__owner-name">
+                        {{ item.owner_name|default('—') }}
+                      </span>
+                    </div>
+                  </td>
+                  <td>
+                    <form method="post">
+                      <input type="hidden" name="tab"      value="accounts">
+                      <input type="hidden" name="panel"    value="compte">
+                      <input type="hidden" name="action"   value="account_delete">
+                      <input type="hidden" name="idCompte" value="{{ item.idCompte }}">
+                      <button class="na-btn na-btn--danger" type="submit">
+                        <i class="fa-solid fa-trash-can"></i> Supprimer
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              {% else %}
+                <tr>
+                  <td colspan="8" class="nx-acc__empty">
+                    <i class="fa-solid fa-building-columns"></i>
+                    Aucun compte enregistré.
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+    </div>
+  {% endif %}
+
+</section>
+
+{# ── Client-side search ── #}
+<script>
+(() => {
+  const wire = (inputId, tableId) => {
+    const input = document.getElementById(inputId);
+    const table = document.getElementById(tableId);
+    if (!input || !table) return;
+    input.addEventListener('input', () => {
+      const q = input.value.toLowerCase().trim();
+      table.querySelectorAll('tbody tr').forEach(row => {
+        row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+      });
+    });
+  };
+  wire('nx-acc-account-search', 'nx-account-table');
+  wire('nx-acc-vault-search',   'nx-vault-table');
+})();
+</script>

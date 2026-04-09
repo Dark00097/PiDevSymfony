@@ -1,0 +1,133 @@
+<section class="java-admin-security-screen">
+    <header class="java-admin-security-hero">
+        <div class="java-admin-security-hero-left">
+            <span class="java-admin-security-hero-icon"><i class="fa-solid fa-shield-halved"></i></span>
+            <div>
+                <h2>Parametres de securite</h2>
+                <p>Gerez le profil administrateur, la biometrie et les politiques de securite avancees</p>
+            </div>
+        </div>
+        <div class="java-admin-security-hero-right">
+            <span>ADMINISTRATEUR</span>
+            <span>{{ notifications_count }} notifications</span>
+        </div>
+    </header>
+
+    <div class="java-admin-security-grid">
+        <div class="java-admin-security-col">
+            <article class="java-admin-security-card">
+                <header>
+                    <i class="fa-solid fa-user-shield"></i>
+                    <div>
+                        <h3>Mon profil administrateur</h3>
+                        <p>Informations personnelles et coordonnees</p>
+                    </div>
+                </header>
+                <form method="post" class="java-admin-security-form">
+                    <input type="hidden" name="action" value="save_admin_profile">
+
+                    <label><span>Nom</span><input type="text" name="nom" value="{{ current_user.nom }}" required></label>
+                    <label><span>Prenom</span><input type="text" name="prenom" value="{{ current_user.prenom }}" required></label>
+                    <label><span>Email</span><input type="email" name="email" value="{{ current_user.email }}" required></label>
+                    <label><span>Telephone</span><input type="text" name="telephone" value="{{ current_user.telephone }}" required></label>
+                    <label>
+                        <span>Biometrie profil</span>
+                        <select name="biometric_enabled">
+                            <option value="1" {{ current_user.biometric_enabled ? 'selected' : '' }}>Active</option>
+                            <option value="0" {{ not current_user.biometric_enabled ? 'selected' : '' }}>Desactive</option>
+                        </select>
+                    </label>
+
+                    <div class="java-admin-security-actions">
+                        <button class="btn btn-primary" type="submit">Enregistrer le profil</button>
+                    </div>
+                </form>
+            </article>
+
+            <article class="java-admin-security-card">
+                <header>
+                    <i class="fa-solid fa-lock"></i>
+                    <div>
+                        <h3>Changement de mot de passe</h3>
+                        <p>Verification renforcee pour operations sensibles</p>
+                    </div>
+                </header>
+                <form method="post" class="java-admin-security-form">
+                    <input type="hidden" name="action" value="change_admin_password">
+
+                    <label class="java-admin-security-form-wide"><span>Mot de passe actuel</span><input type="password" name="current_password" required></label>
+                    <label><span>Nouveau mot de passe</span><input type="password" name="new_password" required></label>
+                    <label><span>Confirmer le mot de passe</span><input type="password" name="confirm_password" required></label>
+
+                    <div class="java-admin-security-actions">
+                        <button class="btn btn-primary" type="submit">Changer le mot de passe</button>
+                    </div>
+                </form>
+            </article>
+        </div>
+
+        <div class="java-admin-security-col java-admin-security-col-right">
+            <article class="java-admin-security-card">
+                <header>
+                    <i class="fa-solid fa-fingerprint"></i>
+                    <div>
+                        <h3>Authentification biometrique</h3>
+                        <p>Regles globales de securite administrateur</p>
+                    </div>
+                </header>
+                <form method="post" class="java-admin-security-form">
+                    <input type="hidden" name="action" value="save_security_settings">
+
+                    <label class="java-admin-security-toggle">
+                        <span>Connexion administrateur biometrie</span>
+                        <select name="require_biometric_on_admin_login">
+                            <option value="1" {{ settings.require_biometric_on_admin_login ? 'selected' : '' }}>Active</option>
+                            <option value="0" {{ not settings.require_biometric_on_admin_login ? 'selected' : '' }}>Desactive</option>
+                        </select>
+                    </label>
+                    <label class="java-admin-security-toggle">
+                        <span>Actions sensibles biometrie</span>
+                        <select name="require_biometric_on_sensitive_actions">
+                            <option value="1" {{ settings.require_biometric_on_sensitive_actions ? 'selected' : '' }}>Active</option>
+                            <option value="0" {{ not settings.require_biometric_on_sensitive_actions ? 'selected' : '' }}>Desactive</option>
+                        </select>
+                    </label>
+                    <label class="java-admin-security-toggle">
+                        <span>Verification OTP email</span>
+                        <select name="enable_email_otp">
+                            <option value="1" {{ settings.enable_email_otp ? 'selected' : '' }}>Active</option>
+                            <option value="0" {{ not settings.enable_email_otp ? 'selected' : '' }}>Desactive</option>
+                        </select>
+                    </label>
+
+                    <p class="java-admin-security-note">Configuration stockee dans: <code>{{ settings_file }}</code></p>
+
+                    <div class="java-admin-security-actions">
+                        <button class="btn btn-primary" type="submit">Enregistrer les parametres</button>
+                    </div>
+                </form>
+            </article>
+
+            <article class="java-admin-security-card">
+                <header>
+                    <i class="fa-solid fa-bell"></i>
+                    <div>
+                        <h3>Notifications recentes</h3>
+                        <p>Activites de securite et alertes systeme</p>
+                    </div>
+                </header>
+                <div class="java-admin-security-list">
+                    {% for item in notifications %}
+                        <article>
+                            <strong>{{ item.title }}</strong>
+                            <p>{{ item.message }}</p>
+                            <small>{{ item.created_at }}</small>
+                        </article>
+                    {% else %}
+                        <p class="java-admin-security-empty">Aucune notification.</p>
+                    {% endfor %}
+                </div>
+            </article>
+        </div>
+    </div>
+</section>

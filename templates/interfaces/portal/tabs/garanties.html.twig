@@ -1,0 +1,275 @@
+{% set current_date = 'now'|date('Y-m-d') %}
+
+<section class="panel-card">
+    <h2>Garanties</h2>
+    <p style="margin:6px 0 16px; color:#6b7280; font-size:13px;">
+        Meme logique metier que la version Java: creation, modification, suppression et validation des valeurs.
+    </p>
+
+    <form method="post" class="editor-form" id="portal-garantie-form">
+        <input type="hidden" name="tab" value="garanties">
+        <input type="hidden" name="action" value="garantie_save">
+
+        <label>
+            <span>ID pour modifier</span>
+            <input type="number" name="idGarantie" id="portal-garantie-id" placeholder="Laisser vide pour creer">
+        </label>
+        <label>
+            <span>Credit lie</span>
+            <select name="idCredit" id="portal-garantie-credit" required>
+                <option value="">Selectionner</option>
+                {% for credit in support.credits|default([]) %}
+                    <option value="{{ credit.idCredit }}">#{{ credit.idCredit }} - {{ credit.typeCredit|default('Credit') }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>
+            <span>Type</span>
+            <select name="typeGarantie" id="portal-garantie-type" required>
+                {% for type in ['Hypotheque immobiliere', 'Titre vehicule', 'Caution personnelle', 'Garantie bancaire', 'Police assurance', 'Nantissement', 'Autre garantie'] %}
+                    <option value="{{ type }}">{{ type }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>
+            <span>Description</span>
+            <input type="text" name="description" id="portal-garantie-description" placeholder="Description courte">
+        </label>
+        <label>
+            <span>Adresse</span>
+            <input type="text" name="adresseBien" id="portal-garantie-address" placeholder="Adresse du bien">
+        </label>
+        <label>
+            <span>Valeur estimee</span>
+            <input type="number" step="0.01" min="0.01" name="valeurEstimee" id="portal-garantie-estimated" required placeholder="0.00">
+        </label>
+        <label>
+            <span>Valeur retenue</span>
+            <input type="number" step="0.01" min="0.01" name="valeurRetenue" id="portal-garantie-retained" placeholder="Auto (80% estimee)">
+        </label>
+        <label>
+            <span>Date evaluation</span>
+            <input type="date" name="dateEvaluation" id="portal-garantie-date" value="{{ current_date }}">
+        </label>
+        <label>
+            <span>Document justificatif</span>
+            <input type="text" name="documentJustificatif" id="portal-garantie-document" placeholder="Reference document">
+        </label>
+        <label>
+            <span>Nom garant</span>
+            <input type="text" name="nomGarant" id="portal-garantie-guarantor" placeholder="Nom du garant">
+        </label>
+        <div style="display:flex; gap:8px; margin-top:8px;">
+            <button class="btn btn-primary" type="submit">Enregistrer</button>
+            <button class="btn btn-secondary" type="reset">Vider</button>
+        </div>
+    </form>
+
+    <div class="table-wrap" style="margin-top:16px;">
+        <table class="data-table">
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>Credit</th>
+                <th>Type</th>
+                <th>Estimee</th>
+                <th>Retenue</th>
+                <th>Statut</th>
+                <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for item in items %}
+                <tr
+                    data-garantie-row
+                    data-garantie-id="{{ item.idGarantie }}"
+                    data-garantie-credit-id="{{ item.idCredit }}"
+                    data-garantie-type="{{ item.typeGarantie|default('')|e('html_attr') }}"
+                    data-garantie-description="{{ item.description|default('')|e('html_attr') }}"
+                    data-garantie-address="{{ item.adresseBien|default('')|e('html_attr') }}"
+                    data-garantie-estimated="{{ item.valeurEstimee|default('') }}"
+                    data-garantie-retained="{{ item.valeurRetenue|default('') }}"
+                    data-garantie-document="{{ item.documentJustificatif|default('')|e('html_attr') }}"
+                    data-garantie-date="{{ item.dateEvaluation|default(current_date)|slice(0, 10) }}"
+                    data-garantie-guarantor="{{ item.nomGarant|default('')|e('html_attr') }}"
+                    data-garantie-status="{{ item.statut|default('')|e('html_attr') }}"
+                >
+                    <td>{{ item.idGarantie }}</td>
+                    <td>#{{ item.idCredit }}</td>
+                    <td>{{ item.typeGarantie }}</td>
+                    <td>{{ item.valeurEstimee|default(0)|number_format(2, '.', ' ') }}</td>
+                    <td>{{ item.valeurRetenue|default(0)|number_format(2, '.', ' ') }}</td>
+                    <td>{{ item.statut }}</td>
+                    <td style="display:flex; gap:8px;">
+                        <button class="btn btn-secondary js-garantie-edit" type="button">Modifier</button>
+                        <form method="post">
+                            <input type="hidden" name="tab" value="garanties">
+                            <input type="hidden" name="action" value="garantie_delete">
+                            <input type="hidden" name="idGarantie" value="{{ item.idGarantie }}">
+                            <button class="btn btn-danger" type="submit" onclick="return confirm('Supprimer cette garantie ?')">Supprimer</button>
+                        </form>
+                    </td>
+                </tr>
+            {% else %}
+                <tr>
+                    <td colspan="7">Aucune garantie enregistree.</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<script>
+(() => {
+    const form = document.getElementById('portal-garantie-form');
+    if (!(form instanceof HTMLFormElement)) {
+        return;
+    }
+
+    const estimatedField = document.getElementById('portal-garantie-estimated');
+    const retainedField = document.getElementById('portal-garantie-retained');
+    const dateField = document.getElementById('portal-garantie-date');
+    const idField = document.getElementById('portal-garantie-id');
+
+    const parseNum = (value) => {
+        const number = Number(value);
+        return Number.isFinite(number) ? number : 0;
+    };
+
+    const normalizeIsoDate = (rawValue) => {
+        const raw = String(rawValue ?? '').trim();
+        if (raw === '') {
+            return '';
+        }
+        if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+            return raw;
+        }
+        const parsed = new Date(raw);
+        if (Number.isNaN(parsed.getTime())) {
+            return '';
+        }
+        const y = parsed.getFullYear();
+        const m = String(parsed.getMonth() + 1).padStart(2, '0');
+        const d = String(parsed.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    };
+
+    const syncRetainedValue = () => {
+        if (!(estimatedField instanceof HTMLInputElement) || !(retainedField instanceof HTMLInputElement)) {
+            return;
+        }
+        if (retainedField.dataset.manual === '1') {
+            return;
+        }
+        const estimated = parseNum(estimatedField.value);
+        retainedField.value = estimated > 0 ? (estimated * 0.8).toFixed(2) : '';
+    };
+
+    const validateValues = () => {
+        if (!(estimatedField instanceof HTMLInputElement) || !(retainedField instanceof HTMLInputElement)) {
+            return true;
+        }
+
+        estimatedField.setCustomValidity('');
+        retainedField.setCustomValidity('');
+
+        const estimated = parseNum(estimatedField.value);
+        const retainedRaw = retainedField.value.trim();
+        const retained = parseNum(retainedRaw);
+        let valid = true;
+
+        if (estimated <= 0) {
+            estimatedField.setCustomValidity('Valeur estimee invalide.');
+            valid = false;
+        }
+        if (retainedRaw !== '' && retained <= 0) {
+            retainedField.setCustomValidity('Valeur retenue invalide.');
+            valid = false;
+        }
+        if (retainedRaw !== '' && estimated > 0 && retained > estimated) {
+            retainedField.setCustomValidity('La valeur retenue ne peut pas depasser la valeur estimee.');
+            valid = false;
+        }
+
+        return valid;
+    };
+
+    estimatedField?.addEventListener('input', () => {
+        syncRetainedValue();
+        validateValues();
+    });
+
+    retainedField?.addEventListener('input', () => {
+        if (!(retainedField instanceof HTMLInputElement)) {
+            return;
+        }
+        retainedField.dataset.manual = retainedField.value.trim() === '' ? '0' : '1';
+        validateValues();
+    });
+
+    form.addEventListener('submit', (event) => {
+        if (!validateValues()) {
+            event.preventDefault();
+            form.reportValidity();
+            return;
+        }
+
+        if (retainedField instanceof HTMLInputElement && retainedField.value.trim() === '') {
+            retainedField.dataset.manual = '0';
+            syncRetainedValue();
+        }
+    });
+
+    form.addEventListener('reset', () => {
+        window.requestAnimationFrame(() => {
+            if (idField instanceof HTMLInputElement) {
+                idField.value = '';
+            }
+            if (retainedField instanceof HTMLInputElement) {
+                retainedField.dataset.manual = '0';
+            }
+            if (dateField instanceof HTMLInputElement && dateField.value === '') {
+                dateField.value = '{{ current_date }}';
+            }
+            syncRetainedValue();
+            validateValues();
+        });
+    });
+
+    const setFieldValue = (name, value) => {
+        const field = form.querySelector(`[name="${name}"]`);
+        if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement) {
+            field.value = value ?? '';
+        }
+    };
+
+    document.querySelectorAll('.js-garantie-edit').forEach((button) => {
+        button.addEventListener('click', () => {
+            const row = button.closest('[data-garantie-row]');
+            if (!(row instanceof HTMLElement)) {
+                return;
+            }
+
+            setFieldValue('idGarantie', row.dataset.garantieId ?? '');
+            setFieldValue('idCredit', row.dataset.garantieCreditId ?? '');
+            setFieldValue('typeGarantie', row.dataset.garantieType ?? '');
+            setFieldValue('description', row.dataset.garantieDescription ?? '');
+            setFieldValue('adresseBien', row.dataset.garantieAddress ?? '');
+            setFieldValue('valeurEstimee', row.dataset.garantieEstimated ?? '');
+            setFieldValue('valeurRetenue', row.dataset.garantieRetained ?? '');
+            setFieldValue('documentJustificatif', row.dataset.garantieDocument ?? '');
+            setFieldValue('dateEvaluation', normalizeIsoDate(row.dataset.garantieDate ?? ''));
+            setFieldValue('nomGarant', row.dataset.garantieGuarantor ?? '');
+
+            if (retainedField instanceof HTMLInputElement) {
+                retainedField.dataset.manual = (row.dataset.garantieRetained ?? '').trim() !== '' ? '1' : '0';
+            }
+
+            syncRetainedValue();
+            validateValues();
+            form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+})();
+</script>

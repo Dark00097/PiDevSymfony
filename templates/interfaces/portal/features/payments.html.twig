@@ -1,0 +1,51 @@
+<section class="summary-grid">
+    <article class="summary-card"><strong>{{ payments.total_paid|number_format(2, '.', ' ') }}</strong><span>Total paid</span></article>
+    <article class="summary-card"><strong>{{ payments.weather.risk_score }}</strong><span>Weather risk</span></article>
+    <article class="summary-card"><strong>{{ payments.currency.converted_amount|number_format(2, '.', ' ') }}</strong><span>{{ payments.currency.currency }} equivalent</span></article>
+    <article class="summary-card"><strong>{{ payments.otp_verified ? 'YES' : 'NO' }}</strong><span>OTP verified</span></article>
+</section>
+
+<section class="panel-grid">
+    <article class="panel-card">
+        <h2>Payment Verification</h2>
+        <form method="post" class="editor-form"><input type="hidden" name="action" value="send_payment_otp"><label><span>Telephone</span><input type="text" name="telephone" value="{{ current_user.telephone }}" required></label><button class="btn btn-secondary" type="submit">Send OTP</button></form>
+        <form method="post" class="editor-form"><input type="hidden" name="action" value="verify_payment_otp"><label><span>Telephone</span><input type="text" name="telephone" value="{{ current_user.telephone }}" required></label><label><span>OTP</span><input type="text" name="otp" required></label><button class="btn btn-primary" type="submit">Verify OTP</button></form>
+    </article>
+    <article class="panel-card">
+        <h2>Stripe Customer and Subscription</h2>
+        <form method="post"><input type="hidden" name="action" value="create_customer"><button class="btn btn-secondary" type="submit">Init customer</button></form>
+        <div class="notification-item"><strong>Customer</strong><p>{{ view_state.stripe_customer.id|default(payments.stripe_state.customer.id|default('Not initialized')) }}</p></div>
+        <form method="post" class="editor-form">
+            <input type="hidden" name="action" value="create_subscription">
+            <label><span>Credit</span><select name="idCredit">{% for credit in payments.credits %}<option value="{{ credit.idCredit }}">#{{ credit.idCredit }} - {{ credit.typeCredit }}</option>{% endfor %}</select></label>
+            <label><span>Monthly amount</span><input type="number" step="0.01" name="monthly_amount" required></label>
+            <button class="btn btn-primary" type="submit">Create subscription</button>
+        </form>
+        <div class="table-wrap"><table class="data-table"><thead><tr><th>ID</th><th>Credit</th><th>Status</th><th>Cancel</th></tr></thead><tbody>{% for sub in payments.stripe_state.subscriptions %}<tr><td>{{ sub.id }}</td><td>#{{ sub.credit_id }}</td><td>{{ sub.status }}</td><td>{% if sub.status != 'cancelled' %}<form method="post"><input type="hidden" name="action" value="cancel_subscription"><input type="hidden" name="subscription_id" value="{{ sub.id }}"><button class="btn btn-danger" type="submit">Cancel</button></form>{% else %}Cancelled{% endif %}</td></tr>{% else %}<tr><td colspan="4">No subscriptions.</td></tr>{% endfor %}</tbody></table></div>
+    </article>
+</section>
+
+<section class="panel-grid">
+    <article class="panel-card">
+        <h2>Pay Credit Installment</h2>
+        <form method="post" class="editor-form">
+            <input type="hidden" name="action" value="pay_credit">
+            <label><span>Credit</span><select name="idCredit">{% for credit in payments.credits %}<option value="{{ credit.idCredit }}">#{{ credit.idCredit }} - {{ credit.typeCredit }}</option>{% endfor %}</select></label>
+            <label><span>Account</span><select name="idCompte">{% for account in payments.accounts %}<option value="{{ account.idCompte }}">{{ account.numeroCompte }} | {{ account.solde }} DT</option>{% endfor %}</select></label>
+            <label><span>Amount</span><input type="number" step="0.01" name="amount" required></label>
+            <label><span>Mode</span><select name="payment_mode"><option value="simulation">Simulation</option><option value="stripe">Stripe</option></select></label>
+            <label><span>Stripe payment method</span><input type="text" name="payment_method" placeholder="pm_card_visa"></label>
+            <button class="btn btn-primary" type="submit">Pay installment</button>
+        </form>
+        {% if view_state.payment_result %}<div class="notification-item"><strong>Payment result</strong><p>{{ view_state.payment_result.provider }} | {{ view_state.payment_result.reference }} | {{ view_state.payment_result.status }}</p></div>{% endif %}
+    </article>
+    <article class="panel-card">
+        <h2>Weather and Currency</h2>
+        <div class="feature-list"><div><strong>Weather city</strong><p>{{ payments.weather.city }}</p><small>{{ payments.weather.message }}</small></div><div><strong>Detected country</strong><p>{{ payments.currency.country }}</p></div><div><strong>Rate</strong><p>1 TND = {{ payments.currency.rate }} {{ payments.currency.currency }}</p></div><div><strong>Converted amount</strong><p>{{ payments.currency.converted_amount|number_format(2, '.', ' ') }} {{ payments.currency.currency }}</p></div></div>
+    </article>
+</section>
+
+<section class="panel-card">
+    <h2>Payment History</h2>
+    <div class="table-wrap"><table class="data-table"><thead><tr><th>ID</th><th>Date</th><th>Amount</th><th>Description</th><th>Status</th></tr></thead><tbody>{% for item in payments.history %}<tr><td>{{ item.idTransaction }}</td><td>{{ item.dateTransaction }}</td><td>{{ item.amount|number_format(2, '.', ' ') }} DT</td><td>{{ item.description }}</td><td>{{ item.status }}</td></tr>{% else %}<tr><td colspan="5">No payment history yet.</td></tr>{% endfor %}</tbody></table></div>
+</section>
