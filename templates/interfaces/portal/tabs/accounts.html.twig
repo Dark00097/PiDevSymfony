@@ -1,0 +1,2491 @@
+{% set total_balance = 0 %}
+{% for account in items %}
+    {% set total_balance = total_balance + (account.solde|default(0)) %}
+{% endfor %}
+{% set vaults = support.vaults|default([]) %}
+{% set activity_logs = support.activity|default([]) %}
+{% set wheel = support.wheel|default({
+    can_spin: false,
+    total_points: 0,
+    bonus_ready: false,
+    last_points: 0,
+    last_spin_date: '',
+    eligibility: {
+        condition_solde: false,
+        condition_budget: false,
+        condition_epargne: false,
+        message: 'Verification en cours.',
+        suggestion: 'Aucune donnee disponible.'
+    }
+}) %}
+{% set wheel_progress = wheel.total_points > 100 ? 100 : wheel.total_points %}
+{% set health_label = items|length > 0 ? 'Excellent' : 'A surveiller' %}
+
+<style>
+/* ═══════════════════════════════════════════════
+   ACC SHELL — ROOT LAYOUT (mirrors tnx-shell)
+═══════════════════════════════════════════════ */
+.acc-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* ═══════════════════════════════════════════════
+   BANNER
+═══════════════════════════════════════════════ */
+.acc-banner {
+    background: linear-gradient(92deg, #0a2540 0%, #1565c0 52%, #00bcd4 100%);
+    border-radius: 20px;
+    padding: 20px 26px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 24px;
+    color: #fff;
+    box-shadow: 0 18px 40px rgba(10,37,64,.22);
+}
+
+.acc-banner-brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.acc-banner-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 15px;
+    background: rgba(255,255,255,.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+}
+
+.acc-banner-text h1 {
+    margin: 0;
+    font-size: clamp(18px,1.8vw,26px);
+    line-height: 1.1;
+    color: #fff;
+}
+
+.acc-banner-text p {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: rgba(255,255,255,.72);
+}
+
+.acc-banner-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.acc-banner-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 24px;
+}
+
+.acc-banner-stat-num {
+    font-size: clamp(22px,2vw,32px);
+    font-weight: 800;
+    line-height: 1;
+}
+
+.acc-banner-stat-lbl {
+    font-size: 11px;
+    color: rgba(255,255,255,.65);
+    margin-top: 4px;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: .04em;
+}
+
+.acc-banner-divider {
+    width: 1px;
+    height: 36px;
+    background: rgba(255,255,255,.25);
+}
+
+.acc-banner-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.acc-nav-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 14px;
+    height: 36px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.28);
+    background: rgba(255,255,255,.12);
+    color: #fff;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .18s;
+    font-family: inherit;
+}
+
+.acc-nav-pill:hover { background: rgba(255,255,255,.22); }
+
+.acc-nav-pill--wheel {
+    background: linear-gradient(120deg,#7c3aed,#4f46e5);
+    border-color: transparent;
+    box-shadow: 0 6px 16px rgba(79,70,229,.35);
+}
+
+.acc-nav-pill--wheel:hover { background: linear-gradient(120deg,#6d28d9,#4338ca); }
+
+.acc-nav-pill--cta {
+    background: #fff;
+    color: #0a2540;
+    border-color: #fff;
+}
+
+.acc-nav-pill--cta:hover { background: #e0f7fa; }
+
+/* ═══════════════════════════════════════════════
+   KPI STRIP
+═══════════════════════════════════════════════ */
+.acc-kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(4,1fr);
+    gap: 14px;
+}
+
+.acc-kpi-tile {
+    background: #fff;
+    border-radius: 16px;
+    border: 1px solid #dce8f3;
+    padding: 16px 18px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 6px 20px rgba(23,54,84,.07);
+    position: relative;
+    overflow: hidden;
+    transition: box-shadow .2s, transform .2s;
+}
+
+.acc-kpi-tile:hover { box-shadow: 0 10px 28px rgba(10,37,64,.12); transform: translateY(-2px); }
+
+.acc-kpi-tile::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: 16px 16px 0 0;
+}
+
+.acc-kpi-tile--bal::before  { background: linear-gradient(90deg,#00bcd4,#00838f); }
+.acc-kpi-tile--acc::before  { background: linear-gradient(90deg,#1565c0,#1e88e5); }
+.acc-kpi-tile--vlt::before  { background: linear-gradient(90deg,#7c3aed,#a78bfa); }
+.acc-kpi-tile--hlth::before { background: linear-gradient(90deg,#f59e0b,#fbbf24); }
+
+.acc-kpi-tile-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.acc-kpi-badge-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+}
+
+.acc-kpi-tile--bal  .acc-kpi-badge-icon { background: #e0f7fa; color: #00838f; }
+.acc-kpi-tile--acc  .acc-kpi-badge-icon { background: #dbeafe; color: #1565c0; }
+.acc-kpi-tile--vlt  .acc-kpi-badge-icon { background: #ede9fe; color: #7c3aed; }
+.acc-kpi-tile--hlth .acc-kpi-badge-icon { background: #fef3c7; color: #d97706; }
+
+.acc-kpi-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: #5d7d97;
+}
+
+.acc-kpi-sub {
+    display: block;
+    font-size: 11px;
+    color: #94aec2;
+    margin-top: 2px;
+}
+
+.acc-kpi-tile-right {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+}
+
+.acc-kpi-num {
+    font-size: clamp(20px,1.8vw,28px);
+    font-weight: 900;
+    line-height: 1;
+    color: #0a2540;
+}
+
+.acc-kpi-currency {
+    font-size: 13px;
+    font-weight: 700;
+    color: #94aec2;
+}
+
+.acc-kpi-bar {
+    height: 5px;
+    background: #eef3f9;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.acc-kpi-bar span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    transition: width .6s ease;
+}
+
+.acc-kpi-tile--bal  .acc-kpi-bar span { background: linear-gradient(90deg,#00bcd4,#00838f); }
+.acc-kpi-tile--acc  .acc-kpi-bar span { background: linear-gradient(90deg,#1565c0,#1e88e5); }
+.acc-kpi-tile--vlt  .acc-kpi-bar span { background: linear-gradient(90deg,#7c3aed,#a78bfa); }
+.acc-kpi-tile--hlth .acc-kpi-bar span { background: linear-gradient(90deg,#f59e0b,#fbbf24); }
+
+/* ═══════════════════════════════════════════════
+   BODY: TABS + CONTENT
+═══════════════════════════════════════════════ */
+.acc-body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Tab bar */
+.acc-tabbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #fff;
+    border-radius: 14px;
+    padding: 8px 10px;
+    border: 1px solid #dce8f3;
+    box-shadow: 0 4px 14px rgba(10,37,64,.05);
+    flex-wrap: wrap;
+}
+
+.acc-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 16px;
+    border-radius: 10px;
+    border: none;
+    background: transparent;
+    color: #5d7d97;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .18s;
+}
+
+.acc-tab-btn i { font-size: 13px; }
+
+.acc-tab-btn em {
+    font-style: normal;
+    font-size: 10px;
+    font-weight: 800;
+    background: #eef3f9;
+    color: #7294ae;
+    border-radius: 999px;
+    padding: 1px 7px;
+}
+
+.acc-tab-btn:hover { background: #f5f9ff; color: #1565c0; }
+
+.acc-tab-btn.active {
+    background: linear-gradient(120deg,#0a2540,#1565c0);
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(21,101,192,.25);
+}
+
+.acc-tab-btn.active em { background: rgba(255,255,255,.2); color: #fff; }
+
+.acc-tabbar-sep { flex: 1; }
+
+.acc-tabbar-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 14px;
+    border-radius: 10px;
+    border: none;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .18s;
+    text-decoration: none;
+}
+
+.acc-tabbar-action--wheel {
+    background: linear-gradient(120deg,#7c3aed,#4f46e5);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(79,70,229,.3);
+}
+
+.acc-tabbar-action--wheel:hover { opacity: .9; }
+
+/* Tab panels */
+.acc-tab-panel { display: none; flex-direction: column; gap: 16px; }
+.acc-tab-panel.active { display: flex; }
+
+/* ═══════════════════════════════════════════════
+   SHARED PANEL CARD
+═══════════════════════════════════════════════ */
+.acc-panel {
+    background: #fff;
+    border-radius: 18px;
+    border: 1px solid #dce8f3;
+    box-shadow: 0 6px 20px rgba(10,37,64,.06);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.acc-panel-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 18px;
+    border-bottom: 1px solid #f0f5fb;
+    background: linear-gradient(135deg,#f7faff,#f0f5fb);
+}
+
+.acc-panel-head-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.acc-panel-head-text strong {
+    display: block;
+    font-size: 14px;
+    font-weight: 800;
+    color: #0a2540;
+}
+
+.acc-panel-head-text p {
+    font-size: 11px;
+    color: #7294ae;
+    margin-top: 2px;
+}
+
+.acc-panel-head-action {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 8px;
+    border: 1px solid #c3d9f5;
+    background: #eaf2fd;
+    color: #1565c0;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .15s;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.acc-panel-head-action:hover { background: #1565c0; color: #fff; border-color: transparent; }
+
+.acc-panel-count {
+    margin-left: auto;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: linear-gradient(120deg,#1565c0,#00bcd4);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 800;
+}
+
+/* ═══════════════════════════════════════════════
+   OVERVIEW GRID
+═══════════════════════════════════════════════ */
+.acc-overview-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.acc-panel-wide { grid-column: 1 / -1; }
+
+/* Account rows */
+.acc-account-rows { display: flex; flex-direction: column; }
+
+.acc-account-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 18px;
+    border-bottom: 1px solid #f5f8fc;
+    transition: background .15s;
+    cursor: default;
+}
+
+.acc-account-row:last-child { border-bottom: none; }
+.acc-account-row:hover { background: #f7faff; }
+.acc-account-row.selectable { cursor: pointer; }
+.acc-account-row.selectable:hover { background: #eaf2fd; }
+
+.acc-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    background: linear-gradient(135deg,#1565c0,#00bcd4);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.acc-avatar.sm { width: 30px; height: 30px; border-radius: 9px; font-size: 10px; }
+
+.acc-account-row-info { flex: 1; min-width: 0; }
+.acc-account-row-info strong { display: block; font-size: 13px; font-weight: 700; color: #0a2540; }
+.acc-account-row-info small  { display: block; font-size: 11px; color: #7294ae; margin-top: 1px; }
+
+.acc-balance { font-size: 14px; font-weight: 800; color: #0a2540; white-space: nowrap; }
+
+/* Points panel */
+.acc-points-body {
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.acc-big-score { display: flex; align-items: flex-end; gap: 6px; }
+
+.acc-big-score span {
+    font-size: 42px;
+    font-weight: 900;
+    color: #0a2540;
+    line-height: 1;
+    letter-spacing: -1px;
+}
+
+.acc-big-score small {
+    font-size: 13px;
+    font-weight: 600;
+    color: #7294ae;
+    margin-bottom: 6px;
+}
+
+.acc-progress-track {
+    height: 8px;
+    background: #e8f0f8;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.acc-progress-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg,#1565c0,#00bcd4);
+    transition: width .6s ease;
+}
+
+.acc-cond-mini {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.acc-cond-mini i { font-size: 12px; flex-shrink: 0; }
+.acc-cond-mini span { flex: 1; }
+.acc-cond-mini b { font-size: 12px; font-weight: 800; }
+
+.acc-cond-mini.ok { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+.acc-cond-mini.ko { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+
+.acc-spin-cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 42px;
+    border-radius: 12px;
+    background: linear-gradient(120deg,#1565c0,#00bcd4);
+    color: #fff;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(21,101,192,.25);
+    transition: all .18s;
+}
+
+.acc-spin-cta:hover { opacity: .9; }
+.acc-spin-cta.disabled { background: #e2eaf4; color: #7294ae; box-shadow: none; cursor: not-allowed; }
+
+/* Vault strip */
+.acc-vault-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fill,minmax(190px,1fr));
+    gap: 12px;
+    padding: 16px;
+}
+
+.acc-vault-chip {
+    background: linear-gradient(135deg,#f0f9ff,#e0f7fa);
+    border: 1px solid #b2ebf2;
+    border-radius: 14px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: box-shadow .2s, transform .2s;
+}
+
+.acc-vault-chip:hover { box-shadow: 0 6px 18px rgba(0,188,212,.15); transform: translateY(-2px); }
+
+.acc-vault-chip-head { display: flex; align-items: center; gap: 8px; }
+.acc-vault-chip-head i { color: #00838f; font-size: 14px; }
+.acc-vault-chip-head strong { font-size: 13px; font-weight: 800; color: #0a2540; }
+
+.acc-vault-chip-prog {
+    height: 5px;
+    background: rgba(0,188,212,.15);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.acc-vault-chip-prog span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg,#00838f,#00bcd4);
+    transition: width .6s ease;
+}
+
+.acc-vault-chip p { font-size: 11px; font-weight: 700; color: #00838f; }
+.acc-vault-chip small { font-size: 11px; color: #7294ae; }
+
+/* ═══════════════════════════════════════════════
+   ACCOUNTS TAB — TOOLBAR + TABLE
+═══════════════════════════════════════════════ */
+.acc-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: #fff;
+    border-radius: 14px;
+    padding: 12px 16px;
+    border: 1px solid #dce8f3;
+    flex-wrap: wrap;
+}
+
+.acc-search-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f7faff;
+    border: 1.5px solid #cddff0;
+    border-radius: 10px;
+    padding: 0 12px;
+    min-height: 38px;
+    transition: border-color .18s;
+}
+
+.acc-search-box:focus-within { border-color: #1e88e5; box-shadow: 0 0 0 3px rgba(30,136,229,.1); }
+.acc-search-box i { color: #8aafc8; font-size: 12px; }
+
+.acc-search-box input {
+    border: none; outline: none; background: transparent;
+    font: inherit; font-size: 13px; color: #0a2540; width: 200px;
+}
+
+.acc-search-box input::placeholder { color: #aabece; }
+
+.acc-filter-chips {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.acc-chip {
+    padding: 5px 13px;
+    border-radius: 999px;
+    background: #f0f4f8;
+    border: 1px solid #dce8f3;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    color: #7294ae;
+    cursor: pointer;
+    transition: all .15s;
+}
+
+.acc-chip:hover { background: #eaf2fd; color: #1565c0; }
+
+.acc-chip.active {
+    background: linear-gradient(120deg,#1565c0,#1e88e5);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 3px 10px rgba(21,101,192,.2);
+}
+
+.acc-table-wrap {
+    background: #fff;
+    border-radius: 18px;
+    border: 1px solid #dce8f3;
+    box-shadow: 0 4px 16px rgba(10,37,64,.06);
+    overflow: auto;
+}
+
+.acc-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 860px;
+}
+
+.acc-table thead tr { background: linear-gradient(135deg,#f2f8fd,#e8f4fb); }
+
+.acc-table th {
+    padding: 13px 16px;
+    text-align: left;
+    border-bottom: 2px solid #daeaf6;
+    font-size: 11px;
+    font-weight: 800;
+    color: #5b80a0;
+    text-transform: uppercase;
+    letter-spacing: .7px;
+    white-space: nowrap;
+}
+
+.acc-tr { border-bottom: 1px solid #edf4fb; transition: background .15s; }
+.acc-tr:hover { background: #f5fbff; }
+.acc-tr:last-child { border-bottom: none; }
+
+.acc-table td {
+    padding: 13px 16px;
+    vertical-align: middle;
+    font-size: 13px;
+    color: #1b3a57;
+}
+
+.acc-td-account { display: flex; align-items: center; gap: 9px; }
+.acc-td-account span { font-size: 13px; font-weight: 600; color: #0a2540; }
+
+.acc-type-badge {
+    display: inline-block;
+    background: rgba(21,101,192,.1);
+    color: #1565c0;
+    border-radius: 7px;
+    padding: 3px 9px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.acc-balance-cell { font-size: 14px; font-weight: 800; color: #0a2540; }
+
+.acc-status-dot {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.acc-status-dot::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+}
+
+.acc-status-dot.actif  { background: #dcfce7; color: #16a34a; }
+.acc-status-dot.bloque { background: #fef3c7; color: #d97706; }
+.acc-status-dot.ferme  { background: #fee2e2; color: #dc2626; }
+
+/* Row actions */
+.acc-action-group { display: flex; align-items: center; gap: 5px; }
+
+.acc-act-btn {
+    width: 32px; height: 32px;
+    border-radius: 9px;
+    border: none;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all .15s;
+    text-decoration: none;
+}
+
+.acc-act-btn:hover { transform: scale(1.1); }
+.acc-act-btn.view  { background: #eaf2fd; color: #1565c0; }
+.acc-act-btn.view:hover  { background: #1565c0; color: #fff; }
+.acc-act-btn.edit  { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+.acc-act-btn.edit:hover  { background: #16a34a; color: #fff; border-color: transparent; }
+.acc-act-btn.del   { background: #fff0f0; color: #dc2626; border: 1px solid #fecaca; }
+.acc-act-btn.del:hover   { background: #dc2626; color: #fff; border-color: transparent; }
+
+/* ═══════════════════════════════════════════════
+   VAULTS + EDIT — TWO COL
+═══════════════════════════════════════════════ */
+.acc-two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: start;
+}
+
+/* Form */
+.acc-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px;
+}
+
+.acc-form-section-label {
+    font-size: 11px;
+    font-weight: 800;
+    color: #1565c0;
+    text-transform: uppercase;
+    letter-spacing: .7px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.acc-form-section-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg,#c3d9f5,transparent);
+}
+
+.acc-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.acc-field { display: flex; flex-direction: column; gap: 5px; }
+.acc-field-full { grid-column: 1 / -1; }
+
+.acc-field label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #4e7490;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.acc-field label i { color: #1565c0; font-size: 10px; }
+
+.acc-input {
+    width: 100%;
+    min-height: 40px;
+    border-radius: 11px;
+    border: 1.5px solid #ccddef;
+    background: #f7faff;
+    padding: 0 12px;
+    font: inherit;
+    font-size: 13px;
+    color: #0a2540;
+    outline: none;
+    appearance: none;
+    transition: border-color .18s, box-shadow .18s;
+}
+
+.acc-input:focus {
+    border-color: #1e88e5;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(30,136,229,.12);
+}
+
+.acc-input::placeholder { color: #aabece; font-size: 12px; }
+
+.acc-select-wrap { position: relative; }
+.acc-select-wrap .acc-input { padding-right: 30px; cursor: pointer; }
+
+.acc-select-wrap::after {
+    content: '\f078';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    position: absolute;
+    right: 11px; top: 50%;
+    transform: translateY(-50%);
+    color: #8aafc8;
+    font-size: 10px;
+    pointer-events: none;
+}
+
+.acc-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #4e7490;
+    cursor: pointer;
+    padding: 10px 14px;
+    background: #f7faff;
+    border: 1.5px solid #ccddef;
+    border-radius: 11px;
+}
+
+.acc-checkbox-label input[type="checkbox"] {
+    width: 16px; height: 16px;
+    accent-color: #1565c0;
+    flex-shrink: 0;
+}
+
+.acc-form-actions {
+    display: flex;
+    gap: 10px;
+    padding-top: 6px;
+    border-top: 1px solid #edf4fb;
+}
+
+.acc-submit-btn {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 42px;
+    border-radius: 12px;
+    background: linear-gradient(120deg,#1565c0,#00bcd4);
+    color: #fff;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 800;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(21,101,192,.25);
+    transition: all .18s;
+}
+
+.acc-submit-btn:hover { opacity: .9; }
+
+.acc-reset-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 42px;
+    padding: 0 16px;
+    border-radius: 12px;
+    background: transparent;
+    border: 1.5px solid #cddff0;
+    color: #5b80a0;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .15s;
+}
+
+.acc-reset-btn:hover { background: #f0f4f8; }
+
+/* Voice bar */
+.acc-voice-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: linear-gradient(135deg,#fffbeb,#fef3c7);
+    border: 1px solid #fde68a;
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin: 0 18px;
+}
+
+.acc-voice-bar > span {
+    width: 34px; height: 34px;
+    border-radius: 10px;
+    background: linear-gradient(135deg,#d97706,#f59e0b);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 14px; flex-shrink: 0;
+}
+
+.acc-voice-bar strong { display: block; font-size: 12px; font-weight: 800; color: #92400e; }
+.acc-voice-bar small  { display: block; font-size: 11px; color: #b45309; margin-top: 1px; }
+.acc-voice-bar b { margin-left: auto; font-size: 12px; color: #d97706; font-weight: 800; letter-spacing: 2px; }
+
+/* Vault list cards */
+.acc-vault-cards { display: flex; flex-direction: column; }
+
+.acc-vault-card {
+    padding: 14px 18px;
+    border-bottom: 1px solid #f0f4f8;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: background .15s;
+}
+
+.acc-vault-card:last-child { border-bottom: none; }
+.acc-vault-card:hover { background: #f7faff; }
+
+.acc-vault-card-top { display: flex; align-items: center; gap: 10px; }
+
+.acc-vault-icon {
+    width: 34px; height: 34px;
+    border-radius: 10px;
+    background: linear-gradient(135deg,#00838f,#00bcd4);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 13px; flex-shrink: 0;
+}
+
+.acc-vault-card-top > div { flex: 1; }
+.acc-vault-card-top strong { display: block; font-size: 13px; font-weight: 800; color: #0a2540; }
+.acc-vault-card-top small  { display: block; font-size: 11px; color: #7294ae; margin-top: 1px; }
+.acc-vault-pct { font-size: 13px; font-weight: 900; color: #00838f; }
+
+.acc-vault-prog {
+    height: 5px;
+    background: #e0f7fa;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.acc-vault-prog span {
+    display: block; height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg,#00838f,#00bcd4);
+    transition: width .6s ease;
+}
+
+.acc-vault-card-foot {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 11px; font-weight: 700; color: #7294ae;
+}
+
+/* ═══════════════════════════════════════════════
+   EMPTY STATE
+═══════════════════════════════════════════════ */
+.acc-empty {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 8px;
+    padding: 40px 20px;
+    text-align: center; color: #7294ae;
+}
+
+.acc-empty-icon {
+    width: 60px; height: 60px;
+    border-radius: 18px;
+    background: linear-gradient(135deg,#e0f7f4,#d1fae5);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; color: #00bcd4;
+    box-shadow: 0 8px 20px rgba(0,188,212,.14);
+    margin-bottom: 4px;
+}
+
+.acc-empty strong { font-size: 14px; color: #0a2540; }
+.acc-empty span   { font-size: 12px; max-width: 240px; }
+
+/* ═══════════════════════════════════════════════
+   MODAL OVERLAY
+═══════════════════════════════════════════════ */
+.acc-modal-wrap {
+    position: fixed; inset: 0; z-index: 500;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+
+.acc-modal-wrap[hidden] { display: none !important; }
+
+.acc-modal-backdrop {
+    position: absolute; inset: 0;
+    background: rgba(10,37,64,.5);
+    backdrop-filter: blur(6px);
+    border: none; cursor: pointer;
+}
+
+.acc-modal {
+    position: relative; z-index: 1;
+    background: #fff;
+    border-radius: 24px;
+    border: 1px solid #dce8f3;
+    box-shadow: 0 24px 60px rgba(10,37,64,.22);
+    width: 100%; max-width: 860px; max-height: 88vh;
+    display: flex; flex-direction: column; overflow: hidden;
+}
+
+.acc-modal[hidden] { display: none !important; }
+
+.acc-modal-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; padding: 18px 22px;
+    background: linear-gradient(135deg,#0a2540,#1565c0);
+    flex-shrink: 0;
+}
+
+.acc-modal-head-left { display: flex; align-items: center; gap: 14px; }
+
+.acc-modal-head-icon {
+    width: 42px; height: 42px; border-radius: 14px;
+    background: rgba(255,255,255,.15);
+    border: 1px solid rgba(255,255,255,.25);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 17px; flex-shrink: 0;
+}
+
+.acc-modal-head h3 { font-size: 16px; font-weight: 800; color: #fff; line-height: 1.2; }
+.acc-modal-head p  { font-size: 12px; color: rgba(255,255,255,.65); margin-top: 2px; }
+
+.acc-modal-head-right { display: flex; align-items: center; gap: 10px; }
+
+.acc-modal-badge {
+    padding: 5px 12px; border-radius: 999px;
+    font-size: 11px; font-weight: 800;
+}
+
+.acc-modal-badge.ok   { background: #dcfce7; color: #166534; }
+.acc-modal-badge.warn { background: #fef3c7; color: #92400e; }
+
+.acc-modal-close {
+    display: inline-flex; align-items: center; gap: 6px;
+    min-height: 34px; padding: 0 14px; border-radius: 10px;
+    background: rgba(255,255,255,.12);
+    border: 1px solid rgba(255,255,255,.2);
+    color: rgba(255,255,255,.85);
+    font: inherit; font-size: 12px; font-weight: 700;
+    cursor: pointer; transition: background .15s;
+}
+
+.acc-modal-close:hover { background: rgba(255,255,255,.22); }
+
+.acc-modal-body {
+    flex: 1; overflow-y: auto; padding: 20px 22px;
+    display: flex; flex-direction: column; gap: 16px;
+}
+
+/* Wheel modal */
+.acc-wheel-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 20px;
+}
+
+.acc-wheel-left {
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+}
+
+.acc-wheel-ring-outer {
+    width: 160px; height: 160px; border-radius: 50%;
+    background: linear-gradient(135deg,#0a2540,#1565c0,#00bcd4);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 12px 32px rgba(21,101,192,.35);
+    animation: acc-wheel-pulse 6s linear infinite;
+}
+
+@keyframes acc-wheel-pulse {
+    0%,100% { box-shadow: 0 12px 32px rgba(21,101,192,.35); }
+    50%      { box-shadow: 0 16px 40px rgba(0,188,212,.45); }
+}
+
+.acc-wheel-ring-inner {
+    width: 130px; height: 130px; border-radius: 50%;
+    background: #fff;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+}
+
+.acc-wheel-ring-inner i     { font-size: 28px; color: #1565c0; }
+.acc-wheel-ring-inner span  { font-size: 12px; font-weight: 800; color: #0a2540; }
+.acc-wheel-status           { font-size: 12px; color: #7294ae; text-align: center; line-height: 1.5; }
+
+.acc-wheel-spin-btn {
+    width: 100%; min-height: 42px; border-radius: 12px;
+    background: linear-gradient(120deg,#1565c0,#00bcd4);
+    color: #fff; font: inherit; font-size: 14px; font-weight: 800;
+    border: none; cursor: pointer;
+    box-shadow: 0 6px 18px rgba(21,101,192,.28);
+    transition: all .18s;
+}
+
+.acc-wheel-spin-btn:hover { opacity: .9; }
+
+.acc-wheel-spin-btn:disabled {
+    background: #e2eaf4; color: #7294ae;
+    box-shadow: none; cursor: not-allowed;
+}
+
+.acc-wheel-result-note {
+    background: linear-gradient(135deg,#f0fdf4,#dcfce7);
+    border: 1px solid #bbf7d0; border-radius: 12px;
+    padding: 12px 14px; text-align: center; width: 100%;
+}
+
+.acc-wheel-result-note strong { font-size: 12px; font-weight: 800; color: #166534; }
+.acc-wheel-result-note p { font-size: 13px; color: #16a34a; margin-top: 4px; font-weight: 700; }
+
+.acc-wheel-bonus {
+    background: linear-gradient(135deg,#fef3c7,#fde68a);
+    border: 1px solid #f59e0b; border-radius: 14px;
+    padding: 14px; width: 100%;
+    display: flex; flex-direction: column; gap: 10px;
+}
+
+.acc-wheel-bonus strong { font-size: 13px; font-weight: 900; color: #92400e; }
+.acc-wheel-bonus p      { font-size: 12px; color: #78350f; }
+
+.acc-wheel-bonus select {
+    width: 100%; min-height: 38px; border-radius: 10px;
+    border: 1.5px solid #fbbf24; background: #fff;
+    padding: 0 10px; font: inherit; font-size: 12px; outline: none;
+}
+
+.acc-wheel-bonus-btn {
+    width: 100%; min-height: 38px; border-radius: 10px;
+    background: linear-gradient(120deg,#d97706,#f59e0b);
+    color: #fff; font: inherit; font-size: 13px; font-weight: 700;
+    border: none; cursor: pointer;
+}
+
+.acc-wheel-right  { display: flex; flex-direction: column; gap: 14px; }
+
+.acc-wheel-section { display: flex; flex-direction: column; gap: 8px; }
+
+.acc-wheel-section-title {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; font-weight: 800; color: #1565c0;
+    text-transform: uppercase; letter-spacing: .7px;
+    padding-bottom: 8px; border-bottom: 1px solid #e8f0fb;
+}
+
+.acc-wheel-condition {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px; border-radius: 12px; transition: all .15s;
+}
+
+.acc-wheel-condition > span {
+    width: 32px; height: 32px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; flex-shrink: 0;
+}
+
+.acc-wheel-condition > div { flex: 1; }
+.acc-wheel-condition strong { display: block; font-size: 12px; font-weight: 700; }
+.acc-wheel-condition small  { display: block; font-size: 11px; margin-top: 1px; opacity: .75; }
+.acc-wheel-condition > b    { font-size: 12px; font-weight: 900; }
+
+.acc-wheel-condition.ok { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+.acc-wheel-condition.ok > span { background: #dcfce7; }
+.acc-wheel-condition.ko { background: #fff5f5; border: 1px solid #fecaca; color: #991b1b; }
+.acc-wheel-condition.ko > span { background: #fee2e2; }
+
+.acc-wheel-pts-head {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12px; font-weight: 700; color: #0a2540;
+}
+
+.acc-wheel-pts-head span { color: #1565c0; font-weight: 800; }
+
+.acc-wheel-refusal {
+    background: #fff5f5; border: 1px solid #fecaca;
+    border-radius: 12px; padding: 14px;
+}
+
+.acc-wheel-refusal h4 {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 13px; font-weight: 800; color: #991b1b; margin-bottom: 6px;
+}
+
+.acc-wheel-refusal p { font-size: 12px; color: #7f1d1d; line-height: 1.5; }
+
+.acc-wheel-rules {
+    background: #f7faff; border: 1px solid #dce8f3;
+    border-radius: 12px; padding: 14px;
+    display: flex; flex-direction: column; gap: 5px;
+}
+
+.acc-wheel-rules h4 {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 12px; font-weight: 800; color: #1565c0; margin-bottom: 4px;
+}
+
+.acc-wheel-rules p          { font-size: 12px; color: #5b80a0; line-height: 1.5; }
+.acc-wheel-rules p.highlight { color: #d97706; font-weight: 700; }
+
+/* History modal */
+.acc-history-search {
+    display: flex; align-items: center; gap: 8px;
+    background: #f7faff; border: 1.5px solid #cddff0;
+    border-radius: 11px; padding: 0 12px;
+    min-height: 40px; flex-shrink: 0; transition: border-color .18s;
+}
+
+.acc-history-search:focus-within { border-color: #1e88e5; box-shadow: 0 0 0 3px rgba(30,136,229,.1); }
+.acc-history-search i { color: #8aafc8; font-size: 13px; }
+
+.acc-history-search input {
+    border: none; outline: none; background: transparent;
+    font: inherit; font-size: 13px; color: #0a2540; flex: 1;
+}
+
+.acc-history-list {
+    display: flex; flex-direction: column; gap: 8px;
+    overflow-y: auto; max-height: 420px;
+}
+
+.acc-history-row {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 13px 14px;
+    background: #f7faff; border: 1px solid #dce8f3; border-radius: 13px;
+    transition: border-color .15s;
+}
+
+.acc-history-row:hover { border-color: #a8c8f0; background: #f0f8ff; }
+
+.acc-history-icon {
+    width: 34px; height: 34px; border-radius: 10px;
+    background: linear-gradient(135deg,#1565c0,#00bcd4);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 13px; flex-shrink: 0;
+}
+
+.acc-history-main { flex: 1; }
+.acc-history-main strong { display: block; font-size: 13px; font-weight: 800; color: #0a2540; }
+.acc-history-main p { font-size: 12px; color: #5b80a0; margin-top: 3px; line-height: 1.4; }
+.acc-history-main small { display: block; font-size: 11px; color: #7294ae; margin-top: 4px; font-weight: 600; }
+
+.acc-history-row time {
+    font-size: 11px; font-weight: 700; color: #7294ae;
+    white-space: nowrap; flex-shrink: 0;
+}
+
+.acc-history-empty { text-align: center; padding: 32px; font-size: 13px; color: #7294ae; }
+
+/* Language modal */
+.acc-lang-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+
+.acc-lang-card {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+    padding: 20px; border-radius: 16px;
+    border: 1px solid #dce8f3; background: #f7faff;
+    text-decoration: none; transition: all .18s;
+}
+
+.acc-lang-card:hover {
+    background: linear-gradient(135deg,#1565c0,#00bcd4);
+    border-color: transparent;
+    box-shadow: 0 8px 24px rgba(21,101,192,.25);
+    transform: translateY(-2px);
+}
+
+.acc-lang-card:hover i,
+.acc-lang-card:hover strong,
+.acc-lang-card:hover span { color: #fff; }
+
+.acc-lang-card i      { font-size: 24px; color: #1565c0; transition: color .18s; }
+.acc-lang-card strong { font-size: 14px; font-weight: 800; color: #0a2540; transition: color .18s; }
+.acc-lang-card span   { font-size: 12px; color: #7294ae; line-height: 1.4; transition: color .18s; }
+
+/* ═══════════════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════════════ */
+@media (max-width: 1400px) {
+    .acc-kpi-strip { grid-template-columns: repeat(2,1fr); }
+}
+
+@media (max-width: 1200px) {
+    .acc-banner { grid-template-columns: 1fr; gap: 16px; }
+    .acc-overview-grid { grid-template-columns: 1fr; }
+    .acc-two-col { grid-template-columns: 1fr; }
+    .acc-wheel-layout { grid-template-columns: 1fr; }
+    .acc-lang-grid { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 760px) {
+    .acc-kpi-strip { grid-template-columns: 1fr 1fr; }
+    .acc-tabbar { gap: 4px; }
+    .acc-tab-btn { padding: 7px 10px; font-size: 12px; }
+    .acc-form-row { grid-template-columns: 1fr; }
+    .acc-lang-grid { grid-template-columns: 1fr; }
+}
+</style>
+
+{# ══════════════════════════════════════════════
+   ROOT
+══════════════════════════════════════════════ #}
+<section class="acc-shell">
+
+    {# ── BANNER ── #}
+    <div class="acc-banner">
+        <div class="acc-banner-brand">
+            <div class="acc-banner-icon">
+                <i class="fa-solid fa-wallet"></i>
+            </div>
+            <div class="acc-banner-text">
+                <h1>Gestion des comptes</h1>
+                <p>Suivez vos comptes, coffres et programme de fidelite NEXORA</p>
+            </div>
+        </div>
+
+        <div class="acc-banner-center">
+            <div class="acc-banner-stat">
+                <span class="acc-banner-stat-num">{{ items|length }}</span>
+                <span class="acc-banner-stat-lbl">Comptes</span>
+            </div>
+            <div class="acc-banner-divider"></div>
+            <div class="acc-banner-stat">
+                <span class="acc-banner-stat-num">{{ vaults|length }}</span>
+                <span class="acc-banner-stat-lbl">Coffres</span>
+            </div>
+            <div class="acc-banner-divider"></div>
+            <div class="acc-banner-stat">
+                <span class="acc-banner-stat-num">{{ wheel.total_points|default(0) }}</span>
+                <span class="acc-banner-stat-lbl">Points</span>
+            </div>
+        </div>
+
+        <nav class="acc-banner-nav">
+            <button class="acc-nav-pill" type="button" data-acc-modal="history">
+                <i class="fa-solid fa-clock-rotate-left"></i><span>Historique</span>
+            </button>
+            <button class="acc-nav-pill" type="button" data-acc-modal="language">
+                <i class="fa-solid fa-globe"></i><span>Outils</span>
+            </button>
+            <button class="acc-nav-pill acc-nav-pill--wheel" type="button" data-acc-modal="wheel">
+                <i class="fa-solid fa-dharmachakra"></i><span>Roue</span>
+            </button>
+            <button class="acc-nav-pill acc-nav-pill--cta" type="button" data-acc-tab-link="vaults">
+                <i class="fa-solid fa-plus"></i><span>Nouveau coffre</span>
+            </button>
+        </nav>
+    </div>
+
+    {# ── KPI STRIP ── #}
+    <div class="acc-kpi-strip">
+
+        <div class="acc-kpi-tile acc-kpi-tile--bal">
+            <div class="acc-kpi-tile-left">
+                <div class="acc-kpi-badge-icon">
+                    <i class="fa-solid fa-coins"></i>
+                </div>
+                <div>
+                    <span class="acc-kpi-label">SOLDE TOTAL</span>
+                    <span class="acc-kpi-sub">Tous comptes confondus</span>
+                </div>
+            </div>
+            <div class="acc-kpi-tile-right">
+                <strong class="acc-kpi-num">{{ total_balance|number_format(2,'.', ' ') }}</strong>
+                <span class="acc-kpi-currency">DT</span>
+            </div>
+            <div class="acc-kpi-bar"><span style="width:100%"></span></div>
+        </div>
+
+        <div class="acc-kpi-tile acc-kpi-tile--acc">
+            <div class="acc-kpi-tile-left">
+                <div class="acc-kpi-badge-icon">
+                    <i class="fa-solid fa-university"></i>
+                </div>
+                <div>
+                    <span class="acc-kpi-label">COMPTES ACTIFS</span>
+                    <span class="acc-kpi-sub">Comptes enregistres</span>
+                </div>
+            </div>
+            <div class="acc-kpi-tile-right">
+                <strong class="acc-kpi-num">{{ items|length }}</strong>
+                <span class="acc-kpi-currency">cptes</span>
+            </div>
+            <div class="acc-kpi-bar">
+                <span style="width:{{ items|length > 0 ? '80%' : '0%' }}"></span>
+            </div>
+        </div>
+
+        <div class="acc-kpi-tile acc-kpi-tile--vlt">
+            <div class="acc-kpi-tile-left">
+                <div class="acc-kpi-badge-icon">
+                    <i class="fa-solid fa-piggy-bank"></i>
+                </div>
+                <div>
+                    <span class="acc-kpi-label">COFFRES VIRTUELS</span>
+                    <span class="acc-kpi-sub">Objectifs d'epargne</span>
+                </div>
+            </div>
+            <div class="acc-kpi-tile-right">
+                <strong class="acc-kpi-num">{{ vaults|length }}</strong>
+                <span class="acc-kpi-currency">coffres</span>
+            </div>
+            <div class="acc-kpi-bar">
+                <span style="width:{{ vaults|length > 0 ? '65%' : '0%' }}"></span>
+            </div>
+        </div>
+
+        <div class="acc-kpi-tile acc-kpi-tile--hlth">
+            <div class="acc-kpi-tile-left">
+                <div class="acc-kpi-badge-icon">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <div>
+                    <span class="acc-kpi-label">SANTE FINANCIERE</span>
+                    <span class="acc-kpi-sub">Score NEXORA</span>
+                </div>
+            </div>
+            <div class="acc-kpi-tile-right">
+                <strong class="acc-kpi-num">{{ wheel_progress }}</strong>
+                <span class="acc-kpi-currency">pts</span>
+            </div>
+            <div class="acc-kpi-bar">
+                <span style="width:{{ wheel_progress }}%"></span>
+            </div>
+        </div>
+
+    </div>
+
+    {# ── BODY ── #}
+    <div class="acc-body">
+
+        {# Tab bar #}
+        <div class="acc-tabbar">
+            <button class="acc-tab-btn active" data-acc-tab="overview" type="button">
+                <i class="fa-solid fa-chart-pie"></i> Vue d'ensemble
+            </button>
+            <button class="acc-tab-btn" data-acc-tab="accounts" type="button">
+                <i class="fa-solid fa-university"></i> Mes comptes
+                <em>{{ items|length }}</em>
+            </button>
+            <button class="acc-tab-btn" data-acc-tab="vaults" type="button">
+                <i class="fa-solid fa-piggy-bank"></i> Coffres
+                <em>{{ vaults|length }}</em>
+            </button>
+            <button class="acc-tab-btn" data-acc-tab="edit" type="button">
+                <i class="fa-solid fa-pen-to-square"></i> Modifier
+            </button>
+
+            <div class="acc-tabbar-sep"></div>
+
+            <button class="acc-tabbar-action acc-tabbar-action--wheel"
+                    type="button" data-acc-modal="wheel">
+                <i class="fa-solid fa-dharmachakra"></i> Tourner la Roue
+            </button>
+        </div>
+
+        {# ══ TAB: OVERVIEW ══ #}
+        <section class="acc-tab-panel active" id="acc-tab-overview">
+
+            <div class="acc-overview-grid">
+
+                {# Accounts preview #}
+                <div class="acc-panel">
+                    <div class="acc-panel-head">
+                        <div class="acc-panel-head-icon"
+                             style="background:linear-gradient(135deg,#1565c0,#1e88e5);">
+                            <i class="fa-solid fa-university"></i>
+                        </div>
+                        <div class="acc-panel-head-text">
+                            <strong>Apercu des comptes</strong>
+                            <p>{{ items|length }} compte(s) lie(s)</p>
+                        </div>
+                        <button class="acc-panel-head-action"
+                                data-acc-tab-link="accounts" type="button">
+                            Voir tout →
+                        </button>
+                    </div>
+                    <div class="acc-account-rows">
+                        {% for account in items %}
+                            <div class="acc-account-row">
+                                <span class="acc-avatar">
+                                    {{ account.numeroCompte|slice(0,2)|upper }}
+                                </span>
+                                <div class="acc-account-row-info">
+                                    <strong>{{ account.numeroCompte }}</strong>
+                                    <small>
+                                        {{ account.typeCompte|default('Courant') }}
+                                        · {{ account.statutCompte|default('Actif') }}
+                                    </small>
+                                </div>
+                                <span class="acc-balance">
+                                    {{ account.solde|number_format(2,'.', ' ') }} DT
+                                </span>
+                            </div>
+                        {% else %}
+                            <div class="acc-empty">
+                                <div class="acc-empty-icon">
+                                    <i class="fa-solid fa-inbox"></i>
+                                </div>
+                                <strong>Aucun compte</strong>
+                                <span>Ajoutez votre premier compte bancaire.</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                {# Points / Wheel panel #}
+                <div class="acc-panel">
+                    <div class="acc-panel-head">
+                        <div class="acc-panel-head-icon"
+                             style="background:linear-gradient(135deg,#f59e0b,#fbbf24);">
+                            <i class="fa-solid fa-star"></i>
+                        </div>
+                        <div class="acc-panel-head-text">
+                            <strong>Points NEXORA</strong>
+                            <p>Programme de fidelite</p>
+                        </div>
+                        <button class="acc-panel-head-action"
+                                type="button" data-acc-modal="wheel">
+                            Ouvrir →
+                        </button>
+                    </div>
+                    <div class="acc-points-body">
+                        <div class="acc-big-score">
+                            <span>{{ wheel.total_points|default(0) }}</span>
+                            <small>/ 100 pts</small>
+                        </div>
+                        <div class="acc-progress-track">
+                            <div class="acc-progress-fill" style="width:{{ wheel_progress }}%"></div>
+                        </div>
+                        <p style="font-size:12px;color:#7294ae;line-height:1.5;">
+                            {{ wheel.eligibility.suggestion|default('Continuez pour debloquer plus de recompenses.') }}
+                        </p>
+                        <div style="display:flex;flex-direction:column;gap:6px;">
+                            <div class="acc-cond-mini {{ wheel.eligibility.condition_solde ? 'ok' : 'ko' }}">
+                                <i class="fa-solid fa-wallet"></i>
+                                <span>Solde positif</span>
+                                <b>{{ wheel.eligibility.condition_solde ? '✓' : '✗' }}</b>
+                            </div>
+                            <div class="acc-cond-mini {{ wheel.eligibility.condition_budget ? 'ok' : 'ko' }}">
+                                <i class="fa-solid fa-chart-pie"></i>
+                                <span>Budget respecte</span>
+                                <b>{{ wheel.eligibility.condition_budget ? '✓' : '✗' }}</b>
+                            </div>
+                            <div class="acc-cond-mini {{ wheel.eligibility.condition_epargne ? 'ok' : 'ko' }}">
+                                <i class="fa-solid fa-piggy-bank"></i>
+                                <span>Epargne active</span>
+                                <b>{{ wheel.eligibility.condition_epargne ? '✓' : '✗' }}</b>
+                            </div>
+                        </div>
+                        <button class="acc-spin-cta {{ not wheel.can_spin ? 'disabled' : '' }}"
+                                type="button" data-acc-modal="wheel">
+                            <i class="fa-solid fa-dharmachakra"></i>
+                            {{ wheel.can_spin ? 'Lancer la roue maintenant' : 'Conditions non remplies' }}
+                        </button>
+                    </div>
+                </div>
+
+                {# Vaults preview — full width #}
+                <div class="acc-panel acc-panel-wide">
+                    <div class="acc-panel-head">
+                        <div class="acc-panel-head-icon"
+                             style="background:linear-gradient(135deg,#7c3aed,#a78bfa);">
+                            <i class="fa-solid fa-piggy-bank"></i>
+                        </div>
+                        <div class="acc-panel-head-text">
+                            <strong>Coffres virtuels</strong>
+                            <p>{{ vaults|length }} coffre(s) d'epargne</p>
+                        </div>
+                        <button class="acc-panel-head-action"
+                                data-acc-tab-link="vaults" type="button">
+                            Voir tout →
+                        </button>
+                    </div>
+                    {% if vaults is not empty %}
+                        <div class="acc-vault-strip">
+                            {% for vault in vaults %}
+                                {% set pct = vault.objectifMontant > 0
+                                    ? ((vault.montantActuel / vault.objectifMontant) * 100)|round
+                                    : 0 %}
+                                <div class="acc-vault-chip">
+                                    <div class="acc-vault-chip-head">
+                                        <i class="fa-solid fa-lock"></i>
+                                        <strong>{{ vault.nom }}</strong>
+                                    </div>
+                                    <small>{{ vault.numeroCompte|default('Sans compte') }}</small>
+                                    <div class="acc-vault-chip-prog">
+                                        <span style="width:{{ pct }}%"></span>
+                                    </div>
+                                    <p>
+                                        {{ vault.montantActuel|number_format(2,'.', ' ') }}
+                                        / {{ vault.objectifMontant|number_format(2,'.', ' ') }} DT
+                                        — {{ pct }}%
+                                    </p>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="acc-empty">
+                            <div class="acc-empty-icon">
+                                <i class="fa-solid fa-piggy-bank"></i>
+                            </div>
+                            <strong>Aucun coffre cree</strong>
+                            <span>Cliquez sur "Nouveau coffre" pour commencer.</span>
+                        </div>
+                    {% endif %}
+                </div>
+
+            </div>
+        </section>
+
+        {# ══ TAB: ACCOUNTS ══ #}
+        <section class="acc-tab-panel" id="acc-tab-accounts">
+
+            <div class="acc-toolbar">
+                <div class="acc-search-box">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" id="acc-accounts-search" placeholder="Rechercher un compte…">
+                </div>
+                <div class="acc-filter-chips">
+                    <button class="acc-chip active" data-acc-filter="all"           type="button">Tous</button>
+                    <button class="acc-chip"         data-acc-filter="courant"       type="button">Courant</button>
+                    <button class="acc-chip"         data-acc-filter="epargne"       type="button">Epargne</button>
+                    <button class="acc-chip"         data-acc-filter="professionnel" type="button">Professionnel</button>
+                </div>
+            </div>
+
+            <div class="acc-table-wrap">
+                <table class="acc-table">
+                    <thead>
+                        <tr>
+                            <th>Numero</th>
+                            <th>Type</th>
+                            <th>Solde</th>
+                            <th>Statut</th>
+                            <th>Ouverture</th>
+                            <th>Plafonds</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for account in items %}
+                            <tr class="acc-tr"
+                                data-acc-account-type="{{ account.typeCompte|default('Courant')|lower }}">
+                                <td>
+                                    <div class="acc-td-account">
+                                        <span class="acc-avatar sm">
+                                            {{ account.numeroCompte|slice(0,2)|upper }}
+                                        </span>
+                                        <span>{{ account.numeroCompte }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="acc-type-badge">
+                                        {{ account.typeCompte|default('Courant') }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <strong class="acc-balance-cell">
+                                        {{ account.solde|number_format(2,'.', ' ') }} DT
+                                    </strong>
+                                </td>
+                                <td>
+                                    <span class="acc-status-dot {{ account.statutCompte|default('Actif')|lower }}">
+                                        {{ account.statutCompte|default('Actif') }}
+                                    </span>
+                                </td>
+                                <td>{{ account.dateOuverture|default('—') }}</td>
+                                <td>
+                                    <div style="font-size:11px;color:#7294ae;line-height:1.6;">
+                                        <span>Ret: <b style="color:#0a2540;">{{ account.plafondRetrait|default('—') }}</b> DT</span><br>
+                                        <span>Vir: <b style="color:#0a2540;">{{ account.plafondVirement|default('—') }}</b> DT</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="acc-action-group">
+                                        <a href="{{ path(route_name, { tab: 'vaults' }) }}"
+                                           class="acc-act-btn view" title="Voir coffres">
+                                            <i class="fa-solid fa-eye"></i>
+                                        </a>
+                                        <button class="acc-act-btn edit" type="button"
+                                                data-acc-edit="{{ account.idCompte }}"
+                                                data-acc-tab-link="edit"
+                                                title="Modifier">
+                                            <i class="fa-solid fa-pen"></i>
+                                        </button>
+                                        <form method="post" style="display:contents;"
+                                              onsubmit="return confirm('Supprimer ce compte ?');">
+                                            <input type="hidden" name="tab"      value="accounts">
+                                            <input type="hidden" name="action"   value="account_delete">
+                                            <input type="hidden" name="idCompte" value="{{ account.idCompte }}">
+                                            <button class="acc-act-btn del" type="submit" title="Supprimer">
+                                                <i class="fa-solid fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="7">
+                                    <div class="acc-empty">
+                                        <div class="acc-empty-icon">
+                                            <i class="fa-solid fa-inbox"></i>
+                                        </div>
+                                        <strong>Aucun compte enregistre</strong>
+                                        <span>Passez sur l'onglet "Modifier" pour en ajouter un.</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        {# ══ TAB: VAULTS ══ #}
+        <section class="acc-tab-panel" id="acc-tab-vaults">
+            <div class="acc-two-col">
+
+                {# Vault form #}
+                <div class="acc-panel">
+                    <div class="acc-panel-head">
+                        <div class="acc-panel-head-icon"
+                             style="background:linear-gradient(135deg,#7c3aed,#a78bfa);">
+                            <i class="fa-solid fa-plus"></i>
+                        </div>
+                        <div class="acc-panel-head-text">
+                            <strong>Creer un coffre virtuel</strong>
+                            <p>Definissez un objectif d'epargne</p>
+                        </div>
+                    </div>
+
+                    <form method="post" class="acc-form">
+                        <input type="hidden" name="tab"          value="accounts">
+                        <input type="hidden" name="action"       value="vault_save">
+                        <input type="hidden" name="dateCreation" value="{{ 'now'|date('Y-m-d') }}">
+
+                        <div class="acc-form-section-label">
+                            <i class="fa-solid fa-link"></i>
+                            <span>Association</span>
+                            <div class="acc-form-section-line"></div>
+                        </div>
+
+                        <div class="acc-form-row">
+                            <div class="acc-field">
+                                <label>
+                                    <i class="fa-solid fa-building-columns"></i>
+                                    Compte bancaire <span style="color:#e53935">*</span>
+                                </label>
+                                <div class="acc-select-wrap">
+                                    <select class="acc-input" name="idCompte" required>
+                                        <option value="">Choisir un compte</option>
+                                        {% for account in items %}
+                                            <option value="{{ account.idCompte }}">
+                                                {{ account.numeroCompte }}
+                                                ({{ account.solde|number_format(2,'.', ' ') }} DT)
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="acc-field">
+                                <label>
+                                    <i class="fa-solid fa-tag"></i>
+                                    Nom du coffre <span style="color:#e53935">*</span>
+                                </label>
+                                <input class="acc-input" type="text" name="nom"
+                                       placeholder="Ex: Fonds vacances" required>
+                            </div>
+                        </div>
+
+                        <div class="acc-form-section-label">
+                            <i class="fa-solid fa-bullseye"></i>
+                            <span>Objectif financier</span>
+                            <div class="acc-form-section-line"></div>
+                        </div>
+
+                        <div class="acc-form-row">
+                            <div class="acc-field">
+                                <label>
+                                    <i class="fa-solid fa-flag-checkered"></i> Montant cible (TND)
+                                </label>
+                                <input class="acc-input" type="number" step="0.01"
+                                       name="objectifMontant" placeholder="0.00" required>
+                            </div>
+                            <div class="acc-field">
+                                <label>
+                                    <i class="fa-solid fa-coins"></i> Depot initial (TND)
+                                </label>
+                                <input class="acc-input" type="number" step="0.01"
+                                       name="montantActuel" value="0" placeholder="0.00" required>
+                            </div>
+                        </div>
+
+                        <div class="acc-form-row">
+                            <div class="acc-field">
+                                <label><i class="fa-solid fa-calendar-day"></i> Date cible</label>
+                                <input class="acc-input" type="date" name="dateObjectifs">
+                            </div>
+                            <div class="acc-field">
+                                <label><i class="fa-solid fa-list-check"></i> Statut</label>
+                                <div class="acc-select-wrap">
+                                    <select class="acc-input" name="status">
+                                        {% for v in ['Actif','Bloque','Ferme'] %}
+                                            <option value="{{ v }}">{{ v }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <label class="acc-checkbox-label">
+                            <input type="hidden" name="estVerrouille" value="0">
+                            <input type="checkbox" name="estVerrouille" value="1" checked>
+                            <span>Verrouiller le coffre jusqu'a la date cible</span>
+                        </label>
+
+                        <div class="acc-form-actions">
+                            <button class="acc-submit-btn" type="submit">
+                                <i class="fa-solid fa-lock"></i> Creer le coffre
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                {# Vault list #}
+                <div class="acc-panel">
+                    <div class="acc-panel-head">
+                        <div class="acc-panel-head-icon"
+                             style="background:linear-gradient(135deg,#00838f,#00bcd4);">
+                            <i class="fa-solid fa-piggy-bank"></i>
+                        </div>
+                        <div class="acc-panel-head-text">
+                            <strong>Coffres existants</strong>
+                            <p>Suivez votre progression</p>
+                        </div>
+                        <span class="acc-panel-count">{{ vaults|length }}</span>
+                    </div>
+                    {% if vaults is not empty %}
+                        <div class="acc-vault-cards">
+                            {% for vault in vaults %}
+                                {% set pct = vault.objectifMontant > 0
+                                    ? ((vault.montantActuel / vault.objectifMontant) * 100)|round
+                                    : 0 %}
+                                <div class="acc-vault-card">
+                                    <div class="acc-vault-card-top">
+                                        <span class="acc-vault-icon">
+                                            <i class="fa-solid fa-piggy-bank"></i>
+                                        </span>
+                                        <div>
+                                            <strong>{{ vault.nom }}</strong>
+                                            <small>{{ vault.numeroCompte|default('Sans compte') }}</small>
+                                        </div>
+                                        <span class="acc-vault-pct">{{ pct }}%</span>
+                                    </div>
+                                    <div class="acc-vault-prog">
+                                        <span style="width:{{ pct }}%"></span>
+                                    </div>
+                                    <div class="acc-vault-card-foot">
+                                        <span>{{ vault.montantActuel|number_format(2,'.', ' ') }} DT</span>
+                                        <span>/ {{ vault.objectifMontant|number_format(2,'.', ' ') }} DT</span>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="acc-empty">
+                            <div class="acc-empty-icon">
+                                <i class="fa-solid fa-inbox"></i>
+                            </div>
+                            <strong>Aucun coffre cree</strong>
+                            <span>Utilisez le formulaire pour creer votre premier coffre.</span>
+                        </div>
+                    {% endif %}
+                </div>
+
+            </div>
+        </section>
+
+        {# ══ TAB: EDIT ══ #}
+        <section class="acc-tab-panel" id="acc-tab-edit">
+            <div class="acc-two-col">
+
+                {# Edit form #}
+                <div class="acc-panel">
+                    <div class="acc-panel-head">
+                        <div class="acc-panel-head-icon"
+                             style="background:linear-gradient(135deg,#1565c0,#1e88e5);">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                        </div>
+                        <div class="acc-panel-head-text">
+                            <strong>Details du compte</strong>
+                            <p>Creer ou mettre a jour un compte</p>
+                        </div>
+                    </div>
+
+                    <div class="acc-voice-bar">
+                        <span><i class="fa-solid fa-microphone"></i></span>
+                        <div>
+                            <strong>Saisie vocale intelligente</strong>
+                            <small>Cliquez et dictez vos informations</small>
+                        </div>
+                        <b>...</b>
+                    </div>
+
+                    <form method="post" class="acc-form">
+                        <input type="hidden" name="tab"    value="accounts">
+                        <input type="hidden" name="action" value="account_save">
+
+                        <div class="acc-form-section-label">
+                            <i class="fa-solid fa-hashtag"></i>
+                            <span>Identification</span>
+                            <div class="acc-form-section-line"></div>
+                        </div>
+
+                        <div class="acc-form-row">
+                            <div class="acc-field">
+                                <label><i class="fa-solid fa-hashtag"></i> ID (modification)</label>
+                                <input class="acc-input" type="number" name="idCompte" id="acc-edit-id"
+                                       placeholder="Laisser vide pour creer">
+                            </div>
+                            <div class="acc-field">
+                                <label>
+                                    <i class="fa-solid fa-id-card"></i>
+                                    Numero de compte <span style="color:#e53935">*</span>
+                                </label>
+                                <input class="acc-input" type="text" name="numeroCompte"
+                                       placeholder="Ex: FR7612345" required>
+                            </div>
+                        </div>
+
+                        <div class="acc-form-section-label">
+                            <i class="fa-solid fa-sliders"></i>
+                            <span>Parametres</span>
+                            <div class="acc-form-section-line"></div>
+                        </div>
+
+                        <div class="acc-form-row">
+                            <div class="acc-field">
+                                <label><i class="fa-solid fa-coins"></i> Solde (TND)</label>
+                                <input class="acc-input" type="number" step="0.01"
+                                       name="solde" placeholder="0.00" required>
+                            </div>
+                            <div class="acc-field">
+                                <label><i class="fa-solid fa-calendar-day"></i> Date d'ouverture</label>
+                                <input class="acc-input" type="date" name="dateOuverture"
+                                       value="{{ 'now'|date('Y-m-d') }}">
+                            </div>
+                        </div>
+
+                        <div class="acc-form-row">
+                            <div class="acc-field">
+                                <label><i class="fa-solid fa-circle-dot"></i> Statut</label>
+                                <div class="acc-select-wrap">
+                                    <select class="acc-input" name="statutCompte">
+                                        {% for v in ['Actif','Bloque','Ferme'] %}
+                                            <option value="{{ v }}">{{ v }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="acc-field">
+                                <label><i class="fa-solid fa-tag"></i> Type de compte</label>
+                                <div class="acc-select-wrap">
+                                    <select class="acc-input" name="typeCompte">
+                                        {% for v in ['Courant','Epargne','Professionnel'] %}
+                                            <option value="{{ v }}">{{ v }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="acc-form-section-label">
+                            <i class="fa-solid fa-shield-halved"></i>
+                            <span>Plafonds de securite</span>
+                            <div class="acc-form-section-line"></div>
+                        </div>
+
+                        <div class="acc-form-row">
+                            <div class="acc-field">
+                                <label>
+                                    <i class="fa-solid fa-money-bill-wave"></i> Plafond retrait (TND)
+                                </label>
+                                <input class="acc-input" type="number" step="0.01"
+                                       name="plafondRetrait" placeholder="0.00">
+                            </div>
+                            <div class="acc-field">
+                                <label>
+                                    <i class="fa-solid fa-paper-plane"></i> Plafond virement (TND)
+                                </label>
+                                <input class="acc-input" type="number" step="0.01"
+                                       name="plafondVirement" placeholder="0.00">
+                            </div>
+                        </div>
+
+                        <div class="acc-form-actions">
+                            <button class="acc-submit-btn" type="submit">
+                                <i class="fa-solid fa-floppy-disk"></i> Enregistrer
+                            </button>
+                            <button class="acc-reset-btn" type="reset">
+                                <i class="fa-solid fa-rotate-left"></i> Vider
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                {# Quick-select accounts #}
+                <div class="acc-panel">
+                    <div class="acc-panel-head">
+                        <div class="acc-panel-head-icon"
+                             style="background:linear-gradient(135deg,#00838f,#00bcd4);">
+                            <i class="fa-solid fa-circle-info"></i>
+                        </div>
+                        <div class="acc-panel-head-text">
+                            <strong>Comptes disponibles</strong>
+                            <p>Cliquez pour charger dans le formulaire</p>
+                        </div>
+                    </div>
+                    <div class="acc-account-rows">
+                        {% for account in items %}
+                            <div class="acc-account-row selectable"
+                                 data-acc-edit="{{ account.idCompte }}"
+                                 data-acc-numero="{{ account.numeroCompte }}"
+                                 data-acc-solde="{{ account.solde }}"
+                                 data-acc-type="{{ account.typeCompte|default('Courant') }}"
+                                 data-acc-statut="{{ account.statutCompte|default('Actif') }}"
+                                 data-acc-ouverture="{{ account.dateOuverture|default('') }}"
+                                 data-acc-retrait="{{ account.plafondRetrait|default('') }}"
+                                 data-acc-virement="{{ account.plafondVirement|default('') }}">
+                                <span class="acc-avatar">
+                                    {{ account.numeroCompte|slice(0,2)|upper }}
+                                </span>
+                                <div class="acc-account-row-info">
+                                    <strong>{{ account.numeroCompte }}</strong>
+                                    <small>
+                                        {{ account.typeCompte|default('Courant') }}
+                                        · {{ account.statutCompte|default('Actif') }}
+                                    </small>
+                                </div>
+                                <span class="acc-balance">
+                                    {{ account.solde|number_format(2,'.', ' ') }} DT
+                                </span>
+                            </div>
+                        {% else %}
+                            <div class="acc-empty">
+                                <div class="acc-empty-icon">
+                                    <i class="fa-solid fa-inbox"></i>
+                                </div>
+                                <strong>Aucun compte</strong>
+                                <span>Creez-en un via le formulaire.</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+    </div>{# end acc-body #}
+
+</section>{# end acc-shell #}
+
+{# ══════════════════════════════════════════════
+   MODALS
+══════════════════════════════════════════════ #}
+<div class="acc-modal-wrap" id="acc-modal-wrap" hidden>
+    <button class="acc-modal-backdrop" type="button" data-acc-close aria-label="Fermer"></button>
+
+    {# WHEEL MODAL #}
+    <div class="acc-modal" data-acc-panel="wheel" hidden>
+        <div class="acc-modal-head">
+            <div class="acc-modal-head-left">
+                <div class="acc-modal-head-icon">
+                    <i class="fa-solid fa-dharmachakra"></i>
+                </div>
+                <div>
+                    <h3>Wheel of Fortune</h3>
+                    <p>NEXORA BANK — Analyse comportement financier mensuel</p>
+                </div>
+            </div>
+            <div class="acc-modal-head-right">
+                <span class="acc-modal-badge {{ wheel.can_spin ? 'ok' : 'warn' }}">
+                    {{ wheel.can_spin ? 'Eligible' : 'Verification' }}
+                </span>
+                <button class="acc-modal-close" type="button" data-acc-close>
+                    <i class="fa-solid fa-xmark"></i> Fermer
+                </button>
+            </div>
+        </div>
+        <div class="acc-modal-body">
+            <div class="acc-wheel-layout">
+                <div class="acc-wheel-left">
+                    <div class="acc-wheel-ring-outer">
+                        <div class="acc-wheel-ring-inner">
+                            <i class="fa-solid fa-star"></i>
+                            <span>Roue</span>
+                        </div>
+                    </div>
+                    <p class="acc-wheel-status">
+                        {{ wheel.eligibility.message|default('Verification en cours.') }}
+                    </p>
+                    <form method="post" style="width:100%;">
+                        <input type="hidden" name="tab"    value="accounts">
+                        <input type="hidden" name="panel"  value="wheel">
+                        <input type="hidden" name="action" value="wheel_spin">
+                        <button class="acc-wheel-spin-btn" type="submit"
+                                {{ not wheel.can_spin ? 'disabled' : '' }}>
+                            <i class="fa-solid fa-dharmachakra"></i>
+                            {{ wheel.can_spin ? 'Lancer la roue' : 'Conditions non remplies' }}
+                        </button>
+                    </form>
+                    {% if wheel.last_points|default(0) > 0 %}
+                        <div class="acc-wheel-result-note">
+                            <strong>Dernier tirage</strong>
+                            <p>+{{ wheel.last_points }} points · {{ wheel.last_spin_date|default('—') }}</p>
+                        </div>
+                    {% endif %}
+                    {% if wheel.bonus_ready and items is not empty %}
+                        <div class="acc-wheel-bonus">
+                            <strong>🎉 100 POINTS ATTEINTS !</strong>
+                            <p>Choisissez le compte qui recevra +50 DT.</p>
+                            <form method="post">
+                                <input type="hidden" name="tab"    value="accounts">
+                                <input type="hidden" name="panel"  value="wheel">
+                                <input type="hidden" name="action" value="wheel_bonus">
+                                <select name="idCompte" required>
+                                    {% for account in items %}
+                                        <option value="{{ account.idCompte }}">
+                                            {{ account.numeroCompte }}
+                                            — {{ account.solde|number_format(2,'.', ' ') }} DT
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                                <button class="acc-wheel-bonus-btn" type="submit" style="margin-top:8px;">
+                                    Crediter +50 DT
+                                </button>
+                            </form>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="acc-wheel-right">
+                    <div class="acc-wheel-section">
+                        <div class="acc-wheel-section-title">
+                            <i class="fa-solid fa-clipboard-check"></i> Conditions d'eligibilite
+                        </div>
+                        <div class="acc-wheel-condition {{ wheel.eligibility.condition_solde ? 'ok' : 'ko' }}">
+                            <span><i class="fa-solid fa-wallet"></i></span>
+                            <div>
+                                <strong>Solde toujours positif</strong>
+                                <small>Aucun solde negatif ce mois</small>
+                            </div>
+                            <b>{{ wheel.eligibility.condition_solde ? 'OK' : 'KO' }}</b>
+                        </div>
+                        <div class="acc-wheel-condition {{ wheel.eligibility.condition_budget ? 'ok' : 'ko' }}">
+                            <span><i class="fa-solid fa-chart-pie"></i></span>
+                            <div>
+                                <strong>Budget mensuel respecte</strong>
+                                <small>Depenses ≤ 80% des credits mensuels</small>
+                            </div>
+                            <b>{{ wheel.eligibility.condition_budget ? 'OK' : 'KO' }}</b>
+                        </div>
+                        <div class="acc-wheel-condition {{ wheel.eligibility.condition_epargne ? 'ok' : 'ko' }}">
+                            <span><i class="fa-solid fa-piggy-bank"></i></span>
+                            <div>
+                                <strong>Epargne mensuelle active</strong>
+                                <small>Au moins 1 operation epargne / coffre</small>
+                            </div>
+                            <b>{{ wheel.eligibility.condition_epargne ? 'OK' : 'KO' }}</b>
+                        </div>
+                    </div>
+
+                    <div class="acc-wheel-section">
+                        <div class="acc-wheel-section-title">
+                            <i class="fa-solid fa-star"></i> Tes points NEXORA
+                        </div>
+                        <div class="acc-wheel-pts-head">
+                            <span>{{ wheel.total_points|default(0) }} / 100 pts</span>
+                            <span>{{ wheel_progress }}%</span>
+                        </div>
+                        <div class="acc-progress-track" style="margin-top:6px;">
+                            <div class="acc-progress-fill" style="width:{{ wheel_progress }}%"></div>
+                        </div>
+                        <p style="font-size:12px;color:#7294ae;margin-top:6px;line-height:1.5;">
+                            {{ wheel.eligibility.suggestion|default('Continue pour debloquer plus de recompenses.') }}
+                        </p>
+                    </div>
+
+                    {% if not wheel.can_spin %}
+                        <div class="acc-wheel-refusal">
+                            <h4><i class="fa-solid fa-lock"></i> Acces refuse</h4>
+                            <p>{{ wheel.eligibility.suggestion|default('Conditions non remplies.') }}</p>
+                        </div>
+                    {% endif %}
+
+                    <div class="acc-wheel-rules">
+                        <h4><i class="fa-solid fa-circle-info"></i> Regles du jeu</h4>
+                        <p>— 1 tour par mois. Points cumules mois apres mois.</p>
+                        <p>— 25 pts → Cashback. 50 pts → Reduction frais bancaires.</p>
+                        <p class="highlight">— 100 pts → +50 DT credites automatiquement.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# HISTORY MODAL #}
+    <div class="acc-modal" data-acc-panel="history" hidden>
+        <div class="acc-modal-head">
+            <div class="acc-modal-head-left">
+                <div class="acc-modal-head-icon">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                </div>
+                <div>
+                    <h3>Historique des actions</h3>
+                    <p>Suivi des operations recentes du compte</p>
+                </div>
+            </div>
+            <div class="acc-modal-head-right">
+                <span style="font-size:12px;font-weight:700;color:rgba(255,255,255,.7);"
+                      id="acc-history-count">{{ activity_logs|length }} action(s)</span>
+                <button class="acc-modal-close" type="button" data-acc-close>
+                    <i class="fa-solid fa-xmark"></i> Fermer
+                </button>
+            </div>
+        </div>
+        <div class="acc-modal-body">
+            <div class="acc-history-search">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input id="acc-history-search" type="search"
+                       placeholder="Rechercher par action, source ou date…">
+            </div>
+            <div class="acc-history-list" id="acc-history-list">
+                {% for log in activity_logs %}
+                    {% set action_text  = log.action_type|default('ACTION')|replace({'_': ' '})|title %}
+                    {% set source_text  = log.action_source|default('Portal') %}
+                    {% set details_text = log.details|default('') %}
+                    {% set date_text    = log.created_at|default('—') %}
+                    <article class="acc-history-row"
+                             data-acc-history
+                             data-acc-history-text="{{ (action_text~' '~source_text~' '~details_text~' '~date_text)|lower|e('html_attr') }}">
+                        <div class="acc-history-icon">
+                            <i class="fa-solid fa-clock-rotate-left"></i>
+                        </div>
+                        <div class="acc-history-main">
+                            <strong>{{ action_text }}</strong>
+                            <p>{{ details_text != '' ? details_text : 'Operation enregistree.' }}</p>
+                            <small>{{ source_text }}</small>
+                        </div>
+                        <time>{{ date_text }}</time>
+                    </article>
+                {% else %}
+                    <p class="acc-history-empty" id="acc-history-empty-base">
+                        Aucune action enregistree.
+                    </p>
+                {% endfor %}
+                <p class="acc-history-empty" id="acc-history-no-results" hidden>
+                    Aucun resultat pour cette recherche.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    {# LANGUAGE MODAL #}
+    <div class="acc-modal" style="max-width:640px;" data-acc-panel="language" hidden>
+        <div class="acc-modal-head">
+            <div class="acc-modal-head-left">
+                <div class="acc-modal-head-icon">
+                    <i class="fa-solid fa-globe"></i>
+                </div>
+                <div>
+                    <h3>Langue et outils</h3>
+                    <p>Acces rapide aux modules complementaires</p>
+                </div>
+            </div>
+            <button class="acc-modal-close" type="button" data-acc-close>
+                <i class="fa-solid fa-xmark"></i> Fermer
+            </button>
+        </div>
+        <div class="acc-modal-body">
+            <div class="acc-lang-grid">
+                <a class="acc-lang-card" href="{{ path('portal_features', { section: 'insights' }) }}">
+                    <i class="fa-solid fa-lightbulb"></i>
+                    <strong>Insights IA</strong>
+                    <span>Recommandations personnalisees et traduction intelligente</span>
+                </a>
+                <a class="acc-lang-card" href="{{ path('portal_features', { section: 'games' }) }}">
+                    <i class="fa-solid fa-dragon"></i>
+                    <strong>Module Jeux</strong>
+                    <span>Roue + dragon + bonus et recompenses gamifiees</span>
+                </a>
+                <a class="acc-lang-card" href="{{ path('portal_features', { section: 'payments' }) }}">
+                    <i class="fa-solid fa-credit-card"></i>
+                    <strong>Paiements</strong>
+                    <span>OTP, Stripe et historique des transactions</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    const $ = (sel, ctx = document) => ctx.querySelector(sel);
+    const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
+
+    /* ── TAB SYSTEM ── */
+    const navBtns = $$('[data-acc-tab]');
+    const panels  = $$('.acc-tab-panel');
+
+    function activateTab(name) {
+        navBtns.forEach(b => b.classList.toggle('active', b.dataset.accTab === name));
+        panels.forEach(p => p.classList.toggle('active', p.id === 'acc-tab-' + name));
+    }
+
+    navBtns.forEach(btn => btn.addEventListener('click', () => activateTab(btn.dataset.accTab)));
+
+    $$('[data-acc-tab-link]').forEach(el => {
+        el.addEventListener('click', e => {
+            e.preventDefault();
+            activateTab(el.dataset.accTabLink);
+        });
+    });
+
+    /* ── MODAL SYSTEM ── */
+    const modalWrap   = $('#acc-modal-wrap');
+    const modalPanels = $$('[data-acc-panel]', modalWrap || document);
+    const ALLOWED     = ['wheel', 'history', 'language'];
+
+    function hideAllModals() { modalPanels.forEach(p => p.hidden = true); }
+
+    function syncURL(panel) {
+        const url = new URL(location.href);
+        panel ? url.searchParams.set('panel', panel) : url.searchParams.delete('panel');
+        history.replaceState({}, '', url.pathname + (url.search || ''));
+    }
+
+    function openModal(name) {
+        const pName = ALLOWED.includes(name) ? name : 'wheel';
+        const panel = modalWrap?.querySelector(`[data-acc-panel="${pName}"]`);
+        if (!panel || !modalWrap) return;
+        hideAllModals();
+        panel.hidden = false;
+        modalWrap.hidden = false;
+        document.body.style.overflow = 'hidden';
+        syncURL(pName);
+        if (pName === 'history') filterHistory();
+    }
+
+    function closeModal() {
+        if (!modalWrap) return;
+        modalWrap.hidden = true;
+        document.body.style.overflow = '';
+        hideAllModals();
+        syncURL('');
+    }
+
+    $$('[data-acc-modal]').forEach(btn => btn.addEventListener('click', () => openModal(btn.dataset.accModal)));
+    $$('[data-acc-close]').forEach(btn => btn.addEventListener('click', closeModal));
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && modalWrap && !modalWrap.hidden) closeModal();
+    });
+
+    const urlPanel = new URLSearchParams(location.search).get('panel');
+    if (urlPanel && ALLOWED.includes(urlPanel)) openModal(urlPanel);
+
+    /* ── HISTORY SEARCH ── */
+    const historyRows      = $$('[data-acc-history]');
+    const historyCountEl   = $('#acc-history-count');
+    const historyNoResults = $('#acc-history-no-results');
+    const histSearchInput  = $('#acc-history-search');
+
+    function filterHistory() {
+        const kw = (histSearchInput?.value ?? '').trim().toLowerCase();
+        let visible = 0;
+        historyRows.forEach(row => {
+            const show = kw === '' || (row.dataset.accHistoryText ?? '').includes(kw);
+            row.hidden = !show;
+            if (show) visible++;
+        });
+        if (historyCountEl) historyCountEl.textContent = `${visible} action(s)`;
+        if (historyNoResults) historyNoResults.hidden = visible > 0 || kw === '';
+    }
+
+    histSearchInput?.addEventListener('input', filterHistory);
+
+    /* ── ACCOUNTS FILTER + SEARCH ── */
+    const chips     = $$('[data-acc-filter]');
+    const accRows   = $$('[data-acc-account-type]');
+    const accSearch = $('#acc-accounts-search');
+
+    chips.forEach(chip => {
+        chip.addEventListener('click', () => {
+            chips.forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            const filter = chip.dataset.accFilter;
+            accRows.forEach(row => {
+                row.hidden = filter !== 'all' && row.dataset.accAccountType !== filter;
+            });
+        });
+    });
+
+    accSearch?.addEventListener('input', () => {
+        const kw = accSearch.value.trim().toLowerCase();
+        accRows.forEach(row => {
+            row.hidden = kw !== '' && !row.textContent.toLowerCase().includes(kw);
+        });
+    });
+
+    /* ── EDIT FORM FILL ── */
+    const editIdInput = $('#acc-edit-id');
+
+    function fillEditForm(el) {
+        const form = editIdInput?.closest('form');
+        if (!form) return;
+        const set = (name, val) => {
+            const f = form.querySelector(`[name="${name}"]`);
+            if (f) f.value = val ?? '';
+        };
+        set('idCompte',        el.dataset.accEdit);
+        set('numeroCompte',    el.dataset.accNumero);
+        set('solde',           el.dataset.accSolde);
+        set('typeCompte',      el.dataset.accType);
+        set('statutCompte',    el.dataset.accStatut);
+        set('dateOuverture',   el.dataset.accOuverture);
+        set('plafondRetrait',  el.dataset.accRetrait);
+        set('plafondVirement', el.dataset.accVirement);
+    }
+
+    $$('[data-acc-edit]').forEach(el => {
+        el.addEventListener('click', () => {
+            fillEditForm(el);
+            if (el.dataset.accTabLink) activateTab('edit');
+        });
+    });
+
+})();
+</script>

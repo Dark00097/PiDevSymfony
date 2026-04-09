@@ -1,0 +1,451 @@
+{% set transaction_total = summary.transactions_total|default(items|length) %}
+{% set revenues = 0 %}
+{% set expenses = 0 %}
+{% set pending_count = 0 %}
+{% set current_month = 'now'|date('Y-m') %}
+{% set operations_month = 0 %}
+{% for item in items %}
+    {% set amount = item.montant_value|default(0) %}
+    {% set type_key = item.typeTransaction|default('credit')|lower %}
+    {% set status_key = item.statutTransaction|default('')|lower %}
+    {% if 'debit' in type_key %}
+        {% set expenses = expenses + amount %}
+    {% else %}
+        {% set revenues = revenues + amount %}
+    {% endif %}
+    {% if 'attente' in status_key %}
+        {% set pending_count = pending_count + 1 %}
+    {% endif %}
+    {% if item.dateTransaction is not empty and item.dateTransaction|date('Y-m') == current_month %}
+        {% set operations_month = operations_month + 1 %}
+    {% endif %}
+{% endfor %}
+{% set net_balance = revenues - expenses %}
+{% set categories = ['Alimentation', 'Transport', 'Factures', 'Salaire', 'Education', 'Shopping', 'Sante', 'Autre'] %}
+
+<section class="tnx-shell">
+
+    {# ── TOP BANNER ── #}
+    <div class="tnx-banner">
+        <div class="tnx-banner-brand">
+            <div class="tnx-banner-icon">
+                <i class="fa-solid fa-right-left"></i>
+            </div>
+            <div class="tnx-banner-text">
+                <h1>Gestion des transactions</h1>
+                <p>Voir, gerer et suivre toutes vos transactions financieres</p>
+            </div>
+        </div>
+
+        <div class="tnx-banner-center">
+            <div class="tnx-banner-stat">
+                <span class="tnx-banner-stat-num">{{ transaction_total }}</span>
+                <span class="tnx-banner-stat-lbl">Total transactions</span>
+            </div>
+            <div class="tnx-banner-divider"></div>
+            <div class="tnx-banner-stat">
+                <span class="tnx-banner-stat-num">{{ operations_month }}</span>
+                <span class="tnx-banner-stat-lbl">Ce mois</span>
+            </div>
+            <div class="tnx-banner-divider"></div>
+            <div class="tnx-banner-stat">
+                <span class="tnx-banner-stat-num">{{ pending_count }}</span>
+                <span class="tnx-banner-stat-lbl">En attente</span>
+            </div>
+        </div>
+
+        <nav class="tnx-banner-nav">
+            <a class="tnx-nav-pill" href="{{ path('portal_feature_pdf_download', { kind: 'transactions' }) }}">
+                <i class="fa-solid fa-download"></i><span>PDF</span>
+            </a>
+            <a class="tnx-nav-pill" href="{{ path('portal_features', { section: 'payments' }) }}">
+                <i class="fa-solid fa-message"></i><span>SMS</span>
+            </a>
+            <a class="tnx-nav-pill tnx-nav-pill--ai" href="{{ path('portal_features', { section: 'insights' }) }}">
+                <i class="fa-solid fa-brain"></i><span>Analyse IA</span>
+            </a>
+            <a class="tnx-nav-pill tnx-nav-pill--cta" href="#tnx-form-anchor">
+                <i class="fa-solid fa-plus"></i><span>Nouvelle</span>
+            </a>
+        </nav>
+    </div>
+
+    {# ── KPI STRIP ── #}
+    <div class="tnx-kpi-strip">
+
+        <div class="tnx-kpi-tile tnx-kpi-tile--rev">
+            <div class="tnx-kpi-tile-left">
+                <div class="tnx-kpi-badge">
+                    <i class="fa-solid fa-arrow-trend-up"></i>
+                </div>
+                <div>
+                    <span class="tnx-kpi-label">REVENUS</span>
+                    <span class="tnx-kpi-sub">30 derniers jours</span>
+                </div>
+            </div>
+            <div class="tnx-kpi-tile-right">
+                <strong class="tnx-kpi-num tnx-kpi-num--up">
+                    +{{ revenues|number_format(2, '.', ' ') }}
+                </strong>
+                <span class="tnx-kpi-currency">DT</span>
+            </div>
+            <div class="tnx-kpi-bar">
+                <span style="width:100%"></span>
+            </div>
+        </div>
+
+        <div class="tnx-kpi-tile tnx-kpi-tile--exp">
+            <div class="tnx-kpi-tile-left">
+                <div class="tnx-kpi-badge">
+                    <i class="fa-solid fa-arrow-trend-down"></i>
+                </div>
+                <div>
+                    <span class="tnx-kpi-label">DEPENSES</span>
+                    <span class="tnx-kpi-sub">30 derniers jours</span>
+                </div>
+            </div>
+            <div class="tnx-kpi-tile-right">
+                <strong class="tnx-kpi-num tnx-kpi-num--down">
+                    -{{ expenses|number_format(2, '.', ' ') }}
+                </strong>
+                <span class="tnx-kpi-currency">DT</span>
+            </div>
+            <div class="tnx-kpi-bar">
+                <span class="is-danger" style="width:{{ revenues > 0 ? ((expenses / (revenues + expenses)) * 100)|round : 0 }}%"></span>
+            </div>
+        </div>
+
+        <div class="tnx-kpi-tile tnx-kpi-tile--net">
+            <div class="tnx-kpi-tile-left">
+                <div class="tnx-kpi-badge">
+                    <i class="fa-solid fa-scale-balanced"></i>
+                </div>
+                <div>
+                    <span class="tnx-kpi-label">SOLDE NET</span>
+                    <span class="tnx-kpi-sub">Ce mois</span>
+                </div>
+            </div>
+            <div class="tnx-kpi-tile-right">
+                <strong class="tnx-kpi-num {{ net_balance >= 0 ? 'tnx-kpi-num--up' : 'tnx-kpi-num--down' }}">
+                    {{ net_balance >= 0 ? '+' : '' }}{{ net_balance|number_format(2, '.', ' ') }}
+                </strong>
+                <span class="tnx-kpi-currency">DT</span>
+            </div>
+            <div class="tnx-kpi-bar">
+                <span class="{{ net_balance >= 0 ? '' : 'is-danger' }}" style="width:{{ net_balance >= 0 ? '72%' : '38%' }}"></span>
+            </div>
+        </div>
+
+        <div class="tnx-kpi-tile tnx-kpi-tile--pend">
+            <div class="tnx-kpi-tile-left">
+                <div class="tnx-kpi-badge tnx-kpi-badge--glow">
+                    <i class="fa-solid fa-hourglass-half"></i>
+                </div>
+                <div>
+                    <span class="tnx-kpi-label">EN ATTENTE</span>
+                    <span class="tnx-kpi-sub">Traitement requis</span>
+                </div>
+            </div>
+            <div class="tnx-kpi-tile-right">
+                <strong class="tnx-kpi-num tnx-kpi-num--pend">{{ pending_count }}</strong>
+                <span class="tnx-kpi-currency">ops</span>
+            </div>
+            <div class="tnx-kpi-bar">
+                <span class="is-warn" style="width:{{ pending_count > 0 ? '60%' : '0%' }}"></span>
+            </div>
+        </div>
+
+    </div>
+
+    {# ── BODY: SIDEBAR + CONTENT ── #}
+    <div class="tnx-body">
+
+        {# ── LEFT SIDEBAR: FORM ── #}
+        <aside class="tnx-sidebar" id="tnx-form-anchor">
+
+            <div class="tnx-sidebar-header">
+                <div class="tnx-sidebar-header-icon">
+                    <i class="fa-solid fa-receipt"></i>
+                </div>
+                <div>
+                    <h2>Nouvelle transaction</h2>
+                    <p>Creer ou modifier une operation</p>
+                </div>
+            </div>
+
+            <form method="post" class="tnx-form" id="transaction-form">
+                <input type="hidden" name="tab" value="transactions">
+
+                <div class="tnx-form-section">
+                    <span class="tnx-form-section-label">
+                        <i class="fa-solid fa-fingerprint"></i> Identification
+                    </span>
+                    <div class="tnx-field">
+                        <label for="f-id">ID pour modifier</label>
+                        <input id="f-id" type="number" name="idTransaction" placeholder="Laisser vide pour creer">
+                    </div>
+                    <div class="tnx-field">
+                        <label for="f-compte">Compte</label>
+                        <select id="f-compte" name="idCompte">
+                            <option value="">Sans compte</option>
+                            {% for account in support.accounts|default([]) %}
+                                <option value="{{ account.idCompte }}">{{ account.numeroCompte }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="tnx-form-section">
+                    <span class="tnx-form-section-label">
+                        <i class="fa-solid fa-tags"></i> Classification
+                    </span>
+                    <div class="tnx-field">
+                        <label for="f-cat">Categorie <em>*</em></label>
+                        <select id="f-cat" name="categorie" required>
+                            <option value="">Selectionner</option>
+                            {% for category in categories %}
+                                <option value="{{ category }}">{{ category }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="tnx-field">
+                        <label for="f-type">Type <em>*</em></label>
+                        <div class="tnx-toggle-group">
+                            <label class="tnx-toggle-opt">
+                                <input type="radio" name="typeTransaction" value="Credit" required>
+                                <span class="tnx-toggle-face tnx-toggle-face--credit">
+                                    <i class="fa-solid fa-arrow-up"></i> Credit
+                                </span>
+                            </label>
+                            <label class="tnx-toggle-opt">
+                                <input type="radio" name="typeTransaction" value="Debit">
+                                <span class="tnx-toggle-face tnx-toggle-face--debit">
+                                    <i class="fa-solid fa-arrow-down"></i> Debit
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tnx-form-section">
+                    <span class="tnx-form-section-label">
+                        <i class="fa-solid fa-coins"></i> Montant & Date
+                    </span>
+                    <div class="tnx-field">
+                        <label for="f-amount">Montant <em>*</em></label>
+                        <div class="tnx-amount-wrap">
+                            <span class="tnx-amount-prefix">DT</span>
+                            <input id="f-amount" type="number" step="0.01" name="montant" placeholder="0.00" required>
+                        </div>
+                        <small class="tnx-amount-note">Dinar tunisien (TND)</small>
+                    </div>
+                    <div class="tnx-field">
+                        <label for="f-date">Date <em>*</em></label>
+                        <input id="f-date" type="date" name="dateTransaction" value="{{ 'now'|date('Y-m-d') }}" required>
+                    </div>
+                </div>
+
+                <div class="tnx-form-section">
+                    <span class="tnx-form-section-label">
+                        <i class="fa-solid fa-circle-dot"></i> Statut & Notes
+                    </span>
+                    <div class="tnx-field">
+                        <label for="f-statut">Statut <em>*</em></label>
+                        <select id="f-statut" name="statutTransaction" required>
+                            <option value="">Selectionner</option>
+                            <option value="En attente">En attente</option>
+                            <option value="Terminee" selected>Terminee</option>
+                            <option value="Echouee">Echouee</option>
+                            <option value="Annulee">Annulee</option>
+                        </select>
+                    </div>
+                    <div class="tnx-field">
+                        <label for="f-desc">Description</label>
+                        <textarea id="f-desc" name="description" rows="3" placeholder="Details de l'operation..."></textarea>
+                    </div>
+                </div>
+
+                <div class="tnx-form-actions">
+                    <button class="tnx-act-btn tnx-act-btn--ghost" type="reset">
+                        <i class="fa-solid fa-rotate-left"></i> Vider
+                    </button>
+                    <button class="tnx-act-btn tnx-act-btn--del" type="submit" name="action" value="transaction_delete" formnovalidate>
+                        <i class="fa-solid fa-trash-can"></i> Supprimer
+                    </button>
+                    <button class="tnx-act-btn tnx-act-btn--save" type="submit" name="action" value="transaction_save">
+                        <i class="fa-solid fa-floppy-disk"></i> Enregistrer
+                    </button>
+                </div>
+
+            </form>
+        </aside>
+
+        {# ── RIGHT PANEL: HISTORY ── #}
+        <main class="tnx-panel">
+
+            <div class="tnx-panel-topbar">
+                <div class="tnx-panel-title">
+                    <div class="tnx-panel-title-icon">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                    </div>
+                    <div>
+                        <h2>Historique</h2>
+                        <p>{{ transaction_total }} transaction{{ transaction_total > 1 ? 's' : '' }} enregistree{{ transaction_total > 1 ? 's' : '' }}</p>
+                    </div>
+                </div>
+
+                <div class="tnx-panel-controls">
+                    <div class="tnx-search-box">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" placeholder="Rechercher une transaction...">
+                    </div>
+                    <select class="tnx-sort-select">
+                        <option>Date recente</option>
+                        <option>Date ancienne</option>
+                        <option>Montant decroissant</option>
+                        <option>Montant croissant</option>
+                        <option>Statut A-Z</option>
+                    </select>
+                </div>
+            </div>
+
+            {# Filter chips #}
+            <div class="tnx-chips">
+                <button class="tnx-chip tnx-chip--active">Tout</button>
+                <button class="tnx-chip">Credits</button>
+                <button class="tnx-chip">Debits</button>
+                <button class="tnx-chip">En attente</button>
+                <button class="tnx-chip">Terminees</button>
+            </div>
+
+            {# Timeline list #}
+            <div class="tnx-timeline">
+                {% for item in items %}
+                    {% set amount = item.montant_value|default(0) %}
+                    {% set type_key = item.typeTransaction|default('credit')|lower %}
+                    {% set status_key = item.statutTransaction|default('terminee')|lower %}
+                    {% set is_debit = 'debit' in type_key %}
+                    {% set badge_class = 'is-ok' %}
+                    {% if 'attente' in status_key %}
+                        {% set badge_class = 'is-wait' %}
+                    {% elseif 'echoue' in status_key or 'annule' in status_key %}
+                        {% set badge_class = 'is-fail' %}
+                    {% endif %}
+
+                    <div class="tnx-row {{ is_debit ? 'tnx-row--debit' : 'tnx-row--credit' }}">
+
+                        {# Timeline dot #}
+                        <div class="tnx-row-dot">
+                            <span class="tnx-row-dot-ring"></span>
+                            <i class="fa-solid {{ is_debit ? 'fa-arrow-down' : 'fa-arrow-up' }}"></i>
+                        </div>
+
+                        {# Card body #}
+                        <div class="tnx-row-card">
+
+                            <div class="tnx-row-card-main">
+                                <div class="tnx-row-card-info">
+                                    <div class="tnx-row-card-top">
+                                        <span class="tnx-row-cat">{{ item.categorie|default('Transaction') }}</span>
+                                        <span class="tnx-row-badge tnx-row-badge--{{ badge_class }}">
+                                            {% if badge_class == 'is-ok' %}
+                                                <i class="fa-solid fa-check"></i>
+                                            {% elseif badge_class == 'is-wait' %}
+                                                <i class="fa-solid fa-clock"></i>
+                                            {% else %}
+                                                <i class="fa-solid fa-xmark"></i>
+                                            {% endif %}
+                                            {{ item.statutTransaction|default('Terminee') }}
+                                        </span>
+                                    </div>
+                                    <p class="tnx-row-meta">
+                                        <i class="fa-regular fa-calendar"></i>
+                                        {{ item.dateTransaction|default('-') }}
+                                        &nbsp;·&nbsp;
+                                        <i class="fa-regular fa-user"></i>
+                                        {{ item.user_name|default('Utilisateur')|trim }}
+                                        &nbsp;·&nbsp;
+                                        {{ item.typeTransaction|default('Credit') }}
+                                    </p>
+                                    <div class="tnx-row-progress">
+                                        <div class="tnx-row-progress-fill {{ badge_class }}" style="width: {{ badge_class == 'is-ok' ? '100%' : (badge_class == 'is-wait' ? '56%' : '28%') }};"></div>
+                                    </div>
+                                </div>
+
+                                <div class="tnx-row-card-right">
+                                    <strong class="tnx-row-amount {{ is_debit ? 'tnx-row-amount--debit' : 'tnx-row-amount--credit' }}">
+                                        {{ is_debit ? '−' : '+' }}{{ amount|number_format(2, '.', ' ') }}<em>DT</em>
+                                    </strong>
+                                </div>
+                            </div>
+
+                            <div class="tnx-row-card-footer">
+                                <a class="tnx-row-action tnx-row-action--qr" href="{{ path('portal_feature_transaction_qr', { id: item.idTransaction }) }}" title="QR Code">
+                                    <i class="fa-solid fa-qrcode"></i>
+                                    <span>QR</span>
+                                </a>
+                                <a class="tnx-row-action tnx-row-action--flag" href="{{ path(route_name, { tab: 'complaints' }) }}" title="Reclamation">
+                                    <i class="fa-solid fa-flag"></i>
+                                    <span>Reclamation</span>
+                                </a>
+                                <a class="tnx-row-action tnx-row-action--ai" href="{{ path('portal_features', { section: 'insights' }) }}" title="Analyse IA">
+                                    <i class="fa-solid fa-brain"></i>
+                                    <span>IA</span>
+                                </a>
+                                <a class="tnx-row-action tnx-row-action--eye" href="{{ path('portal_features', { section: 'exports' }) }}" title="Voir">
+                                    <i class="fa-solid fa-eye"></i>
+                                    <span>Voir</span>
+                                </a>
+                                <form method="post" class="tnx-row-del-form">
+                                    <input type="hidden" name="tab" value="transactions">
+                                    <input type="hidden" name="action" value="transaction_delete">
+                                    <input type="hidden" name="idTransaction" value="{{ item.idTransaction }}">
+                                    <button class="tnx-row-action tnx-row-action--del" type="submit" title="Supprimer">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                        <span>Suppr.</span>
+                                    </button>
+                                </form>
+                            </div>
+
+                        </div>
+                    </div>
+
+                {% else %}
+                    <div class="tnx-empty">
+                        <div class="tnx-empty-icon">
+                            <i class="fa-solid fa-receipt"></i>
+                        </div>
+                        <h3>Aucune transaction trouvee</h3>
+                        <p>Ajoutez votre premiere operation pour commencer le suivi.</p>
+                        <a class="tnx-empty-cta" href="#tnx-form-anchor">
+                            <i class="fa-solid fa-plus"></i> Creer une transaction
+                        </a>
+                    </div>
+                {% endfor %}
+            </div>
+
+            {# Pagination footer #}
+            <div class="tnx-footer">
+                <span class="tnx-footer-info">
+                    Affichage <strong>{{ items is empty ? '0' : '1–' ~ items|length }}</strong> sur <strong>{{ items|length }}</strong>
+                </span>
+                <div class="tnx-pager">
+                    <button type="button" class="tnx-pager-btn" aria-label="Precedent">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <button type="button" class="tnx-pager-btn tnx-pager-btn--active">
+                        {{ items is empty ? 0 : 1 }}
+                    </button>
+                    <button type="button" class="tnx-pager-btn" aria-label="Suivant">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                </div>
+                <span class="tnx-footer-month">
+                    <i class="fa-regular fa-calendar-check"></i>
+                    {{ operations_month }} op{{ operations_month > 1 ? 's' : '' }} ce mois
+                </span>
+            </div>
+
+        </main>
+    </div>
+</section>

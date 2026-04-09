@@ -1,0 +1,1238 @@
+﻿{% extends 'base.html.twig' %}
+
+{% block title %}Nexora Portal â€” {{ tab|replace({'_': ' '})|title }}{% endblock %}
+{% block body_class %}nx-portal-body{% endblock %}
+
+{% block stylesheets %}
+    {% set css_version = 'now'|date('U') %}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    {% for stylesheet in tab_stylesheets|default([]) %}
+        <link rel="stylesheet" href="{{ asset(stylesheet) }}?v={{ css_version }}" data-turbo-track="reload">
+    {% endfor %}
+{% endblock %}
+
+{% block body %}
+
+{% set active_tab_label = tab %}
+{% for item in tabs %}
+    {% if item.key == tab %}
+        {% set active_tab_label = item.label %}
+    {% endif %}
+{% endfor %}
+
+{% set primary_keys = ['dashboard', 'accounts', 'transactions', 'credits', 'cashback'] %}
+{% set secondary_keys = ['garanties', 'complaints', 'vaults', 'profile', 'notifications'] %}
+
+{% set nav_icons = {
+    dashboard:     'fa-chart-line',
+    accounts:      'fa-wallet',
+    transactions:  'fa-right-left',
+    credits:       'fa-hand-holding-dollar',
+    cashback:      'fa-hand-holding-heart',
+    garanties:     'fa-shield-halved',
+    complaints:    'fa-comment-dots',
+    vaults:        'fa-lock',
+    profile:       'fa-user-circle',
+    notifications: 'fa-bell'
+} %}
+
+{% set page_subtitles = {
+    dashboard:     'Vue globale de toutes vos activites financieres',
+    accounts:      'Gerez et suivez vos comptes bancaires',
+    transactions:  'Consultez l\'historique complet de vos transactions',
+    credits:       'Gestion des credits, mensualites et garanties',
+    cashback:      'Suivi de vos recompenses et partenaires cashback',
+    garanties:     'Garanties et couvertures associees a vos credits',
+    complaints:    'Suivi et gestion de vos reclamations',
+    vaults:        'Objectifs d\'epargne et coffres virtuels',
+    profile:       'Profil personnel et parametres de securite',
+    notifications: 'Alertes, rappels et messages systeme'
+} %}
+
+{# â”€â”€ Detect section color for page accent â”€â”€ #}
+{% set tab_accent = {
+    dashboard:    '#1565c0',
+    accounts:     '#0097a7',
+    transactions: '#7c3aed',
+    credits:      '#1565c0',
+    cashback:     '#00838f',
+    garanties:    '#0f6f8e',
+    complaints:   '#b91c1c',
+    vaults:       '#166534',
+    profile:      '#374151',
+    notifications:'#d97706'
+} %}
+{% set current_accent = tab_accent[tab]|default('#1565c0') %}
+
+<style>
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   NEXORA PORTAL  â€”  Full Layout + Navbar
+   White background Â· Clean banking UI
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+
+/* â”€â”€ Reset â”€â”€ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* â”€â”€ Body â”€â”€ */
+.nx-portal-body {
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #f0f4f8;
+    color: #0a2540;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   PORTAL WRAPPER
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.nx-portal {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   TOP NAVBAR
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.nx-navbar {
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    background: #fff;
+    border-bottom: 1px solid #e2eaf4;
+    box-shadow: 0 2px 16px rgba(10,37,64,.07);
+    display: flex;
+    align-items: center;
+    gap: 0;
+    height: 64px;
+    padding: 0 24px;
+}
+
+/* â”€â”€ Brand â”€â”€ */
+.nx-brand {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    text-decoration: none;
+    flex-shrink: 0;
+    padding-right: 24px;
+}
+
+.nx-brand-logo {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #0a2540 0%, #1565c0 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(21,101,192,.28);
+    flex-shrink: 0;
+}
+
+.nx-brand-logo img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.nx-brand-logo-fallback {
+    font-size: 17px;
+    color: #fff;
+    font-weight: 900;
+    letter-spacing: -1px;
+}
+
+.nx-brand-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.nx-brand-name {
+    font-size: 15px;
+    font-weight: 900;
+    color: #0a2540;
+    letter-spacing: 1.5px;
+    line-height: 1;
+}
+
+.nx-brand-tagline {
+    font-size: 10px;
+    color: #7294ae;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+}
+
+/* â”€â”€ Navbar Divider â”€â”€ */
+.nx-nav-sep {
+    width: 1px;
+    height: 28px;
+    background: #e2eaf4;
+    flex-shrink: 0;
+    margin: 0 20px;
+}
+
+/* â”€â”€ Primary Nav â”€â”€ */
+.nx-nav-primary {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex: 1;
+}
+
+.nx-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 12px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    color: #5b80a0;
+    white-space: nowrap;
+    transition: background .18s, color .18s;
+    position: relative;
+}
+
+.nx-nav-link i {
+    font-size: 14px;
+    flex-shrink: 0;
+    transition: color .18s;
+}
+
+.nx-nav-link:hover {
+    background: #f0f6ff;
+    color: #1565c0;
+}
+
+.nx-nav-link:hover i { color: #1565c0; }
+
+/* Active state */
+.nx-nav-link-active {
+    background: linear-gradient(120deg, rgba(21,101,192,.1), rgba(30,136,229,.07));
+    color: #1565c0;
+    font-weight: 700;
+}
+
+.nx-nav-link-active i { color: #1565c0; }
+
+.nx-nav-link-active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 14px;
+    right: 14px;
+    height: 2px;
+    background: linear-gradient(90deg, #1565c0, #1e88e5);
+    border-radius: 2px 2px 0 0;
+}
+
+/* â”€â”€ Status chips â”€â”€ */
+.nx-status-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    padding: 0 8px;
+}
+
+.nx-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 11px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.nx-chip-secure {
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+.nx-chip-secure i { font-size: 10px; color: #16a34a; }
+
+.nx-chip-live {
+    background: #dbeafe;
+    color: #1e40af;
+    border: 1px solid #bfdbfe;
+}
+
+/* Pulse dot */
+.nx-pulse {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #22c55e;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.nx-pulse::before {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    background: rgba(34,197,94,.3);
+    animation: nx-pulse-ring 1.8s ease-out infinite;
+}
+
+@keyframes nx-pulse-ring {
+    0%   { transform: scale(.7); opacity: 1; }
+    100% { transform: scale(1.6); opacity: 0; }
+}
+
+/* â”€â”€ Navbar action buttons â”€â”€ */
+.nx-nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.nx-action-btn {
+    position: relative;
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    background: transparent;
+    border: 1px solid transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #5b80a0;
+    font-size: 15px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background .18s, border-color .18s, color .18s;
+}
+
+.nx-action-btn:hover {
+    background: #f0f6ff;
+    border-color: #dde8f5;
+    color: #1565c0;
+}
+
+.nx-action-btn.is-active {
+    background: #eaf2fd;
+    border-color: #c3d9f5;
+    color: #1565c0;
+}
+
+/* Notification badge */
+.nx-notif-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    min-width: 17px;
+    height: 17px;
+    border-radius: 999px;
+    background: #e53935;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    border: 2px solid #fff;
+    line-height: 1;
+}
+
+/* â”€â”€ User profile area â”€â”€ */
+.nx-user-area {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    padding-left: 4px;
+}
+
+.nx-user-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1px;
+}
+
+.nx-user-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #0a2540;
+    white-space: nowrap;
+    line-height: 1.2;
+}
+
+.nx-user-type {
+    font-size: 10px;
+    color: #7294ae;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.nx-user-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0a2540, #1565c0);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
+    border: 2px solid #e2eaf4;
+    box-shadow: 0 2px 8px rgba(21,101,192,.18);
+}
+
+.nx-user-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.nx-user-avatar-icon {
+    font-size: 15px;
+    color: #fff;
+}
+
+.nx-signout-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: #fff4f4;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    font-size: 14px;
+    flex-shrink: 0;
+    transition: background .15s, color .15s;
+}
+
+.nx-signout-btn:hover {
+    background: #dc2626;
+    color: #fff;
+    border-color: #dc2626;
+}
+
+/* Navbar notifications modal */
+.nx-notif-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 37, 64, 0.35);
+    backdrop-filter: blur(2px);
+    z-index: 480;
+}
+
+.nx-notif-modal {
+    position: fixed;
+    top: 76px;
+    right: 22px;
+    width: min(430px, calc(100vw - 20px));
+    max-height: min(72vh, 640px);
+    border-radius: 16px;
+    background: #fff;
+    border: 1px solid #d9e6f3;
+    box-shadow: 0 16px 40px rgba(10, 37, 64, 0.18);
+    z-index: 490;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.nx-notif-overlay[hidden],
+.nx-notif-modal[hidden] {
+    display: none !important;
+}
+
+.nx-notif-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid #e6eef7;
+    background: #f8fbff;
+}
+
+.nx-notif-head h3 {
+    font-size: 14px;
+    font-weight: 800;
+    color: #0a2540;
+}
+
+.nx-notif-head p {
+    font-size: 11px;
+    color: #7294ae;
+    margin-top: 2px;
+}
+
+.nx-notif-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.nx-notif-read-btn {
+    min-height: 30px;
+    border-radius: 8px;
+    border: 1px solid #c7dbef;
+    background: #fff;
+    color: #1565c0;
+    padding: 0 10px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.nx-notif-read-btn:hover {
+    background: #eef6ff;
+}
+
+.nx-notif-close-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    border: 1px solid #d7e5f2;
+    background: #fff;
+    color: #5b80a0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.nx-notif-close-btn:hover {
+    color: #1565c0;
+    background: #eef6ff;
+}
+
+.nx-notif-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    overflow-y: auto;
+    max-height: 460px;
+}
+
+.nx-notif-item {
+    padding: 12px 14px;
+    border-bottom: 1px solid #edf3fa;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.nx-notif-item.is-unread {
+    background: linear-gradient(90deg, rgba(21, 101, 192, 0.06), rgba(21, 101, 192, 0));
+}
+
+.nx-notif-item-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.nx-notif-item-top strong {
+    font-size: 12px;
+    font-weight: 800;
+    color: #0a2540;
+    line-height: 1.25;
+}
+
+.nx-notif-item-top span {
+    font-size: 10px;
+    color: #8aa7bf;
+    white-space: nowrap;
+}
+
+.nx-notif-item p {
+    font-size: 12px;
+    color: #4f6f8a;
+    line-height: 1.45;
+}
+
+.nx-notif-empty {
+    min-height: 140px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: #8aa7bf;
+}
+
+.nx-notif-empty i {
+    font-size: 20px;
+}
+
+.nx-notif-foot {
+    border-top: 1px solid #e6eef7;
+    padding: 10px 14px;
+    background: #f8fbff;
+}
+
+.nx-notif-foot a {
+    font-size: 12px;
+    font-weight: 700;
+    color: #1565c0;
+    text-decoration: none;
+}
+
+.nx-notif-foot a:hover {
+    text-decoration: underline;
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   SECONDARY STRIP  (utility nav)
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.nx-subnav {
+    background: #fff;
+    border-bottom: 1px solid #e2eaf4;
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    height: 44px;
+}
+
+.nx-subnav-links {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.nx-subnav-link {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #7294ae;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background .15s, color .15s;
+}
+
+.nx-subnav-link i { font-size: 12px; }
+
+.nx-subnav-link:hover {
+    background: #f0f6ff;
+    color: #1565c0;
+}
+
+.nx-subnav-link-active {
+    background: #eaf2fd;
+    color: #1565c0;
+    font-weight: 700;
+}
+
+/* Breadcrumb */
+.nx-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #7294ae;
+}
+
+.nx-breadcrumb i.nx-bc-home { color: #1565c0; }
+.nx-bc-sep { font-size: 9px; color: #b8cfe0; }
+.nx-bc-active { color: #0a2540; font-weight: 700; }
+
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   PAGE HEADER BANNER
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.nx-page-banner {
+    background: #fff;
+    border-bottom: 1px solid #e2eaf4;
+    padding: 20px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.nx-page-banner-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.nx-page-banner-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: #fff;
+    flex-shrink: 0;
+    box-shadow: 0 8px 20px rgba(0,0,0,.15);
+    background: var(--nx-accent, #1565c0);
+    background: linear-gradient(135deg, var(--nx-accent-dark, #0a2540), var(--nx-accent, #1565c0));
+}
+
+.nx-page-banner-title {
+    font-size: clamp(18px, 2vw, 24px);
+    font-weight: 900;
+    color: #0a2540;
+    letter-spacing: -0.3px;
+    line-height: 1.1;
+}
+
+.nx-page-banner-sub {
+    font-size: 13px;
+    color: #7294ae;
+    margin-top: 4px;
+}
+
+/* Tab accent bar on banner icon */
+.nx-page-banner-icon { position: relative; }
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   CONTENT AREA
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.nx-content {
+    flex: 1;
+    padding: 0;
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   FLASH MESSAGES
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.nx-flashes {
+    padding: 12px 28px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   MOBILE BOTTOM NAV
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.nx-mobile-nav {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 300;
+    background: #fff;
+    border-top: 1px solid #e2eaf4;
+    box-shadow: 0 -4px 20px rgba(10,37,64,.10);
+    padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+}
+
+.nx-mobile-nav-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+}
+
+.nx-mobile-nav-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 6px 10px;
+    border-radius: 12px;
+    text-decoration: none;
+    color: #7294ae;
+    font-size: 10px;
+    font-weight: 600;
+    min-width: 56px;
+    transition: color .15s;
+}
+
+.nx-mobile-nav-link i { font-size: 18px; }
+
+.nx-mobile-nav-link-active {
+    color: #1565c0;
+}
+
+.nx-mobile-nav-link-active i {
+    background: linear-gradient(135deg, rgba(21,101,192,.12), rgba(30,136,229,.08));
+    border-radius: 10px;
+    padding: 6px;
+    margin: -6px;
+    margin-bottom: -3px;
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   RESPONSIVE
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+@media (max-width: 1200px) {
+    .nx-nav-link span { display: none; }
+    .nx-nav-link { padding: 9px 11px; }
+    .nx-subnav-link span { display: none; }
+    .nx-subnav-link { padding: 6px 10px; }
+    .nx-status-row { display: none; }
+}
+
+@media (max-width: 900px) {
+    .nx-navbar { padding: 0 16px; height: 58px; }
+    .nx-nav-primary { display: none; }
+    .nx-subnav { display: none; }
+    .nx-page-banner { padding: 16px; }
+    .nx-mobile-nav { display: block; }
+    .nx-content { padding-bottom: 80px; }
+    .nx-nav-sep { margin: 0 12px; }
+    .nx-notif-modal {
+        top: 66px;
+        right: 12px;
+        left: 12px;
+        width: auto;
+        max-height: calc(100vh - 88px);
+    }
+}
+
+@media (max-width: 600px) {
+    .nx-user-info { display: none; }
+    .nx-breadcrumb { display: none; }
+    .nx-page-banner-sub { display: none; }
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   FLASH ALERT STYLES
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    border: 1px solid transparent;
+}
+
+.nx-alert-success { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+.nx-alert-error   { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+.nx-alert-warning { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+.nx-alert-info    { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+
+.nx-alert i { font-size: 15px; flex-shrink: 0; }
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   SCROLLBAR
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #f0f4f8; }
+::-webkit-scrollbar-thumb { background: #c0d4e8; border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: #8aafc8; }
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   SELECTION
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+::selection { background: rgba(21,101,192,.18); color: #0a2540; }
+</style>
+
+{# â”€â”€ Determine banner icon per tab â”€â”€ #}
+{% set banner_icons = {
+    dashboard:     'fa-chart-line',
+    accounts:      'fa-wallet',
+    transactions:  'fa-right-left',
+    credits:       'fa-hand-holding-dollar',
+    cashback:      'fa-hand-holding-heart',
+    garanties:     'fa-shield-halved',
+    complaints:    'fa-comment-dots',
+    vaults:        'fa-lock',
+    profile:       'fa-user-circle',
+    notifications: 'fa-bell'
+} %}
+
+{% set banner_accent_dark = {
+    dashboard:    '#0d47a1',
+    accounts:     '#006064',
+    transactions: '#4527a0',
+    credits:      '#0d47a1',
+    cashback:     '#004d40',
+    garanties:    '#01579b',
+    complaints:   '#7f1d1d',
+    vaults:       '#14532d',
+    profile:      '#1f2937',
+    notifications:'#78350f'
+} %}
+
+<div class="nx-portal">
+
+    {# â•â•â•â•â•â•â•â•â•â•â•â• TOP NAVBAR â•â•â•â•â•â•â•â•â•â•â•â• #}
+    <nav class="nx-navbar">
+
+        {# Brand #}
+        <a class="nx-brand" href="{{ path(route_name, { tab: 'dashboard' }) }}">
+            <div class="nx-brand-logo">
+                {% if true %}
+                    <img src="{{ asset('images/logo.png') }}" alt="Nexora" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                    <span class="nx-brand-logo-fallback" style="display:none">N</span>
+                {% else %}
+                    <span class="nx-brand-logo-fallback">N</span>
+                {% endif %}
+            </div>
+            <div class="nx-brand-text">
+                <div class="nx-brand-name">NEXORA</div>
+                <div class="nx-brand-tagline">Banque privee</div>
+            </div>
+        </a>
+
+        <div class="nx-nav-sep"></div>
+
+        {# Primary navigation #}
+        <nav class="nx-nav-primary">
+            {% for item in tabs %}
+                {% if item.key in primary_keys %}
+                    <a class="nx-nav-link {{ item.key == tab ? 'nx-nav-link-active' : '' }}"
+                       href="{{ path(route_name, { tab: item.key }) }}">
+                        <i class="fa-solid {{ nav_icons[item.key]|default('fa-circle') }}"></i>
+                        <span>{{ item.label }}</span>
+                    </a>
+                {% endif %}
+            {% endfor %}
+        </nav>
+
+        {# Spacer #}
+        <span style="flex:1; min-width:8px;"></span>
+
+        {# Status chips #}
+        <div class="nx-status-row">
+            <span class="nx-chip nx-chip-secure">
+                <i class="fa-solid fa-shield-halved"></i>
+                Securise
+            </span>
+            <span class="nx-chip nx-chip-live">
+                <span class="nx-pulse"></span>
+                En ligne
+            </span>
+        </div>
+
+        <div class="nx-nav-sep"></div>
+
+        {# Action buttons #}
+        <div class="nx-nav-actions">
+            <a class="nx-action-btn"
+               href="{{ path(route_name, { tab: 'notifications' }) }}"
+               id="nx-notif-toggle"
+               data-nx-notif-toggle
+               title="Notifications"
+               aria-haspopup="dialog"
+               aria-controls="nx-notif-modal"
+               aria-expanded="false">
+                <i class="fa-solid fa-bell"></i>
+                {% if notifications_count|default(0) > 0 %}
+                    <span class="nx-notif-badge">
+                        {{ notifications_count > 99 ? '99+' : notifications_count }}
+                    </span>
+                {% endif %}
+            </a>
+            <a class="nx-action-btn"
+               href="{{ path(route_name, { tab: 'profile' }) }}"
+               title="Parametres">
+                <i class="fa-solid fa-cog"></i>
+            </a>
+        </div>
+
+        <div class="nx-nav-sep"></div>
+
+        {# User area #}
+        <div class="nx-user-area">
+            <div class="nx-user-info">
+                <div class="nx-user-name">
+                    {{ current_user.prenom }} {{ current_user.nom }}
+                </div>
+                <div class="nx-user-type">Compte premium</div>
+            </div>
+            <div class="nx-user-avatar">
+                {% if current_user.profile_image_path|default('') %}
+                    <img src="{{ asset(current_user.profile_image_path) }}" alt="Photo profil">
+                {% else %}
+                    <i class="fa-solid fa-user nx-user-avatar-icon"></i>
+                {% endif %}
+            </div>
+            <a class="nx-signout-btn" href="{{ path('logout') }}" title="Deconnexion">
+                <i class="fa-solid fa-right-from-bracket"></i>
+            </a>
+        </div>
+
+    </nav>
+
+    {# â•â•â•â•â•â•â•â•â•â•â• NAVBAR NOTIFICATIONS MODAL â•â•â•â•â•â•â•â•â•â•â• #}
+    <div class="nx-notif-overlay" id="nx-notif-overlay" hidden></div>
+    <section class="nx-notif-modal" id="nx-notif-modal" role="dialog" aria-modal="true" aria-labelledby="nx-notif-title" hidden>
+        <header class="nx-notif-head">
+            <div>
+                <h3 id="nx-notif-title">Notifications</h3>
+                <p>{{ notifications_count|default(0) }} non lue(s)</p>
+            </div>
+            <div class="nx-notif-head-actions">
+                <form method="post" class="nx-notif-mark-form">
+                    <input type="hidden" name="tab" value="{{ tab }}">
+                    <input type="hidden" name="action" value="notifications_read">
+                    <input type="hidden" name="panel" value="notifications">
+                    <button class="nx-notif-read-btn" type="submit">Tout lire</button>
+                </form>
+                <button class="nx-notif-close-btn" id="nx-notif-close" type="button" aria-label="Fermer">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+        </header>
+
+        <div class="nx-notif-list">
+            {% for item in notifications|default([]) %}
+                {% set unread = item.is_read|default(1) in [0, '0', false] %}
+                <article class="nx-notif-item {{ unread ? 'is-unread' : '' }}">
+                    <div class="nx-notif-item-top">
+                        <strong>{{ item.title|default('Notification') }}</strong>
+                        <span>{{ item.created_at|default('') }}</span>
+                    </div>
+                    <p>{{ item.message|default('Vous avez une nouvelle notification.') }}</p>
+                </article>
+            {% else %}
+                <div class="nx-notif-empty">
+                    <i class="fa-solid fa-bell-slash"></i>
+                    <span>Aucune notification.</span>
+                </div>
+            {% endfor %}
+        </div>
+
+        <footer class="nx-notif-foot">
+            <a href="{{ path(route_name, { tab: 'notifications' }) }}">Voir toutes les notifications</a>
+        </footer>
+    </section>
+
+    {% if tab != 'credits' and tab != 'cashback' %}
+        {# â•â•â•â•â•â•â•â•â•â•â•â• SECONDARY / UTILITY NAV â•â•â•â•â•â•â•â•â•â•â•â• #}
+        <div class="nx-subnav">
+            <div class="nx-subnav-links">
+                {% for item in tabs %}
+                    {% if item.key in secondary_keys %}
+                        <a class="nx-subnav-link {{ item.key == tab ? 'nx-subnav-link-active' : '' }}"
+                           href="{{ path(route_name, { tab: item.key }) }}"
+                           title="{{ item.label }}">
+                            <i class="fa-solid {{ nav_icons[item.key]|default('fa-circle') }}"></i>
+                            <span>{{ item.label }}</span>
+                        </a>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            {# Breadcrumb #}
+            <div class="nx-breadcrumb">
+                <i class="fa-solid fa-house nx-bc-home"></i>
+                <i class="fa-solid fa-chevron-right nx-bc-sep"></i>
+                <span>Tableau de bord</span>
+                <i class="fa-solid fa-chevron-right nx-bc-sep"></i>
+                <span class="nx-bc-active">{{ active_tab_label }}</span>
+            </div>
+        </div>
+
+        <header class="nx-page-banner">
+            <div class="nx-page-banner-left">
+                <div class="nx-page-banner-icon"
+                     style="
+                        --nx-accent: {{ current_accent }};
+                        --nx-accent-dark: {{ banner_accent_dark[tab]|default('#0a2540') }};
+                     ">
+                    <i class="fa-solid {{ banner_icons[tab]|default('fa-circle') }}"></i>
+                </div>
+                <div>
+                    <div class="nx-page-banner-title">{{ active_tab_label }}</div>
+                    <div class="nx-page-banner-sub">
+                        {{ page_subtitles[tab]|default('Vue globale de toutes vos activites') }}
+                    </div>
+                </div>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:10px;">
+                <div style="
+                    display:flex; align-items:center; gap:6px;
+                    background:#f7faff; border:1px solid #dde8f5;
+                    border-radius:10px; padding:6px 12px;
+                    font-size:12px; font-weight:600; color:#7294ae;
+                ">
+                    <i class="fa-solid fa-calendar-day" style="color:#1565c0; font-size:12px;"></i>
+                    <span id="nx-live-date">{{ 'now'|date('d/m/Y') }}</span>
+                </div>
+                <div style="
+                    display:flex; align-items:center; gap:6px;
+                    background:#f7faff; border:1px solid #dde8f5;
+                    border-radius:10px; padding:6px 12px;
+                    font-size:12px; font-weight:600; color:#7294ae;
+                ">
+                    <i class="fa-solid fa-clock" style="color:#1565c0; font-size:12px;"></i>
+                    <span id="nx-live-time">--:--</span>
+                </div>
+            </div>
+        </header>
+    {% endif %}
+
+
+    {# â•â•â•â•â•â•â•â•â•â•â•â• FLASH MESSAGES â•â•â•â•â•â•â•â•â•â•â•â• #}
+    <div class="nx-flashes" id="nx-flashes">
+        {% for type, messages in app.flashes(['success', 'error', 'warning', 'info']) %}
+            {% for message in messages %}
+                {% set flash_icons = {
+                    success: 'fa-circle-check',
+                    error:   'fa-circle-xmark',
+                    warning: 'fa-triangle-exclamation',
+                    info:    'fa-circle-info'
+                } %}
+                <div class="nx-alert nx-alert-{{ type }}" role="alert">
+                    <i class="fa-solid {{ flash_icons[type]|default('fa-info') }}"></i>
+                    <span>{{ message }}</span>
+                    <button onclick="this.closest('.nx-alert').remove()"
+                            style="margin-left:auto; background:none; border:none; cursor:pointer;
+                                   color:inherit; font-size:13px; opacity:.6; padding:2px 4px;"
+                            type="button" aria-label="Fermer">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            {% endfor %}
+        {% endfor %}
+    </div>
+
+    {# â•â•â•â•â•â•â•â•â•â•â•â• MAIN CONTENT â•â•â•â•â•â•â•â•â•â•â•â• #}
+    <main class="nx-content">
+        {% include tab_template %}
+    </main>
+
+    {# â•â•â•â•â•â•â•â•â•â•â•â• MOBILE BOTTOM NAV â•â•â•â•â•â•â•â•â•â•â•â• #}
+    <nav class="nx-mobile-nav" aria-label="Navigation mobile">
+        <div class="nx-mobile-nav-inner">
+            {% for item in tabs %}
+                {% if item.key in primary_keys %}
+                    <a class="nx-mobile-nav-link {{ item.key == tab ? 'nx-mobile-nav-link-active' : '' }}"
+                       href="{{ path(route_name, { tab: item.key }) }}">
+                        <i class="fa-solid {{ nav_icons[item.key]|default('fa-circle') }}"></i>
+                        <span>{{ item.label|slice(0, 7) }}</span>
+                    </a>
+                {% endif %}
+            {% endfor %}
+            <a class="nx-mobile-nav-link {{ tab == 'profile' ? 'nx-mobile-nav-link-active' : '' }}"
+               href="{{ path(route_name, { tab: 'profile' }) }}">
+                <i class="fa-solid fa-user-circle"></i>
+                <span>Profil</span>
+            </a>
+        </div>
+    </nav>
+
+</div>
+
+{# â•â•â•â•â•â•â•â•â•â•â•â• INLINE SCRIPTS â•â•â•â•â•â•â•â•â•â•â•â• #}
+<script>
+(function () {
+    'use strict';
+
+    /* â”€â”€ Live clock â”€â”€ */
+    const timeEl = document.getElementById('nx-live-time');
+
+    const tick = () => {
+        if (!timeEl) return;
+        const now = new Date();
+        const hh  = String(now.getHours()).padStart(2, '0');
+        const mm  = String(now.getMinutes()).padStart(2, '0');
+        const ss  = String(now.getSeconds()).padStart(2, '0');
+        timeEl.textContent = `${hh}:${mm}:${ss}`;
+    };
+
+    tick();
+    setInterval(tick, 1000);
+
+    /* â”€â”€ Auto-dismiss flash messages after 6 s â”€â”€ */
+    const flashes = document.querySelectorAll('.nx-alert');
+    flashes.forEach((alert) => {
+        setTimeout(() => {
+            alert.style.transition = 'opacity .5s, max-height .5s, margin .5s, padding .5s';
+            alert.style.opacity = '0';
+            alert.style.maxHeight = '0';
+            alert.style.overflow = 'hidden';
+            alert.style.marginBottom = '0';
+            alert.style.padding = '0';
+            setTimeout(() => alert.remove(), 520);
+        }, 6000);
+    });
+
+    /* â”€â”€ Keyboard shortcut: Alt+D â†’ Dashboard â”€â”€ */
+    /* Navbar notifications modal */
+    const notifToggle = document.getElementById('nx-notif-toggle');
+    const notifModal = document.getElementById('nx-notif-modal');
+    const notifOverlay = document.getElementById('nx-notif-overlay');
+    const notifClose = document.getElementById('nx-notif-close');
+
+    const updatePanelParam = (value) => {
+        const url = new URL(window.location.href);
+        if (value) {
+            url.searchParams.set('panel', value);
+        } else {
+            url.searchParams.delete('panel');
+        }
+        const query = url.searchParams.toString();
+        window.history.replaceState({}, '', url.pathname + (query ? `?${query}` : ''));
+    };
+
+    const openNotifModal = () => {
+        if (!notifModal || !notifOverlay) return;
+        notifModal.hidden = false;
+        notifOverlay.hidden = false;
+        notifToggle?.classList.add('is-active');
+        notifToggle?.setAttribute('aria-expanded', 'true');
+        document.body.style.overflow = 'hidden';
+        updatePanelParam('notifications');
+    };
+
+    const closeNotifModal = () => {
+        if (!notifModal || !notifOverlay) return;
+        notifModal.hidden = true;
+        notifOverlay.hidden = true;
+        notifToggle?.classList.remove('is-active');
+        notifToggle?.setAttribute('aria-expanded', 'false');
+        document.body.style.overflow = '';
+        updatePanelParam('');
+    };
+
+    notifToggle?.addEventListener('click', (event) => {
+        event.preventDefault();
+        if (!notifModal) return;
+        if (notifModal.hidden) {
+            openNotifModal();
+        } else {
+            closeNotifModal();
+        }
+    });
+
+    notifClose?.addEventListener('click', closeNotifModal);
+    notifOverlay?.addEventListener('click', closeNotifModal);
+
+    if (new URLSearchParams(window.location.search).get('panel') === 'notifications') {
+        openNotifModal();
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && notifModal && !notifModal.hidden) {
+            closeNotifModal();
+            return;
+        }
+        if (e.altKey && e.key === 'd') {
+            const brand = document.querySelector('.nx-brand');
+            if (brand) brand.click();
+        }
+    });
+
+})();
+</script>
+
+{% endblock %}
+

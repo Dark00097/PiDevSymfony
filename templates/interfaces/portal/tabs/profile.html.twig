@@ -1,0 +1,2338 @@
+{% set activity = support.activity|default([]) %}
+{% set opened_location = current_user.account_opened_location|default('Unknown location') %}
+{% set opened_from = current_user.account_opened_from|default('Unknown source') %}
+{% set opened_at = current_user.created_at|default(current_user.account_opened_at|default('-')) %}
+{% set last_online_at = current_user.last_online_at|default('-') %}
+{% set last_online_from = current_user.last_online_from|default('-') %}
+{% set map_query = opened_location != 'Unknown location' ? opened_location : opened_from %}
+{% set profile_ai = support.profile_ai|default({}) %}
+{% set ai_security = profile_ai.security_analysis|default({}) %}
+{% set ai_prediction = profile_ai.prediction|default({}) %}
+{% set ai_account_advice = profile_ai.account_advice|default({}) %}
+{% set ai_cashback_advice = profile_ai.cashback_advice|default({}) %}
+{% set ai_surplus = profile_ai.surplus|default({}) %}
+
+<style>
+/* ══════════════════════════════════════════════════════════════════════
+   PROFILE PAGE — Complete Redesign
+   White background · Blue/Teal/Purple palette
+   ══════════════════════════════════════════════════════════════════════ */
+
+.pf-root *, .pf-root *::before, .pf-root *::after {
+    box-sizing: border-box; margin: 0; padding: 0;
+}
+
+.pf-root {
+    display: flex;
+    flex-direction: column;
+    background: #f0f4f8;
+    font-family: inherit;
+    color: #0a2540;
+    min-height: 100vh;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   PROFILE HERO BANNER
+   ══════════════════════════════════════════════════════════════════════ */
+.pf-hero {
+    background: linear-gradient(135deg, #0a2540 0%, #1565c0 60%, #00bcd4 100%);
+    padding: 32px 28px 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.pf-hero::before {
+    content: '';
+    position: absolute;
+    width: 400px; height: 400px;
+    background: rgba(255,255,255,.04);
+    border-radius: 50%;
+    top: -160px; right: -100px;
+    pointer-events: none;
+}
+
+.pf-hero::after {
+    content: '';
+    position: absolute;
+    width: 200px; height: 200px;
+    background: rgba(0,188,212,.08);
+    border-radius: 50%;
+    bottom: -80px; left: 20%;
+    pointer-events: none;
+}
+
+.pf-hero-inner {
+    display: flex;
+    align-items: flex-end;
+    gap: 24px;
+    position: relative;
+    z-index: 1;
+}
+
+/* Avatar area */
+.pf-hero-avatar-wrap {
+    position: relative;
+    flex-shrink: 0;
+    margin-bottom: -24px;
+}
+
+.pf-hero-avatar {
+    width: 90px; height: 90px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1565c0, #00bcd4);
+    border: 4px solid #fff;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 24px rgba(0,0,0,.2);
+}
+
+.pf-hero-avatar img {
+    width: 100%; height: 100%; object-fit: cover;
+}
+
+.pf-hero-avatar i {
+    font-size: 32px;
+    color: rgba(255,255,255,.7);
+}
+
+.pf-avatar-cam {
+    position: absolute;
+    bottom: 2px; right: 2px;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #e2eaf4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #1565c0;
+    font-size: 11px;
+    transition: background .15s;
+}
+
+.pf-avatar-cam:hover { background: #eaf2fd; }
+
+.pf-hero-info {
+    flex: 1;
+    padding-bottom: 20px;
+}
+
+.pf-hero-name {
+    font-size: clamp(20px, 2.5vw, 28px);
+    font-weight: 900;
+    color: #fff;
+    letter-spacing: -0.3px;
+    line-height: 1.1;
+}
+
+.pf-hero-email {
+    font-size: 13px;
+    color: rgba(255,255,255,.7);
+    margin-top: 4px;
+}
+
+.pf-hero-chips {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+}
+
+.pf-hero-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    backdrop-filter: blur(8px);
+}
+
+.pf-hero-chip-active {
+    background: rgba(34,197,94,.2);
+    border: 1px solid rgba(34,197,94,.35);
+    color: #86efac;
+}
+
+.pf-hero-chip-active::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #22c55e;
+    flex-shrink: 0;
+    animation: pf-pulse 1.8s ease-out infinite;
+}
+
+@keyframes pf-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(34,197,94,.5); }
+    100% { box-shadow: 0 0 0 6px transparent; }
+}
+
+.pf-hero-chip-info {
+    background: rgba(255,255,255,.12);
+    border: 1px solid rgba(255,255,255,.18);
+    color: rgba(255,255,255,.85);
+}
+
+.pf-hero-actions {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    padding-bottom: 20px;
+    flex-shrink: 0;
+}
+
+/* Tab pills on hero bottom */
+.pf-tab-row {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    position: relative;
+    z-index: 1;
+    margin-top: 20px;
+}
+
+.pf-tab-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 18px;
+    border: none;
+    background: transparent;
+    color: rgba(255,255,255,.6);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 12px 12px 0 0;
+    transition: all .18s;
+    white-space: nowrap;
+    position: relative;
+}
+
+.pf-tab-btn i { font-size: 14px; }
+
+.pf-tab-btn:hover {
+    background: rgba(255,255,255,.08);
+    color: rgba(255,255,255,.9);
+}
+
+.pf-tab-btn.active {
+    background: #f0f4f8;
+    color: #1565c0;
+    font-weight: 800;
+}
+
+.pf-tab-btn.active i { color: #1565c0; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   CONTENT AREA
+   ══════════════════════════════════════════════════════════════════════ */
+.pf-content {
+    flex: 1;
+    padding: 24px 28px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Tab panels */
+.pf-panel { display: none; flex-direction: column; gap: 18px; }
+.pf-panel.active { display: flex; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   CARDS
+   ══════════════════════════════════════════════════════════════════════ */
+.pf-card {
+    background: #fff;
+    border-radius: 20px;
+    border: 1px solid #dde8f5;
+    box-shadow: 0 2px 12px rgba(10,37,64,.06);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.pf-card-header {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    padding: 18px 20px;
+    background: linear-gradient(135deg, #f7faff, #f0f5fb);
+    border-bottom: 1px solid #dde8f5;
+}
+
+.pf-card-icon {
+    width: 40px; height: 40px;
+    border-radius: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.pf-card-header h3 {
+    font-size: 15px;
+    font-weight: 800;
+    color: #0a2540;
+    line-height: 1.2;
+}
+
+.pf-card-header p {
+    font-size: 12px;
+    color: #7294ae;
+    margin-top: 2px;
+}
+
+.pf-card-body { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   GRIDS
+   ══════════════════════════════════════════════════════════════════════ */
+.pf-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+}
+
+.pf-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+}
+
+.pf-grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   STAT CHIPS (member since, etc.)
+   ══════════════════════════════════════════════════════════════════════ */
+.pf-stat-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    background: #fff;
+    border-radius: 16px;
+    border: 1px solid #dde8f5;
+    padding: 16px;
+    box-shadow: 0 2px 10px rgba(10,37,64,.05);
+}
+
+.pf-stat-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0 12px;
+    border-right: 1px solid #e8f0f8;
+}
+
+.pf-stat-item:last-child { border-right: none; }
+
+.pf-stat-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #8aafc8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.pf-stat-value {
+    font-size: 13px;
+    font-weight: 700;
+    color: #0a2540;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   FORMS
+   ══════════════════════════════════════════════════════════════════════ */
+.pf-form { display: flex; flex-direction: column; gap: 14px; }
+
+.pf-section-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    font-weight: 800;
+    color: #1565c0;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+}
+
+.pf-section-label i { font-size: 11px; }
+
+.pf-section-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, #c3d9f5, transparent);
+}
+
+.pf-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pf-form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+
+.pf-field { display: flex; flex-direction: column; gap: 5px; }
+.pf-field-full { grid-column: 1 / -1; }
+
+.pf-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #4e7490;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.pf-label i { color: #1565c0; font-size: 10px; }
+.pf-req { color: #e53935; }
+
+/* Input wrapper with icon */
+.pf-input-wrap { position: relative; }
+
+.pf-input-icon {
+    position: absolute;
+    left: 12px; top: 50%;
+    transform: translateY(-50%);
+    color: #8aafc8;
+    font-size: 13px;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.pf-input {
+    width: 100%;
+    min-height: 42px;
+    border-radius: 12px;
+    border: 1.5px solid #ccddef;
+    background: #f7faff;
+    padding: 0 12px 0 36px;
+    font: inherit;
+    font-size: 13px;
+    color: #0a2540;
+    outline: none;
+    appearance: none;
+    transition: border-color .18s, box-shadow .18s, background .18s;
+}
+
+.pf-input:focus {
+    border-color: #1e88e5;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(30,136,229,.12);
+}
+
+.pf-input::placeholder { color: #aabece; font-size: 12px; }
+
+.pf-input-no-icon { padding-left: 12px; }
+
+.pf-select { cursor: pointer; padding-right: 30px; }
+
+.pf-select-arrow {
+    position: absolute;
+    right: 11px; top: 50%;
+    transform: translateY(-50%);
+    color: #8aafc8; font-size: 10px;
+    pointer-events: none;
+}
+
+/* Eye toggle */
+.pf-eye-btn {
+    position: absolute;
+    right: 10px; top: 50%;
+    transform: translateY(-50%);
+    background: none; border: none;
+    color: #8aafc8; cursor: pointer;
+    font-size: 13px; padding: 2px 4px;
+    transition: color .15s;
+}
+
+.pf-eye-btn:hover { color: #1565c0; }
+
+/* OTP input */
+.pf-otp-input {
+    letter-spacing: 6px;
+    text-align: center;
+    font-size: 18px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Valid chip */
+.pf-valid-chip {
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #fef9c3;
+    color: #92400e;
+    font-size: 10px;
+    font-weight: 700;
+    margin-left: 6px;
+}
+
+/* Password strength */
+.pf-pw-strength { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+
+.pf-pw-bars {
+    display: flex;
+    gap: 3px;
+}
+
+.pf-pw-bar {
+    flex: 1;
+    height: 4px;
+    border-radius: 999px;
+    background: #e8f0f8;
+    transition: background .3s;
+}
+
+.pf-pw-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #8aafc8;
+}
+
+/* Input valid/invalid */
+.pf-input-wrap.is-valid .pf-input { border-color: #22c55e; background: #f0fdf4; }
+.pf-input-wrap.is-invalid .pf-input { border-color: #e53935; background: #fff5f5; }
+
+/* Form footer */
+.pf-form-footer {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-top: 8px;
+    border-top: 1px solid #edf4fb;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   BUTTONS
+   ══════════════════════════════════════════════════════════════════════ */
+.pf-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 0 20px;
+    border-radius: 12px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+    text-decoration: none;
+    transition: all .18s;
+    white-space: nowrap;
+}
+
+.pf-btn i { font-size: 13px; }
+
+.pf-btn-primary {
+    background: linear-gradient(120deg, #1565c0, #1e88e5);
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(21,101,192,.25);
+}
+
+.pf-btn-primary:hover { opacity: .9; box-shadow: 0 6px 18px rgba(21,101,192,.35); }
+
+.pf-btn-teal {
+    background: linear-gradient(120deg, #00838f, #00bcd4);
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(0,188,212,.22);
+}
+
+.pf-btn-teal:hover { opacity: .9; }
+
+.pf-btn-amber {
+    background: linear-gradient(120deg, #d97706, #f59e0b);
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(217,119,6,.22);
+}
+
+.pf-btn-amber:hover { opacity: .9; }
+
+.pf-btn-danger {
+    background: #fff0f0;
+    color: #dc2626;
+    border: 1.5px solid #fecaca;
+}
+
+.pf-btn-danger:hover { background: #dc2626; color: #fff; border-color: transparent; }
+
+.pf-btn-outline {
+    background: transparent;
+    color: #1565c0;
+    border: 1.5px solid #c3d9f5;
+}
+
+.pf-btn-outline:hover { background: #eaf2fd; }
+
+.pf-btn-ghost {
+    background: transparent;
+    color: #5b80a0;
+    border: 1.5px solid #dde8f5;
+}
+
+.pf-btn-ghost:hover { background: #f0f4f8; }
+
+.pf-btn-sm {
+    min-height: 34px;
+    padding: 0 14px;
+    font-size: 12px;
+    border-radius: 10px;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   BIOMETRIC CAMERA
+   ══════════════════════════════════════════════════════════════════════ */
+.pf-cam-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.pf-cam-viewport {
+    position: relative;
+    border-radius: 16px;
+    overflow: hidden;
+    background: #0a1929;
+    aspect-ratio: 4/3;
+    width: 100%;
+    max-width: 320px;
+    margin: 0 auto;
+}
+
+.pf-cam-viewport video {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.pf-cam-idle {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: #0a1929;
+}
+
+.pf-cam-idle i { font-size: 32px; color: rgba(255,255,255,.2); }
+.pf-cam-idle p { font-size: 12px; color: rgba(255,255,255,.4); }
+
+.pf-cam-scan {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Corner brackets */
+.pf-corner {
+    position: absolute;
+    width: 20px; height: 20px;
+    border-color: #00bcd4;
+    border-style: solid;
+    border-width: 0;
+}
+
+.pf-corner-tl { top: 16px; left: 16px; border-top-width: 2.5px; border-left-width: 2.5px; border-radius: 4px 0 0 0; }
+.pf-corner-tr { top: 16px; right: 16px; border-top-width: 2.5px; border-right-width: 2.5px; border-radius: 0 4px 0 0; }
+.pf-corner-bl { bottom: 16px; left: 16px; border-bottom-width: 2.5px; border-left-width: 2.5px; border-radius: 0 0 0 4px; }
+.pf-corner-br { bottom: 16px; right: 16px; border-bottom-width: 2.5px; border-right-width: 2.5px; border-radius: 0 0 4px 0; }
+
+/* Scan oval */
+.pf-cam-oval {
+    width: 110px; height: 140px;
+    border-radius: 50%;
+    border: 2px solid rgba(0,188,212,.5);
+}
+
+/* Sweep line */
+.pf-cam-sweep {
+    position: absolute;
+    left: 10%; right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #00bcd4, transparent);
+    animation: pf-sweep 2.4s ease-in-out infinite;
+    top: 30%;
+}
+
+@keyframes pf-sweep {
+    0%   { top: 25%; opacity: 0; }
+    10%  { opacity: 1; }
+    90%  { opacity: 1; }
+    100% { top: 75%; opacity: 0; }
+}
+
+.pf-cam-ok {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(0,188,212,.1);
+}
+
+.pf-cam-ok-ring {
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    background: rgba(0,188,212,.15);
+    border: 2px solid #00bcd4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    color: #00bcd4;
+}
+
+.pf-cam-ok p { font-size: 12px; color: #00bcd4; font-weight: 700; }
+
+.pf-cam-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #7294ae;
+    font-weight: 600;
+}
+
+.pf-cam-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: #8aafc8;
+    transition: background .3s;
+}
+
+.pf-cam-dot.active { background: #22c55e; }
+.pf-cam-dot.loading { background: #f59e0b; animation: pf-blink .8s ease-in-out infinite; }
+.pf-cam-dot.success { background: #00bcd4; }
+.pf-cam-dot.error { background: #e53935; }
+
+@keyframes pf-blink { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+
+.pf-cam-btns { display: flex; gap: 8px; }
+
+/* Biometric status badge */
+.pf-bio-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+    margin-left: auto;
+}
+
+.pf-bio-badge::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.pf-bio-badge-on { background: #dcfce7; color: #166534; }
+.pf-bio-badge-on::before { background: #22c55e; }
+
+.pf-bio-badge-off { background: #fee2e2; color: #991b1b; }
+.pf-bio-badge-off::before { background: #e53935; }
+
+/* Danger strip */
+.pf-danger-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 16px;
+    background: #fff5f5;
+    border: 1px solid #fecaca;
+    border-radius: 13px;
+}
+
+.pf-danger-strip-info strong { display: block; font-size: 13px; font-weight: 800; color: #991b1b; }
+.pf-danger-strip-info p { font-size: 12px; color: #b91c1c; margin-top: 2px; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   PHOTO UPLOAD
+   ══════════════════════════════════════════════════════════════════════ */
+.pf-photo-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px;
+    background: #f7faff;
+    border: 1.5px dashed #c3d9f5;
+    border-radius: 14px;
+}
+
+.pf-photo-thumb {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #eaf2fd, #dbeafe);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
+    border: 2px solid #c3d9f5;
+}
+
+.pf-photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.pf-photo-thumb i { font-size: 20px; color: #7294ae; }
+
+.pf-photo-info { display: flex; flex-direction: column; gap: 6px; }
+
+.pf-upload-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 14px;
+    border-radius: 9px;
+    background: linear-gradient(120deg, #1565c0, #1e88e5);
+    color: #fff;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+    width: fit-content;
+    transition: opacity .15s;
+}
+
+.pf-upload-btn:hover { opacity: .88; }
+
+.pf-upload-hint {
+    font-size: 11px;
+    color: #7294ae;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   SECURITY HERO BANNER
+   ══════════════════════════════════════════════════════════════════════ */
+.pf-section-hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    background: linear-gradient(135deg, #0a2540, #1565c0);
+    border-radius: 18px;
+    padding: 20px 22px;
+    box-shadow: 0 8px 24px rgba(10,37,64,.18);
+}
+
+.pf-section-hero-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.pf-section-hero-icon {
+    width: 48px; height: 48px;
+    border-radius: 16px;
+    background: rgba(255,255,255,.12);
+    border: 1px solid rgba(255,255,255,.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: #7dd3fc;
+    flex-shrink: 0;
+}
+
+.pf-section-hero h2 { font-size: 17px; font-weight: 800; color: #fff; }
+.pf-section-hero p  { font-size: 12px; color: rgba(255,255,255,.65); margin-top: 3px; }
+
+.pf-secured-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: rgba(34,197,94,.15);
+    border: 1px solid rgba(34,197,94,.3);
+    color: #86efac;
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   MAP
+   ══════════════════════════════════════════════════════════════════════ */
+.pf-loc-chips {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+
+.pf-loc-chip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: #f7faff;
+    border: 1px solid #dde8f5;
+    border-radius: 13px;
+    flex: 1;
+    min-width: 180px;
+}
+
+.pf-loc-chip-icon {
+    width: 34px; height: 34px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #1565c0, #00bcd4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.pf-loc-chip small { display: block; font-size: 10px; color: #7294ae; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
+.pf-loc-chip strong { display: block; font-size: 13px; font-weight: 700; color: #0a2540; margin-top: 2px; }
+
+.pf-map-box {
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid #dde8f5;
+    height: 300px;
+}
+
+.pf-map-box #nx-profile-osm-map { width: 100%; height: 100%; }
+
+.pf-map-credit {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: #8aafc8;
+    margin-top: 8px;
+}
+
+.pf-map-credit i { font-size: 10px; }
+
+.pf-map-fallback {
+    padding: 48px;
+    text-align: center;
+    font-size: 13px;
+    color: #7294ae;
+    background: #f7faff;
+    border-radius: 14px;
+    border: 1px dashed #c3d9f5;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   AI SCORECARDS
+   ══════════════════════════════════════════════════════════════════════ */
+.pf-scorecard {
+    background: #fff;
+    border-radius: 16px;
+    border: 1px solid #dde8f5;
+    padding: 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 2px 10px rgba(10,37,64,.05);
+    transition: box-shadow .2s, transform .2s;
+    position: relative;
+    overflow: hidden;
+}
+
+.pf-scorecard:hover { box-shadow: 0 8px 24px rgba(10,37,64,.10); transform: translateY(-2px); }
+
+.pf-scorecard-side {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 4px;
+    border-radius: 16px 0 0 16px;
+}
+
+.pf-scorecard-ring {
+    position: relative;
+    width: 54px; height: 54px;
+    flex-shrink: 0;
+}
+
+.pf-scorecard-ring svg {
+    width: 54px; height: 54px;
+    transform: rotate(-90deg);
+}
+
+.pf-ring-bg {
+    fill: none;
+    stroke: #e8f0f8;
+    stroke-width: 5;
+}
+
+.pf-ring-fill {
+    fill: none;
+    stroke-width: 5;
+    stroke-linecap: round;
+    stroke-dasharray: 0 88;
+    transition: stroke-dasharray .8s ease;
+}
+
+.pf-ring-teal { stroke: #00bcd4; }
+.pf-ring-blue { stroke: #1e88e5; }
+.pf-ring-purple { stroke: #8b5cf6; }
+
+.pf-scorecard-ring-val {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 900;
+    color: #0a2540;
+}
+
+.pf-scorecard-icon {
+    width: 48px; height: 48px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.pf-scorecard-body { display: flex; flex-direction: column; gap: 2px; }
+.pf-scorecard-body strong { font-size: 13px; font-weight: 800; color: #0a2540; }
+.pf-scorecard-body span { font-size: 16px; font-weight: 900; color: #0a2540; letter-spacing: -0.3px; }
+.pf-scorecard-body small { font-size: 11px; color: #7294ae; font-weight: 600; }
+
+/* AI Insight cards */
+.pf-ai-quad {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+
+.pf-insight {
+    border-radius: 16px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border: 1px solid transparent;
+}
+
+.pf-insight-security  { background: linear-gradient(135deg,#f0fdf4,#dcfce7); border-color: #bbf7d0; }
+.pf-insight-account   { background: linear-gradient(135deg,#eff6ff,#dbeafe); border-color: #bfdbfe; }
+.pf-insight-cashback  { background: linear-gradient(135deg,#fffbeb,#fef3c7); border-color: #fde68a; }
+.pf-insight-surplus   { background: linear-gradient(135deg,#f5f3ff,#ede9fe); border-color: #ddd6fe; }
+
+.pf-insight-tag {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+}
+
+.pf-insight-security .pf-insight-tag  { color: #166534; }
+.pf-insight-account  .pf-insight-tag  { color: #1e40af; }
+.pf-insight-cashback .pf-insight-tag  { color: #92400e; }
+.pf-insight-surplus  .pf-insight-tag  { color: #5b21b6; }
+
+.pf-insight p { font-size: 13px; line-height: 1.55; color: #374151; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   TIMELINE / ACTIVITY
+   ══════════════════════════════════════════════════════════════════════ */
+.pf-timeline { display: flex; flex-direction: column; }
+
+.pf-tl-item {
+    display: flex;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f4f8;
+}
+
+.pf-tl-item:last-child { border-bottom: none; }
+
+.pf-tl-left {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    flex-shrink: 0;
+}
+
+.pf-tl-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    margin-top: 4px;
+    flex-shrink: 0;
+}
+
+.pf-tl-dot-teal  { background: #00bcd4; box-shadow: 0 0 0 3px rgba(0,188,212,.15); }
+.pf-tl-dot-blue  { background: #1e88e5; box-shadow: 0 0 0 3px rgba(30,136,229,.15); }
+.pf-tl-dot-purple{ background: #8b5cf6; box-shadow: 0 0 0 3px rgba(139,92,246,.15); }
+
+.pf-tl-connector {
+    width: 1px;
+    flex: 1;
+    background: #e8f0f8;
+    margin: 4px 0;
+    min-height: 18px;
+}
+
+.pf-tl-content { flex: 1; }
+.pf-tl-content strong { display: block; font-size: 13px; font-weight: 700; color: #0a2540; }
+.pf-tl-content p { font-size: 12px; color: #5b80a0; margin-top: 2px; line-height: 1.4; }
+.pf-tl-content time { display: block; font-size: 11px; color: #8aafc8; margin-top: 4px; font-weight: 600; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   NOTIFICATIONS
+   ══════════════════════════════════════════════════════════════════════ */
+.pf-notif-list { display: flex; flex-direction: column; }
+
+.pf-notif-item {
+    display: flex;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f4f8;
+}
+
+.pf-notif-item:last-child { border-bottom: none; }
+
+.pf-notif-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #8b5cf6;
+    flex-shrink: 0;
+    margin-top: 5px;
+}
+
+.pf-notif-body { flex: 1; }
+.pf-notif-body strong { display: block; font-size: 13px; font-weight: 700; color: #0a2540; }
+.pf-notif-body p { font-size: 12px; color: #5b80a0; margin-top: 2px; line-height: 1.4; }
+.pf-notif-body time { display: block; font-size: 11px; color: #8aafc8; margin-top: 3px; font-weight: 600; }
+
+/* Scrollable tile body */
+.pf-scroll-body { max-height: 380px; overflow-y: auto; padding-right: 4px; }
+
+.pf-scroll-body::-webkit-scrollbar { width: 4px; }
+.pf-scroll-body::-webkit-scrollbar-track { background: #f0f4f8; border-radius: 999px; }
+.pf-scroll-body::-webkit-scrollbar-thumb { background: #c0d4e8; border-radius: 999px; }
+
+/* Empty state */
+.pf-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 40px 20px;
+    text-align: center;
+}
+
+.pf-empty i { font-size: 30px; color: #c4d9ee; margin-bottom: 4px; }
+.pf-empty p { font-size: 13px; color: #7294ae; }
+
+/* Count pill */
+.pf-count-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 800;
+    margin-left: auto;
+}
+
+.pf-count-pill-blue   { background: linear-gradient(120deg,#1565c0,#1e88e5); color: #fff; }
+.pf-count-pill-purple { background: linear-gradient(120deg,#7c3aed,#8b5cf6); color: #fff; }
+
+/* Link button */
+.pf-link-btn {
+    background: none;
+    border: none;
+    color: #1565c0;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+    transition: color .15s;
+}
+
+.pf-link-btn:hover { color: #0d47a1; }
+
+/* Hint text */
+.pf-hint {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    font-size: 12px;
+    color: #7294ae;
+    line-height: 1.5;
+    padding: 10px 12px;
+    background: #f7faff;
+    border-radius: 10px;
+    border: 1px solid #dde8f5;
+}
+
+.pf-hint i { color: #1565c0; flex-shrink: 0; margin-top: 1px; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ══════════════════════════════════════════════════════════════════════ */
+@media (max-width: 1100px) {
+    .pf-grid-4 { grid-template-columns: repeat(2,1fr); }
+    .pf-stat-strip { grid-template-columns: repeat(2,1fr); }
+}
+
+@media (max-width: 900px) {
+    .pf-grid-2 { grid-template-columns: 1fr; }
+    .pf-grid-3 { grid-template-columns: 1fr 1fr; }
+    .pf-ai-quad { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 700px) {
+    .pf-hero { padding: 24px 16px 0; }
+    .pf-hero-inner { flex-direction: column; align-items: flex-start; }
+    .pf-content { padding: 16px; }
+    .pf-tab-btn span { display: none; }
+    .pf-tab-btn { padding: 10px 14px; }
+    .pf-form-row, .pf-form-row-3 { grid-template-columns: 1fr; }
+    .pf-stat-strip { grid-template-columns: 1fr 1fr; }
+    .pf-grid-4 { grid-template-columns: 1fr 1fr; }
+}
+</style>
+
+<div class="pf-root">
+
+    {# ════════════ HERO BANNER ════════════ #}
+    <header class="pf-hero">
+        <div class="pf-hero-inner">
+
+            {# Avatar #}
+            <div class="pf-hero-avatar-wrap">
+                <div class="pf-hero-avatar" id="pf-hero-avatar">
+                    {% if current_user.profile_image_path|default('') %}
+                        <img src="{{ asset(current_user.profile_image_path) }}" alt="Photo profil">
+                    {% else %}
+                        <i class="fa-solid fa-user"></i>
+                    {% endif %}
+                </div>
+                <label class="pf-avatar-cam" for="pf-photo-input" title="Changer la photo">
+                    <i class="fa-solid fa-camera"></i>
+                </label>
+            </div>
+
+            {# Info #}
+            <div class="pf-hero-info">
+                <div class="pf-hero-name">
+                    {{ current_user.prenom }} {{ current_user.nom }}
+                </div>
+                <div class="pf-hero-email">{{ current_user.email }}</div>
+                <div class="pf-hero-chips">
+                    <span class="pf-hero-chip pf-hero-chip-active">
+                        {{ current_user.status|default('ACTIVE') }}
+                    </span>
+                    <span class="pf-hero-chip pf-hero-chip-info">
+                        <i class="fa-solid fa-crown" style="font-size:10px;"></i>
+                        Compte premium
+                    </span>
+                    <span class="pf-hero-chip pf-hero-chip-info">
+                        <i class="fa-solid fa-calendar-day" style="font-size:10px;"></i>
+                        Membre depuis {{ opened_at }}
+                    </span>
+                </div>
+            </div>
+
+            {# Hero actions #}
+            <div class="pf-hero-actions">
+                <a class="pf-btn pf-btn-ghost pf-btn-sm"
+                   href="{{ path(route_name, { tab: 'profile' }) }}"
+                   style="color:rgba(255,255,255,.8); border-color:rgba(255,255,255,.2); background:rgba(255,255,255,.1);">
+                    <i class="fa-solid fa-rotate"></i>
+                    <span>Actualiser</span>
+                </a>
+                <a class="pf-btn pf-btn-teal pf-btn-sm"
+                   href="{{ path(route_name, { tab: 'dashboard' }) }}">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>Dashboard</span>
+                </a>
+            </div>
+        </div>
+
+        {# Tab row at bottom of hero #}
+        <div class="pf-tab-row">
+            <button class="pf-tab-btn active" data-pf-tab="identity" type="button">
+                <i class="fa-solid fa-user"></i>
+                <span>Identite</span>
+            </button>
+            <button class="pf-tab-btn" data-pf-tab="security" type="button">
+                <i class="fa-solid fa-shield-halved"></i>
+                <span>Securite</span>
+            </button>
+            <button class="pf-tab-btn" data-pf-tab="location" type="button">
+                <i class="fa-solid fa-location-dot"></i>
+                <span>Localisation</span>
+            </button>
+            <button class="pf-tab-btn" data-pf-tab="ai" type="button">
+                <i class="fa-solid fa-brain"></i>
+                <span>IA &amp; Activite</span>
+            </button>
+        </div>
+    </header>
+
+    {# Stat strip #}
+    <div style="padding: 16px 28px 0;">
+        <div class="pf-stat-strip">
+            <div class="pf-stat-item">
+                <span class="pf-stat-label">Membre depuis</span>
+                <span class="pf-stat-value">{{ opened_at }}</span>
+            </div>
+            <div class="pf-stat-item">
+                <span class="pf-stat-label">Derniere connexion</span>
+                <span class="pf-stat-value">{{ last_online_at }}</span>
+            </div>
+            <div class="pf-stat-item">
+                <span class="pf-stat-label">Appareil</span>
+                <span class="pf-stat-value">{{ last_online_from }}</span>
+            </div>
+            <div class="pf-stat-item">
+                <span class="pf-stat-label">Source d'inscription</span>
+                <span class="pf-stat-value">{{ opened_from }}</span>
+            </div>
+        </div>
+    </div>
+
+    {# ════════════ CONTENT ════════════ #}
+    <div class="pf-content">
+
+        {# ══ PANEL: IDENTITY ══ #}
+        <div class="pf-panel active" id="pf-panel-identity">
+            <div class="pf-grid-2">
+
+                {# Personal info form #}
+                <div class="pf-card">
+                    <div class="pf-card-header">
+                        <div class="pf-card-icon"
+                             style="background:linear-gradient(135deg,#1565c0,#1e88e5);">
+                            <i class="fa-solid fa-user"></i>
+                        </div>
+                        <div>
+                            <h3>Informations personnelles</h3>
+                            <p>Gerez votre profil public</p>
+                        </div>
+                    </div>
+                    <div class="pf-card-body">
+                        <form method="post" class="pf-form" enctype="multipart/form-data">
+                            <input type="hidden" name="tab" value="profile">
+                            <input type="hidden" name="action" value="profile_save">
+
+                            <div class="pf-section-label">
+                                <i class="fa-solid fa-id-card"></i>
+                                <span>Identite</span>
+                                <div class="pf-section-line"></div>
+                            </div>
+
+                            <div class="pf-form-row">
+                                <div class="pf-field">
+                                    <label class="pf-label">
+                                        <i class="fa-solid fa-user"></i> Prenom <span class="pf-req">*</span>
+                                    </label>
+                                    <div class="pf-input-wrap">
+                                        <i class="fa-solid fa-user pf-input-icon"></i>
+                                        <input class="pf-input" type="text" name="prenom"
+                                               value="{{ current_user.prenom }}" required>
+                                    </div>
+                                </div>
+                                <div class="pf-field">
+                                    <label class="pf-label">
+                                        <i class="fa-solid fa-user"></i> Nom <span class="pf-req">*</span>
+                                    </label>
+                                    <div class="pf-input-wrap">
+                                        <i class="fa-solid fa-user pf-input-icon"></i>
+                                        <input class="pf-input" type="text" name="nom"
+                                               value="{{ current_user.nom }}" required>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="pf-section-label" style="margin-top:4px;">
+                                <i class="fa-solid fa-address-book"></i>
+                                <span>Coordonnees</span>
+                                <div class="pf-section-line"></div>
+                            </div>
+
+                            <div class="pf-field">
+                                <label class="pf-label">
+                                    <i class="fa-solid fa-envelope"></i> Adresse email <span class="pf-req">*</span>
+                                </label>
+                                <div class="pf-input-wrap">
+                                    <i class="fa-solid fa-envelope pf-input-icon"></i>
+                                    <input class="pf-input" type="email" name="email"
+                                           value="{{ current_user.email }}" required>
+                                </div>
+                            </div>
+
+                            <div class="pf-field">
+                                <label class="pf-label">
+                                    <i class="fa-solid fa-phone"></i> Telephone
+                                </label>
+                                <div class="pf-input-wrap">
+                                    <i class="fa-solid fa-phone pf-input-icon"></i>
+                                    <input class="pf-input" type="tel" name="telephone"
+                                           value="{{ current_user.telephone|default('') }}"
+                                           placeholder="+216 XX XXX XXX">
+                                </div>
+                            </div>
+
+                            {# Photo upload #}
+                            <div class="pf-section-label" style="margin-top:4px;">
+                                <i class="fa-solid fa-image"></i>
+                                <span>Photo de profil</span>
+                                <div class="pf-section-line"></div>
+                            </div>
+
+                            <div class="pf-photo-row">
+                                <div class="pf-photo-thumb" id="pf-photo-preview">
+                                    {% if current_user.profile_image_path|default('') %}
+                                        <img src="{{ asset(current_user.profile_image_path) }}" alt="Apercu">
+                                    {% else %}
+                                        <i class="fa-solid fa-user"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="pf-photo-info">
+                                    <label class="pf-upload-btn" for="pf-photo-input">
+                                        <i class="fa-solid fa-upload"></i>
+                                        Choisir une photo
+                                    </label>
+                                    <input id="pf-photo-input" type="file" name="profile_image"
+                                           accept="image/png,image/jpeg,image/webp,image/gif"
+                                           style="display:none">
+                                    <span class="pf-upload-hint" id="pf-photo-feedback">
+                                        PNG · JPG · WEBP — max 5 Mo
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="pf-form-footer">
+                                <button class="pf-btn pf-btn-primary" type="submit">
+                                    <i class="fa-solid fa-floppy-disk"></i>
+                                    Enregistrer
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                {# Biometric card #}
+                <div class="pf-card">
+                    <div class="pf-card-header">
+                        <div class="pf-card-icon"
+                             style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);">
+                            <i class="fa-solid fa-fingerprint"></i>
+                        </div>
+                        <div>
+                            <h3>Face ID biometrique</h3>
+                            <p>Connexion par reconnaissance faciale</p>
+                        </div>
+                        {% if current_user.biometric_face_descriptor|default('') %}
+                            <span class="pf-bio-badge pf-bio-badge-on">Actif</span>
+                        {% else %}
+                            <span class="pf-bio-badge pf-bio-badge-off">Inactif</span>
+                        {% endif %}
+                    </div>
+                    <div class="pf-card-body">
+                        <form method="post" class="pf-form">
+                            <input type="hidden" name="tab" value="profile">
+                            <input type="hidden" name="action" value="profile_biometric_save">
+                            <input type="hidden" name="face_descriptor"
+                                   id="nx-profile-bio-face-descriptor">
+
+                            <div class="pf-field">
+                                <label class="pf-label">
+                                    <i class="fa-solid fa-toggle-on"></i> Authentification biometrique
+                                </label>
+                                <div class="pf-input-wrap">
+                                    <i class="fa-solid fa-shield-halved pf-input-icon"></i>
+                                    <select class="pf-input pf-select" name="biometric_enabled">
+                                        <option value="1" {{ current_user.biometric_enabled ? 'selected' : '' }}>Activee</option>
+                                        <option value="0" {{ not current_user.biometric_enabled ? 'selected' : '' }}>Desactivee</option>
+                                    </select>
+                                    <i class="fa-solid fa-chevron-down pf-select-arrow"></i>
+                                </div>
+                            </div>
+
+                            {# Camera #}
+                            <div class="pf-cam-wrap">
+                                <div class="pf-cam-viewport" id="proBioViewport">
+                                    <video id="nx-profile-bio-video" autoplay muted playsinline></video>
+
+                                    <div class="pf-cam-idle" id="proBioIdle">
+                                        <i class="fa-solid fa-video-slash"></i>
+                                        <p>Camera inactive</p>
+                                    </div>
+
+                                    <div class="pf-cam-scan" id="proBioScan">
+                                        <div class="pf-corner pf-corner-tl"></div>
+                                        <div class="pf-corner pf-corner-tr"></div>
+                                        <div class="pf-corner pf-corner-bl"></div>
+                                        <div class="pf-corner pf-corner-br"></div>
+                                        <div class="pf-cam-oval"></div>
+                                        <div class="pf-cam-sweep"></div>
+                                    </div>
+
+                                    <div class="pf-cam-ok" id="proBioOk">
+                                        <div class="pf-cam-ok-ring">
+                                            <i class="fa-solid fa-check"></i>
+                                        </div>
+                                        <p>Visage capture !</p>
+                                    </div>
+                                </div>
+
+                                <div class="pf-cam-status">
+                                    <div class="pf-cam-dot" id="proBioDot"></div>
+                                    <span id="proBioText">
+                                        {% if current_user.biometric_face_descriptor|default('') %}
+                                            Face ID enregistre — mise a jour possible.
+                                        {% else %}
+                                            Demarrez la camera pour creer un Face ID.
+                                        {% endif %}
+                                    </span>
+                                </div>
+
+                                <div class="pf-cam-btns">
+                                    <button type="button" class="pf-btn pf-btn-outline pf-btn-sm"
+                                            id="nx-profile-bio-start">
+                                        <i class="fa-solid fa-video"></i>
+                                        Demarrer
+                                    </button>
+                                    <button type="button" class="pf-btn pf-btn-teal pf-btn-sm"
+                                            id="nx-profile-bio-capture" disabled>
+                                        <i class="fa-solid fa-circle-dot"></i>
+                                        Capturer
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="pf-hint">
+                                <i class="fa-solid fa-circle-info"></i>
+                                Si activee, la connexion se fera via reconnaissance faciale uniquement.
+                            </div>
+
+                            <div class="pf-form-footer">
+                                <button class="pf-btn pf-btn-primary" type="submit">
+                                    <i class="fa-solid fa-fingerprint"></i>
+                                    Enregistrer Face ID
+                                </button>
+                            </div>
+                        </form>
+
+                        <div class="pf-danger-strip">
+                            <div class="pf-danger-strip-info">
+                                <strong>Supprimer Face ID</strong>
+                                <p>Action irreversible — le Face ID sera efface</p>
+                            </div>
+                            <form method="post">
+                                <input type="hidden" name="tab" value="profile">
+                                <input type="hidden" name="action" value="profile_biometric_clear">
+                                <button class="pf-btn pf-btn-danger pf-btn-sm" type="submit">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                    Supprimer
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        {# ══ PANEL: SECURITY ══ #}
+        <div class="pf-panel" id="pf-panel-security">
+
+            <div class="pf-section-hero">
+                <div class="pf-section-hero-left">
+                    <div class="pf-section-hero-icon">
+                        <i class="fa-solid fa-shield-halved"></i>
+                    </div>
+                    <div>
+                        <h2>Securite du compte</h2>
+                        <p>Gerez vos mots de passe et options de recuperation</p>
+                    </div>
+                </div>
+                <div class="pf-secured-chip">
+                    <i class="fa-solid fa-circle-check"></i>
+                    Compte securise
+                </div>
+            </div>
+
+            <div class="pf-grid-2">
+
+                {# Change password #}
+                <div class="pf-card">
+                    <div class="pf-card-header">
+                        <div class="pf-card-icon"
+                             style="background:linear-gradient(135deg,#1565c0,#1e88e5);">
+                            <i class="fa-solid fa-lock"></i>
+                        </div>
+                        <div>
+                            <h3>Modifier le mot de passe</h3>
+                            <p>Changez votre mot de passe actuel</p>
+                        </div>
+                    </div>
+                    <div class="pf-card-body">
+                        <form method="post" class="pf-form">
+                            <input type="hidden" name="tab" value="profile">
+                            <input type="hidden" name="action" value="profile_password_change">
+                            <input type="hidden" name="panel" value="security">
+
+                            <div class="pf-field">
+                                <label class="pf-label">
+                                    <i class="fa-solid fa-lock"></i> Mot de passe actuel
+                                </label>
+                                <div class="pf-input-wrap">
+                                    <i class="fa-solid fa-lock pf-input-icon"></i>
+                                    <input class="pf-input" type="password"
+                                           name="current_password" placeholder="••••••••••" required>
+                                    <button type="button" class="pf-eye-btn" data-pf-eye>
+                                        <i class="fa-solid fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="pf-form-row">
+                                <div class="pf-field">
+                                    <label class="pf-label">
+                                        <i class="fa-solid fa-key"></i> Nouveau
+                                    </label>
+                                    <div class="pf-input-wrap">
+                                        <i class="fa-solid fa-key pf-input-icon"></i>
+                                        <input class="pf-input" type="password"
+                                               name="new_password" id="pf-new-pw"
+                                               placeholder="••••••••••" required>
+                                        <button type="button" class="pf-eye-btn" data-pf-eye>
+                                            <i class="fa-solid fa-eye"></i>
+                                        </button>
+                                    </div>
+                                    <div class="pf-pw-strength">
+                                        <div class="pf-pw-bars">
+                                            <div class="pf-pw-bar" id="pf-bar-1"></div>
+                                            <div class="pf-pw-bar" id="pf-bar-2"></div>
+                                            <div class="pf-pw-bar" id="pf-bar-3"></div>
+                                            <div class="pf-pw-bar" id="pf-bar-4"></div>
+                                        </div>
+                                        <span class="pf-pw-label" id="pf-pw-label">—</span>
+                                    </div>
+                                </div>
+                                <div class="pf-field">
+                                    <label class="pf-label">
+                                        <i class="fa-solid fa-check-double"></i> Confirmation
+                                    </label>
+                                    <div class="pf-input-wrap" id="pf-conf-wrap">
+                                        <i class="fa-solid fa-check pf-input-icon"></i>
+                                        <input class="pf-input" type="password"
+                                               name="confirm_password" id="pf-conf-pw"
+                                               placeholder="••••••••••" required>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="pf-form-footer">
+                                <button class="pf-btn pf-btn-primary" type="submit">
+                                    <i class="fa-solid fa-check"></i>
+                                    Mettre a jour
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                {# OTP Recovery #}
+                <div class="pf-card">
+                    <div class="pf-card-header">
+                        <div class="pf-card-icon"
+                             style="background:linear-gradient(135deg,#d97706,#f59e0b);">
+                            <i class="fa-solid fa-envelope-open-text"></i>
+                        </div>
+                        <div>
+                            <h3>Recuperation OTP</h3>
+                            <p>Reinitialisation via code email</p>
+                        </div>
+                        <form method="post" style="margin-left:auto;">
+                            <input type="hidden" name="tab" value="profile">
+                            <input type="hidden" name="action" value="profile_send_reset_otp">
+                            <input type="hidden" name="panel" value="security">
+                            <button class="pf-btn pf-btn-amber pf-btn-sm" type="submit">
+                                <i class="fa-solid fa-paper-plane"></i>
+                                Envoyer OTP
+                            </button>
+                        </form>
+                    </div>
+                    <div class="pf-card-body">
+                        <form method="post" class="pf-form">
+                            <input type="hidden" name="tab" value="profile">
+                            <input type="hidden" name="action" value="profile_reset_password">
+                            <input type="hidden" name="panel" value="security">
+
+                            <div class="pf-field">
+                                <label class="pf-label">
+                                    <i class="fa-solid fa-key"></i>
+                                    Code OTP
+                                    <span class="pf-valid-chip">valide 5 min</span>
+                                </label>
+                                <div class="pf-input-wrap">
+                                    <i class="fa-solid fa-hashtag pf-input-icon"></i>
+                                    <input class="pf-input pf-otp-input" type="text"
+                                           name="reset_otp" placeholder="000000"
+                                           maxlength="6" inputmode="numeric" required>
+                                </div>
+                            </div>
+
+                            <div class="pf-form-row">
+                                <div class="pf-field">
+                                    <label class="pf-label">
+                                        <i class="fa-solid fa-lock"></i> Nouveau mot de passe
+                                    </label>
+                                    <div class="pf-input-wrap">
+                                        <i class="fa-solid fa-lock pf-input-icon"></i>
+                                        <input class="pf-input" type="password"
+                                               name="reset_new_password"
+                                               placeholder="••••••••••" required>
+                                    </div>
+                                </div>
+                                <div class="pf-field">
+                                    <label class="pf-label">
+                                        <i class="fa-solid fa-check"></i> Confirmation
+                                    </label>
+                                    <div class="pf-input-wrap">
+                                        <i class="fa-solid fa-check pf-input-icon"></i>
+                                        <input class="pf-input" type="password"
+                                               name="reset_confirm_password"
+                                               placeholder="••••••••••" required>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="pf-form-footer">
+                                <button class="pf-btn pf-btn-amber" type="submit">
+                                    <i class="fa-solid fa-rotate"></i>
+                                    Reinitialiser
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        {# ══ PANEL: LOCATION ══ #}
+        <div class="pf-panel" id="pf-panel-location">
+
+            <div class="pf-card">
+                <div class="pf-card-header">
+                    <div class="pf-card-icon"
+                         style="background:linear-gradient(135deg,#0a2540,#1565c0);">
+                        <i class="fa-solid fa-location-dot"></i>
+                    </div>
+                    <div>
+                        <h3>Localisation d'ouverture</h3>
+                        <p>Position enregistree a la creation du compte</p>
+                    </div>
+                    <a class="pf-btn pf-btn-outline pf-btn-sm"
+                       href="https://www.openstreetmap.org/search?query={{ map_query|url_encode }}"
+                       target="_blank" rel="noopener noreferrer"
+                       style="margin-left:auto;">
+                        <i class="fa-solid fa-external-link-alt"></i>
+                        OpenStreetMap
+                    </a>
+                </div>
+                <div class="pf-card-body">
+                    <div class="pf-loc-chips">
+                        <div class="pf-loc-chip">
+                            <div class="pf-loc-chip-icon">
+                                <i class="fa-solid fa-map-marker-alt"></i>
+                            </div>
+                            <div>
+                                <small>Lieu d'ouverture</small>
+                                <strong>{{ opened_location }}</strong>
+                            </div>
+                        </div>
+                        <div class="pf-loc-chip">
+                            <div class="pf-loc-chip-icon" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);">
+                                <i class="fa-solid fa-globe"></i>
+                            </div>
+                            <div>
+                                <small>Source d'inscription</small>
+                                <strong>{{ opened_from }}</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pf-map-box">
+                        <div id="nx-profile-osm-map"
+                             data-query="{{ map_query|e('html_attr') }}"
+                             style="width:100%; height:100%;"></div>
+                    </div>
+
+                    <p id="nx-profile-osm-fallback" class="pf-map-fallback" hidden>
+                        Aucune correspondance cartographique trouvee.
+                    </p>
+
+                    <div class="pf-map-credit">
+                        <i class="fa-solid fa-circle-info"></i>
+                        Source : OpenStreetMap · Nominatim API
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        {# ══ PANEL: AI & ACTIVITY ══ #}
+        <div class="pf-panel" id="pf-panel-ai">
+
+            {# Scorecards #}
+            <div class="pf-grid-4">
+                <div class="pf-scorecard">
+                    <div class="pf-scorecard-side" style="background:linear-gradient(180deg,#00838f,#00bcd4);"></div>
+                    <div class="pf-scorecard-ring">
+                        <svg viewBox="0 0 54 54">
+                            <circle class="pf-ring-bg" cx="27" cy="27" r="22"/>
+                            <circle class="pf-ring-fill pf-ring-teal" cx="27" cy="27" r="22"
+                                    style="stroke-dasharray: {{ (ai_security.score|default(0) * 1.382)|round }} 138;
+                                           transform-origin: 27px 27px; transform: rotate(-90deg);"/>
+                        </svg>
+                        <div class="pf-scorecard-ring-val">{{ ai_security.score|default(0) }}</div>
+                    </div>
+                    <div class="pf-scorecard-body">
+                        <strong>Score securite</strong>
+                        <small>/ 100 points</small>
+                    </div>
+                </div>
+
+                <div class="pf-scorecard">
+                    <div class="pf-scorecard-side" style="background:linear-gradient(180deg,#1565c0,#1e88e5);"></div>
+                    <div class="pf-scorecard-ring">
+                        <svg viewBox="0 0 54 54">
+                            <circle class="pf-ring-bg" cx="27" cy="27" r="22"/>
+                            <circle class="pf-ring-fill pf-ring-blue" cx="27" cy="27" r="22"
+                                    style="stroke-dasharray: {{ (ai_prediction.savings_score|default(0) * 1.382)|round }} 138;
+                                           transform-origin: 27px 27px; transform: rotate(-90deg);"/>
+                        </svg>
+                        <div class="pf-scorecard-ring-val">{{ ai_prediction.savings_score|default(0) }}</div>
+                    </div>
+                    <div class="pf-scorecard-body">
+                        <strong>Score epargne</strong>
+                        <small>/ 100 points</small>
+                    </div>
+                </div>
+
+                <div class="pf-scorecard">
+                    <div class="pf-scorecard-side" style="background:linear-gradient(180deg,#7c3aed,#8b5cf6);"></div>
+                    <div class="pf-scorecard-icon"
+                         style="background:linear-gradient(135deg,#f5f3ff,#ede9fe); color:#7c3aed;">
+                        <i class="fa-solid fa-coins"></i>
+                    </div>
+                    <div class="pf-scorecard-body">
+                        <strong>Depense predite</strong>
+                        <span>{{ ai_prediction.total_predicted_spending|default(0)|number_format(2,'.','') }}<small style="font-size:11px;"> DT</small></span>
+                        <small>ce mois</small>
+                    </div>
+                </div>
+
+                <div class="pf-scorecard">
+                    <div class="pf-scorecard-side" style="background:linear-gradient(180deg,#d97706,#f59e0b);"></div>
+                    <div class="pf-scorecard-icon"
+                         style="background:linear-gradient(135deg,#fffbeb,#fef3c7); color:#d97706;">
+                        <i class="fa-solid fa-clock"></i>
+                    </div>
+                    <div class="pf-scorecard-body">
+                        <strong>Derniere analyse</strong>
+                        <span style="font-size:13px;">{{ profile_ai.generated_at|default('—') }}</span>
+                        <small>
+                            <form method="post" style="display:inline;">
+                                <input type="hidden" name="tab" value="profile">
+                                <input type="hidden" name="action" value="profile_ai_refresh">
+                                <button class="pf-link-btn" type="submit">Analyser maintenant</button>
+                            </form>
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            {# AI Insights #}
+            <div class="pf-ai-quad">
+                <div class="pf-insight pf-insight-security">
+                    <div class="pf-insight-tag">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        Diagnostic securite
+                    </div>
+                    <p>{{ ai_security.summary|default('Cliquez sur "Analyser maintenant" pour generer le diagnostic.') }}</p>
+                </div>
+                <div class="pf-insight pf-insight-account">
+                    <div class="pf-insight-tag">
+                        <i class="fa-solid fa-credit-card"></i>
+                        Conseils compte
+                    </div>
+                    <p>{{ ai_account_advice.summary|default('Aucun conseil disponible pour le moment.') }}</p>
+                </div>
+                <div class="pf-insight pf-insight-cashback">
+                    <div class="pf-insight-tag">
+                        <i class="fa-solid fa-star"></i>
+                        Cashback IA
+                    </div>
+                    <p>{{ ai_cashback_advice.summary|default('Aucune recommandation cashback.') }}</p>
+                </div>
+                <div class="pf-insight pf-insight-surplus">
+                    <div class="pf-insight-tag">
+                        <i class="fa-solid fa-arrow-trend-up"></i>
+                        Surplus mensuel
+                    </div>
+                    <p>{{ ai_surplus.message|default('Aucun surplus detecte.') }}</p>
+                    {% if ai_surplus.show|default(false) %}
+                        <form method="post">
+                            <input type="hidden" name="tab" value="profile">
+                            <input type="hidden" name="action" value="profile_ai_ack_surplus">
+                            <input type="hidden" name="month" value="{{ ai_surplus.month|default('') }}">
+                            <button class="pf-btn pf-btn-primary pf-btn-sm" type="submit">
+                                <i class="fa-solid fa-check"></i>
+                                Confirmer
+                            </button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+
+            {# Activity + Notifications #}
+            <div class="pf-grid-2">
+
+                <div class="pf-card">
+                    <div class="pf-card-header">
+                        <div class="pf-card-icon"
+                             style="background:linear-gradient(135deg,#00838f,#00bcd4);">
+                            <i class="fa-solid fa-clock-rotate-left"></i>
+                        </div>
+                        <div>
+                            <h3>Actions recentes</h3>
+                            <p>Historique d'activite</p>
+                        </div>
+                        <span class="pf-count-pill pf-count-pill-blue">{{ activity|length }}</span>
+                    </div>
+                    <div class="pf-card-body" style="padding-top:0; padding-bottom:0;">
+                        <div class="pf-scroll-body">
+                            {% if activity is not empty %}
+                                <div class="pf-timeline">
+                                    {% for row in activity %}
+                                        <div class="pf-tl-item">
+                                            <div class="pf-tl-left">
+                                                <div class="pf-tl-dot pf-tl-dot-{{ loop.index is odd ? 'teal' : 'blue' }}"></div>
+                                                {% if not loop.last %}
+                                                    <div class="pf-tl-connector"></div>
+                                                {% endif %}
+                                            </div>
+                                            <div class="pf-tl-content">
+                                                <strong>{{ row.action_type|default('ACTION')|replace({'_': ' '})|title }}</strong>
+                                                <p>{{ row.details|default('Aucun detail') }}</p>
+                                                <time>{{ row.created_at|default('—') }}</time>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="pf-empty">
+                                    <i class="fa-solid fa-inbox"></i>
+                                    <p>Aucune activite recente.</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pf-card">
+                    <div class="pf-card-header">
+                        <div class="pf-card-icon"
+                             style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);">
+                            <i class="fa-solid fa-bell"></i>
+                        </div>
+                        <div>
+                            <h3>Notifications</h3>
+                            <p>Alertes et messages</p>
+                        </div>
+                        {% set notif_count = notifications|default([])|length %}
+                        {% if notif_count > 0 %}
+                            <span class="pf-count-pill pf-count-pill-purple">{{ notif_count }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="pf-card-body" style="padding-top:0; padding-bottom:0;">
+                        <div class="pf-scroll-body">
+                            {% if notifications|default([]) is not empty %}
+                                <div class="pf-notif-list">
+                                    {% for item in notifications|default([])|slice(0,12) %}
+                                        <div class="pf-notif-item">
+                                            <div class="pf-notif-dot"></div>
+                                            <div class="pf-notif-body">
+                                                <strong>{{ item.title }}</strong>
+                                                <p>{{ item.message }}</p>
+                                                <time>{{ item.created_at }}</time>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="pf-empty">
+                                    <i class="fa-solid fa-bell-slash"></i>
+                                    <p>Aucune notification.</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+</div>
+
+{# ── External deps ── #}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
+<script>
+(function () {
+    'use strict';
+
+    /* ── helpers ── */
+    const $ = (sel, ctx = document) => ctx.querySelector(sel);
+    const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
+
+    document.addEventListener('DOMContentLoaded', function () {
+        initTabs();
+        initEyes();
+        initPasswordStrength();
+        initMap();
+        initBiometric();
+        initPhotoUpload();
+        initPanelPersist();
+    });
+
+    /* ══════════════════════════════════════════════════════
+       TAB SYSTEM
+    ══════════════════════════════════════════════════════ */
+    function initTabs() {
+        const tabBtns  = $$('[data-pf-tab]');
+        const panels   = $$('.pf-panel');
+
+        function activateTab(name) {
+            tabBtns.forEach(b => b.classList.toggle('active', b.dataset.pfTab === name));
+            panels.forEach(p => p.classList.toggle('active', p.id === 'pf-panel-' + name));
+
+            const url = new URL(location.href);
+            url.searchParams.set('panel', name);
+            history.replaceState(null, '', url.pathname + '?' + url.searchParams.toString());
+        }
+
+        tabBtns.forEach(btn => btn.addEventListener('click', () => activateTab(btn.dataset.pfTab)));
+
+        const initial = new URLSearchParams(location.search).get('panel');
+        if (initial && document.getElementById('pf-panel-' + initial)) {
+            activateTab(initial);
+        }
+    }
+
+    /* ══════════════════════════════════════════════════════
+       PANEL PERSIST ON FORM SUBMIT
+    ══════════════════════════════════════════════════════ */
+    function initPanelPersist() {
+        $$('.pf-panel form').forEach(form => {
+            form.addEventListener('submit', () => {
+                const panelEl = form.closest('.pf-panel');
+                if (!panelEl) return;
+                const name = panelEl.id.replace('pf-panel-', '');
+                let inp = form.querySelector('input[name="panel"]');
+                if (!inp) {
+                    inp = document.createElement('input');
+                    inp.type = 'hidden';
+                    inp.name = 'panel';
+                    form.appendChild(inp);
+                }
+                inp.value = name;
+            });
+        });
+    }
+
+    /* ══════════════════════════════════════════════════════
+       EYE TOGGLES
+    ══════════════════════════════════════════════════════ */
+    function initEyes() {
+        $$('[data-pf-eye]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const wrap = btn.closest('.pf-input-wrap');
+                if (!wrap) return;
+                const inp = wrap.querySelector('input');
+                if (!inp) return;
+                const show = inp.type === 'password';
+                inp.type = show ? 'text' : 'password';
+                const icon = btn.querySelector('i');
+                if (icon) icon.className = show ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+            });
+        });
+    }
+
+    /* ══════════════════════════════════════════════════════
+       PASSWORD STRENGTH
+    ══════════════════════════════════════════════════════ */
+    function initPasswordStrength() {
+        const pw    = $('#pf-new-pw');
+        const bars  = [1, 2, 3, 4].map(i => $('#pf-bar-' + i));
+        const lbl   = $('#pf-pw-label');
+        const conf  = $('#pf-conf-pw');
+        const cWrap = $('#pf-conf-wrap');
+
+        if (!pw) return;
+
+        const levels = [
+            { c: '#e8f0f8', l: '—'           },
+            { c: '#e53935', l: 'Tres faible'  },
+            { c: '#f59e0b', l: 'Faible'       },
+            { c: '#fbbf24', l: 'Moyen'        },
+            { c: '#00bcd4', l: 'Fort'         },
+            { c: '#22c55e', l: 'Tres fort'    }
+        ];
+
+        function score(v) {
+            let s = 0;
+            if (v.length >= 8)           s++;
+            if (v.length >= 12)          s++;
+            if (/[A-Z]/.test(v))         s++;
+            if (/[0-9]/.test(v))         s++;
+            if (/[^A-Za-z0-9]/.test(v))  s++;
+            return s;
+        }
+
+        pw.addEventListener('input', () => {
+            const sc     = pw.value.length ? score(pw.value) : 0;
+            const lvl    = levels[Math.min(sc, 5)];
+            const filled = Math.ceil(sc * bars.length / 5);
+            bars.forEach((bar, i) => {
+                if (bar) bar.style.background = i < filled ? lvl.c : '';
+            });
+            if (lbl) { lbl.textContent = lvl.l; lbl.style.color = lvl.c; }
+        });
+
+        if (conf && cWrap) {
+            conf.addEventListener('input', () => {
+                const match = conf.value.length > 0 && conf.value === pw.value;
+                cWrap.classList.toggle('is-valid',   match);
+                cWrap.classList.toggle('is-invalid', !match && conf.value.length > 0);
+            });
+        }
+    }
+
+    /* ══════════════════════════════════════════════════════
+       OPENSTREETMAP
+    ══════════════════════════════════════════════════════ */
+    function initMap() {
+        const mapEl    = $('#nx-profile-osm-map');
+        const fallback = $('#nx-profile-osm-fallback');
+        if (!mapEl) return;
+
+        function waitLeaflet(cb) {
+            if (typeof window.L !== 'undefined') { cb(); return; }
+            let t = 0;
+            const iv = setInterval(() => {
+                if (typeof window.L !== 'undefined') { clearInterval(iv); cb(); }
+                else if (++t > 40) clearInterval(iv);
+            }, 150);
+        }
+
+        waitLeaflet(() => {
+            const query = (mapEl.dataset.query || '').trim();
+            if (!query) {
+                if (fallback) { fallback.hidden = false; fallback.textContent = 'Source vide.'; }
+                return;
+            }
+
+            fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' +
+                  encodeURIComponent(query), { headers: { 'Accept-Language': 'fr,en' } })
+                .then(r => r.ok ? r.json() : Promise.reject())
+                .then(res => {
+                    if (!Array.isArray(res) || !res.length) {
+                        if (fallback) { fallback.hidden = false; }
+                        return;
+                    }
+                    const lat = parseFloat(res[0].lat);
+                    const lon = parseFloat(res[0].lon);
+                    if (isNaN(lat) || isNaN(lon)) {
+                        if (fallback) fallback.hidden = false;
+                        return;
+                    }
+                    const map = L.map(mapEl, { scrollWheelZoom: false }).setView([lat, lon], 13);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        maxZoom: 19,
+                        attribution: '© OpenStreetMap'
+                    }).addTo(map);
+                    L.marker([lat, lon]).addTo(map)
+                     .bindPopup(res[0].display_name || query)
+                     .openPopup();
+                })
+                .catch(() => {
+                    if (fallback) fallback.hidden = false;
+                });
+        });
+    }
+
+    /* ══════════════════════════════════════════════════════
+       BIOMETRIC FACE ID
+    ══════════════════════════════════════════════════════ */
+    function initBiometric() {
+        const descEl   = $('#nx-profile-bio-face-descriptor');
+        const videoEl  = $('#nx-profile-bio-video');
+        const startBtn = $('#nx-profile-bio-start');
+        const capBtn   = $('#nx-profile-bio-capture');
+        const dot      = $('#proBioDot');
+        const txt      = $('#proBioText');
+        const idle     = $('#proBioIdle');
+        const scan     = $('#proBioScan');
+        const ok       = $('#proBioOk');
+        if (!descEl || !videoEl || !startBtn || !capBtn) return;
+
+        const MODEL_URL   = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
+        let   stream      = null;
+        let   modelsReady = false;
+
+        function setStatus(msg, state) {
+            if (txt) txt.textContent = msg;
+            if (dot) dot.className = 'pf-cam-dot ' + (state || '');
+        }
+
+        function ensureModels() {
+            return new Promise((resolve, reject) => {
+                if (modelsReady) { resolve(); return; }
+                let tries = 0;
+                const iv = setInterval(() => {
+                    tries++;
+                    if (typeof window.faceapi !== 'undefined') {
+                        clearInterval(iv);
+                        setStatus('Chargement des modeles IA…', 'loading');
+                        Promise.all([
+                            window.faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                            window.faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                            window.faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+                        ]).then(() => { modelsReady = true; setStatus('Modeles prets.', 'active'); resolve(); })
+                          .catch(reject);
+                    } else if (tries > 40) { clearInterval(iv); reject(new Error('faceapi not loaded')); }
+                }, 250);
+            });
+        }
+
+        startBtn.addEventListener('click', () => {
+            startBtn.disabled = true;
+            setStatus('Initialisation camera…', 'loading');
+            ensureModels()
+                .then(() => navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+                    audio: false
+                }))
+                .then(s => { stream = s; videoEl.srcObject = stream; return videoEl.play(); })
+                .then(() => {
+                    if (idle) idle.style.display = 'none';
+                    if (scan) scan.style.display = 'flex';
+                    if (ok)   ok.style.display   = 'none';
+                    capBtn.disabled = false;
+                    startBtn.innerHTML = '<i class="fa-solid fa-circle" style="color:#e53935;font-size:9px;"></i> Active';
+                    setStatus('Camera active — placez votre visage dans le cadre.', 'active');
+                })
+                .catch(() => { setStatus("Impossible d'acceder a la camera.", 'error'); startBtn.disabled = false; });
+        });
+
+        capBtn.addEventListener('click', () => {
+            capBtn.disabled = true;
+            setStatus('Analyse en cours…', 'loading');
+            window.faceapi
+                .detectSingleFace(videoEl,
+                    new window.faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.45 }))
+                .withFaceLandmarks()
+                .withFaceDescriptor()
+                .then(det => {
+                    if (!det) {
+                        descEl.value = '';
+                        setStatus("Aucun visage detecte. Ameliorez l'eclairage.", 'error');
+                        capBtn.disabled = false;
+                        return;
+                    }
+                    descEl.value = JSON.stringify(Array.from(det.descriptor));
+                    if (scan) scan.style.display = 'none';
+                    if (ok)   ok.style.display   = 'flex';
+                    setStatus('Visage capture ! Cliquez sur "Enregistrer Face ID".', 'success');
+                    capBtn.disabled = false;
+                })
+                .catch(() => {
+                    descEl.value = '';
+                    setStatus('Echec de la capture biometrique.', 'error');
+                    capBtn.disabled = false;
+                });
+        });
+
+        window.addEventListener('beforeunload', () => {
+            if (stream) stream.getTracks().forEach(t => t.stop());
+        });
+    }
+
+    /* ══════════════════════════════════════════════════════
+       PHOTO UPLOAD
+    ══════════════════════════════════════════════════════ */
+    function initPhotoUpload() {
+        const fileInput = $('#pf-photo-input');
+        if (!fileInput) return;
+
+        const feedback   = $('#pf-photo-feedback');
+        const formPreview= $('#pf-photo-preview');
+        const heroAvatar = $('#pf-hero-avatar');
+        const form       = fileInput.closest('form');
+        let   timer      = null;
+
+        function applyImg(container, src) {
+            if (!container) return;
+            container.innerHTML = '';
+            const img = document.createElement('img');
+            img.src = src;
+            img.alt = 'Photo profil';
+            container.appendChild(img);
+        }
+
+        fileInput.addEventListener('change', () => {
+            const file = fileInput.files && fileInput.files[0];
+            if (!file) return;
+            const url = URL.createObjectURL(file);
+            applyImg(formPreview, url);
+            applyImg(heroAvatar, url);
+            if (feedback) feedback.textContent = file.name + ' — sauvegarde…';
+            clearTimeout(timer);
+            timer = setTimeout(() => {
+                if (typeof form.requestSubmit === 'function') form.requestSubmit();
+                else form.submit();
+            }, 220);
+        });
+    }
+
+})();
+</script>

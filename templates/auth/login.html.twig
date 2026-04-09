@@ -1,0 +1,766 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Connexion — Nexora Bank{% endblock %}
+{% block body_class %}auth-body{% endblock %}
+
+{% block stylesheets %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ asset('styles/interfaces/auth-login.css?v=20260411-4') }}">
+{% endblock %}
+
+{% block body %}
+
+{# ── Animated Background ── #}
+<div class="auth-bg" aria-hidden="true">
+  <div class="auth-orb auth-orb--1"></div>
+  <div class="auth-orb auth-orb--2"></div>
+  <div class="auth-orb auth-orb--3"></div>
+  <div class="auth-grid"></div>
+  <div class="auth-lines">
+    <span></span><span></span><span></span>
+    <span></span><span></span><span></span>
+  </div>
+</div>
+
+<main class="auth-shell">
+
+  {# ════════════════════════════
+     LEFT — BRAND PANEL
+  ════════════════════════════ #}
+  <aside class="auth-side">
+
+    <a href="{{ path('home') }}" class="auth-back">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2.5">
+        <line x1="19" y1="12" x2="5" y2="12"/>
+        <polyline points="12 19 5 12 12 5"/>
+      </svg>
+      Retour à l'accueil
+    </a>
+
+    <div class="auth-brand">
+      <div class="auth-logo-ring">
+        <img src="{{ asset('images/logo.png') }}" alt="Nexora">
+        <div class="alr-pulse"></div>
+        <div class="alr-pulse alr-pulse--2"></div>
+      </div>
+      <div>
+        <span class="auth-eyebrow">PLATEFORME BANCAIRE</span>
+        <strong class="auth-brand-name">NEXORA</strong>
+      </div>
+      <div class="auth-live-badge">
+        <span class="live-dot"></span>LIVE
+      </div>
+    </div>
+
+    <div class="auth-hero-text">
+      <h1>
+        Content de<br>
+        vous revoir<span class="accent-dot">.</span>
+      </h1>
+      <p>
+        Votre espace bancaire sécurisé vous attend.
+        Connectez-vous avec votre mot de passe ou
+        utilisez la reconnaissance faciale.
+      </p>
+    </div>
+
+    {# Security indicators #}
+    <div class="sec-indicators">
+      <div class="sec-ind">
+        <div class="si-bar">
+          <div class="si-fill" style="--w:100%"></div>
+        </div>
+        <div class="si-text">
+          <span>Chiffrement AES-256</span>
+          <strong>Actif</strong>
+        </div>
+      </div>
+      <div class="sec-ind">
+        <div class="si-bar">
+          <div class="si-fill" style="--w:99.9%"></div>
+        </div>
+        <div class="si-text">
+          <span>Disponibilité système</span>
+          <strong>99.9%</strong>
+        </div>
+      </div>
+      <div class="sec-ind">
+        <div class="si-bar">
+          <div class="si-fill si-fill--blue" style="--w:87%"></div>
+        </div>
+        <div class="si-text">
+          <span>Score de confiance</span>
+          <strong>Élevé</strong>
+        </div>
+      </div>
+    </div>
+
+    {# Floating decorative card #}
+    <div class="side-card-wrap">
+      <div class="side-deco-card">
+        <div class="sdc-shimmer"></div>
+        <div class="sdc-top">
+          <span class="sdc-brand">NEXORA</span>
+          <div class="sdc-nfc">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                 stroke="rgba(255,255,255,.7)" stroke-width="1.5">
+              <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
+              <path d="M1.42 9a16 16 0 0 1 21.16 0"/>
+              <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+              <circle cx="12" cy="20" r="1" fill="white"/>
+            </svg>
+          </div>
+        </div>
+        <div class="sdc-chip">
+          <div class="sdc-chip-body">
+            <span></span><span></span><span></span>
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+        <div class="sdc-number">4821 •••• •••• 7293</div>
+        <div class="sdc-footer">
+          <div>
+            <label>Titulaire</label>
+            <span>J. DUPONT</span>
+          </div>
+          <div>
+            <label>Expire</label>
+            <span>09/28</span>
+          </div>
+          <div class="sdc-mc">
+            <div class="mc-l"></div>
+            <div class="mc-r"></div>
+          </div>
+        </div>
+        {# Card glow dots #}
+        <div class="sdc-dot sdc-dot--1"></div>
+        <div class="sdc-dot sdc-dot--2"></div>
+      </div>
+
+      {# Floating balance widget #}
+      <div class="side-widget">
+        <div class="sw-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="1" x2="12" y2="23"/>
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+          </svg>
+        </div>
+        <div>
+          <p>Solde disponible</p>
+          <strong>24 850,00 €</strong>
+        </div>
+        <div class="sw-trend">↑ 3.2%</div>
+      </div>
+    </div>
+
+    <p class="auth-side-foot">
+      © 2025 Nexora Bank · Connexion sécurisée SSL/TLS
+    </p>
+
+  </aside>
+
+  {# ════════════════════════════
+     RIGHT — FORM PANEL
+  ════════════════════════════ #}
+  <section class="auth-right">
+
+    {# Glassmorphism card #}
+    <div class="auth-glass-card">
+
+      {# Top rainbow bar #}
+      <div class="agc-rainbow"></div>
+
+      {# Header #}
+      <div class="agc-header">
+        <div class="agc-avatar">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="8" r="4"/>
+            <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+          </svg>
+          <div class="agc-avatar-ring"></div>
+        </div>
+        <div>
+          <h2>Se connecter</h2>
+          <p>Accédez à votre espace bancaire</p>
+        </div>
+        <div class="agc-shield">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </div>
+      </div>
+
+      {# Flash messages #}
+      {% include '_flashes.html.twig' %}
+
+      {# ── Method Selector ── #}
+      <div class="method-selector">
+        <button class="method-btn method-btn--active" id="btnMethodPw" type="button">
+          <div class="mb-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2">
+              <rect x="3" y="11" width="18" height="11" rx="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+          </div>
+          <span>Mot de passe</span>
+          <div class="mb-indicator"></div>
+        </button>
+
+        <button class="method-btn" id="btnMethodFace" type="button">
+          <div class="mb-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2">
+              <path d="M9 9a3 3 0 1 1 6 0v.5"/>
+              <path d="M8 9a4 4 0 0 0 8 0"/>
+              <circle cx="12" cy="9" r="1"/>
+              <path d="M3 7V5a2 2 0 0 1 2-2h2"/>
+              <path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+              <path d="M21 17v2a2 2 0 0 1-2 2h-2"/>
+              <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+              <path d="M9 14s1 1 3 1 3-1 3-1"/>
+              <line x1="9" y1="11" x2="9.01" y2="11"/>
+              <line x1="15" y1="11" x2="15.01" y2="11"/>
+            </svg>
+          </div>
+          <span>Face ID</span>
+          <div class="mb-indicator"></div>
+        </button>
+      </div>
+
+      {# ════════════
+         PANEL : PASSWORD
+      ════════════ #}
+      <div class="auth-panel" id="panelPw">
+        <form method="post" class="auth-form-body" novalidate>
+          <input type="hidden" name="login_mode" value="password">
+
+          <div class="field-group">
+            <label class="field-label" for="f-email">Adresse email</label>
+            <div class="field-wrap" data-field>
+              <span class="field-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                  <polyline points="22,6 12,13 2,6"/>
+                </svg>
+              </span>
+              <input type="email" id="f-email" name="email"
+                     placeholder="vous@exemple.com"
+                     required autocomplete="email">
+              <span class="field-check" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="3">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </span>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <div class="field-label-row">
+              <label class="field-label" for="f-pw">Mot de passe</label>
+              <a href="{{ path('forgot_password') }}" class="field-forgot">
+                Oublié ?
+              </a>
+            </div>
+            <div class="field-wrap" data-field>
+              <span class="field-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2"/>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+              </span>
+              <input type="password" id="f-pw" name="password"
+                     placeholder="••••••••••"
+                     required autocomplete="current-password">
+              <button type="button" class="field-eye" data-eye="f-pw">
+                <svg class="eye-show" width="16" height="16" viewBox="0 0 24 24"
+                     fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+                <svg class="eye-hide" width="16" height="16" viewBox="0 0 24 24"
+                     fill="none" stroke="currentColor" stroke-width="2"
+                     style="display:none">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                  <line x1="1" y1="1" x2="23" y2="23"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {% if math_required %}
+          <div class="field-group captcha-group">
+            <label class="field-label">Vérification anti-robot</label>
+            <div class="captcha-row">
+              <div class="captcha-box">
+                <span>{{ math_question }}</span>
+              </div>
+              <div class="captcha-eq">=</div>
+              <div class="field-wrap" style="flex:1" data-field>
+                <span class="field-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                  </svg>
+                </span>
+                <input type="number" name="math_answer"
+                       placeholder="Réponse" required>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+          <div class="field-extras">
+            <label class="nx-check">
+              <input type="checkbox" name="remember">
+              <span class="nx-check-box"></span>
+              <span>Se souvenir de moi</span>
+            </label>
+          </div>
+
+          <button class="nx-submit" type="submit">
+            <span class="nx-submit-text">Se connecter</span>
+            <span class="nx-submit-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2.5">
+                <line x1="5" y1="12" x2="19" y2="12"/>
+                <polyline points="12 5 19 12 12 19"/>
+              </svg>
+            </span>
+            <span class="nx-submit-glow"></span>
+          </button>
+        </form>
+      </div>
+
+      {# ════════════
+         PANEL : FACE ID
+      ════════════ #}
+      <div class="auth-panel auth-panel--hidden" id="panelFace">
+        <form method="post" class="auth-form-body" id="faceForm" novalidate>
+          <input type="hidden" name="login_mode" value="face">
+          <input type="hidden" name="face_descriptor" id="faceDescriptor">
+
+          <div class="field-group">
+            <label class="field-label" for="face-email">Adresse email</label>
+            <div class="field-wrap" data-field>
+              <span class="field-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                  <polyline points="22,6 12,13 2,6"/>
+                </svg>
+              </span>
+              <input type="email" id="face-email" name="email"
+                     placeholder="vous@exemple.com" required>
+            </div>
+          </div>
+
+          {% if math_required %}
+          <div class="field-group captcha-group">
+            <label class="field-label">Vérification anti-robot</label>
+            <div class="captcha-row">
+              <div class="captcha-box"><span>{{ math_question }}</span></div>
+              <div class="captcha-eq">=</div>
+              <div class="field-wrap" style="flex:1" data-field>
+                <span class="field-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                  </svg>
+                </span>
+                <input type="number" name="math_answer"
+                       placeholder="Réponse" required>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+          {# ── Camera UI ── #}
+          <div class="face-stage">
+
+            {# Video container #}
+            <div class="face-viewport" id="faceViewport">
+
+              <video id="faceVideo" autoplay muted playsinline></video>
+
+              {# Idle placeholder #}
+              <div class="face-idle" id="faceIdle">
+                <div class="fi-icon">
+                  <svg width="56" height="56" viewBox="0 0 24 24" fill="none"
+                       stroke="rgba(0,180,160,.4)" stroke-width="1">
+                    <circle cx="12" cy="8" r="4"/>
+                    <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+                  </svg>
+                </div>
+                <p>Caméra inactive</p>
+                <span>Cliquez sur "Démarrer" pour activer</span>
+              </div>
+
+              {# Scan overlay (shown when camera active) #}
+              <div class="face-scan" id="faceScan">
+                {# Corner brackets #}
+                <div class="scan-corner scan-corner--tl"></div>
+                <div class="scan-corner scan-corner--tr"></div>
+                <div class="scan-corner scan-corner--bl"></div>
+                <div class="scan-corner scan-corner--br"></div>
+                {# Oval guide #}
+                <div class="scan-oval"></div>
+                {# Sweep line #}
+                <div class="scan-sweep"></div>
+                {# Dots #}
+                <div class="scan-dot scan-dot--1"></div>
+                <div class="scan-dot scan-dot--2"></div>
+                <div class="scan-dot scan-dot--3"></div>
+                <div class="scan-dot scan-dot--4"></div>
+              </div>
+
+              {# Success overlay #}
+              <div class="face-success" id="faceSuccess">
+                <div class="fs-circle">
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none"
+                       stroke="#00B4A0" stroke-width="2.5">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </div>
+                <p>Visage reconnu !</p>
+              </div>
+
+            </div>{# /face-viewport #}
+
+            {# Status bar #}
+            <div class="face-status" id="faceStatus">
+              <div class="fs-dot fs-dot--idle" id="fsStatusDot"></div>
+              <span id="fsStatusText">Démarrez la caméra pour commencer.</span>
+            </div>
+
+            {# Controls #}
+            <div class="face-controls">
+              <button type="button" class="face-ctrl face-ctrl--start"
+                      id="faceStartBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.5">
+                  <polygon points="23 7 16 12 23 17 23 7"/>
+                  <rect x="1" y="5" width="15" height="14" rx="2"/>
+                </svg>
+                Démarrer
+              </button>
+              <button type="button" class="face-ctrl face-ctrl--capture"
+                      id="faceCaptureBtn" disabled>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.5">
+                  <circle cx="12" cy="12" r="3"/>
+                  <path d="M20.94 11A8.994 8.994 0 1 1 3.06 13"/>
+                </svg>
+                Capturer
+              </button>
+            </div>
+
+          </div>{# /face-stage #}
+
+          <button class="nx-submit nx-submit--dark" type="submit"
+                  id="faceSubmitBtn">
+            <span class="nx-submit-text">Se connecter par Face ID</span>
+            <span class="nx-submit-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2.5">
+                <circle cx="12" cy="8" r="4"/>
+                <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+              </svg>
+            </span>
+            <span class="nx-submit-glow"></span>
+          </button>
+
+        </form>
+      </div>
+
+      {# Footer links #}
+      <div class="agc-footer">
+        <span>Pas encore de compte ?</span>
+        <a href="{{ path('signup') }}" class="agc-footer-link">
+          Créer un compte
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="3">
+            <line x1="5" y1="12" x2="19" y2="12"/>
+            <polyline points="12 5 19 12 12 19"/>
+          </svg>
+        </a>
+      </div>
+
+    </div>{# /auth-glass-card #}
+  </section>
+
+</main>
+
+{# Face-api #}
+<script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
+<script>
+/* ════════════════════════════════════════════════
+   NEXORA LOGIN — complete JS
+════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  /* ── Wait for DOM ── */
+  document.addEventListener('DOMContentLoaded', function () {
+    initTabs();
+    initEyeToggles();
+    initFieldFocus();
+    initFieldValidation();
+    initFaceID();
+  });
+
+  /* ────────────────────────────────────────────
+     TAB SWITCHING
+  ──────────────────────────────────────────── */
+  function initTabs() {
+    var btnPw    = document.getElementById('btnMethodPw');
+    var btnFace  = document.getElementById('btnMethodFace');
+    var panelPw  = document.getElementById('panelPw');
+    var panelFace= document.getElementById('panelFace');
+
+    if (!btnPw || !btnFace || !panelPw || !panelFace) {
+      console.warn('Nexora: tab elements not found');
+      return;
+    }
+
+    function showPanel(which) {
+      if (which === 'pw') {
+        btnPw.classList.add('method-btn--active');
+        btnFace.classList.remove('method-btn--active');
+        panelPw.classList.remove('auth-panel--hidden');
+        panelFace.classList.add('auth-panel--hidden');
+      } else {
+        btnFace.classList.add('method-btn--active');
+        btnPw.classList.remove('method-btn--active');
+        panelFace.classList.remove('auth-panel--hidden');
+        panelPw.classList.add('auth-panel--hidden');
+      }
+    }
+
+    btnPw.addEventListener('click',   function () { showPanel('pw'); });
+    btnFace.addEventListener('click', function () { showPanel('face'); });
+  }
+
+  /* ────────────────────────────────────────────
+     EYE TOGGLES
+  ──────────────────────────────────────────── */
+  function initEyeToggles() {
+    document.querySelectorAll('.field-eye[data-eye]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var inp = document.getElementById(btn.dataset.eye);
+        if (!inp) return;
+        var show = inp.type === 'password';
+        inp.type = show ? 'text' : 'password';
+        var s = btn.querySelector('.eye-show');
+        var h = btn.querySelector('.eye-hide');
+        if (s) s.style.display = show ? 'none' : '';
+        if (h) h.style.display = show ? ''     : 'none';
+      });
+    });
+  }
+
+  /* ────────────────────────────────────────────
+     FIELD FOCUS EFFECTS
+  ──────────────────────────────────────────── */
+  function initFieldFocus() {
+    document.querySelectorAll('[data-field] input').forEach(function (inp) {
+      var wrap = inp.closest('[data-field]');
+      inp.addEventListener('focus', function () {
+        wrap.classList.add('field-wrap--focus');
+      });
+      inp.addEventListener('blur', function () {
+        wrap.classList.remove('field-wrap--focus');
+      });
+    });
+  }
+
+  /* ────────────────────────────────────────────
+     EMAIL VALIDATION CHECKMARK
+  ──────────────────────────────────────────── */
+  function initFieldValidation() {
+    document.querySelectorAll('input[type="email"]').forEach(function (inp) {
+      inp.addEventListener('input', function () {
+        var wrap = inp.closest('[data-field]');
+        if (!wrap) return;
+        wrap.classList.toggle('field-wrap--valid', inp.validity.valid && inp.value.length > 0);
+      });
+    });
+  }
+
+  /* ────────────────────────────────────────────
+     FACE ID
+  ──────────────────────────────────────────── */
+  function initFaceID() {
+    var descriptorInput = document.getElementById('faceDescriptor');
+    var videoEl         = document.getElementById('faceVideo');
+    var startBtn        = document.getElementById('faceStartBtn');
+    var captureBtn      = document.getElementById('faceCaptureBtn');
+    var submitBtn       = document.getElementById('faceSubmitBtn');
+    var statusDot       = document.getElementById('fsStatusDot');
+    var statusText      = document.getElementById('fsStatusText');
+    var faceIdle        = document.getElementById('faceIdle');
+    var faceScan        = document.getElementById('faceScan');
+    var faceSuccess     = document.getElementById('faceSuccess');
+
+    if (!descriptorInput || !videoEl || !startBtn || !captureBtn) {
+      console.warn('Nexora: Face ID elements not found');
+      return;
+    }
+
+    var MODEL_URL   = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
+    var stream      = null;
+    var modelsReady = false;
+
+    /* Status helper */
+    function setStatus(msg, state) {
+      state = state || 'idle';
+      if (statusText) statusText.textContent = msg;
+      if (statusDot) {
+        statusDot.className = 'fs-dot fs-dot--' + state;
+      }
+    }
+
+    /* Load face-api models */
+    function ensureModels() {
+      return new Promise(function (resolve, reject) {
+        if (modelsReady) { resolve(true); return; }
+        if (typeof window.faceapi === 'undefined') {
+          /* retry until script loaded */
+          var tries = 0;
+          var wait = setInterval(function () {
+            tries++;
+            if (typeof window.faceapi !== 'undefined') {
+              clearInterval(wait);
+              loadModels(resolve, reject);
+            } else if (tries > 40) {
+              clearInterval(wait);
+              reject(new Error('face-api.js not loaded'));
+            }
+          }, 250);
+        } else {
+          loadModels(resolve, reject);
+        }
+      });
+    }
+
+    function loadModels(resolve, reject) {
+      setStatus('Chargement des modèles IA…', 'loading');
+      Promise.all([
+        window.faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+        window.faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+        window.faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+      ]).then(function () {
+        modelsReady = true;
+        setStatus('Modèles prêts. Positionnez votre visage.', 'ready');
+        resolve(true);
+      }).catch(function (err) {
+        setStatus('Erreur chargement modèles.', 'error');
+        reject(err);
+      });
+    }
+
+    /* Start camera */
+    function startCamera() {
+      startBtn.disabled = true;
+      setStatus('Initialisation de la caméra…', 'loading');
+
+      ensureModels().then(function () {
+        return navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: false
+        });
+      }).then(function (s) {
+        stream = s;
+        videoEl.srcObject = stream;
+        return videoEl.play();
+      }).then(function () {
+        /* Show scan overlay, hide idle */
+        if (faceIdle) faceIdle.style.display   = 'none';
+        if (faceScan) faceScan.style.display    = 'flex';
+        if (faceSuccess) faceSuccess.style.display = 'none';
+        captureBtn.disabled = false;
+        startBtn.innerHTML  =
+          '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">' +
+          '<rect x="1" y="5" width="15" height="14" rx="2"/>' +
+          '<polyline points="17 8 23 12 17 16 17 8"/></svg> Active';
+        startBtn.classList.add('face-ctrl--on');
+        setStatus('Caméra active. Placez votre visage dans le cadre.', 'active');
+      }).catch(function () {
+        setStatus("Impossible d'accéder à la caméra.", 'error');
+        startBtn.disabled = false;
+      });
+    }
+
+    /* Capture face descriptor */
+    function captureDescriptor() {
+      captureBtn.disabled = true;
+      setStatus('Analyse en cours…', 'loading');
+
+      window.faceapi
+        .detectSingleFace(
+          videoEl,
+          new window.faceapi.TinyFaceDetectorOptions({
+            inputSize: 320,
+            scoreThreshold: 0.45
+          })
+        )
+        .withFaceLandmarks()
+        .withFaceDescriptor()
+        .then(function (detection) {
+          if (!detection) {
+            descriptorInput.value = '';
+            setStatus("Aucun visage détecté. Améliorez l'éclairage.", 'error');
+            captureBtn.disabled = false;
+            return;
+          }
+          descriptorInput.value = JSON.stringify(Array.from(detection.descriptor));
+
+          /* Show success overlay */
+          if (faceScan)    faceScan.style.display    = 'none';
+          if (faceSuccess) faceSuccess.style.display = 'flex';
+
+          setStatus('Visage capturé ! Cliquez sur Connexion.', 'success');
+          captureBtn.disabled = false;
+        })
+        .catch(function () {
+          descriptorInput.value = '';
+          setStatus('Échec de la capture biométrique.', 'error');
+          captureBtn.disabled = false;
+        });
+    }
+
+    /* Events */
+    startBtn.addEventListener('click', startCamera);
+    captureBtn.addEventListener('click', captureDescriptor);
+
+    /* Prevent submit without descriptor */
+    if (submitBtn) {
+      submitBtn.closest('form').addEventListener('submit', function (e) {
+        if (!descriptorInput.value) {
+          e.preventDefault();
+          setStatus('Capturez votre visage avant de soumettre.', 'error');
+        }
+      });
+    }
+
+    /* Cleanup on unload */
+    window.addEventListener('beforeunload', function () {
+      if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
+    });
+  }
+
+})();
+</script>
+
+{% endblock %}

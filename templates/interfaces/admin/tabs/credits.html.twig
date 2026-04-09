@@ -1,0 +1,2642 @@
+{% set active_panel = panel|default(support.active_panel|default('credit')) %}
+{% set credit_items = support.credits|default(items) %}
+{% set garantie_items = support.garanties|default([]) %}
+{% set users = support.users|default([]) %}
+{% set accounts = support.accounts|default([]) %}
+{% set credit_type_stats = support.credit_type_stats|default([]) %}
+{% set garantie_type_stats = support.garantie_type_stats|default([]) %}
+{% set current_date = 'now'|date('Y-m-d') %}
+{% set stats_section_id = active_panel == 'garantie' ? 'nx-garantie-analytics' : 'nx-credit-analytics' %}
+
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   NX CREDITS MODULE — CLEAN WHITE INTERFACE
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+    --nx-primary:        #6c63ff;
+    --nx-primary-dark:   #4f46e5;
+    --nx-primary-glow:   rgba(108, 99, 255, 0.10);
+    --nx-accent:         #00b894;
+    --nx-danger:         #e84545;
+    --nx-danger-dark:    #c0392b;
+    --nx-warning:        #f39c12;
+    --nx-purple:         #a855f7;
+    --nx-purple-dark:    #7c3aed;
+
+    --nx-bg:             #f4f6fb;
+    --nx-bg-card:        #ffffff;
+    --nx-bg-card2:       #f9fafc;
+    --nx-bg-hover:       #f0f2ff;
+    --nx-border:         rgba(108, 99, 255, 0.13);
+    --nx-border-light:   rgba(0, 0, 0, 0.07);
+
+    --nx-text:           #1a1f36;
+    --nx-text-muted:     #5a6282;
+    --nx-text-faint:     #9aa0b8;
+
+    --nx-radius-sm:      8px;
+    --nx-radius:         14px;
+    --nx-radius-lg:      20px;
+    --nx-radius-xl:      28px;
+
+    --nx-shadow:         0 2px 12px rgba(108,99,255,0.07);
+    --nx-shadow-card:    0 4px 24px rgba(108,99,255,0.10);
+    --nx-transition:     0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── RESET ── */
+.nx-module-screen *,
+.nx-module-screen *::before,
+.nx-module-screen *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+/* ── SCREEN WRAPPER ── */
+.nx-module-screen {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 32px 28px;
+    background: var(--nx-bg);
+    min-height: 100vh;
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: var(--nx-text);
+    position: relative;
+    overflow-x: hidden;
+}
+
+.nx-module-screen::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+        radial-gradient(ellipse 80% 60% at 20% 10%, rgba(108,99,255,0.04) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 80% 80%, rgba(0,184,148,0.03) 0%, transparent 55%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.nx-module-screen > * { position: relative; z-index: 1; }
+
+/* ══════════════════════════════════════════
+   MODULE HEADER
+══════════════════════════════════════════ */
+.nx-module-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    background: linear-gradient(135deg, #ffffff 0%, #f5f3ff 50%, #ffffff 100%);
+    border: 1px solid rgba(108,99,255,0.13);
+    border-radius: var(--nx-radius-xl);
+    padding: 28px 32px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--nx-shadow-card);
+    flex-wrap: wrap;
+}
+
+.nx-module-head::before {
+    content: '';
+    position: absolute;
+    top: -50px; right: -50px;
+    width: 220px; height: 220px;
+    background: radial-gradient(circle, rgba(108,99,255,0.07) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.nx-module-head::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(108,99,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(108,99,255,0.025) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+}
+
+.nx-module-title {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    position: relative;
+    z-index: 2;
+}
+
+.nx-module-icon {
+    width: 56px; height: 56px;
+    background: linear-gradient(135deg, var(--nx-primary), var(--nx-purple));
+    border-radius: var(--nx-radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    color: #fff;
+    flex-shrink: 0;
+    box-shadow: 0 6px 20px rgba(108,99,255,0.25);
+}
+
+.nx-module-title h2 {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.4px;
+    background: linear-gradient(135deg, #1a1f36 30%, var(--nx-primary) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1.2;
+}
+
+.nx-module-title p {
+    font-size: 13px;
+    color: var(--nx-text-muted);
+    margin-top: 3px;
+}
+
+.nx-module-head-actions {
+    display: flex;
+    gap: 10px;
+    position: relative;
+    z-index: 2;
+    flex-wrap: wrap;
+}
+
+/* ══════════════════════════════════════════
+   SUBTABS NAV
+══════════════════════════════════════════ */
+.nx-module-subtabs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px;
+    background: var(--nx-bg-card);
+    border: 1px solid var(--nx-border-light);
+    border-radius: var(--nx-radius-lg);
+    box-shadow: var(--nx-shadow);
+    flex-wrap: wrap;
+}
+
+.nx-module-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 20px;
+    border-radius: var(--nx-radius-sm);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--nx-text-muted);
+    text-decoration: none;
+    transition: var(--nx-transition);
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+}
+
+.nx-module-tab:hover {
+    background: var(--nx-bg-hover);
+    color: var(--nx-primary);
+}
+
+.nx-module-tab.is-active {
+    background: linear-gradient(135deg, var(--nx-primary), var(--nx-primary-dark));
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(108,99,255,0.25);
+}
+
+.nx-module-stats-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 18px;
+    border-radius: var(--nx-radius-sm);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--nx-text-muted);
+    text-decoration: none;
+    transition: var(--nx-transition);
+    margin-left: auto;
+    background: rgba(108,99,255,0.06);
+    border: 1px solid rgba(108,99,255,0.12);
+}
+
+.nx-module-stats-btn:hover {
+    background: var(--nx-primary-glow);
+    border-color: rgba(108,99,255,0.25);
+    color: var(--nx-primary);
+    transform: translateY(-1px);
+}
+
+.nx-module-stats-btn i { font-size: 14px; }
+
+/* ══════════════════════════════════════════
+   KPI STRIP
+══════════════════════════════════════════ */
+.nx-crud-kpis {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+.nx-crud-kpi {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--nx-bg-card);
+    border: 1px solid var(--nx-border-light);
+    border-radius: var(--nx-radius-lg);
+    padding: 20px 22px;
+    box-shadow: var(--nx-shadow);
+    transition: var(--nx-transition);
+    position: relative;
+    overflow: hidden;
+    cursor: default;
+}
+
+.nx-crud-kpi::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--nx-primary), var(--nx-purple));
+    opacity: 0;
+    transition: var(--nx-transition);
+}
+
+.nx-crud-kpi:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--nx-shadow-card);
+    border-color: rgba(108,99,255,0.18);
+}
+
+.nx-crud-kpi:hover::before { opacity: 1; }
+
+.nx-crud-kpi-icon {
+    width: 48px; height: 48px;
+    border-radius: var(--nx-radius-sm);
+    background: linear-gradient(135deg, rgba(108,99,255,0.12), rgba(108,99,255,0.05));
+    border: 1px solid rgba(108,99,255,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: var(--nx-primary);
+    flex-shrink: 0;
+    transition: var(--nx-transition);
+}
+
+.nx-crud-kpi:hover .nx-crud-kpi-icon {
+    transform: scale(1.08);
+    box-shadow: 0 4px 14px rgba(108,99,255,0.15);
+}
+
+.nx-crud-kpi > div { flex: 1; min-width: 0; }
+
+.nx-crud-kpi strong {
+    display: block;
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--nx-text);
+    letter-spacing: -0.8px;
+    line-height: 1;
+}
+
+.nx-crud-kpi small {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--nx-text-muted);
+    margin-top: 4px;
+}
+
+/* ══════════════════════════════════════════
+   MAIN GRID
+══════════════════════════════════════════ */
+.nx-analytics-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 16px;
+    align-items: stretch;
+}
+
+.nx-analytics-grid.is-empty {
+    display: none;
+}
+
+.nx-analytics-grid.has-single {
+    grid-template-columns: 1fr;
+}
+
+.nx-analytics-card,
+.nx-export-card {
+    background: var(--nx-bg-card);
+    border: 1px solid var(--nx-border-light);
+    border-radius: var(--nx-radius-lg);
+    box-shadow: var(--nx-shadow);
+    padding: 20px 22px;
+}
+
+.nx-analytics-card.is-collapsed,
+.nx-export-card.is-collapsed {
+    display: none;
+}
+
+.nx-analytics-card h3,
+.nx-export-card h3 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--nx-text);
+}
+
+.nx-analytics-card p,
+.nx-export-card p {
+    font-size: 12px;
+    color: var(--nx-text-muted);
+    margin-top: 4px;
+}
+
+.nx-analytics-layout {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 18px;
+    align-items: center;
+}
+
+.nx-donut-shell {
+    width: 220px;
+    height: 220px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    position: relative;
+}
+
+.nx-donut {
+    width: 180px;
+    height: 180px;
+    transform: rotate(-90deg);
+}
+
+.nx-donut-track {
+    fill: transparent;
+    stroke: #e2e8f0;
+    stroke-width: 4.5;
+}
+
+.nx-donut-segment {
+    fill: transparent;
+    stroke-width: 4.5;
+}
+
+.nx-donut-total {
+    position: absolute;
+    text-align: center;
+}
+
+.nx-donut-total strong {
+    display: block;
+    font-size: 30px;
+    line-height: 1;
+    color: var(--nx-text);
+}
+
+.nx-donut-total span {
+    font-size: 11px;
+    color: var(--nx-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+}
+
+.nx-type-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.nx-type-row {
+    border: 1px solid #edf2f7;
+    border-radius: 10px;
+    padding: 8px 10px;
+    background: #fbfcff;
+}
+
+.nx-type-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+
+.nx-type-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--nx-text);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.nx-type-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    flex-shrink: 0;
+}
+
+.nx-type-head small {
+    font-size: 11px;
+    color: var(--nx-text-muted);
+}
+
+.nx-type-track {
+    height: 7px;
+    border-radius: 999px;
+    background: #e2e8f0;
+    overflow: hidden;
+}
+
+.nx-type-fill {
+    display: block;
+    height: 100%;
+    width: var(--fill, 0%);
+    border-radius: 999px;
+}
+
+.nx-type-empty {
+    padding: 14px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 10px;
+    color: var(--nx-text-faint);
+    font-size: 12px;
+    text-align: center;
+    background: #f8fafc;
+}
+
+.nx-export-form {
+    margin-top: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.nx-export-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.nx-export-form label span {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--nx-text-muted);
+}
+
+.nx-export-form select {
+    background: #f8f9fe;
+    border: 1px solid rgba(0,0,0,0.09);
+    border-radius: var(--nx-radius-sm);
+    color: var(--nx-text);
+    font-size: 13px;
+    padding: 9px 12px;
+    outline: none;
+    transition: var(--nx-transition);
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%235a6282' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+}
+
+.nx-export-form select:focus {
+    border-color: var(--nx-primary);
+    box-shadow: 0 0 0 3px var(--nx-primary-glow);
+    background-color: #fff;
+}
+
+.nx-crud-grid {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 20px;
+    align-items: start;
+}
+
+/* ══════════════════════════════════════════
+   CARDS (form + table)
+══════════════════════════════════════════ */
+.nx-crud-form-card,
+.nx-crud-table-card {
+    background: var(--nx-bg-card);
+    border: 1px solid var(--nx-border-light);
+    border-radius: var(--nx-radius-lg);
+    overflow: hidden;
+    box-shadow: var(--nx-shadow);
+    transition: var(--nx-transition);
+}
+
+.nx-crud-form-card:hover,
+.nx-crud-table-card:hover {
+    border-color: rgba(108,99,255,0.18);
+    box-shadow: var(--nx-shadow-card);
+}
+
+.nx-crud-card-head {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--nx-border-light);
+    background: linear-gradient(135deg, rgba(108,99,255,0.03), transparent);
+}
+
+.nx-crud-card-head--with-tools {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.nx-crud-card-head-copy {
+    min-width: 220px;
+}
+
+.nx-crud-card-head h3 {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--nx-text);
+    letter-spacing: -0.2px;
+}
+
+.nx-crud-card-head p {
+    font-size: 12px;
+    color: var(--nx-text-muted);
+    margin-top: 3px;
+}
+
+.nx-table-tools {
+    display: grid;
+    grid-template-columns: minmax(280px, 1fr) 220px;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+    width: min(100%, 560px);
+}
+
+.nx-table-search {
+    position: relative;
+    min-width: 0;
+}
+
+.nx-table-search i {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--nx-text-faint);
+    font-size: 13px;
+}
+
+.nx-table-search input,
+.nx-table-sort {
+    min-height: 40px;
+    border-radius: 12px;
+    border: 1px solid rgba(108,99,255,0.12);
+    background: #f8f9fe;
+    color: var(--nx-text);
+    font-size: 13px;
+    transition: var(--nx-transition);
+    font-family: inherit;
+}
+
+.nx-table-search input {
+    width: 100%;
+    padding: 0 14px 0 38px;
+}
+
+.nx-table-sort {
+    width: 100%;
+    min-width: 0;
+    padding: 0 38px 0 14px;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%235a6282' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    cursor: pointer;
+}
+
+.nx-table-search input:focus,
+.nx-table-sort:focus {
+    outline: none;
+    border-color: var(--nx-primary);
+    box-shadow: 0 0 0 3px var(--nx-primary-glow);
+    background: #fff;
+}
+
+/* ══════════════════════════════════════════
+   FORM
+══════════════════════════════════════════ */
+.nx-crud-form {
+    display: flex;
+    flex-direction: column;
+    gap: 13px;
+    padding: 22px 24px;
+}
+
+.nx-crud-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.nx-crud-form label span {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--nx-text-muted);
+}
+
+.nx-crud-form input,
+.nx-crud-form select,
+.nx-crud-form textarea {
+    background: #f8f9fe;
+    border: 1px solid rgba(0,0,0,0.09);
+    border-radius: var(--nx-radius-sm);
+    color: var(--nx-text);
+    font-size: 13px;
+    padding: 9px 13px;
+    outline: none;
+    transition: var(--nx-transition);
+    font-family: inherit;
+    width: 100%;
+}
+
+.nx-crud-form input:focus,
+.nx-crud-form select:focus,
+.nx-crud-form textarea:focus {
+    border-color: var(--nx-primary);
+    box-shadow: 0 0 0 3px var(--nx-primary-glow);
+    background: #fff;
+}
+
+.nx-crud-form input::placeholder,
+.nx-crud-form textarea::placeholder {
+    color: var(--nx-text-faint);
+}
+
+.nx-crud-form select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%235a6282' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+    cursor: pointer;
+}
+
+.nx-crud-form-actions {
+    display: flex;
+    gap: 10px;
+    padding-top: 4px;
+    flex-wrap: wrap;
+}
+
+/* ══════════════════════════════════════════
+   TABLE
+══════════════════════════════════════════ */
+.table-wrap {
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: 560px;
+}
+
+.table-wrap::-webkit-scrollbar { width: 5px; height: 5px; }
+.table-wrap::-webkit-scrollbar-track { background: #f4f6fb; }
+.table-wrap::-webkit-scrollbar-thumb {
+    background: rgba(108,99,255,0.18);
+    border-radius: 3px;
+}
+.table-wrap::-webkit-scrollbar-thumb:hover { background: var(--nx-primary); }
+
+.nx-crud-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.nx-crud-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+}
+
+.nx-crud-table thead tr {
+    background: #f8f9fe;
+    border-bottom: 2px solid rgba(108,99,255,0.10);
+}
+
+.nx-crud-table th {
+    padding: 12px 15px;
+    text-align: left;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--nx-text-muted);
+    white-space: nowrap;
+    user-select: none;
+}
+
+.nx-crud-table th:first-child { padding-left: 20px; }
+.nx-crud-table th:last-child  { padding-right: 20px; }
+
+.nx-crud-table tbody tr {
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    transition: var(--nx-transition);
+}
+
+.nx-crud-table tbody tr:last-child { border-bottom: none; }
+
+.nx-crud-table tbody tr:hover {
+    background: #f5f3ff;
+}
+
+.nx-crud-table tbody tr:hover td { color: var(--nx-text); }
+
+.nx-crud-table td {
+    padding: 12px 15px;
+    color: var(--nx-text-muted);
+    vertical-align: middle;
+    white-space: normal;
+}
+
+.nx-crud-table td:first-child {
+    padding-left: 20px;
+    font-weight: 700;
+    color: var(--nx-text-faint);
+    font-size: 11px;
+}
+
+.nx-crud-table td:last-child { padding-right: 20px; }
+
+.nx-cell-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+}
+
+.nx-cell-actions form {
+    display: inline-flex;
+}
+
+.nx-cell-actions .btn {
+    min-width: 42px;
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    justify-content: center;
+}
+
+.nx-cell-actions .btn i {
+    margin: 0;
+}
+
+.nx-table-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 18px 18px;
+    border-top: 1px solid rgba(108,99,255,0.08);
+    flex-wrap: wrap;
+}
+
+.nx-table-pagination[hidden] {
+    display: none;
+}
+
+.nx-table-pagination-info {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--nx-text-muted);
+}
+
+.nx-table-pagination-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.nx-table-pagination-pages {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.nx-page-btn,
+.nx-page-nav {
+    min-width: 36px;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(108,99,255,0.15);
+    background: #fff;
+    color: var(--nx-text-muted);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: var(--nx-transition);
+}
+
+.nx-page-btn:hover,
+.nx-page-nav:hover {
+    background: var(--nx-bg-hover);
+    color: var(--nx-primary);
+    border-color: rgba(108,99,255,0.26);
+}
+
+.nx-page-btn.is-active {
+    background: linear-gradient(135deg, var(--nx-primary), var(--nx-primary-dark));
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 4px 12px rgba(108,99,255,0.22);
+}
+
+.nx-page-btn[disabled],
+.nx-page-nav[disabled] {
+    opacity: 0.45;
+    cursor: not-allowed;
+    background: #f8f9fe;
+    color: var(--nx-text-faint);
+    box-shadow: none;
+}
+
+.nx-page-ellipsis {
+    color: var(--nx-text-faint);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 0 2px;
+}
+
+/* ── Empty row ── */
+.nx-crud-table tbody tr td[colspan] {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--nx-text-faint);
+    font-size: 13px;
+}
+
+.nx-crud-row-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 86px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    background: rgba(108,99,255,0.08);
+    border: 1px solid rgba(108,99,255,0.14);
+    color: var(--nx-primary-dark);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.nx-crud-id-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: 10px;
+    background: #eef3fb;
+    color: #6b85a0;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.nx-crud-code {
+    color: #2b7de9;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.2px;
+}
+
+.nx-crud-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.nx-crud-meta small {
+    font-size: 11px;
+    color: var(--nx-text-faint);
+    line-height: 1.35;
+}
+
+.nx-crud-money {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--nx-text);
+}
+
+.nx-crud-money em {
+    font-style: normal;
+    font-size: 12px;
+    color: #5f83b1;
+    font-weight: 700;
+}
+
+.nx-crud-tag {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 7px 14px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1;
+    border: 1px solid transparent;
+    white-space: nowrap;
+}
+
+.nx-crud-tag--type {
+    background: rgba(43,125,233,0.08);
+    border-color: rgba(43,125,233,0.20);
+    color: #2b7de9;
+}
+
+.nx-crud-tag--pending {
+    background: #eef2f7;
+    border-color: #dce6f2;
+    color: #5c7fa8;
+}
+
+.nx-crud-tag--success {
+    background: rgba(67,160,71,0.10);
+    border-color: rgba(67,160,71,0.22);
+    color: #2e7d32;
+}
+
+.nx-crud-tag--danger {
+    background: rgba(229,57,53,0.10);
+    border-color: rgba(229,57,53,0.22);
+    color: #d84315;
+}
+
+.nx-crud-tag--progress {
+    background: rgba(43,125,233,0.08);
+    border-color: rgba(43,125,233,0.20);
+    color: #2b7de9;
+}
+
+.nx-crud-tag--closed {
+    background: #eef2f7;
+    border-color: #dce6f2;
+    color: #7a8ca3;
+}
+
+.nx-crud-tag--neutral {
+    background: #f4f6fb;
+    border-color: #e1e7f0;
+    color: #74839a;
+}
+
+.nx-crud-owner {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.nx-crud-owner-dot {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #11b7aa, #2b7de9);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 800;
+    flex-shrink: 0;
+}
+
+.nx-crud-owner-name {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.nx-crud-owner-name strong {
+    font-size: 13px;
+    color: var(--nx-text);
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+.nx-crud-owner-name small {
+    font-size: 11px;
+    color: var(--nx-text-faint);
+    line-height: 1.3;
+}
+
+.nx-crud-risk {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 80px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 800;
+    border: 1px solid transparent;
+}
+
+.nx-crud-risk--low {
+    background: rgba(67,160,71,0.10);
+    border-color: rgba(67,160,71,0.22);
+    color: #2e7d32;
+}
+
+.nx-crud-risk--medium {
+    background: rgba(243,156,18,0.10);
+    border-color: rgba(243,156,18,0.22);
+    color: #c27c0e;
+}
+
+.nx-crud-risk--high {
+    background: rgba(229,57,53,0.10);
+    border-color: rgba(229,57,53,0.22);
+    color: #d84315;
+}
+
+/* ══════════════════════════════════════════
+   BUTTONS
+══════════════════════════════════════════ */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 9px 18px;
+    border-radius: var(--nx-radius-sm);
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    transition: var(--nx-transition);
+    border: none;
+    text-decoration: none;
+    white-space: nowrap;
+    font-family: inherit;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--nx-primary), var(--nx-primary-dark));
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(108,99,255,0.28);
+}
+
+.btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(108,99,255,0.38);
+}
+
+.btn-primary:active { transform: translateY(0); }
+
+.btn-secondary {
+    background: #f4f6fb;
+    color: var(--nx-text-muted);
+    border: 1px solid rgba(0,0,0,0.08);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+}
+
+.btn-secondary:hover {
+    background: var(--nx-primary-glow);
+    border-color: rgba(108,99,255,0.25);
+    color: var(--nx-primary);
+    transform: translateY(-1px);
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, var(--nx-danger), var(--nx-danger-dark));
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(232,69,69,0.22);
+}
+
+.btn-danger:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(232,69,69,0.32);
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 11.5px;
+}
+
+/* ══════════════════════════════════════════
+   RESPONSIVE
+══════════════════════════════════════════ */
+@media (max-width: 1100px) {
+    .nx-analytics-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .nx-analytics-layout {
+        grid-template-columns: 1fr;
+        justify-items: center;
+    }
+
+    .nx-crud-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 900px) {
+    .nx-module-screen { padding: 20px 14px; gap: 16px; }
+    .nx-module-head   { padding: 22px 20px; }
+    .nx-crud-kpis     { grid-template-columns: 1fr; }
+    .nx-crud-card-head--with-tools { align-items: stretch; }
+    .nx-table-tools { width: 100%; margin-left: 0; grid-template-columns: 1fr; }
+    .nx-table-search { min-width: 100%; }
+    .nx-table-sort { width: 100%; min-width: 100%; }
+}
+
+@media (max-width: 640px) {
+    .nx-module-title h2 { font-size: 18px; }
+    .nx-module-head-actions { width: 100%; }
+    .nx-module-subtabs { gap: 4px; }
+    .nx-donut-shell { width: 190px; height: 190px; }
+    .nx-donut { width: 160px; height: 160px; }
+}
+
+/* ── SCROLLBAR GLOBAL ── */
+.nx-module-screen ::-webkit-scrollbar { width: 4px; }
+.nx-module-screen ::-webkit-scrollbar-track { background: #f4f6fb; }
+.nx-module-screen ::-webkit-scrollbar-thumb {
+    background: rgba(108,99,255,0.18);
+    border-radius: 2px;
+}
+
+/* ── ENTRY ANIMATIONS ── */
+@keyframes nx-fadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.nx-module-head    { animation: nx-fadeUp 0.45s ease both; }
+.nx-module-subtabs { animation: nx-fadeUp 0.45s 0.08s ease both; }
+.nx-crud-kpis      { animation: nx-fadeUp 0.45s 0.14s ease both; }
+.nx-crud-grid      { animation: nx-fadeUp 0.45s 0.20s ease both; }
+</style>
+
+<section class="panel-card nx-crud-screen nx-module-screen" data-active-panel="{{ active_panel }}" data-current-date="{{ current_date }}">
+
+    <!-- ══ HEADER ══ -->
+    <header class="nx-module-head">
+        <div class="nx-module-title">
+            <span class="nx-module-icon">
+                <i class="fa-solid fa-folder-open"></i>
+            </span>
+            <div>
+                <h2>Gestion des Crédits</h2>
+                <p>Gérer et superviser les données</p>
+            </div>
+        </div>
+
+        <div class="nx-module-head-actions">
+            <a class="btn btn-primary" href="#nx-credits-form" id="nx-header-add-btn">
+                <i class="fa-solid fa-plus"></i>
+                <span>Ajouter</span>
+            </a>
+        </div>
+    </header>
+
+    <!-- ══ SUBTABS ══ -->
+    <nav class="nx-module-subtabs">
+        <a class="nx-module-tab {{ active_panel == 'credit' ? 'is-active' : '' }}"
+           href="{{ path(route_name, { tab: 'credits', panel: 'credit' }) }}">
+            <i class="fa-solid fa-credit-card"></i>
+            Crédit
+        </a>
+        <a class="nx-module-tab {{ active_panel == 'garantie' ? 'is-active' : '' }}"
+           href="{{ path(route_name, { tab: 'credits', panel: 'garantie' }) }}">
+            <i class="fa-solid fa-shield-halved"></i>
+            Garantie
+        </a>
+        <a class="nx-module-stats-btn" id="nx-module-stats-btn" aria-expanded="false"
+           href="#{{ stats_section_id }}">
+            <i class="fa-solid fa-chart-pie"></i>
+            <span>Statistiques</span>
+        </a>
+    </nav>
+
+    <!-- ══════════════════════════════════
+         GARANTIE PANEL
+    ══════════════════════════════════ -->
+    {% if active_panel == 'garantie' %}
+
+        <div class="nx-crud-kpis">
+            <article class="nx-crud-kpi">
+                <span class="nx-crud-kpi-icon">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </span>
+                <div>
+                    <strong>{{ garantie_items|length }}</strong>
+                    <small>Garanties enregistrées</small>
+                </div>
+            </article>
+            <article class="nx-crud-kpi">
+                <span class="nx-crud-kpi-icon">
+                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                </span>
+                <div>
+                    <strong>{{ credit_items|length }}</strong>
+                    <small>Crédits reliés</small>
+                </div>
+            </article>
+            <article class="nx-crud-kpi">
+                <span class="nx-crud-kpi-icon">
+                    <i class="fa-solid fa-hourglass-half"></i>
+                </span>
+                <div>
+                    <strong>{{ summary.credits_pending|default(0) }}</strong>
+                    <small>Crédits en attente</small>
+                </div>
+            </article>
+        </div>
+
+        <div class="nx-analytics-grid" id="nx-garantie-analytics">
+            <article class="nx-analytics-card is-collapsed" id="nx-stats-panel">
+                <h3>Types de Garanties</h3>
+                <p>Repartition chargee automatiquement, comme le module JavaFX.</p>
+                <div class="nx-analytics-layout">
+                    <div class="nx-donut-shell">
+                        {% set garantie_donut_offset = 25 %}
+                        <svg viewBox="0 0 42 42" class="nx-donut" aria-label="Repartition des types de garanties">
+                            <circle class="nx-donut-track" cx="21" cy="21" r="15.915"></circle>
+                            {% for stat in garantie_type_stats %}
+                                <circle
+                                    class="nx-donut-segment"
+                                    cx="21"
+                                    cy="21"
+                                    r="15.915"
+                                    stroke="{{ stat.color }}"
+                                    stroke-dasharray="{{ stat.percent }} {{ 100 - stat.percent }}"
+                                    stroke-dashoffset="{{ garantie_donut_offset }}"
+                                ></circle>
+                                {% set garantie_donut_offset = garantie_donut_offset - stat.percent %}
+                            {% endfor %}
+                        </svg>
+                        <div class="nx-donut-total">
+                            <strong>{{ garantie_items|length }}</strong>
+                            <span>Garanties</span>
+                        </div>
+                    </div>
+                    <div class="nx-type-list">
+                        {% for stat in garantie_type_stats %}
+                            <div class="nx-type-row">
+                                <div class="nx-type-head">
+                                    <div class="nx-type-title">
+                                        <span class="nx-type-dot" style="background: {{ stat.color }};"></span>
+                                        <span>{{ stat.label }}</span>
+                                    </div>
+                                    <small>{{ stat.count }} ({{ stat.percent|number_format(1, '.', '') }}%)</small>
+                                </div>
+                                <div class="nx-type-track">
+                                    <span class="nx-type-fill" style="--fill: {{ stat.percent }}%; background: {{ stat.color }};"></span>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="nx-type-empty">Aucune donnee de type disponible.</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </article>
+
+        </div>
+
+        <div class="nx-crud-grid">
+
+            <!-- Form -->
+            <article class="nx-crud-form-card" id="nx-credits-form">
+                <div class="nx-crud-card-head">
+                    <h3>Garantie Crédit</h3>
+                    <p>Ajouter ou modifier une garantie</p>
+                </div>
+
+                <form method="post" class="nx-crud-form" id="nx-garantie-form">
+                    <input type="hidden" name="tab"    value="credits">
+                    <input type="hidden" name="panel"  value="garantie">
+                    <input type="hidden" name="action" value="garantie_save">
+
+                    <input type="hidden" name="idGarantie" value="" id="nx-garantie-id">
+                    <label>
+                        <span>ID garantie</span>
+                        <input type="text" value="Automatique" readonly>
+                    </label>
+                    <label>
+                        <span>Crédit associé</span>
+                        <select name="idCredit" id="nx-garantie-credit" required>
+                            {% for credit in credit_items %}
+                                <option value="{{ credit.idCredit }}">
+                                    #{{ credit.idCredit }} — {{ credit.typeCredit }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label>
+                        <span>Type *</span>
+                        <select name="typeGarantie" id="nx-garantie-type" required>
+                            {% for type in ['Hypothèque immobilière', 'Titre véhicule', 'Caution personnelle', 'Garantie bancaire', 'Police assurance', 'Nantissement', 'Autre garantie'] %}
+                                <option value="{{ type }}">{{ type }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label>
+                        <span>Description</span>
+                        <input type="text" name="description" id="nx-garantie-description"
+                               placeholder="Description courte">
+                    </label>
+                    <label>
+                        <span>Adresse du bien</span>
+                        <input type="text" name="adresseBien" id="nx-garantie-address"
+                               placeholder="Adresse complète">
+                    </label>
+                    <label>
+                        <span>Valeur estimée (DT)</span>
+                        <input type="number" step="0.01" min="0.01" name="valeurEstimee" id="nx-garantie-estimated"
+                               placeholder="0.00">
+                    </label>
+                    <label>
+                        <span>Valeur retenue (DT)</span>
+                        <input type="number" step="0.01" min="0.01" name="valeurRetenue" id="nx-garantie-retained"
+                               placeholder="Auto (80% de l'estimee)">
+                    </label>
+                    <label>
+                        <span>Date d'Ã©valuation</span>
+                        <input type="date" name="dateEvaluation" id="nx-garantie-date" value="{{ current_date }}">
+                    </label>
+                    <label>
+                        <span>Document justificatif</span>
+                        <input type="text" name="documentJustificatif" id="nx-garantie-document"
+                               placeholder="Reference document">
+                    </label>
+                    <label>
+                        <span>Statut</span>
+                        <select name="statut" id="nx-garantie-status">
+                            {% for status in ['En attente', 'Acceptee', 'Validee', 'Rejetee'] %}
+                                <option value="{{ status }}"{{ status == 'En attente' ? ' selected' : '' }}>{{ status }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label>
+                        <span>Nom du garant</span>
+                        <input type="text" name="nomGarant" id="nx-garantie-guarantor"
+                               placeholder="Nom complet">
+                    </label>
+                    <div class="nx-crud-form-actions">
+                        <button class="btn btn-primary" type="submit">
+                            <i class="fa-solid fa-floppy-disk"></i>
+                            Enregistrer
+                        </button>
+                        <button class="btn btn-secondary" type="reset">
+                            <i class="fa-solid fa-xmark"></i>
+                            Annuler
+                        </button>
+                    </div>
+                </form>
+            </article>
+
+            <!-- Table -->
+            <article class="nx-crud-table-card">
+                <div class="nx-crud-card-head nx-crud-card-head--with-tools">
+                    <div class="nx-crud-card-head-copy">
+                        <h3>Liste des Garanties</h3>
+                        <p>Suivi complet des garanties associées aux crédits</p>
+                    </div>
+                    <span class="nx-crud-row-count">
+                        {{ garantie_items|length }} garantie{{ garantie_items|length != 1 ? 's' : '' }}
+                    </span>
+                    <div class="nx-table-tools">
+                        <label class="nx-table-search" for="nx-garantie-search">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="search" id="nx-garantie-search" placeholder="Rechercher ID, type, description, statut...">
+                        </label>
+                        <select class="nx-table-sort" id="nx-garantie-sort" aria-label="Trier les garanties">
+                            <option value="default">Trier: ordre initial</option>
+                            <option value="id-desc">ID plus recent</option>
+                            <option value="id-asc">ID croissant</option>
+                            <option value="credit-asc">Credit associe</option>
+                            <option value="type-asc">Type A-Z</option>
+                            <option value="value-desc">Valeur la plus elevee</option>
+                            <option value="status-asc">Statut A-Z</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="table-wrap">
+                    <table class="nx-crud-table">
+                        <thead>
+                            <tr>
+                                <th>#Identifiant</th>
+                                <th>Crédit</th>
+                                <th>Type</th>
+                                <th>Valeur</th>
+                                <th>Statut</th>
+                                <th>Propriétaire</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="nx-garantie-tbody">
+                        {% for item in garantie_items %}
+                            <tr
+                                class="nx-garantie-row"
+                                data-garantie-id="{{ item.idGarantie }}"
+                                data-garantie-credit-id="{{ item.idCredit }}"
+                                data-garantie-type="{{ item.typeGarantie|default('')|e('html_attr') }}"
+                                data-garantie-description="{{ item.description|default('')|e('html_attr') }}"
+                                data-garantie-address="{{ item.adresseBien|default('')|e('html_attr') }}"
+                                data-garantie-estimated="{{ item.valeurEstimee|default('') }}"
+                                data-garantie-retained="{{ item.valeurRetenue|default('') }}"
+                                data-garantie-document="{{ item.documentJustificatif|default('')|e('html_attr') }}"
+                                data-garantie-date="{{ item.dateEvaluation|default(current_date)|slice(0, 10) }}"
+                                data-garantie-guarantor="{{ item.nomGarant|default('')|e('html_attr') }}"
+                                data-garantie-status="{{ item.statut|default('')|e('html_attr') }}"
+                                data-search-index="{{ (item.idGarantie ~ ' ' ~ item.idCredit ~ ' ' ~ item.typeGarantie|default('') ~ ' ' ~ item.description|default('') ~ ' ' ~ item.statut|default('') ~ ' ' ~ item.nomGarant|default(''))|lower|e('html_attr') }}"
+                            >
+                                {% set garantieStatus = item.statut|default('En attente')|lower %}
+                                {% set garantieStatusClass = 'nx-crud-tag--neutral' %}
+                                {% if 'attente' in garantieStatus %}
+                                    {% set garantieStatusClass = 'nx-crud-tag--pending' %}
+                                {% elseif 'accept' in garantieStatus or 'valid' in garantieStatus %}
+                                    {% set garantieStatusClass = 'nx-crud-tag--success' %}
+                                {% elseif 'rejet' in garantieStatus or 'refus' in garantieStatus %}
+                                    {% set garantieStatusClass = 'nx-crud-tag--danger' %}
+                                {% endif %}
+                                {% set garantieOwner = item.nomGarant|default('')|trim != '' ? item.nomGarant|trim : item.user_name|default('—') %}
+                                <td><span class="nx-crud-id-pill">#{{ item.idGarantie }}</span></td>
+                                <td>
+                                    <div class="nx-crud-meta">
+                                        <span class="nx-crud-code">#{{ item.idCredit }}</span>
+                                        <small>{{ item.typeCredit|default('Crédit associé') }}</small>
+                                    </div>
+                                </td>
+                                <td><span class="nx-crud-tag nx-crud-tag--type">{{ item.typeGarantie|default('—') }}</span></td>
+                                <td class="nx-crud-money">
+                                    {{ item.valeurEstimee|default(0)|number_format(2, '.', ' ') }}
+                                    <em>DT</em>
+                                </td>
+                                <td>
+                                    <span class="nx-crud-tag {{ garantieStatusClass }}">{{ item.statut|default('—') }}</span>
+                                </td>
+                                <td>
+                                    <div class="nx-crud-owner">
+                                        <span class="nx-crud-owner-dot">{{ garantieOwner|default('?')|first|upper }}</span>
+                                        <span class="nx-crud-owner-name">
+                                            <strong>{{ garantieOwner }}</strong>
+                                            <small>{{ item.description|default(item.adresseBien|default('Aucune information complémentaire')) }}</small>
+                                        </span>
+                                    </div>
+                                </td>
+                                <td class="nx-cell-actions">
+                                    {% set garantieUserId = item.resolved_user_id|default(item.idUser|default(null)) %}
+                                    <button
+                                        class="btn btn-secondary btn-sm nx-garantie-edit-btn"
+                                        type="button"
+                                        title="Modifier cette garantie"
+                                        aria-label="Modifier cette garantie"
+                                    >
+                                        <i class="fa-solid fa-pen-to-square"></i>
+                                    </button>
+                                    {% if garantieUserId %}
+                                        <a
+                                            class="btn btn-secondary btn-sm"
+                                            href="{{ path('admin_credits_export_pdf', { kind: 'garanties' }) ~ '?userId=' ~ garantieUserId }}"
+                                            target="_blank"
+                                            rel="noopener"
+                                            title="Exporter PDF de cet utilisateur"
+                                            aria-label="Exporter PDF de cet utilisateur"
+                                        >
+                                            <i class="fa-solid fa-file-pdf"></i>
+                                        </a>
+                                    {% endif %}
+                                    <form method="post">
+                                        <input type="hidden" name="tab"
+                                               value="credits">
+                                        <input type="hidden" name="panel"
+                                               value="garantie">
+                                        <input type="hidden" name="action"
+                                               value="garantie_delete">
+                                        <input type="hidden" name="idGarantie"
+                                               value="{{ item.idGarantie }}">
+                                        <button class="btn btn-danger btn-sm"
+                                                type="submit"
+                                                aria-label="Supprimer cette garantie"
+                                                onclick="return confirm('Supprimer cette garantie ?')">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr class="nx-empty-row">
+                                <td colspan="7">
+                                    Aucune garantie enregistrée.
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+        </div>
+
+    <!-- ══════════════════════════════════
+         CREDIT PANEL
+    ══════════════════════════════════ -->
+    {% else %}
+
+        <div class="nx-crud-kpis">
+            <article class="nx-crud-kpi">
+                <span class="nx-crud-kpi-icon">
+                    <i class="fa-solid fa-check-circle"></i>
+                </span>
+                <div>
+                    <strong>{{ summary.credits_total|default(credit_items|length) }}</strong>
+                    <small>Crédits total</small>
+                </div>
+            </article>
+            <article class="nx-crud-kpi">
+                <span class="nx-crud-kpi-icon">
+                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                </span>
+                <div>
+                    <strong>{{ credit_items|length }}</strong>
+                    <small>Dossiers affichés</small>
+                </div>
+            </article>
+            <article class="nx-crud-kpi">
+                <span class="nx-crud-kpi-icon">
+                    <i class="fa-solid fa-wallet"></i>
+                </span>
+                <div>
+                    <strong>{{ accounts|length }}</strong>
+                    <small>Comptes reliés</small>
+                </div>
+            </article>
+        </div>
+
+        <div class="nx-analytics-grid" id="nx-credit-analytics">
+            <article class="nx-analytics-card is-collapsed" id="nx-stats-panel">
+                <h3>Types de Credits</h3>
+                <p>Repartition par type, equivalente a la statistique JavaFX.</p>
+                <div class="nx-analytics-layout">
+                    <div class="nx-donut-shell">
+                        {% set credit_donut_offset = 25 %}
+                        <svg viewBox="0 0 42 42" class="nx-donut" aria-label="Repartition des types de credits">
+                            <circle class="nx-donut-track" cx="21" cy="21" r="15.915"></circle>
+                            {% for stat in credit_type_stats %}
+                                <circle
+                                    class="nx-donut-segment"
+                                    cx="21"
+                                    cy="21"
+                                    r="15.915"
+                                    stroke="{{ stat.color }}"
+                                    stroke-dasharray="{{ stat.percent }} {{ 100 - stat.percent }}"
+                                    stroke-dashoffset="{{ credit_donut_offset }}"
+                                ></circle>
+                                {% set credit_donut_offset = credit_donut_offset - stat.percent %}
+                            {% endfor %}
+                        </svg>
+                        <div class="nx-donut-total">
+                            <strong>{{ credit_items|length }}</strong>
+                            <span>Credits</span>
+                        </div>
+                    </div>
+                    <div class="nx-type-list">
+                        {% for stat in credit_type_stats %}
+                            <div class="nx-type-row">
+                                <div class="nx-type-head">
+                                    <div class="nx-type-title">
+                                        <span class="nx-type-dot" style="background: {{ stat.color }};"></span>
+                                        <span>{{ stat.label }}</span>
+                                    </div>
+                                    <small>{{ stat.count }} ({{ stat.percent|number_format(1, '.', '') }}%)</small>
+                                </div>
+                                <div class="nx-type-track">
+                                    <span class="nx-type-fill" style="--fill: {{ stat.percent }}%; background: {{ stat.color }};"></span>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="nx-type-empty">Aucune donnee de type disponible.</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </article>
+
+        </div>
+
+        <div class="nx-crud-grid">
+
+            <!-- Form -->
+            <article class="nx-crud-form-card" id="nx-credits-form">
+                <div class="nx-crud-card-head">
+                    <h3>Crédit</h3>
+                    <p>Ajouter ou modifier un crédit</p>
+                </div>
+
+                <form method="post" class="nx-crud-form" id="nx-credit-form">
+                    <input type="hidden" name="tab"    value="credits">
+                    <input type="hidden" name="panel"  value="credit">
+                    <input type="hidden" name="action" value="credit_save">
+
+                    <input type="hidden" name="idCredit" value="" id="nx-credit-id">
+                    <label>
+                        <span>ID crédit</span>
+                        <input type="text" value="Automatique" readonly>
+                    </label>
+                    <label>
+                        <span>Utilisateur</span>
+                        <select name="idUser" id="nx-credit-user" required>
+                            <option value="">Selectionner un utilisateur</option>
+                            {% for u in users %}
+                                <option value="{{ u.idUser }}">
+                                    {{ u.idUser }} — {{ u.prenom }} {{ u.nom }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label>
+                        <span>Compte</span>
+                        <select name="idCompte" id="nx-credit-account" required>
+                            <option value="">Selectionner un compte</option>
+                            {% for account in accounts %}
+                                <option value="{{ account.idCompte }}" data-user-id="{{ account.idUser|default('') }}">
+                                    {{ account.idCompte }} — {{ account.numeroCompte }}{% if account.owner_name|default('')|trim != '' %} ({{ account.owner_name|trim }}){% endif %}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label>
+                        <span>Type de Crédit *</span>
+                        <select name="typeCredit" id="nx-credit-type" required>
+                            {% for type in ['Hypotheque', 'Pret auto', 'Personnel', 'Professionnel', 'Education', 'Sante', 'Immobilier', 'Consommation', 'Autre'] %}
+                                <option value="{{ type }}">{{ type }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label>
+                        <span>Montant Demandé (DT) *</span>
+                        <input type="number" step="0.01" name="montantDemande" id="nx-credit-amount"
+                               placeholder="0.00" required>
+                    </label>
+                    <label>
+                        <span>Durée (mois)</span>
+                        <input type="number" name="duree" min="1" value="12" id="nx-credit-duration" required>
+                    </label>
+                    <label>
+                        <span>Taux d'Intérêt (%)</span>
+                        <input type="number" step="0.01" name="tauxInteret" id="nx-credit-rate"
+                               min="0" value="8" required>
+                    </label>
+                    <label>
+                        <span>Autofinancement (DT)</span>
+                        <input type="number" step="0.01" min="0" name="autofinancement" id="nx-credit-autofinancement"
+                               placeholder="0.00">
+                    </label>
+                    <label>
+                        <span>Mensualite (DT)</span>
+                        <input type="number" step="0.01" min="0" name="mensualite" id="nx-credit-mensualite"
+                               placeholder="Calcule auto si vide">
+                    </label>
+                    <label>
+                        <span>Montant Accorde (DT)</span>
+                        <input type="number" step="0.01" min="0" name="montantAccorde" id="nx-credit-approved"
+                               placeholder="Montant demande par defaut">
+                    </label>
+                    <label>
+                        <span>Date Demande</span>
+                        <input type="date" name="dateDemande" value="{{ current_date }}" id="nx-credit-date" required>
+                    </label>
+                    <label>
+                        <span>Statut</span>
+                        <select name="statut" id="nx-credit-status">
+                            {% for status in ['En attente', 'Accepte', 'En cours', 'Rejete', 'Cloture'] %}
+                                <option value="{{ status }}"{{ status == 'En attente' ? ' selected' : '' }}>{{ status }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label>
+                        <span>Salaire (DT)</span>
+                        <input type="number" step="0.01" name="salaire" id="nx-credit-salary"
+                               min="0" value="2000">
+                    </label>
+                    <label>
+                        <span>Type de Contrat</span>
+                        <input type="text" name="typeContrat" value="CDI" id="nx-credit-contract" required>
+                    </label>
+                    <label>
+                        <span>Ancienneté (années)</span>
+                        <input type="number" name="ancienneteAnnees" min="0" value="2" id="nx-credit-seniority">
+                    </label>
+                    <div class="nx-crud-form-actions">
+                        <button class="btn btn-primary" type="submit">
+                            <i class="fa-solid fa-floppy-disk"></i>
+                            Enregistrer
+                        </button>
+                        <button class="btn btn-secondary" type="reset">
+                            <i class="fa-solid fa-xmark"></i>
+                            Annuler
+                        </button>
+                    </div>
+                </form>
+            </article>
+
+            <!-- Table -->
+            <article class="nx-crud-table-card">
+                <div class="nx-crud-card-head nx-crud-card-head--with-tools">
+                    <div class="nx-crud-card-head-copy">
+                        <h3>Liste des Crédits</h3>
+                        <p>Gestion de toutes les demandes de crédit</p>
+                    </div>
+                    <span class="nx-crud-row-count">
+                        {{ credit_items|length }} crédit{{ credit_items|length != 1 ? 's' : '' }}
+                    </span>
+                    <div class="nx-table-tools">
+                        <label class="nx-table-search" for="nx-credit-search">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="search" id="nx-credit-search" placeholder="Rechercher ID, utilisateur, compte, type, statut...">
+                        </label>
+                        <select class="nx-table-sort" id="nx-credit-sort" aria-label="Trier les credits">
+                            <option value="default">Trier: ordre initial</option>
+                            <option value="id-desc">ID plus recent</option>
+                            <option value="id-asc">ID croissant</option>
+                            <option value="amount-desc">Montant le plus eleve</option>
+                            <option value="monthly-desc">Mensualite la plus elevee</option>
+                            <option value="risk-desc">Risque le plus eleve</option>
+                            <option value="user-asc">Utilisateur A-Z</option>
+                            <option value="status-asc">Statut A-Z</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="table-wrap">
+                    <table class="nx-crud-table">
+                        <thead>
+                            <tr>
+                                <th>#Identifiant</th>
+                                <th>N° Compte</th>
+                                <th>Montant</th>
+                                <th>Demande</th>
+                                <th>Statut</th>
+                                <th>Type</th>
+                                <th>Propriétaire</th>
+                                <th>Risque</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="nx-credit-tbody">
+                        {% for item in credit_items %}
+                            <tr
+                                class="nx-credit-row"
+                                data-credit-id="{{ item.idCredit }}"
+                                data-credit-user-id="{{ item.idUser|default('') }}"
+                                data-credit-account-id="{{ item.idCompte|default('') }}"
+                                data-credit-type="{{ item.typeCredit|default('')|e('html_attr') }}"
+                                data-credit-amount="{{ item.montantDemande|default('') }}"
+                                data-credit-autofinancement="{{ item.autofinancement|default('') }}"
+                                data-credit-duration="{{ item.duree|default('') }}"
+                                data-credit-rate="{{ item.tauxInteret|default('') }}"
+                                data-credit-monthly="{{ item.mensualite|default('') }}"
+                                data-credit-approved="{{ item.montantAccorde|default('') }}"
+                                data-credit-date="{{ item.dateDemande|default(current_date)|slice(0, 10) }}"
+                                data-credit-salary="{{ item.salaire|default('') }}"
+                                data-credit-contract="{{ item.typeContrat|default('')|e('html_attr') }}"
+                                data-credit-seniority="{{ item.ancienneteAnnees|default('') }}"
+                                data-credit-status="{{ item.statut|default('')|e('html_attr') }}"
+                                data-credit-risk="{{ item.risk_score|default(0) }}"
+                                data-search-index="{{ (item.idCredit ~ ' ' ~ item.user_name|default('') ~ ' ' ~ item.idCompte|default('') ~ ' ' ~ item.compte_numero|default('') ~ ' ' ~ item.typeCredit|default('') ~ ' ' ~ item.statut|default(''))|lower|e('html_attr') }}"
+                            >
+                                {% set creditStatus = item.statut|default('En attente')|lower %}
+                                {% set creditStatusClass = 'nx-crud-tag--neutral' %}
+                                {% if 'attente' in creditStatus %}
+                                    {% set creditStatusClass = 'nx-crud-tag--pending' %}
+                                {% elseif 'cours' in creditStatus %}
+                                    {% set creditStatusClass = 'nx-crud-tag--progress' %}
+                                {% elseif 'accept' in creditStatus %}
+                                    {% set creditStatusClass = 'nx-crud-tag--success' %}
+                                {% elseif 'rejet' in creditStatus or 'refus' in creditStatus %}
+                                    {% set creditStatusClass = 'nx-crud-tag--danger' %}
+                                {% elseif 'clot' in creditStatus %}
+                                    {% set creditStatusClass = 'nx-crud-tag--closed' %}
+                                {% endif %}
+                                {% set creditRiskClass = item.risk_score > 70 ? 'nx-crud-risk--high' : (item.risk_score > 40 ? 'nx-crud-risk--medium' : 'nx-crud-risk--low') %}
+                                <td><span class="nx-crud-id-pill">#{{ item.idCredit }}</span></td>
+                                <td>
+                                    <div class="nx-crud-meta">
+                                        <span class="nx-crud-code">{{ item.compte_numero|default('—') }}</span>
+                                        <small>#{{ item.idCompte|default('—') }}</small>
+                                    </div>
+                                </td>
+                                <td class="nx-crud-money">
+                                    {{ item.montantDemande|number_format(2, '.', ' ') }}
+                                    <em>DT</em>
+                                </td>
+                                <td>
+                                    <div class="nx-crud-meta">
+                                        <span>{{ item.dateDemande|default('—') }}</span>
+                                        <small>{{ item.duree|default('—') }} mois · Mensualité {{ item.mensualite|default(0)|number_format(2, '.', ' ') }} DT</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="nx-crud-tag {{ creditStatusClass }}">{{ item.statut|default('—') }}</span>
+                                </td>
+                                <td><span class="nx-crud-tag nx-crud-tag--type">{{ item.typeCredit|default('—') }}</span></td>
+                                <td>
+                                    <div class="nx-crud-owner">
+                                        <span class="nx-crud-owner-dot">{{ item.user_name|default('?')|first|upper }}</span>
+                                        <span class="nx-crud-owner-name">
+                                            <strong>{{ item.user_name|default('—') }}</strong>
+                                            <small>Salaire {{ item.salaire|default(0)|number_format(2, '.', ' ') }} DT</small>
+                                        </span>
+                                    </div>
+                                </td>
+                                <td><span class="nx-crud-risk {{ creditRiskClass }}">{{ item.risk_score }}/100</span></td>
+                                <td class="nx-cell-actions">
+                                    {% set creditUserId = item.idUser|default(null) %}
+                                    <button
+                                        class="btn btn-secondary btn-sm nx-credit-edit-btn"
+                                        type="button"
+                                        title="Modifier ce credit"
+                                        aria-label="Modifier ce credit"
+                                    >
+                                        <i class="fa-solid fa-pen-to-square"></i>
+                                    </button>
+                                    {% if creditUserId %}
+                                        <a
+                                            class="btn btn-secondary btn-sm"
+                                            href="{{ path('admin_credits_export_pdf', { kind: 'credits' }) ~ '?userId=' ~ creditUserId }}"
+                                            target="_blank"
+                                            rel="noopener"
+                                            title="Exporter PDF de cet utilisateur"
+                                            aria-label="Exporter PDF de cet utilisateur"
+                                        >
+                                            <i class="fa-solid fa-file-pdf"></i>
+                                        </a>
+                                    {% endif %}
+                                    <form method="post">
+                                        <input type="hidden" name="tab" value="credits">
+                                        <input type="hidden" name="panel" value="credit">
+                                        <input type="hidden" name="action" value="credit_delete">
+                                        <input type="hidden" name="idCredit" value="{{ item.idCredit }}">
+                                        <button class="btn btn-danger btn-sm"
+                                                type="submit"
+                                                aria-label="Supprimer ce credit"
+                                                onclick="return confirm('Supprimer ce crédit ?')">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr class="nx-empty-row">
+                                <td colspan="9">
+                                    Aucun crédit enregistré.
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+        </div>
+    {% endif %}
+
+</section>
+
+<script>
+(() => {
+    const moduleRoot = document.querySelector('.nx-module-screen');
+    if (!(moduleRoot instanceof HTMLElement)) {
+        return;
+    }
+
+    const currentDate = (moduleRoot.dataset.currentDate ?? '').trim();
+    const activePanel = (moduleRoot.dataset.activePanel ?? 'credit').trim();
+
+    const parseNumber = (value) => {
+        const normalized = String(value ?? '').replace(',', '.').trim();
+        if (normalized === '') {
+            return Number.NaN;
+        }
+
+        const parsed = Number(normalized);
+
+        return Number.isFinite(parsed) ? parsed : Number.NaN;
+    };
+
+    const normalizeIsoDate = (value) => {
+        const raw = String(value ?? '').trim();
+        if (raw === '') {
+            return '';
+        }
+
+        const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (isoMatch) {
+            return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+        }
+
+        const frMatch = raw.match(/^(\d{2})[/-](\d{2})[/-](\d{4})$/);
+        if (frMatch) {
+            return `${frMatch[3]}-${frMatch[2]}-${frMatch[1]}`;
+        }
+
+        return raw.length >= 10 ? raw.slice(0, 10) : raw;
+    };
+
+    const setFieldValue = (form, fieldName, value) => {
+        if (!(form instanceof HTMLFormElement)) {
+            return;
+        }
+
+        const field = form.querySelector(`[name="${fieldName}"]`);
+        if (!(field instanceof HTMLInputElement) && !(field instanceof HTMLSelectElement) && !(field instanceof HTMLTextAreaElement)) {
+            return;
+        }
+
+        field.value = value ?? '';
+    };
+
+    const scrollToForm = (form) => {
+        const card = form?.closest('.nx-crud-form-card');
+        if (card instanceof HTMLElement) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    };
+
+    const creditForm = document.getElementById('nx-credit-form');
+    const creditIdInput = document.getElementById('nx-credit-id');
+    const userSelect = document.getElementById('nx-credit-user');
+    const accountSelect = document.getElementById('nx-credit-account');
+    const creditAmountInput = document.getElementById('nx-credit-amount');
+    const creditDurationInput = document.getElementById('nx-credit-duration');
+    const creditRateInput = document.getElementById('nx-credit-rate');
+    const creditMonthlyInput = document.getElementById('nx-credit-mensualite');
+    const creditApprovedInput = document.getElementById('nx-credit-approved');
+    const creditDateInput = document.getElementById('nx-credit-date');
+
+    let templateAccountOptions = [];
+
+    const renderAccountOptions = (preferredValue = null) => {
+        if (!(userSelect instanceof HTMLSelectElement) || !(accountSelect instanceof HTMLSelectElement)) {
+            return;
+        }
+
+        const selectedUserId = userSelect.value;
+        const previousValue = preferredValue ?? accountSelect.value;
+
+        accountSelect.innerHTML = '';
+
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = 'Selectionner un compte';
+        accountSelect.appendChild(placeholder);
+
+        let visibleCount = 0;
+        templateAccountOptions.forEach((opt) => {
+            if (opt.value === '') {
+                return;
+            }
+
+            const allowed = selectedUserId === '' || opt.userId === '' || opt.userId === selectedUserId;
+            if (!allowed) {
+                return;
+            }
+
+            const option = document.createElement('option');
+            option.value = opt.value;
+            option.textContent = opt.label;
+            option.dataset.userId = opt.userId;
+            accountSelect.appendChild(option);
+            visibleCount += 1;
+        });
+
+        if (visibleCount === 0) {
+            placeholder.textContent = selectedUserId === '' ? 'Aucun compte disponible' : 'Aucun compte pour cet utilisateur';
+            placeholder.selected = true;
+            accountSelect.disabled = true;
+            return;
+        }
+
+        accountSelect.disabled = false;
+        const hasPrevious = Array.from(accountSelect.options).some((option) => option.value === previousValue);
+        accountSelect.value = hasPrevious ? previousValue : '';
+    };
+
+    const recalculateCreditFields = () => {
+        if (!(creditAmountInput instanceof HTMLInputElement)
+            || !(creditDurationInput instanceof HTMLInputElement)
+            || !(creditRateInput instanceof HTMLInputElement)
+            || !(creditMonthlyInput instanceof HTMLInputElement)
+            || !(creditApprovedInput instanceof HTMLInputElement)) {
+            return;
+        }
+
+        const amount = parseNumber(creditAmountInput.value);
+        const duration = parseNumber(creditDurationInput.value);
+        const rate = parseNumber(creditRateInput.value);
+
+        if (!(amount > 0) || !(duration > 0)) {
+            if (creditMonthlyInput.dataset.manual !== '1') {
+                creditMonthlyInput.value = '';
+            }
+            if (creditApprovedInput.dataset.manual !== '1') {
+                creditApprovedInput.value = '';
+            }
+            return;
+        }
+
+        const monthlyRate = Math.max(0, rate) / 100 / 12;
+        const mensualite = monthlyRate <= 0
+            ? amount / duration
+            : (amount * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -duration));
+
+        if (creditMonthlyInput.dataset.manual !== '1' || creditMonthlyInput.value.trim() === '') {
+            creditMonthlyInput.value = mensualite.toFixed(2);
+        }
+        if (creditApprovedInput.dataset.manual !== '1' || creditApprovedInput.value.trim() === '') {
+            creditApprovedInput.value = amount.toFixed(2);
+        }
+    };
+
+    if (creditForm instanceof HTMLFormElement
+        && userSelect instanceof HTMLSelectElement
+        && accountSelect instanceof HTMLSelectElement) {
+        templateAccountOptions = Array.from(accountSelect.options).map((option) => ({
+            value: option.value,
+            label: option.textContent ?? '',
+            userId: option.dataset.userId ?? '',
+        }));
+
+        userSelect.addEventListener('change', () => {
+            renderAccountOptions();
+            const creditExportSelect = document.getElementById('nx-export-credit-user');
+            if (creditExportSelect instanceof HTMLSelectElement) {
+                creditExportSelect.value = userSelect.value;
+            }
+        });
+
+        renderAccountOptions();
+    }
+
+    if (creditMonthlyInput instanceof HTMLInputElement) {
+        creditMonthlyInput.dataset.manual = '0';
+        creditMonthlyInput.addEventListener('input', () => {
+            if (creditForm?.dataset.filling !== '1') {
+                creditMonthlyInput.dataset.manual = '1';
+            }
+        });
+    }
+    if (creditApprovedInput instanceof HTMLInputElement) {
+        creditApprovedInput.dataset.manual = '0';
+        creditApprovedInput.addEventListener('input', () => {
+            if (creditForm?.dataset.filling !== '1') {
+                creditApprovedInput.dataset.manual = '1';
+            }
+        });
+    }
+
+    [creditAmountInput, creditDurationInput, creditRateInput].forEach((input) => {
+        if (input instanceof HTMLInputElement) {
+            input.addEventListener('input', recalculateCreditFields);
+            input.addEventListener('change', recalculateCreditFields);
+        }
+    });
+
+    if (creditForm instanceof HTMLFormElement) {
+        creditForm.addEventListener('reset', () => {
+            window.setTimeout(() => {
+                if (creditIdInput instanceof HTMLInputElement) {
+                    creditIdInput.value = '';
+                }
+                if (creditMonthlyInput instanceof HTMLInputElement) {
+                    creditMonthlyInput.dataset.manual = '0';
+                }
+                if (creditApprovedInput instanceof HTMLInputElement) {
+                    creditApprovedInput.dataset.manual = '0';
+                }
+                if (creditDateInput instanceof HTMLInputElement && creditDateInput.value === '' && currentDate !== '') {
+                    creditDateInput.value = currentDate;
+                }
+                setFieldValue(creditForm, 'statut', 'En attente');
+                renderAccountOptions();
+                recalculateCreditFields();
+            }, 0);
+        });
+
+        creditForm.addEventListener('submit', (event) => {
+            const monthly = parseNumber(creditMonthlyInput instanceof HTMLInputElement ? creditMonthlyInput.value : '');
+            if (!Number.isFinite(monthly) || monthly <= 0) {
+                event.preventDefault();
+                if (creditMonthlyInput instanceof HTMLInputElement) {
+                    creditMonthlyInput.focus();
+                }
+                window.alert('Mensualite invalide. Verifiez le montant, la duree et le taux.');
+            }
+        });
+    }
+
+    document.querySelectorAll('.nx-credit-edit-btn').forEach((button) => {
+        button.addEventListener('click', () => {
+            if (!(creditForm instanceof HTMLFormElement)) {
+                return;
+            }
+
+            const row = button.closest('.nx-credit-row');
+            if (!(row instanceof HTMLElement)) {
+                return;
+            }
+
+            creditForm.dataset.filling = '1';
+            setFieldValue(creditForm, 'idCredit', row.dataset.creditId ?? '');
+            setFieldValue(creditForm, 'idUser', row.dataset.creditUserId ?? '');
+            setFieldValue(creditForm, 'typeCredit', row.dataset.creditType ?? '');
+            setFieldValue(creditForm, 'montantDemande', row.dataset.creditAmount ?? '');
+            setFieldValue(creditForm, 'autofinancement', row.dataset.creditAutofinancement ?? '');
+            setFieldValue(creditForm, 'duree', row.dataset.creditDuration ?? '');
+            setFieldValue(creditForm, 'tauxInteret', row.dataset.creditRate ?? '');
+            setFieldValue(creditForm, 'mensualite', row.dataset.creditMonthly ?? '');
+            setFieldValue(creditForm, 'montantAccorde', row.dataset.creditApproved ?? '');
+            setFieldValue(creditForm, 'dateDemande', normalizeIsoDate(row.dataset.creditDate ?? ''));
+            setFieldValue(creditForm, 'statut', row.dataset.creditStatus ?? 'En attente');
+            setFieldValue(creditForm, 'salaire', row.dataset.creditSalary ?? '');
+            setFieldValue(creditForm, 'typeContrat', row.dataset.creditContract ?? '');
+            setFieldValue(creditForm, 'ancienneteAnnees', row.dataset.creditSeniority ?? '');
+
+            if (userSelect instanceof HTMLSelectElement) {
+                userSelect.value = row.dataset.creditUserId ?? '';
+            }
+            renderAccountOptions(row.dataset.creditAccountId ?? '');
+
+            if (creditMonthlyInput instanceof HTMLInputElement) {
+                creditMonthlyInput.dataset.manual = '1';
+            }
+            if (creditApprovedInput instanceof HTMLInputElement) {
+                creditApprovedInput.dataset.manual = '1';
+            }
+
+            delete creditForm.dataset.filling;
+            scrollToForm(creditForm);
+        });
+    });
+
+    const garantieForm = document.getElementById('nx-garantie-form');
+    const garantieIdInput = document.getElementById('nx-garantie-id');
+    const garantieEstimatedInput = document.getElementById('nx-garantie-estimated');
+    const garantieRetainedInput = document.getElementById('nx-garantie-retained');
+    const garantieDateInput = document.getElementById('nx-garantie-date');
+
+    const validateGarantieValues = () => {
+        if (!(garantieEstimatedInput instanceof HTMLInputElement) || !(garantieRetainedInput instanceof HTMLInputElement)) {
+            return true;
+        }
+
+        garantieEstimatedInput.setCustomValidity('');
+        garantieRetainedInput.setCustomValidity('');
+
+        const estimated = parseNumber(garantieEstimatedInput.value);
+        const retained = parseNumber(garantieRetainedInput.value);
+
+        if (!Number.isFinite(estimated) || estimated <= 0) {
+            garantieEstimatedInput.setCustomValidity('Valeur estimee invalide.');
+            return false;
+        }
+
+        if (!Number.isFinite(retained) || retained <= 0) {
+            garantieRetainedInput.setCustomValidity('Valeur retenue invalide.');
+            return false;
+        }
+
+        if (retained > estimated) {
+            garantieRetainedInput.setCustomValidity('La valeur retenue ne peut pas depasser la valeur estimee.');
+            return false;
+        }
+
+        return true;
+    };
+
+    const syncRetainedValue = () => {
+        if (!(garantieEstimatedInput instanceof HTMLInputElement) || !(garantieRetainedInput instanceof HTMLInputElement)) {
+            return;
+        }
+
+        const estimated = parseNumber(garantieEstimatedInput.value);
+        if (!Number.isFinite(estimated) || estimated <= 0) {
+            return;
+        }
+
+        if (garantieRetainedInput.dataset.manual !== '1' || garantieRetainedInput.value.trim() === '') {
+            garantieRetainedInput.value = (estimated * 0.8).toFixed(2);
+        }
+    };
+
+    if (garantieRetainedInput instanceof HTMLInputElement) {
+        garantieRetainedInput.dataset.manual = '0';
+        garantieRetainedInput.addEventListener('input', () => {
+            if (garantieForm?.dataset.filling !== '1') {
+                garantieRetainedInput.dataset.manual = '1';
+            }
+            validateGarantieValues();
+        });
+    }
+
+    if (garantieEstimatedInput instanceof HTMLInputElement) {
+        garantieEstimatedInput.addEventListener('input', () => {
+            syncRetainedValue();
+            validateGarantieValues();
+        });
+    }
+
+    if (garantieForm instanceof HTMLFormElement) {
+        garantieForm.addEventListener('reset', () => {
+            window.setTimeout(() => {
+                if (garantieIdInput instanceof HTMLInputElement) {
+                    garantieIdInput.value = '';
+                }
+                if (garantieRetainedInput instanceof HTMLInputElement) {
+                    garantieRetainedInput.dataset.manual = '0';
+                }
+                if (garantieDateInput instanceof HTMLInputElement && garantieDateInput.value === '' && currentDate !== '') {
+                    garantieDateInput.value = currentDate;
+                }
+                setFieldValue(garantieForm, 'statut', 'En attente');
+                syncRetainedValue();
+                validateGarantieValues();
+            }, 0);
+        });
+
+        garantieForm.addEventListener('submit', (event) => {
+            syncRetainedValue();
+            if (!validateGarantieValues()) {
+                event.preventDefault();
+                if (garantieEstimatedInput instanceof HTMLInputElement && !garantieEstimatedInput.checkValidity()) {
+                    garantieEstimatedInput.reportValidity();
+                    garantieEstimatedInput.focus();
+                    return;
+                }
+                if (garantieRetainedInput instanceof HTMLInputElement) {
+                    garantieRetainedInput.reportValidity();
+                    garantieRetainedInput.focus();
+                }
+            }
+        });
+    }
+
+    document.querySelectorAll('.nx-garantie-edit-btn').forEach((button) => {
+        button.addEventListener('click', () => {
+            if (!(garantieForm instanceof HTMLFormElement)) {
+                return;
+            }
+
+            const row = button.closest('.nx-garantie-row');
+            if (!(row instanceof HTMLElement)) {
+                return;
+            }
+
+            garantieForm.dataset.filling = '1';
+            setFieldValue(garantieForm, 'idGarantie', row.dataset.garantieId ?? '');
+            setFieldValue(garantieForm, 'idCredit', row.dataset.garantieCreditId ?? '');
+            setFieldValue(garantieForm, 'typeGarantie', row.dataset.garantieType ?? '');
+            setFieldValue(garantieForm, 'description', row.dataset.garantieDescription ?? '');
+            setFieldValue(garantieForm, 'adresseBien', row.dataset.garantieAddress ?? '');
+            setFieldValue(garantieForm, 'valeurEstimee', row.dataset.garantieEstimated ?? '');
+            setFieldValue(garantieForm, 'valeurRetenue', row.dataset.garantieRetained ?? '');
+            setFieldValue(garantieForm, 'documentJustificatif', row.dataset.garantieDocument ?? '');
+            setFieldValue(garantieForm, 'dateEvaluation', normalizeIsoDate(row.dataset.garantieDate ?? ''));
+            setFieldValue(garantieForm, 'nomGarant', row.dataset.garantieGuarantor ?? '');
+            setFieldValue(garantieForm, 'statut', row.dataset.garantieStatus ?? 'En attente');
+            delete garantieForm.dataset.filling;
+
+            if (garantieRetainedInput instanceof HTMLInputElement) {
+                garantieRetainedInput.dataset.manual = '1';
+            }
+
+            validateGarantieValues();
+            scrollToForm(garantieForm);
+        });
+    });
+
+    const setupTableTools = ({
+        tbodyId,
+        rowSelector,
+        emptyColspan,
+        searchId,
+        sortId,
+        emptyMessage,
+        comparators,
+        pageSize = 5,
+    }) => {
+        const tbody = document.getElementById(tbodyId);
+        const searchInput = document.getElementById(searchId);
+        const sortSelect = document.getElementById(sortId);
+        if (!(tbody instanceof HTMLTableSectionElement)) {
+            return;
+        }
+
+        const tableWrap = tbody.closest('.table-wrap');
+        let currentPage = 1;
+
+        const pagination = document.createElement('div');
+        pagination.className = 'nx-table-pagination';
+        pagination.hidden = true;
+
+        const paginationInfo = document.createElement('div');
+        paginationInfo.className = 'nx-table-pagination-info';
+
+        const paginationControls = document.createElement('div');
+        paginationControls.className = 'nx-table-pagination-controls';
+
+        const prevButton = document.createElement('button');
+        prevButton.type = 'button';
+        prevButton.className = 'nx-page-nav';
+        prevButton.textContent = 'Precedent';
+
+        const pagesWrap = document.createElement('div');
+        pagesWrap.className = 'nx-table-pagination-pages';
+
+        const nextButton = document.createElement('button');
+        nextButton.type = 'button';
+        nextButton.className = 'nx-page-nav';
+        nextButton.textContent = 'Suivant';
+
+        paginationControls.appendChild(prevButton);
+        paginationControls.appendChild(pagesWrap);
+        paginationControls.appendChild(nextButton);
+        pagination.appendChild(paginationInfo);
+        pagination.appendChild(paginationControls);
+
+        if (tableWrap instanceof HTMLElement) {
+            tableWrap.insertAdjacentElement('afterend', pagination);
+        }
+
+        const getRows = () => Array.from(tbody.querySelectorAll(rowSelector));
+        const serverEmptyRow = tbody.querySelector('.nx-empty-row');
+        if (serverEmptyRow instanceof HTMLTableRowElement && getRows().length > 0) {
+            serverEmptyRow.remove();
+        }
+
+        let dynamicEmptyRow = null;
+
+        const ensureEmptyState = (shouldShow) => {
+            if (!shouldShow) {
+                if (dynamicEmptyRow instanceof HTMLTableRowElement) {
+                    dynamicEmptyRow.remove();
+                    dynamicEmptyRow = null;
+                }
+                return;
+            }
+
+            pagination.hidden = true;
+
+            if (!(dynamicEmptyRow instanceof HTMLTableRowElement)) {
+                dynamicEmptyRow = document.createElement('tr');
+                dynamicEmptyRow.className = 'nx-empty-row';
+                dynamicEmptyRow.innerHTML = `<td colspan="${emptyColspan}">${emptyMessage}</td>`;
+            }
+
+            if (!tbody.contains(dynamicEmptyRow)) {
+                tbody.appendChild(dynamicEmptyRow);
+            }
+        };
+
+        const normalizeText = (value) => String(value ?? '').toLowerCase().trim();
+        const normalizeNumber = (value) => {
+            const parsed = Number.parseFloat(String(value ?? '').replace(',', '.'));
+            return Number.isFinite(parsed) ? parsed : 0;
+        };
+
+        const createPageButton = (page, isActive) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = `nx-page-btn${isActive ? ' is-active' : ''}`;
+            button.textContent = String(page);
+            button.addEventListener('click', () => {
+                currentPage = page;
+                apply();
+            });
+            return button;
+        };
+
+        const createEllipsis = () => {
+            const ellipsis = document.createElement('span');
+            ellipsis.className = 'nx-page-ellipsis';
+            ellipsis.textContent = '...';
+            return ellipsis;
+        };
+
+        const renderPagination = (totalVisible) => {
+            const totalPages = totalVisible > 0 ? Math.ceil(totalVisible / pageSize) : 0;
+            pagesWrap.innerHTML = '';
+
+            if (totalPages <= 1) {
+                pagination.hidden = true;
+                return;
+            }
+
+            pagination.hidden = false;
+            paginationInfo.textContent = `Page ${currentPage} / ${totalPages} • ${totalVisible} resultat${totalVisible > 1 ? 's' : ''}`;
+            prevButton.disabled = currentPage <= 1;
+            nextButton.disabled = currentPage >= totalPages;
+
+            prevButton.onclick = () => {
+                if (currentPage > 1) {
+                    currentPage -= 1;
+                    apply();
+                }
+            };
+
+            nextButton.onclick = () => {
+                if (currentPage < totalPages) {
+                    currentPage += 1;
+                    apply();
+                }
+            };
+
+            const pages = [];
+            for (let page = 1; page <= totalPages; page += 1) {
+                if (page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1) {
+                    pages.push(page);
+                }
+            }
+
+            let previousPage = 0;
+            pages.forEach((page) => {
+                if (previousPage > 0 && page - previousPage > 1) {
+                    pagesWrap.appendChild(createEllipsis());
+                }
+                pagesWrap.appendChild(createPageButton(page, page === currentPage));
+                previousPage = page;
+            });
+        };
+
+        const apply = () => {
+            const rows = getRows();
+            const query = normalizeText(searchInput instanceof HTMLInputElement ? searchInput.value : '');
+            const sortKey = sortSelect instanceof HTMLSelectElement ? sortSelect.value : 'default';
+
+            if (rows.length === 0) {
+                ensureEmptyState(false);
+                pagination.hidden = true;
+                return;
+            }
+
+            rows.forEach((row, index) => {
+                if (!row.dataset.originalIndex) {
+                    row.dataset.originalIndex = String(index);
+                }
+
+                const haystack = normalizeText(row.dataset.searchIndex || row.textContent || '');
+                row.hidden = !(query === '' || haystack.includes(query));
+            });
+
+            const visibleRows = rows.filter((row) => !row.hidden);
+            visibleRows.sort((left, right) => {
+                const comparator = comparators[sortKey];
+                if (typeof comparator === 'function') {
+                    return comparator(left, right, normalizeText, normalizeNumber);
+                }
+
+                return normalizeNumber(left.dataset.originalIndex) - normalizeNumber(right.dataset.originalIndex);
+            });
+
+            visibleRows.forEach((row) => tbody.appendChild(row));
+
+            const totalPages = visibleRows.length > 0 ? Math.ceil(visibleRows.length / pageSize) : 0;
+            currentPage = totalPages > 0 ? Math.min(currentPage, totalPages) : 1;
+            const startIndex = (currentPage - 1) * pageSize;
+            const endIndex = startIndex + pageSize;
+
+            visibleRows.forEach((row, index) => {
+                row.hidden = index < startIndex || index >= endIndex;
+            });
+
+            ensureEmptyState(visibleRows.length === 0);
+            renderPagination(visibleRows.length);
+        };
+
+        searchInput?.addEventListener('input', () => {
+            currentPage = 1;
+            apply();
+        });
+        sortSelect?.addEventListener('change', () => {
+            currentPage = 1;
+            apply();
+        });
+        apply();
+    };
+
+    setupTableTools({
+        tbodyId: 'nx-credit-tbody',
+        rowSelector: '.nx-credit-row',
+        emptyColspan: 9,
+        searchId: 'nx-credit-search',
+        sortId: 'nx-credit-sort',
+        emptyMessage: 'Aucun credit ne correspond a la recherche.',
+        comparators: {
+            default: (a, b, _text, num) => num(a.dataset.originalIndex) - num(b.dataset.originalIndex),
+            'id-desc': (a, b, _text, num) => num(b.dataset.creditId) - num(a.dataset.creditId),
+            'id-asc': (a, b, _text, num) => num(a.dataset.creditId) - num(b.dataset.creditId),
+            'amount-desc': (a, b, _text, num) => num(b.dataset.creditAmount) - num(a.dataset.creditAmount),
+            'monthly-desc': (a, b, _text, num) => num(b.dataset.creditMonthly) - num(a.dataset.creditMonthly),
+            'risk-desc': (a, b, _text, num) => num(b.dataset.creditRisk) - num(a.dataset.creditRisk),
+            'user-asc': (a, b, text) => text(a.children[1]?.textContent).localeCompare(text(b.children[1]?.textContent), 'fr'),
+            'status-asc': (a, b, text) => text(a.dataset.creditStatus).localeCompare(text(b.dataset.creditStatus), 'fr'),
+        },
+        pageSize: 5,
+    });
+
+    setupTableTools({
+        tbodyId: 'nx-garantie-tbody',
+        rowSelector: '.nx-garantie-row',
+        emptyColspan: 7,
+        searchId: 'nx-garantie-search',
+        sortId: 'nx-garantie-sort',
+        emptyMessage: 'Aucune garantie ne correspond a la recherche.',
+        comparators: {
+            default: (a, b, _text, num) => num(a.dataset.originalIndex) - num(b.dataset.originalIndex),
+            'id-desc': (a, b, _text, num) => num(b.dataset.garantieId) - num(a.dataset.garantieId),
+            'id-asc': (a, b, _text, num) => num(a.dataset.garantieId) - num(b.dataset.garantieId),
+            'credit-asc': (a, b, _text, num) => num(a.dataset.garantieCreditId) - num(b.dataset.garantieCreditId),
+            'type-asc': (a, b, text) => text(a.dataset.garantieType).localeCompare(text(b.dataset.garantieType), 'fr'),
+            'value-desc': (a, b, _text, num) => num(b.dataset.garantieEstimated) - num(a.dataset.garantieEstimated),
+            'status-asc': (a, b, text) => text(a.dataset.garantieStatus).localeCompare(text(b.dataset.garantieStatus), 'fr'),
+        },
+        pageSize: 5,
+    });
+
+    const headerAddBtn = document.getElementById('nx-header-add-btn');
+    if (headerAddBtn instanceof HTMLAnchorElement) {
+        headerAddBtn.addEventListener('click', () => {
+            const targetForm = activePanel === 'garantie' ? garantieForm : creditForm;
+            if (targetForm instanceof HTMLFormElement) {
+                targetForm.reset();
+            }
+        });
+    }
+
+    const analyticsGrid = document.querySelector('.nx-analytics-grid');
+    const statsPanel = document.getElementById('nx-stats-panel');
+    const statsBtn = document.getElementById('nx-module-stats-btn');
+
+    const isPanelOpen = (panel) =>
+        panel instanceof HTMLElement && !panel.classList.contains('is-collapsed');
+
+    const syncAnalyticsLayout = () => {
+        if (!(analyticsGrid instanceof HTMLElement)) {
+            return;
+        }
+
+        const openCount = [statsPanel].filter(isPanelOpen).length;
+        analyticsGrid.classList.toggle('is-empty', openCount === 0);
+        analyticsGrid.classList.toggle('has-single', openCount === 1);
+    };
+
+    const togglePanel = (panel, control) => {
+        if (!(panel instanceof HTMLElement)) {
+            return;
+        }
+
+        panel.classList.toggle('is-collapsed');
+        const expanded = isPanelOpen(panel);
+        if (control instanceof HTMLElement) {
+            control.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        }
+        syncAnalyticsLayout();
+        if (expanded) {
+            panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    };
+
+    if (statsBtn instanceof HTMLAnchorElement) {
+        statsBtn.addEventListener('click', (event) => {
+            event.preventDefault();
+            togglePanel(statsPanel, statsBtn);
+        });
+    }
+
+    syncAnalyticsLayout();
+})();
+</script>

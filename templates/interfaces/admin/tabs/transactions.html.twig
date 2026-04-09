@@ -1,0 +1,1274 @@
+{% set active_panel       = panel|default(support.active_panel|default('transaction')) %}
+{% set transaction_items  = support.transactions|default(items) %}
+{% set reclamation_items  = support.reclamations|default([]) %}
+{% set users              = support.users|default([]) %}
+{% set accounts           = support.accounts|default([]) %}
+
+{% set flagged_count = 0 %}
+{% for item in reclamation_items %}
+  {% if item.is_inappropriate|default(0) %}
+    {% set flagged_count = flagged_count + 1 %}
+  {% endif %}
+{% endfor %}
+
+<style>
+/* ═══════════════════════════════════════════
+   NEXORA · Transactions Admin  (ntx)
+═══════════════════════════════════════════ */
+
+:root {
+  --ntx-bg:        #f0f4f9;
+  --ntx-surface:   #ffffff;
+  --ntx-border:    #e4ecf4;
+  --ntx-txt:       #1a2b3c;
+  --ntx-muted:     #6b85a0;
+  --ntx-radius:    14px;
+  --ntx-shadow:    0 2px 16px rgba(0,0,0,.07);
+  --ntx-shadow-lg: 0 6px 32px rgba(0,0,0,.10);
+  --ntx-teal:      #11b7aa;
+  --ntx-teal-dk:   #0d9e93;
+  --ntx-blue:      #2b7de9;
+  --ntx-blue-dk:   #1f6cd6;
+  --ntx-green:     #22c55e;
+  --ntx-green-dk:  #16a34a;
+  --ntx-red:       #e53935;
+  --ntx-red-dk:    #c62828;
+  --ntx-gold:      #e8a202;
+  --ntx-purple:    #7c4dff;
+  --ntx-purple-dk: #6a3de0;
+  --ntx-orange:    #f97316;
+}
+
+/* ── Shell ── */
+.ntx-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+  padding: 1.75rem 2rem;
+  background: var(--ntx-bg);
+  min-height: 100%;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--ntx-txt);
+}
+
+/* ══════════════════════════════
+   HERO HEADER
+══════════════════════════════ */
+.ntx-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  background: linear-gradient(135deg, #1a2b3c 0%, #1e3448 55%, #17304a 100%);
+  border-radius: var(--ntx-radius);
+  padding: 1.4rem 1.8rem;
+  box-shadow: var(--ntx-shadow-lg);
+  flex-wrap: wrap;
+  position: relative;
+  overflow: hidden;
+}
+.ntx-hero::before {
+  content: '';
+  position: absolute;
+  width: 280px; height: 280px;
+  top: -90px; right: -50px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(17,183,170,.2) 0%, transparent 70%);
+  pointer-events: none;
+}
+.ntx-hero::after {
+  content: '';
+  position: absolute;
+  width: 160px; height: 160px;
+  bottom: -55px; left: 32%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(124,77,255,.15) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.ntx-hero-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  position: relative;
+  z-index: 1;
+}
+.ntx-hero-icon {
+  width: 50px; height: 50px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, var(--ntx-teal), var(--ntx-teal-dk));
+  display: grid;
+  place-items: center;
+  font-size: 1.3rem;
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(17,183,170,.4);
+  flex-shrink: 0;
+}
+.ntx-hero-text h2 {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0 0 .22rem;
+}
+.ntx-hero-text p {
+  font-size: .75rem;
+  color: rgba(255,255,255,.5);
+  margin: 0;
+}
+
+.ntx-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  position: relative;
+  z-index: 1;
+  flex-wrap: wrap;
+}
+
+/* ── Shared buttons ── */
+.ntx-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .5rem 1.05rem;
+  border-radius: 9px;
+  font-size: .81rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all .2s ease;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.ntx-btn--primary {
+  background: linear-gradient(135deg, var(--ntx-teal), var(--ntx-teal-dk));
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(17,183,170,.35);
+}
+.ntx-btn--primary:hover {
+  box-shadow: 0 5px 18px rgba(17,183,170,.5);
+  transform: translateY(-1px);
+}
+.ntx-btn--ghost-hero {
+  background: rgba(255,255,255,.1);
+  color: rgba(255,255,255,.85);
+  border: 1px solid rgba(255,255,255,.18);
+  backdrop-filter: blur(4px);
+}
+.ntx-btn--ghost-hero:hover {
+  background: rgba(255,255,255,.18);
+  color: #fff;
+}
+.ntx-btn--ghost {
+  background: var(--ntx-bg);
+  color: var(--ntx-muted);
+  border: 1px solid var(--ntx-border);
+}
+.ntx-btn--ghost:hover { background: var(--ntx-border); color: var(--ntx-txt); }
+.ntx-btn--save {
+  background: linear-gradient(135deg, var(--ntx-teal), var(--ntx-teal-dk));
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(17,183,170,.28);
+}
+.ntx-btn--save:hover {
+  box-shadow: 0 5px 16px rgba(17,183,170,.44);
+  transform: translateY(-1px);
+}
+.ntx-btn--danger {
+  background: rgba(229,57,53,.09);
+  color: var(--ntx-red);
+  border: 1px solid rgba(229,57,53,.22);
+  font-size: .75rem;
+  padding: .35rem .75rem;
+}
+.ntx-btn--danger:hover { background: rgba(229,57,53,.17); }
+.ntx-btn--blur {
+  background: rgba(124,77,255,.08);
+  color: var(--ntx-purple);
+  border: 1px solid rgba(124,77,255,.22);
+  font-size: .75rem;
+  padding: .35rem .75rem;
+}
+.ntx-btn--blur:hover { background: rgba(124,77,255,.16); }
+.ntx-btn--unblur {
+  background: rgba(232,162,2,.08);
+  color: var(--ntx-gold);
+  border: 1px solid rgba(232,162,2,.22);
+  font-size: .75rem;
+  padding: .35rem .75rem;
+}
+.ntx-btn--unblur:hover { background: rgba(232,162,2,.16); }
+
+/* ══════════════════════════════
+   SUBTABS
+══════════════════════════════ */
+.ntx-tabs {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  background: var(--ntx-surface);
+  border: 1px solid var(--ntx-border);
+  border-radius: var(--ntx-radius);
+  padding: .55rem .65rem;
+  box-shadow: var(--ntx-shadow);
+  flex-wrap: wrap;
+}
+.ntx-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  padding: .48rem 1.05rem;
+  border-radius: 9px;
+  font-size: .81rem;
+  font-weight: 600;
+  color: var(--ntx-muted);
+  text-decoration: none;
+  transition: all .2s ease;
+  border: 1px solid transparent;
+}
+.ntx-tab i { font-size: .82rem; }
+.ntx-tab:hover { background: var(--ntx-bg); color: var(--ntx-txt); }
+.ntx-tab.is-active {
+  background: linear-gradient(135deg, var(--ntx-teal), var(--ntx-teal-dk));
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(17,183,170,.3);
+}
+.ntx-tabs-spacer { flex: 1; }
+.ntx-stats-link {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .48rem .95rem;
+  border-radius: 9px;
+  font-size: .77rem;
+  font-weight: 600;
+  color: var(--ntx-blue);
+  text-decoration: none;
+  background: rgba(43,125,233,.07);
+  border: 1px solid rgba(43,125,233,.18);
+  transition: all .2s;
+}
+.ntx-stats-link:hover { background: rgba(43,125,233,.14); }
+
+/* ══════════════════════════════
+   KPI ROW
+══════════════════════════════ */
+.ntx-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+.ntx-kpi {
+  background: var(--ntx-surface);
+  border: 1px solid var(--ntx-border);
+  border-radius: var(--ntx-radius);
+  padding: 1.05rem 1.2rem;
+  box-shadow: var(--ntx-shadow);
+  display: flex;
+  align-items: center;
+  gap: .9rem;
+  position: relative;
+  overflow: hidden;
+  transition: transform .2s, box-shadow .2s;
+}
+.ntx-kpi:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--ntx-shadow-lg);
+}
+.ntx-kpi::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+}
+.ntx-kpi:nth-child(1)::before { background: var(--ntx-teal); }
+.ntx-kpi:nth-child(2)::before { background: var(--ntx-blue); }
+.ntx-kpi:nth-child(3)::before { background: var(--ntx-gold); }
+
+/* reclamation panel overrides */
+.ntx-kpis--recl .ntx-kpi:nth-child(1)::before { background: var(--ntx-purple); }
+.ntx-kpis--recl .ntx-kpi:nth-child(2)::before { background: var(--ntx-red); }
+.ntx-kpis--recl .ntx-kpi:nth-child(3)::before { background: var(--ntx-blue); }
+
+.ntx-kpi-icon {
+  width: 42px; height: 42px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  font-size: 1.05rem;
+  flex-shrink: 0;
+}
+.ntx-kpi:nth-child(1) .ntx-kpi-icon { background: rgba(17,183,170,.1);  color: var(--ntx-teal); }
+.ntx-kpi:nth-child(2) .ntx-kpi-icon { background: rgba(43,125,233,.1);  color: var(--ntx-blue); }
+.ntx-kpi:nth-child(3) .ntx-kpi-icon { background: rgba(232,162,2,.1);   color: var(--ntx-gold); }
+
+.ntx-kpis--recl .ntx-kpi:nth-child(1) .ntx-kpi-icon { background: rgba(124,77,255,.1); color: var(--ntx-purple); }
+.ntx-kpis--recl .ntx-kpi:nth-child(2) .ntx-kpi-icon { background: rgba(229,57,53,.1);  color: var(--ntx-red); }
+.ntx-kpis--recl .ntx-kpi:nth-child(3) .ntx-kpi-icon { background: rgba(43,125,233,.1); color: var(--ntx-blue); }
+
+.ntx-kpi-body strong {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--ntx-txt);
+  line-height: 1;
+  margin-bottom: .18rem;
+}
+.ntx-kpi-body small {
+  font-size: .73rem;
+  color: var(--ntx-muted);
+  font-weight: 500;
+}
+
+/* ══════════════════════════════
+   CONTENT GRID
+══════════════════════════════ */
+.ntx-grid {
+  display: grid;
+  grid-template-columns: 330px 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+/* ── Panel card shared ── */
+.ntx-panel {
+  background: var(--ntx-surface);
+  border: 1px solid var(--ntx-border);
+  border-radius: var(--ntx-radius);
+  box-shadow: var(--ntx-shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ntx-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  padding: 1.05rem 1.3rem;
+  border-bottom: 1px solid var(--ntx-border);
+  background: linear-gradient(to right, #fafcff, #f5f8fd);
+  flex-wrap: wrap;
+}
+.ntx-panel-head-left h3 {
+  font-size: .9rem;
+  font-weight: 700;
+  color: var(--ntx-txt);
+  margin: 0 0 .12rem;
+}
+.ntx-panel-head-left p {
+  font-size: .72rem;
+  color: var(--ntx-muted);
+  margin: 0;
+}
+
+/* ══════════════════════════════
+   FORM PANEL
+══════════════════════════════ */
+.ntx-form {
+  display: flex;
+  flex-direction: column;
+  gap: .7rem;
+  padding: 1.15rem 1.25rem;
+}
+
+.ntx-form-hint {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  font-size: .69rem;
+  color: var(--ntx-muted);
+  background: rgba(43,125,233,.06);
+  border: 1px solid rgba(43,125,233,.15);
+  border-radius: 7px;
+  padding: .45rem .7rem;
+}
+.ntx-form-hint i { color: var(--ntx-blue); }
+
+.ntx-form-sep {
+  height: 1px;
+  background: var(--ntx-border);
+  margin: .1rem 0;
+}
+
+.ntx-field {
+  display: flex;
+  flex-direction: column;
+  gap: .28rem;
+}
+.ntx-field label {
+  font-size: .7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .45px;
+  color: var(--ntx-muted);
+}
+.ntx-field label em { color: var(--ntx-red); font-style: normal; }
+
+.ntx-form input[type="text"],
+.ntx-form input[type="number"],
+.ntx-form input[type="date"],
+.ntx-form select,
+.ntx-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--ntx-border);
+  border-radius: 9px;
+  font-size: .81rem;
+  color: var(--ntx-txt);
+  background: var(--ntx-bg);
+  outline: none;
+  font-family: inherit;
+  transition: border-color .2s, box-shadow .2s;
+}
+.ntx-form input[type="text"],
+.ntx-form input[type="number"],
+.ntx-form input[type="date"],
+.ntx-form select {
+  height: 38px;
+  padding: 0 .8rem;
+}
+.ntx-form textarea {
+  padding: .6rem .8rem;
+  resize: vertical;
+  min-height: 72px;
+}
+.ntx-form input:focus,
+.ntx-form select:focus,
+.ntx-form textarea:focus {
+  border-color: var(--ntx-teal);
+  box-shadow: 0 0 0 3px rgba(17,183,170,.12);
+  background: #fff;
+}
+
+/* type toggle */
+.ntx-type-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .4rem;
+}
+.ntx-type-opt { cursor: pointer; }
+.ntx-type-opt input { display: none; }
+.ntx-type-face {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .3rem;
+  height: 36px;
+  border-radius: 9px;
+  font-size: .78rem;
+  font-weight: 700;
+  border: 1.5px solid var(--ntx-border);
+  background: var(--ntx-bg);
+  color: var(--ntx-muted);
+  transition: all .18s;
+  cursor: pointer;
+}
+.ntx-type-face:hover { border-color: var(--ntx-teal); color: var(--ntx-teal); }
+.ntx-type-opt input:checked + .ntx-type-face--credit {
+  background: rgba(34,197,94,.1);
+  border-color: var(--ntx-green);
+  color: var(--ntx-green-dk);
+}
+.ntx-type-opt input:checked + .ntx-type-face--debit {
+  background: rgba(229,57,53,.1);
+  border-color: var(--ntx-red);
+  color: var(--ntx-red-dk);
+}
+
+/* form actions */
+.ntx-form-actions {
+  display: flex;
+  gap: .45rem;
+  padding-top: .45rem;
+  border-top: 1px solid var(--ntx-border);
+}
+.ntx-form-actions .ntx-btn { flex: 1; justify-content: center; }
+
+/* ══════════════════════════════
+   SEARCH BAR
+══════════════════════════════ */
+.ntx-search-bar {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .75rem 1.1rem;
+  border-bottom: 1px solid var(--ntx-border);
+  flex-wrap: wrap;
+}
+.ntx-search-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 160px;
+}
+.ntx-search-wrap i {
+  position: absolute;
+  left: .7rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ntx-muted);
+  font-size: .78rem;
+  pointer-events: none;
+}
+.ntx-search-input {
+  width: 100%;
+  height: 35px;
+  padding: 0 .8rem 0 2rem;
+  border: 1px solid var(--ntx-border);
+  border-radius: 8px;
+  font-size: .8rem;
+  color: var(--ntx-txt);
+  background: var(--ntx-bg);
+  outline: none;
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: border-color .2s, box-shadow .2s;
+}
+.ntx-search-input:focus {
+  border-color: var(--ntx-teal);
+  box-shadow: 0 0 0 3px rgba(17,183,170,.1);
+  background: #fff;
+}
+.ntx-row-count {
+  font-size: .71rem;
+  font-weight: 600;
+  color: var(--ntx-muted);
+  background: var(--ntx-bg);
+  border: 1px solid var(--ntx-border);
+  border-radius: 20px;
+  padding: .2rem .65rem;
+  white-space: nowrap;
+}
+
+/* ══════════════════════════════
+   TABLE
+══════════════════════════════ */
+.ntx-table-wrap { overflow-x: auto; }
+
+.ntx-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .8rem;
+}
+.ntx-table thead th {
+  padding: .6rem 1rem;
+  text-align: left;
+  font-size: .68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .55px;
+  color: var(--ntx-muted);
+  background: var(--ntx-bg);
+  border-bottom: 1px solid var(--ntx-border);
+  white-space: nowrap;
+}
+.ntx-table thead th:first-child { border-radius: 8px 0 0 8px; }
+.ntx-table thead th:last-child  { border-radius: 0 8px 8px 0; }
+
+.ntx-table tbody td {
+  padding: .72rem 1rem;
+  border-bottom: 1px solid var(--ntx-border);
+  vertical-align: middle;
+  color: var(--ntx-txt);
+}
+.ntx-table tbody tr:last-child td { border-bottom: none; }
+.ntx-table tbody tr:hover td      { background: rgba(17,183,170,.03); }
+
+/* cell helpers */
+.ntx-tid {
+  font-family: monospace;
+  font-size: .75rem;
+  background: var(--ntx-bg);
+  padding: .16rem .48rem;
+  border-radius: 5px;
+  color: var(--ntx-muted);
+  font-weight: 600;
+}
+.ntx-user-cell {
+  display: flex;
+  align-items: center;
+  gap: .42rem;
+}
+.ntx-user-dot {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--ntx-teal), var(--ntx-blue));
+  color: #fff;
+  font-size: .6rem;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.ntx-cat-tag {
+  display: inline-block;
+  background: var(--ntx-bg);
+  color: var(--ntx-muted);
+  border: 1px solid var(--ntx-border);
+  border-radius: 6px;
+  padding: .16rem .52rem;
+  font-size: .73rem;
+  font-weight: 500;
+}
+.ntx-amount {
+  font-weight: 700;
+  color: var(--ntx-txt);
+}
+.ntx-amount em {
+  font-style: normal;
+  font-size: .7rem;
+  color: var(--ntx-muted);
+  margin-left: .12rem;
+}
+.ntx-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  padding: .18rem .55rem;
+  border-radius: 20px;
+  font-size: .69rem;
+  font-weight: 700;
+}
+.ntx-type-badge--credit {
+  background: rgba(34,197,94,.1);
+  color: var(--ntx-green-dk);
+  border: 1px solid rgba(34,197,94,.25);
+}
+.ntx-type-badge--debit {
+  background: rgba(229,57,53,.1);
+  color: var(--ntx-red-dk);
+  border: 1px solid rgba(229,57,53,.2);
+}
+.ntx-status-badge {
+  display: inline-block;
+  padding: .18rem .58rem;
+  border-radius: 20px;
+  font-size: .69rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+.ntx-status-badge--ok {
+  background: rgba(34,197,94,.1);
+  color: #16a34a;
+  border: 1px solid rgba(34,197,94,.22);
+}
+.ntx-status-badge--wait {
+  background: rgba(232,162,2,.1);
+  color: #946800;
+  border: 1px solid rgba(232,162,2,.22);
+}
+.ntx-status-badge--fail {
+  background: rgba(229,57,53,.1);
+  color: var(--ntx-red-dk);
+  border: 1px solid rgba(229,57,53,.2);
+}
+.ntx-status-badge--neutral {
+  background: var(--ntx-bg);
+  color: var(--ntx-muted);
+  border: 1px solid var(--ntx-border);
+}
+
+.ntx-anomalie-yes {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  font-size: .71rem;
+  font-weight: 700;
+  color: var(--ntx-orange);
+  background: rgba(249,115,22,.1);
+  border: 1px solid rgba(249,115,22,.22);
+  border-radius: 20px;
+  padding: .16rem .52rem;
+}
+.ntx-anomalie-no {
+  font-size: .71rem;
+  color: var(--ntx-muted);
+}
+
+.ntx-actions-cell {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  flex-wrap: wrap;
+}
+
+/* empty */
+.ntx-empty {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: var(--ntx-muted);
+  font-size: .81rem;
+}
+.ntx-empty i {
+  display: block;
+  font-size: 1.8rem;
+  opacity: .22;
+  margin-bottom: .5rem;
+}
+
+/* ══════════════════════════════
+   RECLAMATION DESCRIPTION
+══════════════════════════════ */
+.ntx-desc-cell {
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--ntx-muted);
+  font-size: .77rem;
+}
+
+/* ══════════════════════════════
+   RESPONSIVE
+══════════════════════════════ */
+@media (max-width: 1100px) {
+  .ntx-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 720px) {
+  .ntx-kpis { grid-template-columns: 1fr 1fr; }
+  .ntx-hero { flex-direction: column; align-items: flex-start; }
+}
+@media (max-width: 520px) {
+  .ntx-shell { padding: 1rem; gap: 1rem; }
+  .ntx-kpis  { grid-template-columns: 1fr; }
+}
+</style>
+
+{# ═══════════════════════════════════════════
+   MARKUP
+═══════════════════════════════════════════ #}
+<section class="ntx-shell">
+
+  {# ── HERO ── #}
+  <header class="ntx-hero">
+    <div class="ntx-hero-left">
+      <span class="ntx-hero-icon">
+        <i class="fa-solid fa-right-left"></i>
+      </span>
+      <div class="ntx-hero-text">
+        <h2>Gestion des Transactions</h2>
+        <p>Gérer et superviser les données financières</p>
+      </div>
+    </div>
+    <div class="ntx-hero-actions">
+      <a class="ntx-btn ntx-btn--ghost-hero"
+         href="{{ path('admin_features', { section: 'statistics' }) }}">
+        <i class="fa-solid fa-download"></i> Exporter
+      </a>
+      <a class="ntx-btn ntx-btn--primary" href="#ntx-form">
+        <i class="fa-solid fa-plus"></i> Ajouter
+      </a>
+    </div>
+  </header>
+
+  {# ── SUBTABS ── #}
+  <div class="ntx-tabs">
+    <a class="ntx-tab {{ active_panel == 'transaction' ? 'is-active' : '' }}"
+       href="{{ path(route_name, { tab: 'transactions', panel: 'transaction' }) }}">
+      <i class="fa-solid fa-right-left"></i> Transactions
+    </a>
+    <a class="ntx-tab {{ active_panel == 'reclamation' ? 'is-active' : '' }}"
+       href="{{ path(route_name, { tab: 'transactions', panel: 'reclamation' }) }}">
+      <i class="fa-solid fa-flag"></i> Réclamations
+      {% if flagged_count > 0 %}
+        <span style="
+          background:var(--ntx-red);color:#fff;
+          font-size:.6rem;font-weight:800;
+          padding:.1rem .4rem;border-radius:20px;
+          margin-left:.15rem;
+        ">{{ flagged_count }}</span>
+      {% endif %}
+    </a>
+    <span class="ntx-tabs-spacer"></span>
+    <a class="ntx-stats-link"
+       href="{{ path('admin_features', { section: 'statistics' }) }}">
+      <i class="fa-solid fa-chart-pie"></i> Statistiques
+    </a>
+  </div>
+
+  {# ════════════════════════════
+     RECLAMATION PANEL
+  ════════════════════════════ #}
+  {% if active_panel == 'reclamation' %}
+
+    <div class="ntx-kpis ntx-kpis--recl">
+      <div class="ntx-kpi">
+        <span class="ntx-kpi-icon"><i class="fa-solid fa-comments"></i></span>
+        <div class="ntx-kpi-body">
+          <strong>{{ summary.reclamations_total|default(reclamation_items|length) }}</strong>
+          <small>Total réclamations</small>
+        </div>
+      </div>
+      <div class="ntx-kpi">
+        <span class="ntx-kpi-icon"><i class="fa-solid fa-triangle-exclamation"></i></span>
+        <div class="ntx-kpi-body">
+          <strong>{{ flagged_count }}</strong>
+          <small>Contenu signalé</small>
+        </div>
+      </div>
+      <div class="ntx-kpi">
+        <span class="ntx-kpi-icon"><i class="fa-solid fa-user-group"></i></span>
+        <div class="ntx-kpi-body">
+          <strong>{{ users|length }}</strong>
+          <small>Utilisateurs reliés</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="ntx-grid">
+
+      {# Form #}
+      <article class="ntx-panel" id="ntx-form">
+        <div class="ntx-panel-head">
+          <div class="ntx-panel-head-left">
+            <h3><i class="fa-solid fa-flag" style="color:var(--ntx-purple);margin-right:.4rem"></i>Réclamation</h3>
+            <p>Ajouter ou modifier une réclamation</p>
+          </div>
+        </div>
+
+        <form method="post" class="ntx-form">
+          <input type="hidden" name="tab"    value="transactions">
+          <input type="hidden" name="panel"  value="reclamation">
+          <input type="hidden" name="action" value="reclamation_save">
+
+          <div class="ntx-form-hint">
+            <i class="fa-solid fa-pen-to-square"></i>
+            Remplir l'ID uniquement pour modifier
+          </div>
+
+          <div class="ntx-field">
+            <label>ID pour modifier</label>
+            <input type="number" name="idReclamation" placeholder="Laisser vide pour créer">
+          </div>
+
+          <div class="ntx-form-sep"></div>
+
+          <div class="ntx-field">
+            <label>Utilisateur</label>
+            <select name="idUser">
+              {% for u in users %}
+                <option value="{{ u.idUser }}">#{{ u.idUser }} · {{ u.prenom }} {{ u.nom }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="ntx-field">
+            <label>Transaction liée</label>
+            <select name="idTransaction">
+              <option value="">— Sans transaction —</option>
+              {% for transaction in transaction_items %}
+                <option value="{{ transaction.idTransaction }}">
+                  #{{ transaction.idTransaction }} · {{ transaction.categorie }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="ntx-field">
+            <label>Date</label>
+            <input type="date" name="dateReclamation" value="{{ 'now'|date('Y-m-d') }}">
+          </div>
+
+          <div class="ntx-field">
+            <label>Type <em>*</em></label>
+            <input type="text" name="typeReclamation" required placeholder="Ex: Fraude, Erreur…">
+          </div>
+
+          <div class="ntx-field">
+            <label>Description <em>*</em></label>
+            <textarea name="description" rows="3" required
+                      placeholder="Détail de la réclamation…"></textarea>
+          </div>
+
+          <div class="ntx-field">
+            <label>Statut</label>
+            <input type="text" name="status" value="En attente">
+          </div>
+
+          <div class="ntx-form-actions">
+            <button class="ntx-btn ntx-btn--save" type="submit">
+              <i class="fa-solid fa-floppy-disk"></i> Enregistrer
+            </button>
+            <button class="ntx-btn ntx-btn--ghost" type="reset">
+              <i class="fa-solid fa-rotate-left"></i> Annuler
+            </button>
+          </div>
+        </form>
+      </article>
+
+      {# Table #}
+      <article class="ntx-panel">
+        <div class="ntx-panel-head">
+          <div class="ntx-panel-head-left">
+            <h3>Liste des réclamations</h3>
+            <p>Opérations de modération et suppression</p>
+          </div>
+          <span class="ntx-row-count">
+            {{ reclamation_items|length }} entrée{{ reclamation_items|length != 1 ? 's' : '' }}
+          </span>
+        </div>
+
+        <div class="ntx-search-bar">
+          <div class="ntx-search-wrap">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input class="ntx-search-input" type="text"
+                   placeholder="Rechercher une réclamation…"
+                   id="ntx-recl-search">
+          </div>
+        </div>
+
+        <div class="ntx-table-wrap">
+          <table class="ntx-table" id="ntx-recl-table">
+            <thead>
+              <tr>
+                <th>#ID</th>
+                <th>Utilisateur</th>
+                <th>Type</th>
+                <th>Description</th>
+                <th>Statut</th>
+                <th>Flou</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in reclamation_items %}
+                {% set sk = item.status|default('')|lower %}
+                {% set status_cls = 'neutral' %}
+                {% if 'attente' in sk %}{% set status_cls = 'wait' %}
+                {% elseif 'traite' in sk or 'resolu' in sk %}{% set status_cls = 'ok' %}
+                {% elseif 'rejete' in sk %}{% set status_cls = 'fail' %}
+                {% endif %}
+                <tr>
+                  <td><span class="ntx-tid">#{{ item.idReclamation }}</span></td>
+                  <td>
+                    <div class="ntx-user-cell">
+                      <span class="ntx-user-dot">
+                        {{ item.user_name|default('?')|first|upper }}
+                      </span>
+                      {{ item.user_name|default('—') }}
+                    </div>
+                  </td>
+                  <td><span class="ntx-cat-tag">{{ item.typeReclamation }}</span></td>
+                  <td>
+                    <span class="ntx-desc-cell" title="{{ item.description|default('') }}">
+                      {{ item.description|default('—') }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="ntx-status-badge ntx-status-badge--{{ status_cls }}">
+                      {{ item.status }}
+                    </span>
+                  </td>
+                  <td>
+                    <form method="post">
+                      <input type="hidden" name="tab"           value="transactions">
+                      <input type="hidden" name="panel"         value="reclamation">
+                      <input type="hidden" name="action"        value="reclamation_blur">
+                      <input type="hidden" name="idReclamation" value="{{ item.idReclamation }}">
+                      <input type="hidden" name="is_blurred"    value="{{ item.is_blurred ? '0' : '1' }}">
+                      <button class="ntx-btn {{ item.is_blurred ? 'ntx-btn--unblur' : 'ntx-btn--blur' }}"
+                              type="submit">
+                        <i class="fa-solid {{ item.is_blurred ? 'fa-eye' : 'fa-eye-slash' }}"></i>
+                        {{ item.is_blurred ? 'Retirer flou' : 'Flouter' }}
+                      </button>
+                    </form>
+                  </td>
+                  <td>
+                    <form method="post">
+                      <input type="hidden" name="tab"           value="transactions">
+                      <input type="hidden" name="panel"         value="reclamation">
+                      <input type="hidden" name="action"        value="reclamation_delete">
+                      <input type="hidden" name="idReclamation" value="{{ item.idReclamation }}">
+                      <button class="ntx-btn ntx-btn--danger" type="submit">
+                        <i class="fa-solid fa-trash-can"></i> Supprimer
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              {% else %}
+                <tr>
+                  <td colspan="7" class="ntx-empty">
+                    <i class="fa-solid fa-flag"></i>
+                    Aucune réclamation enregistrée.
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+    </div>
+
+  {# ════════════════════════════
+     TRANSACTION PANEL
+  ════════════════════════════ #}
+  {% else %}
+
+    <div class="ntx-kpis">
+      <div class="ntx-kpi">
+        <span class="ntx-kpi-icon"><i class="fa-solid fa-arrow-right-arrow-left"></i></span>
+        <div class="ntx-kpi-body">
+          <strong>{{ summary.transactions_total|default(transaction_items|length) }}</strong>
+          <small>Total transactions</small>
+        </div>
+      </div>
+      <div class="ntx-kpi">
+        <span class="ntx-kpi-icon"><i class="fa-solid fa-table-list"></i></span>
+        <div class="ntx-kpi-body">
+          <strong>{{ transaction_items|length }}</strong>
+          <small>Résultats affichés</small>
+        </div>
+      </div>
+      <div class="ntx-kpi">
+        <span class="ntx-kpi-icon"><i class="fa-solid fa-wallet"></i></span>
+        <div class="ntx-kpi-body">
+          <strong>{{ accounts|length }}</strong>
+          <small>Comptes reliés</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="ntx-grid">
+
+      {# Form #}
+      <article class="ntx-panel" id="ntx-form">
+        <div class="ntx-panel-head">
+          <div class="ntx-panel-head-left">
+            <h3><i class="fa-solid fa-right-left" style="color:var(--ntx-teal);margin-right:.4rem"></i>Transaction</h3>
+            <p>Ajouter ou modifier une transaction</p>
+          </div>
+        </div>
+
+        <form method="post" class="ntx-form">
+          <input type="hidden" name="tab"    value="transactions">
+          <input type="hidden" name="panel"  value="transaction">
+          <input type="hidden" name="action" value="transaction_save">
+
+          <div class="ntx-form-hint">
+            <i class="fa-solid fa-pen-to-square"></i>
+            Remplir l'ID uniquement pour modifier
+          </div>
+
+          <div class="ntx-field">
+            <label>ID pour modifier</label>
+            <input type="number" name="idTransaction" placeholder="Laisser vide pour créer">
+          </div>
+
+          <div class="ntx-form-sep"></div>
+
+          <div class="ntx-field">
+            <label>Utilisateur</label>
+            <select name="idUser">
+              {% for u in users %}
+                <option value="{{ u.idUser }}">#{{ u.idUser }} · {{ u.prenom }} {{ u.nom }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="ntx-field">
+            <label>Compte</label>
+            <select name="idCompte">
+              <option value="">— Sans compte —</option>
+              {% for account in accounts %}
+                <option value="{{ account.idCompte }}">
+                  #{{ account.idCompte }} · {{ account.numeroCompte }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="ntx-field">
+            <label>Catégorie <em>*</em></label>
+            <input type="text" name="categorie" required placeholder="Ex: Alimentation…">
+          </div>
+
+          <div class="ntx-field">
+            <label>Date</label>
+            <input type="date" name="dateTransaction" value="{{ 'now'|date('Y-m-d') }}">
+          </div>
+
+          <div class="ntx-field">
+            <label>Montant (DT) <em>*</em></label>
+            <input type="number" step="0.01" name="montant" required placeholder="0.00">
+          </div>
+
+          <div class="ntx-field">
+            <label>Type</label>
+            <div class="ntx-type-toggle">
+              <label class="ntx-type-opt">
+                <input type="radio" name="typeTransaction" value="Credit" checked>
+                <span class="ntx-type-face ntx-type-face--credit">
+                  <i class="fa-solid fa-arrow-up"></i> Crédit
+                </span>
+              </label>
+              <label class="ntx-type-opt">
+                <input type="radio" name="typeTransaction" value="Debit">
+                <span class="ntx-type-face ntx-type-face--debit">
+                  <i class="fa-solid fa-arrow-down"></i> Débit
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <div class="ntx-field">
+            <label>Statut</label>
+            <select name="statutTransaction">
+              <option value="Terminee" selected>Terminée</option>
+              <option value="En attente">En attente</option>
+              <option value="Echouee">Échouée</option>
+              <option value="Annulee">Annulée</option>
+            </select>
+          </div>
+
+          <div class="ntx-field">
+            <label>Description</label>
+            <input type="text" name="description" placeholder="Optionnel…">
+          </div>
+
+          <div class="ntx-form-actions">
+            <button class="ntx-btn ntx-btn--save" type="submit">
+              <i class="fa-solid fa-floppy-disk"></i> Enregistrer
+            </button>
+            <button class="ntx-btn ntx-btn--ghost" type="reset">
+              <i class="fa-solid fa-rotate-left"></i> Annuler
+            </button>
+          </div>
+        </form>
+      </article>
+
+      {# Table #}
+      <article class="ntx-panel">
+        <div class="ntx-panel-head">
+          <div class="ntx-panel-head-left">
+            <h3>Liste des Transactions</h3>
+            <p>Historique de toutes les transactions</p>
+          </div>
+          <span class="ntx-row-count">
+            {{ transaction_items|length }} entrée{{ transaction_items|length != 1 ? 's' : '' }}
+          </span>
+        </div>
+
+        <div class="ntx-search-bar">
+          <div class="ntx-search-wrap">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input class="ntx-search-input" type="text"
+                   placeholder="Rechercher une transaction…"
+                   id="ntx-tx-search">
+          </div>
+        </div>
+
+        <div class="ntx-table-wrap">
+          <table class="ntx-table" id="ntx-tx-table">
+            <thead>
+              <tr>
+                <th>#ID</th>
+                <th>Utilisateur</th>
+                <th>Catégorie</th>
+                <th>Date</th>
+                <th>Montant</th>
+                <th>Type</th>
+                <th>Statut</th>
+                <th>Anomalie</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in transaction_items %}
+                {% set tk = item.typeTransaction|default('')|lower %}
+                {% set sk = item.statutTransaction|default('')|lower %}
+                {% set status_cls = 'neutral' %}
+                {% if 'termin' in sk %}{% set status_cls = 'ok' %}
+                {% elseif 'attente' in sk %}{% set status_cls = 'wait' %}
+                {% elseif 'echoue' in sk or 'annule' in sk %}{% set status_cls = 'fail' %}
+                {% endif %}
+                <tr>
+                  <td><span class="ntx-tid">#{{ item.idTransaction }}</span></td>
+                  <td>
+                    <div class="ntx-user-cell">
+                      <span class="ntx-user-dot">
+                        {{ item.user_name|default('?')|first|upper }}
+                      </span>
+                      {{ item.user_name|default('—') }}
+                    </div>
+                  </td>
+                  <td><span class="ntx-cat-tag">{{ item.categorie }}</span></td>
+                  <td style="font-size:.76rem;color:var(--ntx-muted)">
+                    {{ item.dateTransaction|default('—') }}
+                  </td>
+                  <td class="ntx-amount">
+                    {{ item.montant_value|number_format(2, '.', ' ') }}<em>DT</em>
+                  </td>
+                  <td>
+                    {% set is_debit = 'debit' in tk %}
+                    <span class="ntx-type-badge {{ is_debit ? 'ntx-type-badge--debit' : 'ntx-type-badge--credit' }}">
+                      <i class="fa-solid {{ is_debit ? 'fa-arrow-down' : 'fa-arrow-up' }}"></i>
+                      {{ item.typeTransaction|default('—') }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="ntx-status-badge ntx-status-badge--{{ status_cls }}">
+                      {{ item.statutTransaction|default('—') }}
+                    </span>
+                  </td>
+                  <td>
+                    {% if item.is_anomalie %}
+                      <span class="ntx-anomalie-yes">
+                        <i class="fa-solid fa-circle-exclamation"></i> Oui
+                      </span>
+                    {% else %}
+                      <span class="ntx-anomalie-no">—</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <form method="post">
+                      <input type="hidden" name="tab"           value="transactions">
+                      <input type="hidden" name="panel"         value="transaction">
+                      <input type="hidden" name="action"        value="transaction_delete">
+                      <input type="hidden" name="idTransaction" value="{{ item.idTransaction }}">
+                      <button class="ntx-btn ntx-btn--danger" type="submit">
+                        <i class="fa-solid fa-trash-can"></i> Supprimer
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              {% else %}
+                <tr>
+                  <td colspan="9" class="ntx-empty">
+                    <i class="fa-solid fa-right-left"></i>
+                    Aucune transaction enregistrée.
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+    </div>
+  {% endif %}
+
+</section>
+
+{# ── Client-side search ── #}
+<script>
+(() => {
+  const wire = (inputId, tableId) => {
+    const input = document.getElementById(inputId);
+    const table = document.getElementById(tableId);
+    if (!input || !table) return;
+    input.addEventListener('input', () => {
+      const q = input.value.toLowerCase().trim();
+      table.querySelectorAll('tbody tr').forEach(row => {
+        row.style.display =
+          !q || row.textContent.toLowerCase().includes(q) ? '' : 'none';
+      });
+    });
+  };
+  wire('ntx-tx-search',   'ntx-tx-table');
+  wire('ntx-recl-search', 'ntx-recl-table');
+})();
+</script>
