@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Détail Compte — {{ account.numeroCompte }}</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --teal:   #00B4A0;
+      --blue:   #0A2540;
+      --gold:   #B8860B;
+      --green:  #22c55e;
+      --orange: #f97316;
+      --red:    #ef4444;
+      --bg:     #f0f4f9;
+      --card:   #ffffff;
+      --border: #e4ecf4;
+      --txt:    #1a2b3c;
+      --muted:  #6b85a0;
+      --radius: 16px;
+      --shadow: 0 4px 20px rgba(0,0,0,.07);
+    }
+    body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--txt); min-height: 100vh; }
+
+    /* ── Topbar ── */
+    .det-topbar {
+      background: var(--blue);
+      padding: .9rem 2rem;
+      display: flex; align-items: center; gap: 1rem;
+    }
+    .det-back {
+      display: inline-flex; align-items: center; gap: .5rem;
+      color: rgba(255,255,255,.75); text-decoration: none;
+      font-size: .82rem; font-weight: 600;
+      padding: .4rem .85rem; border-radius: 8px;
+      border: 1px solid rgba(255,255,255,.2);
+      transition: background .2s;
+    }
+    .det-back:hover { background: rgba(255,255,255,.12); color: #fff; }
+    .det-topbar-title { color: #fff; font-size: 1rem; font-weight: 800; margin-left: .5rem; }
+
+    /* ── Shell ── */
+    .det-shell { max-width: 1200px; margin: 0 auto; padding: 2rem 1.5rem; display: flex; flex-direction: column; gap: 1.5rem; }
+
+    /* ── Hero banner ── */
+    .det-hero {
+      background: linear-gradient(135deg, var(--blue) 0%, #1e3448 60%, #1a3050 100%);
+      border-radius: var(--radius);
+      padding: 1.8rem 2rem;
+      display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;
+      box-shadow: 0 8px 32px rgba(10,37,64,.2);
+      position: relative; overflow: hidden;
+    }
+    .det-hero::before {
+      content: ''; position: absolute; width: 280px; height: 280px;
+      top: -80px; right: -60px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(0,180,160,.2) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .det-hero-icon {
+      width: 60px; height: 60px; border-radius: 16px;
+      background: linear-gradient(135deg, var(--teal), #0d9e93);
+      display: grid; place-items: center;
+      font-size: 1.5rem; color: #fff; flex-shrink: 0;
+      box-shadow: 0 6px 20px rgba(0,180,160,.4);
+    }
+    .det-hero-info { flex: 1; }
+    .det-hero-info h1 { font-size: 1.4rem; font-weight: 900; color: #fff; letter-spacing: -.3px; }
+    .det-hero-info p  { font-size: .8rem; color: rgba(255,255,255,.55); margin-top: .3rem; }
+    .det-hero-badges { display: flex; align-items: center; gap: .65rem; flex-wrap: wrap; }
+    .det-badge {
+      display: inline-flex; align-items: center; gap: .4rem;
+      padding: .45rem 1rem; border-radius: 20px;
+      font-size: .78rem; font-weight: 700;
+      background: rgba(255,255,255,.1); color: #fff;
+      border: 1px solid rgba(255,255,255,.18);
+    }
+    .det-badge.actif   { background: rgba(34,197,94,.15);  border-color: rgba(34,197,94,.3); }
+    .det-badge.fermé,
+    .det-badge.ferme   { background: rgba(239,68,68,.15);  border-color: rgba(239,68,68,.3); }
+    .det-badge.bloqué,
+    .det-badge.bloque  { background: rgba(249,115,22,.15); border-color: rgba(249,115,22,.3); }
+    .det-badge-solde { font-size: 1.1rem; font-weight: 900; color: var(--teal); }
+
+    /* ── KPI cards ── */
+    .det-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+    .det-kpi {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.2rem 1.4rem;
+      box-shadow: var(--shadow); display: flex; align-items: center; gap: 1rem;
+      position: relative; overflow: hidden;
+      transition: transform .2s, box-shadow .2s;
+    }
+    .det-kpi:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0,0,0,.1); }
+    .det-kpi::after {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+      width: 4px; border-radius: 0 4px 4px 0;
+    }
+    .det-kpi:nth-child(1)::after { background: var(--teal); }
+    .det-kpi:nth-child(2)::after { background: var(--green); }
+    .det-kpi:nth-child(3)::after { background: var(--gold); }
+    .det-kpi-icon {
+      width: 46px; height: 46px; border-radius: 13px;
+      display: grid; place-items: center; font-size: 1.1rem; flex-shrink: 0;
+    }
+    .det-kpi:nth-child(1) .det-kpi-icon { background: rgba(0,180,160,.1);  color: var(--teal); }
+    .det-kpi:nth-child(2) .det-kpi-icon { background: rgba(34,197,94,.1);  color: var(--green); }
+    .det-kpi:nth-child(3) .det-kpi-icon { background: rgba(184,134,11,.1); color: var(--gold); }
+    .det-kpi-body strong { display: block; font-size: 1.6rem; font-weight: 900; color: var(--txt); line-height: 1; }
+    .det-kpi-body small  { font-size: .73rem; color: var(--muted); font-weight: 500; margin-top: .2rem; display: block; }
+
+    /* ── Section header ── */
+    .det-section-head {
+      display: flex; align-items: center; gap: .75rem;
+      padding-bottom: .75rem; border-bottom: 1px solid var(--border);
+      margin-bottom: 1rem;
+    }
+    .det-section-head-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(135deg, var(--teal), #0d9e93);
+      display: grid; place-items: center; color: #fff; font-size: .9rem; flex-shrink: 0;
+    }
+    .det-section-head h2 { font-size: .95rem; font-weight: 800; color: var(--txt); }
+    .det-section-head p  { font-size: .73rem; color: var(--muted); margin-top: .1rem; }
+    .det-section-head-count {
+      margin-left: auto; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 20px; padding: .2rem .7rem;
+      font-size: .72rem; font-weight: 700; color: var(--muted);
+    }
+
+    /* ── Table ── */
+    .det-table-wrap { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+    .det-search-bar {
+      display: flex; align-items: center; gap: .5rem;
+      padding: .8rem 1rem; border-bottom: 1px solid var(--border);
+    }
+    .det-search-bar i { color: var(--muted); font-size: .8rem; }
+    .det-search-input {
+      flex: 1; height: 36px; padding: 0 .8rem;
+      border: 1px solid var(--border); border-radius: 8px;
+      font-size: .81rem; color: var(--txt); background: var(--bg);
+      outline: none; font-family: inherit;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .det-search-input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(0,180,160,.1); background: #fff; }
+
+    table.det-table { width: 100%; border-collapse: collapse; font-size: .81rem; }
+    table.det-table thead th {
+      padding: .65rem 1rem; text-align: left;
+      font-size: .7rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .6px; color: var(--muted);
+      background: var(--bg); border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    table.det-table tbody td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    table.det-table tbody tr:last-child td { border-bottom: none; }
+    table.det-table tbody tr:hover td { background: rgba(0,180,160,.03); }
+
+    .det-tag {
+      display: inline-block; padding: .2rem .6rem; border-radius: 20px;
+      font-size: .7rem; font-weight: 700; text-transform: capitalize;
+      background: var(--bg); color: var(--muted); border: 1px solid var(--border);
+    }
+    .det-tag.actif   { background: rgba(34,197,94,.1);  color: #166534; border-color: rgba(34,197,94,.25); }
+    .det-tag.fermé,
+    .det-tag.ferme   { background: rgba(239,68,68,.1);  color: #991b1b; border-color: rgba(239,68,68,.25); }
+    .det-tag.bloqué,
+    .det-tag.bloque  { background: rgba(249,115,22,.1); color: #9a3412; border-color: rgba(249,115,22,.25); }
+
+    .det-prog-wrap { display: flex; flex-direction: column; gap: .25rem; min-width: 120px; }
+    .det-prog-bar  { height: 7px; background: var(--bg); border-radius: 6px; overflow: hidden; }
+    .det-prog-fill { height: 100%; border-radius: 6px; transition: width .4s ease; }
+    .det-prog-lbl  { font-size: .68rem; color: var(--muted); font-weight: 600; }
+
+    .det-lock { font-size: 1rem; }
+
+    .det-empty { text-align: center; color: var(--muted); font-size: .82rem; padding: 2.5rem 1rem; }
+    .det-empty i { display: block; font-size: 2rem; opacity: .2; margin-bottom: .6rem; }
+
+    @media (max-width: 760px) {
+      .det-kpis { grid-template-columns: 1fr; }
+      .det-hero  { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="det-topbar">
+    <a class="det-back" href="javascript:history.back()">
+      <i class="fa-solid fa-arrow-left"></i> Retour
+    </a>
+    <span class="det-topbar-title">
+      <i class="fa-solid fa-building-columns" style="margin-right:.4rem;color:var(--teal)"></i>
+      Détail du Compte Bancaire
+    </span>
+  </nav>
+
+  <div class="det-shell">
+
+    {# ── Hero ── #}
+    <div class="det-hero">
+      <div class="det-hero-icon"><i class="fa-solid fa-building-columns"></i></div>
+      <div class="det-hero-info">
+        <h1>{{ account.numeroCompte }}</h1>
+        <p>{{ account.typeCompte|default('—') }} · Ouvert le {{ account.dateOuverture|default('—') }}</p>
+      </div>
+      <div class="det-hero-badges">
+        {% set st = account.statutCompte|default('')|lower %}
+        <span class="det-badge {{ st }}">
+          <i class="fa-solid fa-circle" style="font-size:.5rem"></i>
+          {{ account.statutCompte|default('—') }}
+        </span>
+        <span class="det-badge">
+          <i class="fa-solid fa-coins"></i>
+          <span class="det-badge-solde">{{ account.solde|number_format(2, '.', ' ') }} DT</span>
+        </span>
+        <span class="det-badge">
+          <i class="fa-solid fa-arrow-down"></i>
+          Retrait : {{ account.plafondRetrait|default('—') }} DT
+        </span>
+        <span class="det-badge">
+          <i class="fa-solid fa-paper-plane"></i>
+          Virement : {{ account.plafondVirement|default('—') }} DT
+        </span>
+      </div>
+    </div>
+
+    {# ── KPI cards ── #}
+    <div class="det-kpis">
+      <div class="det-kpi">
+        <div class="det-kpi-icon"><i class="fa-solid fa-vault"></i></div>
+        <div class="det-kpi-body">
+          <strong>{{ vault_stats.total|default(0) }}</strong>
+          <small>Coffres associés</small>
+        </div>
+      </div>
+      <div class="det-kpi">
+        <div class="det-kpi-icon"><i class="fa-solid fa-circle-check"></i></div>
+        <div class="det-kpi-body">
+          <strong>{{ vault_stats.actifs|default(0) }}</strong>
+          <small>Coffres actifs</small>
+        </div>
+      </div>
+      <div class="det-kpi">
+        <div class="det-kpi-icon"><i class="fa-solid fa-coins"></i></div>
+        <div class="det-kpi-body">
+          <strong>{{ vault_stats.total_stored|default(0)|number_format(2, '.', ' ') }} DT</strong>
+          <small>Montant total stocké</small>
+        </div>
+      </div>
+    </div>
+
+    {# ── Vaults table ── #}
+    <div>
+      <div class="det-section-head">
+        <div class="det-section-head-icon"><i class="fa-solid fa-vault"></i></div>
+        <div>
+          <h2>Coffres Virtuels liés</h2>
+          <p>Tous les coffres associés à ce compte</p>
+        </div>
+        <span class="det-section-head-count">{{ vaults|length }} coffre{{ vaults|length != 1 ? 's' : '' }}</span>
+      </div>
+
+      <div class="det-table-wrap">
+        <div class="det-search-bar">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input class="det-search-input" type="text" id="det-vault-search" placeholder="Rechercher un coffre…">
+        </div>
+        <table class="det-table" id="det-vault-table">
+          <thead>
+            <tr>
+              <th>Nom</th>
+              <th>Objectif</th>
+              <th>Montant actuel</th>
+              <th>Date création</th>
+              <th>Date objectif</th>
+              <th>Statut</th>
+              <th>Verrou</th>
+              <th>Progression</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for v in vaults %}
+              {% set pct      = v.progression|default(0) %}
+              {% set barColor = v.bar_color|default('#ef4444') %}
+              {% set lockIcon = v.lock_icon|default('fa-lock-open') %}
+              {% set lockClr  = v.lock_color|default('#22c55e') %}
+              <tr>
+                <td><strong>{{ v.nom }}</strong></td>
+                <td>{{ v.objectifMontant|number_format(2, '.', ' ') }} DT</td>
+                <td>{{ v.montantActuel|number_format(2, '.', ' ') }} DT</td>
+                <td style="color:var(--muted);font-size:.78rem">{{ v.dateCreation|default('—') }}</td>
+                <td style="color:var(--muted);font-size:.78rem">{{ v.dateObjectifs|default('—') }}</td>
+                <td>
+                  {% set st = v.status|default('')|lower %}
+                  <span class="det-tag {{ st }}">{{ v.status|default('—') }}</span>
+                </td>
+                <td style="text-align:center">
+                  <i class="fa-solid {{ lockIcon }} det-lock" style="color:{{ lockClr }}"
+                     title="{{ v.is_locked ? 'Verrouillé' : 'Ouvert' }}"></i>
+                </td>
+                <td>
+                  <div class="det-prog-wrap">
+                    <div class="det-prog-bar">
+                      <div class="det-prog-fill" style="width:{{ min(pct, 100) }}%;background:{{ barColor }}"></div>
+                    </div>
+                    <span class="det-prog-lbl">{{ pct }}%</span>
+                  </div>
+                </td>
+              </tr>
+            {% else %}
+              <tr>
+                <td colspan="8" class="det-empty">
+                  <i class="fa-solid fa-vault"></i>
+                  Aucun coffre lié à ce compte.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+  document.getElementById('det-vault-search')?.addEventListener('input', function() {
+    const q = this.value.toLowerCase().trim();
+    document.querySelectorAll('#det-vault-table tbody tr').forEach(row => {
+      row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  });
+  </script>
+
+</body>
+</html>

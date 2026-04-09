@@ -1,0 +1,843 @@
+﻿{% set transaction_total = summary.transactions_total|default(items|length) %}
+{% set revenues = 0 %}
+{% set expenses = 0 %}
+{% set pending_count = 0 %}
+{% set current_month = 'now'|date('Y-m') %}
+{% set operations_month = 0 %}
+{% for item in items %}
+    {% set amount = item.montant_value|default(0) %}
+    {% set type_key = item.typeTransaction|default('credit')|lower %}
+    {% set status_key = item.statutTransaction|default('')|lower %}
+    {% if 'debit' in type_key %}
+        {% set expenses = expenses + amount %}
+    {% else %}
+        {% set revenues = revenues + amount %}
+    {% endif %}
+    {% if 'attente' in status_key %}
+        {% set pending_count = pending_count + 1 %}
+    {% endif %}
+    {% if item.dateTransaction is not empty and item.dateTransaction|date('Y-m') == current_month %}
+        {% set operations_month = operations_month + 1 %}
+    {% endif %}
+{% endfor %}
+{% set net_balance = revenues - expenses %}
+{% set categories = ['Alimentation', 'Transport', 'Factures', 'Salaire', 'Education', 'Shopping', 'Sante', 'Autre'] %}
+
+{# ── Résolution de la transaction à modifier ── #}
+{% set edit_id = app.request.query.get('edit_id')|default('') %}
+{% set edit_item = null %}
+{% if edit_id %}
+    {% for t in items %}
+        {% if t.idTransaction ~ '' == edit_id ~ '' %}
+            {% set edit_item = t %}
+        {% endif %}
+    {% endfor %}
+{% endif %}
+
+<section class="tnx-shell">
+
+    {# ── TOP BANNER ── #}
+    <div class="tnx-banner">
+        <div class="tnx-banner-brand">
+            <div class="tnx-banner-icon">
+                <i class="fa-solid fa-right-left"></i>
+            </div>
+            <div class="tnx-banner-text">
+                <h1>Gestion des transactions</h1>
+                <p>Voir, gerer et suivre toutes vos transactions financieres</p>
+            </div>
+        </div>
+
+        <div class="tnx-banner-center">
+            <div class="tnx-banner-stat">
+                <span class="tnx-banner-stat-num">{{ transaction_total }}</span>
+                <span class="tnx-banner-stat-lbl">Total transactions</span>
+            </div>
+            <div class="tnx-banner-divider"></div>
+            <div class="tnx-banner-stat">
+                <span class="tnx-banner-stat-num">{{ operations_month }}</span>
+                <span class="tnx-banner-stat-lbl">Ce mois</span>
+            </div>
+            <div class="tnx-banner-divider"></div>
+            <div class="tnx-banner-stat">
+                <span class="tnx-banner-stat-num">{{ pending_count }}</span>
+                <span class="tnx-banner-stat-lbl">En attente</span>
+            </div>
+        </div>
+
+        <nav class="tnx-banner-nav">
+            <a class="tnx-nav-pill" href="{{ path('portal_feature_pdf_download', { kind: 'transactions' }) }}">
+                <i class="fa-solid fa-download"></i><span>PDF</span>
+            </a>
+            <a class="tnx-nav-pill" href="{{ path('portal_features', { section: 'payments' }) }}">
+                <i class="fa-solid fa-message"></i><span>SMS</span>
+            </a>
+            <a class="tnx-nav-pill tnx-nav-pill--ai" href="{{ path('portal_features', { section: 'insights' }) }}">
+                <i class="fa-solid fa-brain"></i><span>Analyse IA</span>
+            </a>
+            <a class="tnx-nav-pill tnx-nav-pill--cta" href="#tnx-form-anchor">
+                <i class="fa-solid fa-plus"></i><span>Nouvelle</span>
+            </a>
+        </nav>
+    </div>
+
+    {# ── KPI STRIP ── #}
+    <div class="tnx-kpi-strip">
+
+        <div class="tnx-kpi-tile tnx-kpi-tile--rev">
+            <div class="tnx-kpi-tile-left">
+                <div class="tnx-kpi-badge">
+                    <i class="fa-solid fa-arrow-trend-up"></i>
+                </div>
+                <div>
+                    <span class="tnx-kpi-label">REVENUS</span>
+                    <span class="tnx-kpi-sub">30 derniers jours</span>
+                </div>
+            </div>
+            <div class="tnx-kpi-tile-right">
+                <strong class="tnx-kpi-num tnx-kpi-num--up">
+                    +{{ revenues|number_format(2, '.', ' ') }}
+                </strong>
+                <span class="tnx-kpi-currency">DT</span>
+            </div>
+            <div class="tnx-kpi-bar">
+                <span style="width:100%"></span>
+            </div>
+        </div>
+
+        <div class="tnx-kpi-tile tnx-kpi-tile--exp">
+            <div class="tnx-kpi-tile-left">
+                <div class="tnx-kpi-badge">
+                    <i class="fa-solid fa-arrow-trend-down"></i>
+                </div>
+                <div>
+                    <span class="tnx-kpi-label">DEPENSES</span>
+                    <span class="tnx-kpi-sub">30 derniers jours</span>
+                </div>
+            </div>
+            <div class="tnx-kpi-tile-right">
+                <strong class="tnx-kpi-num tnx-kpi-num--down">
+                    -{{ expenses|number_format(2, '.', ' ') }}
+                </strong>
+                <span class="tnx-kpi-currency">DT</span>
+            </div>
+            <div class="tnx-kpi-bar">
+                <span class="is-danger" style="width:{{ revenues > 0 ? ((expenses / (revenues + expenses)) * 100)|round : 0 }}%"></span>
+            </div>
+        </div>
+
+        <div class="tnx-kpi-tile tnx-kpi-tile--net">
+            <div class="tnx-kpi-tile-left">
+                <div class="tnx-kpi-badge">
+                    <i class="fa-solid fa-scale-balanced"></i>
+                </div>
+                <div>
+                    <span class="tnx-kpi-label">SOLDE NET</span>
+                    <span class="tnx-kpi-sub">Ce mois</span>
+                </div>
+            </div>
+            <div class="tnx-kpi-tile-right">
+                <strong class="tnx-kpi-num {{ net_balance >= 0 ? 'tnx-kpi-num--up' : 'tnx-kpi-num--down' }}">
+                    {{ net_balance >= 0 ? '+' : '' }}{{ net_balance|number_format(2, '.', ' ') }}
+                </strong>
+                <span class="tnx-kpi-currency">DT</span>
+            </div>
+            <div class="tnx-kpi-bar">
+                <span class="{{ net_balance >= 0 ? '' : 'is-danger' }}" style="width:{{ net_balance >= 0 ? '72%' : '38%' }}"></span>
+            </div>
+        </div>
+
+        <div class="tnx-kpi-tile tnx-kpi-tile--pend">
+            <div class="tnx-kpi-tile-left">
+                <div class="tnx-kpi-badge tnx-kpi-badge--glow">
+                    <i class="fa-solid fa-hourglass-half"></i>
+                </div>
+                <div>
+                    <span class="tnx-kpi-label">EN ATTENTE</span>
+                    <span class="tnx-kpi-sub">Traitement requis</span>
+                </div>
+            </div>
+            <div class="tnx-kpi-tile-right">
+                <strong class="tnx-kpi-num tnx-kpi-num--pend">{{ pending_count }}</strong>
+                <span class="tnx-kpi-currency">ops</span>
+            </div>
+            <div class="tnx-kpi-bar">
+                <span class="is-warn" style="width:{{ pending_count > 0 ? '60%' : '0%' }}"></span>
+            </div>
+        </div>
+
+    </div>
+
+    {# ── BODY: SIDEBAR + CONTENT ── #}
+    <div class="tnx-body">
+
+        {# ── LEFT SIDEBAR: FORM ── #}
+        <aside class="tnx-sidebar" id="tnx-form-anchor">
+
+            <div class="tnx-sidebar-header">
+                <div class="tnx-sidebar-header-icon">
+                    <i class="fa-solid fa-receipt"></i>
+                </div>
+                <div>
+                    <h2>{{ edit_item ? 'Modifier la transaction' : 'Nouvelle transaction' }}</h2>
+                    <p>{{ edit_item ? 'Modifier les informations de la transaction #' ~ edit_item.idTransaction : 'Creer ou modifier une operation' }}</p>
+                </div>
+                {% if edit_item %}
+                    <a href="{{ path(route_name, { tab: 'transactions' }) }}"
+                       style="margin-left:auto;width:32px;height:32px;border-radius:9px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:13px;"
+                       title="Nouvelle transaction">
+                        <i class="fa-solid fa-xmark"></i>
+                    </a>
+                {% endif %}
+            </div>
+
+            <form method="post" class="tnx-form" id="transaction-form" novalidate novalidate
+                  action="{{ path(route_name, { tab: 'transactions' }) }}">
+                <input type="hidden" name="tab" value="transactions">
+                <input type="hidden" name="idTransaction" value="{{ edit_item ? edit_item.idTransaction : '' }}">
+
+                <div class="tnx-form-section">
+                    <span class="tnx-form-section-label">
+                        <i class="fa-solid fa-fingerprint"></i> Identification
+                    </span>
+                    <div class="tnx-field">
+                        <label for="f-compte">Compte</label>
+                        <select id="f-compte" name="idCompte">
+                            <option value="">Sans compte</option>
+                            {% for account in support.accounts|default([]) %}
+                                <option value="{{ account.idCompte }}"
+                                    {{ edit_item and edit_item.idCompte ~ '' == account.idCompte ~ '' ? 'selected' : '' }}>
+                                    {{ account.numeroCompte }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="tnx-form-section">
+                    <span class="tnx-form-section-label">
+                        <i class="fa-solid fa-tags"></i> Classification
+                    </span>
+                    <div class="tnx-field">
+                        <label for="f-cat">Categorie <em>*</em></label>
+                        <select id="f-cat" name="categorie">
+                            <option value="">Selectionner</option>
+                            {% for category in categories %}
+                                <option value="{{ category }}"
+                                    {{ edit_item and edit_item.categorie == category ? 'selected' : '' }}>
+                                    {{ category }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <span class="tnx-field-msg" id="msg-categorie"></span>
+                    </div>
+                    <div class="tnx-field">
+                        <label for="f-type">Type <em>*</em></label>
+                        <div class="tnx-toggle-group">
+                            <label class="tnx-toggle-opt">
+                                <input type="radio" name="typeTransaction" value="Credit"
+                                    {{ not edit_item or 'credit' in edit_item.typeTransaction|default('Credit')|lower ? 'checked' : '' }}>
+                                <span class="tnx-toggle-face tnx-toggle-face--credit">
+                                    <i class="fa-solid fa-arrow-up"></i> Credit
+                                </span>
+                            </label>
+                            <label class="tnx-toggle-opt">
+                                <input type="radio" name="typeTransaction" value="Debit"
+                                    {{ edit_item and 'debit' in edit_item.typeTransaction|default('')|lower ? 'checked' : '' }}>
+                                <span class="tnx-toggle-face tnx-toggle-face--debit">
+                                    <i class="fa-solid fa-arrow-down"></i> Debit
+                                </span>
+                            </label>
+                        </div>
+                        <span class="tnx-field-msg" id="msg-typeTransaction"></span>
+                    </div>
+                </div>
+
+                <div class="tnx-form-section">
+                    <span class="tnx-form-section-label">
+                        <i class="fa-solid fa-coins"></i> Montant & Date
+                    </span>
+                    <div class="tnx-field">
+                        <label for="f-amount">Montant <em>*</em></label>
+                        <div class="tnx-amount-wrap">
+                            <span class="tnx-amount-prefix">DT</span>
+                            <input id="f-amount" type="number" step="0.01" name="montant"
+                                   placeholder="0.00"
+                                   value="{{ edit_item ? edit_item.montant_value|default('') : '' }}">
+                        </div>
+                        <span class="tnx-field-msg" id="msg-montant"></span>
+                        <small class="tnx-amount-note">Dinar tunisien (TND)</small>
+                    </div>
+                    <div class="tnx-field">
+                        <label for="f-date">Date <em>*</em></label>
+                        <input id="f-date" type="date" name="dateTransaction"
+                               value="{{ edit_item ? edit_item.dateTransaction|default('now'|date('Y-m-d')) : 'now'|date('Y-m-d') }}">
+                        <span class="tnx-field-msg" id="msg-dateTransaction"></span>
+                    </div>
+                </div>
+
+                <div class="tnx-form-section">
+                    <span class="tnx-form-section-label">
+                        <i class="fa-solid fa-circle-dot"></i> Notes
+                    </span>
+                    <div class="tnx-field">
+                        <label for="f-solde">Solde après</label>
+                        <div class="tnx-amount-wrap">
+                            <span class="tnx-amount-prefix">DT</span>
+                            <input id="f-solde" type="number" step="0.01" name="soldeApres"
+                                   placeholder="0.00"
+                                   value="{{ edit_item ? edit_item.soldeApres|default('') : '' }}">
+                        </div>
+                        <span id="msg-soldeApres" style="font-size:12px;font-weight:600;margin-top:4px;display:block;"></span>
+                    </div>
+                    <div class="tnx-field">
+                        <label for="f-desc">Description</label>
+                        <textarea id="f-desc" name="description" rows="3"
+                                  placeholder="Details de l'operation...">{{ edit_item ? edit_item.description|default('') : '' }}</textarea>
+                        <span id="msg-description" style="font-size:12px;font-weight:600;margin-top:4px;display:block;"></span>
+                    </div>
+                </div>
+
+                <div class="tnx-form-actions">
+                    <a href="{{ path(route_name, { tab: 'transactions' }) }}"
+                       class="tnx-act-btn tnx-act-btn--ghost" style="text-decoration:none;">
+                        <i class="fa-solid fa-rotate-left"></i> Vider
+                    </a>
+                    {% if edit_item %}
+                        <button class="tnx-act-btn tnx-act-btn--del" type="submit"
+                                name="action" value="transaction_delete" formnovalidate
+                                onclick="return confirm('Supprimer cette transaction ?')">
+                            <i class="fa-solid fa-trash-can"></i> Supprimer
+                        </button>
+                    {% endif %}
+                    <button class="tnx-act-btn tnx-act-btn--save" type="submit"
+                            name="action" value="transaction_save">
+                        <i class="fa-solid fa-floppy-disk"></i> Enregistrer
+                    </button>
+                </div>
+
+            </form>
+        </aside>
+
+        {# ── RIGHT PANEL: HISTORY ── #}
+        <main class="tnx-panel">
+
+            <div class="tnx-panel-topbar">
+                <div class="tnx-panel-title">
+                    <div class="tnx-panel-title-icon">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                    </div>
+                    <div>
+                        <h2>Historique</h2>
+                        <p>{{ transaction_total }} transaction{{ transaction_total > 1 ? 's' : '' }} enregistree{{ transaction_total > 1 ? 's' : '' }}</p>
+                    </div>
+                </div>
+
+                <div class="tnx-panel-controls">
+                    <div class="tnx-search-box">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" placeholder="Rechercher une transaction...">
+                    </div>
+                    <select class="tnx-sort-select">
+                        <option>Date recente</option>
+                        <option>Date ancienne</option>
+                        <option>Montant decroissant</option>
+                        <option>Montant croissant</option>
+                        <option>Statut A-Z</option>
+                    </select>
+                </div>
+            </div>
+
+            {# Filter chips #}
+            <div class="tnx-chips">
+                <button class="tnx-chip tnx-chip--active">Tout</button>
+                <button class="tnx-chip">Credits</button>
+                <button class="tnx-chip">Debits</button>
+                <button class="tnx-chip">En attente</button>
+                <button class="tnx-chip">Terminees</button>
+            </div>
+
+            {# Timeline list #}
+            <div class="tnx-timeline">
+                {% for item in items %}
+                    {% set amount = item.montant_value|default(0) %}
+                    {% set type_key = item.typeTransaction|default('credit')|lower %}
+                    {% set status_key = item.statutTransaction|default('terminee')|lower %}
+                    {% set is_debit = 'debit' in type_key %}
+                    {% set badge_class = 'is-ok' %}
+                    {% if 'attente' in status_key %}
+                        {% set badge_class = 'is-wait' %}
+                    {% elseif 'echoue' in status_key or 'annule' in status_key %}
+                        {% set badge_class = 'is-fail' %}
+                    {% endif %}
+
+                    <div class="tnx-row {{ is_debit ? 'tnx-row--debit' : 'tnx-row--credit' }} {{ edit_item and edit_item.idTransaction ~ '' == item.idTransaction ~ '' ? 'tnx-row--selected' : '' }}">
+
+                        {# Timeline dot #}
+                        <div class="tnx-row-dot">
+                            <span class="tnx-row-dot-ring"></span>
+                            <i class="fa-solid {{ is_debit ? 'fa-arrow-down' : 'fa-arrow-up' }}"></i>
+                        </div>
+
+                        {# Card body — cliquable pour charger dans le formulaire #}
+                        <div class="tnx-row-card">
+
+                            <a href="{{ path(route_name, { tab: 'transactions', edit_id: item.idTransaction }) }}#tnx-form-anchor"
+                               class="tnx-row-card-main tnx-row-card-clickable"
+                               title="Cliquer pour modifier cette transaction">
+                                <div class="tnx-row-card-info">
+                                    <div class="tnx-row-card-top">
+                                        <span class="tnx-row-cat">{{ item.categorie|default('Transaction') }}</span>
+                                        <span class="tnx-row-badge tnx-row-badge--{{ badge_class }}">
+                                            {% if badge_class == 'is-ok' %}
+                                                <i class="fa-solid fa-check"></i>
+                                            {% elseif badge_class == 'is-wait' %}
+                                                <i class="fa-solid fa-clock"></i>
+                                            {% else %}
+                                                <i class="fa-solid fa-xmark"></i>
+                                            {% endif %}
+                                            {{ item.statutTransaction|default('Terminee') }}
+                                        </span>
+                                    </div>
+                                    <p class="tnx-row-meta">
+                                        <i class="fa-regular fa-calendar"></i>
+                                        {{ item.dateTransaction|default('-') }}
+                                        &nbsp;·&nbsp;
+                                        <i class="fa-regular fa-user"></i>
+                                        {{ item.user_name|default('Utilisateur')|trim }}
+                                        &nbsp;·&nbsp;
+                                        {{ item.typeTransaction|default('Credit') }}
+                                    </p>
+                                    <div class="tnx-row-progress">
+                                        <div class="tnx-row-progress-fill {{ badge_class }}" style="width: {{ badge_class == 'is-ok' ? '100%' : (badge_class == 'is-wait' ? '56%' : '28%') }};"></div>
+                                    </div>
+                                </div>
+
+                                <div class="tnx-row-card-right">
+                                    <strong class="tnx-row-amount {{ is_debit ? 'tnx-row-amount--debit' : 'tnx-row-amount--credit' }}">
+                                        {{ is_debit ? '−' : '+' }}{{ amount|number_format(2, '.', ' ') }}<em>DT</em>
+                                    </strong>
+                                    <span class="tnx-row-edit-hint">
+                                        <i class="fa-solid fa-pen-to-square"></i>
+                                    </span>
+                                </div>
+                            </a>
+
+                            <div class="tnx-row-card-footer">
+                                <a class="tnx-row-action tnx-row-action--edit"
+                                   href="{{ path(route_name, { tab: 'transactions', edit_id: item.idTransaction }) }}#tnx-form-anchor"
+                                   title="Modifier">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                    <span>Modifier</span>
+                                </a>
+                                <a class="tnx-row-action tnx-row-action--qr" href="{{ path('portal_feature_transaction_qr', { id: item.idTransaction }) }}" title="QR Code">
+                                    <i class="fa-solid fa-qrcode"></i>
+                                    <span>QR</span>
+                                </a>
+                                {% set show_rec_id = app.request.query.get('show_reclamation')|default('') %}
+                                {% if show_rec_id ~ '' == item.idTransaction ~ '' %}
+                                    <a class="tnx-row-action tnx-row-action--flag"
+                                       href="{{ path(route_name, { tab: 'transactions' }) }}"
+                                       title="Fermer réclamation"
+                                       style="background:rgba(185,28,28,.15);color:#b91c1c;">
+                                        <i class="fa-solid fa-xmark"></i>
+                                        <span>Fermer</span>
+                                    </a>
+                                {% else %}
+                                    <a class="tnx-row-action tnx-row-action--flag"
+                                       href="{{ path(route_name, { tab: 'transactions', show_reclamation: item.idTransaction }) }}"
+                                       title="Reclamation">
+                                        <i class="fa-solid fa-flag"></i>
+                                        <span>Reclamation</span>
+                                    </a>
+                                {% endif %}
+                                <a class="tnx-row-action tnx-row-action--eye" href="{{ path('portal_features', { section: 'exports' }) }}" title="Voir">
+                                    <i class="fa-solid fa-eye"></i>
+                                    <span>Voir</span>
+                                </a>
+                                <form method="post" class="tnx-row-del-form">
+                                    <input type="hidden" name="tab" value="transactions">
+                                    <input type="hidden" name="action" value="transaction_delete">
+                                    <input type="hidden" name="idTransaction" value="{{ item.idTransaction }}">
+                                    <button class="tnx-row-action tnx-row-action--del" type="submit" title="Supprimer">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                        <span>Suppr.</span>
+                                    </button>
+                                </form>
+                            </div>
+
+                            {# ── FORMULAIRE RÉCLAMATION INLINE ── #}
+                            {% set show_rec_id = app.request.query.get('show_reclamation')|default('') %}
+                            {% if show_rec_id ~ '' == item.idTransaction ~ '' %}
+                                {% set all_reclamations = support.reclamations|default([]) %}
+                                {% set linked_recs = [] %}
+                                {% for r in all_reclamations %}
+                                    {% if r.idTransaction ~ '' == item.idTransaction ~ '' %}
+                                        {% set linked_recs = linked_recs|merge([r]) %}
+                                    {% endif %}
+                                {% endfor %}
+
+                                {# Résolution de la réclamation à modifier #}
+                                {% set edit_rec_id = app.request.query.get('edit_rec')|default('') %}
+                                {% set edit_rec = null %}
+                                {% if edit_rec_id %}
+                                    {% for r in linked_recs %}
+                                        {% if r.idReclamation ~ '' == edit_rec_id ~ '' %}
+                                            {% set edit_rec = r %}
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endif %}
+
+                                <div style="border-top:2px solid #fecaca;margin-top:4px;padding:16px 0 4px;">
+
+                                    {# Formulaire ajout/modification réclamation #}
+                                    <div style="background:#fff5f5;border:1px solid #fecaca;border-radius:14px;padding:16px;margin-bottom:14px;">
+                                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+                                            <div style="width:32px;height:32px;border-radius:9px;background:{{ edit_rec ? '#2563eb' : '#dc2626' }};display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;flex-shrink:0;">
+                                                <i class="fa-solid {{ edit_rec ? 'fa-pen' : 'fa-flag' }}"></i>
+                                            </div>
+                                            <strong style="font-size:13px;color:#991b1b;">
+                                                {{ edit_rec ? 'Modifier la réclamation #' ~ edit_rec.idReclamation : 'Nouvelle réclamation' }}
+                                            </strong>
+                                            {% if edit_rec %}
+                                                <a href="{{ path(route_name, { tab: 'transactions', show_reclamation: item.idTransaction }) }}"
+                                                   style="margin-left:auto;font-size:11px;color:#6b7280;text-decoration:none;display:flex;align-items:center;gap:4px;">
+                                                    <i class="fa-solid fa-plus"></i> Nouvelle
+                                                </a>
+                                            {% endif %}
+                                        </div>
+                                        <form method="post"
+                                              action="{{ path(route_name, { tab: 'transactions', show_reclamation: item.idTransaction }) }}" novalidate>
+                                            <input type="hidden" name="tab"           value="transactions">
+                                            <input type="hidden" name="action"        value="reclamation_save">
+                                            <input type="hidden" name="idTransaction" value="{{ item.idTransaction }}">
+                                            {% if edit_rec %}
+                                                <input type="hidden" name="idReclamation" value="{{ edit_rec.idReclamation }}">
+                                            {% endif %}
+                                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+                                                <div>
+                                                    <label style="font-size:11px;font-weight:700;color:#7f1d1d;display:block;margin-bottom:4px;">Date <span style="color:#dc2626">*</span></label>
+                                                    <input type="date" name="dateReclamation" class="rec-input"
+                                                           value="{{ edit_rec ? edit_rec.dateReclamation|default('now'|date('Y-m-d')) : 'now'|date('Y-m-d') }}"
+                                                           style="width:100%;height:38px;border-radius:9px;border:1px solid #fca5a5;background:#fff;padding:0 10px;font-size:12px;color:#0a2540;outline:none;box-sizing:border-box;transition:border-color .2s;">
+                                                    <span class="rec-msg" data-field="dateReclamation" style="font-size:11px;font-weight:600;margin-top:3px;display:block;"></span>
+                                                </div>
+                                                <div>
+                                                    <label style="font-size:11px;font-weight:700;color:#7f1d1d;display:block;margin-bottom:4px;">Type <span style="color:#dc2626">*</span></label>
+                                                    <select name="typeReclamation" class="rec-input"
+                                                            style="width:100%;height:38px;border-radius:9px;border:1px solid #fca5a5;background:#fff;padding:0 10px;font-size:12px;color:#0a2540;outline:none;box-sizing:border-box;transition:border-color .2s;">
+                                                        <option value="">— Sélectionner —</option>
+                                                        {% for opt in ['Echec de montant', 'Virement non recu', 'Erreur de transaction', 'Probleme de connexion au compte'] %}
+                                                            <option value="{{ opt }}"
+                                                                {{ edit_rec and edit_rec.typeReclamation == opt ? 'selected' : '' }}>
+                                                                {{ opt }}
+                                                            </option>
+                                                        {% endfor %}
+                                                    </select>
+                                                    <span class="rec-msg" data-field="typeReclamation" style="font-size:11px;font-weight:600;margin-top:3px;display:block;"></span>
+                                                </div>
+                                            </div>
+                                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+                                                <div>
+                                                    <label style="font-size:11px;font-weight:700;color:#7f1d1d;display:block;margin-bottom:4px;">Statut</label>
+                                                    <select name="status" class="rec-input"
+                                                            style="width:100%;height:38px;border-radius:9px;border:1px solid #fca5a5;background:#fff;padding:0 10px;font-size:12px;color:#0a2540;outline:none;box-sizing:border-box;transition:border-color .2s;">
+                                                        {% for opt in ['En attente', 'Bloque', 'Ferme', 'Valide'] %}
+                                                            <option value="{{ opt }}"
+                                                                {{ edit_rec and edit_rec.status == opt ? 'selected' : (not edit_rec and opt == 'En attente' ? 'selected' : '') }}>
+                                                                {{ opt }}
+                                                            </option>
+                                                        {% endfor %}
+                                                    </select>
+                                                    <span class="rec-msg" data-field="status" style="font-size:11px;font-weight:600;margin-top:3px;display:block;"></span>
+                                                </div>
+                                                <div>
+                                                    <label style="font-size:11px;font-weight:700;color:#7f1d1d;display:block;margin-bottom:4px;">Transaction</label>
+                                                    <select name="idTransaction" class="rec-input"
+                                                            style="width:100%;height:38px;border-radius:9px;border:1px solid #fca5a5;background:#fff;padding:0 10px;font-size:12px;color:#0a2540;outline:none;box-sizing:border-box;transition:border-color .2s;">
+                                                        {% for t in items %}
+                                                            <option value="{{ t.idTransaction }}"
+                                                                {{ t.idTransaction ~ '' == item.idTransaction ~ '' ? 'selected' : '' }}>
+                                                                #{{ t.idTransaction }} — {{ t.categorie|default('') }}
+                                                            </option>
+                                                        {% endfor %}
+                                                    </select>
+                                                    <span class="rec-msg" data-field="idTransaction" style="font-size:11px;font-weight:600;margin-top:3px;display:block;"></span>
+                                                </div>
+                                            </div>
+                                            <div style="margin-bottom:10px;">
+                                                <label style="font-size:11px;font-weight:700;color:#7f1d1d;display:block;margin-bottom:4px;">Description</label>
+                                                <textarea name="description" rows="2" class="rec-input"
+                                                          placeholder="Décrivez le problème..."
+                                                          style="width:100%;border-radius:9px;border:1px solid #fca5a5;background:#fff;padding:8px 10px;font-size:12px;color:#0a2540;outline:none;resize:vertical;font-family:inherit;box-sizing:border-box;transition:border-color .2s;">{{ edit_rec ? edit_rec.description|default('') : '' }}</textarea>
+                                                <span class="rec-msg" data-field="description" style="font-size:11px;font-weight:600;margin-top:3px;display:block;"></span>
+                                            </div>
+                                            <div style="display:flex;justify-content:flex-end;gap:8px;">
+                                                <a href="{{ path(route_name, { tab: 'transactions' }) }}"
+                                                   style="height:36px;padding:0 14px;border-radius:9px;border:1px solid #fca5a5;background:#fff;color:#991b1b;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;text-decoration:none;">
+                                                    <i class="fa-solid fa-xmark"></i> Annuler
+                                                </a>
+                                                <button type="submit"
+                                                        style="height:36px;padding:0 16px;border-radius:9px;border:0;background:{{ edit_rec ? '#2563eb' : '#dc2626' }};color:#fff;font-size:12px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                                                    <i class="fa-solid fa-paper-plane"></i>
+                                                    {{ edit_rec ? 'Mettre à jour' : 'Envoyer Réclamation' }}
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+
+                                    {# Cartes des réclamations liées #}
+                                    {% if linked_recs is not empty %}
+                                        <div style="display:flex;flex-direction:column;gap:8px;">
+                                            {% for rec in linked_recs %}
+                                                {% set rs = rec.status|default('En attente')|lower %}
+                                                {% set rc = rs == 'valide' ? '#16a34a' : (rs == 'ferme' ? '#dc2626' : (rs == 'bloque' ? '#d97706' : '#2563eb')) %}
+                                                {% set rb = rs == 'valide' ? 'rgba(34,197,94,.08)' : (rs == 'ferme' ? 'rgba(220,38,38,.08)' : (rs == 'bloque' ? 'rgba(217,119,6,.08)' : 'rgba(37,99,235,.08)')) %}
+                                                <div style="background:{{ rb }};border:1px solid {{ rc }};border-radius:12px;padding:12px 14px;display:flex;align-items:flex-start;gap:12px;">
+                                                    <div style="width:34px;height:34px;border-radius:9px;background:{{ rc }};display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;flex-shrink:0;">
+                                                        <i class="fa-solid fa-flag"></i>
+                                                    </div>
+                                                    <div style="flex:1;min-width:0;">
+                                                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+                                                            <strong style="font-size:12px;color:#0a2540;">{{ rec.typeReclamation|default('Réclamation') }}</strong>
+                                                            <span style="padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;background:{{ rc }};color:#fff;">{{ rec.status|default('En attente') }}</span>
+                                                            <span style="font-size:11px;color:#7294ae;margin-left:auto;">{{ rec.dateReclamation|default('—') }}</span>
+                                                        </div>
+                                                        {% if rec.description %}
+                                                            <p style="font-size:11px;color:#5b80a0;margin:0;line-height:1.4;">{{ rec.description }}</p>
+                                                        {% endif %}
+                                                    </div>
+                                                    <div style="display:flex;gap:6px;flex-shrink:0;">
+                                                        <a href="{{ path(route_name, { tab: 'transactions', show_reclamation: item.idTransaction, edit_rec: rec.idReclamation }) }}"
+                                                           style="width:30px;height:30px;border-radius:8px;background:#eef4ff;color:#2563eb;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:12px;"
+                                                           title="Modifier">
+                                                            <i class="fa-solid fa-pen"></i>
+                                                        </a>
+                                                        <form method="post" style="display:inline"
+                                                              onsubmit="return confirm('Supprimer cette réclamation ?')">
+                                                            <input type="hidden" name="tab"           value="transactions">
+                                                            <input type="hidden" name="action"        value="reclamation_delete">
+                                                            <input type="hidden" name="idReclamation" value="{{ rec.idReclamation }}">
+                                                            <button type="submit"
+                                                                    style="width:30px;height:30px;border-radius:8px;border:0;background:#fff1f2;color:#e11d48;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;"
+                                                                    title="Supprimer">
+                                                                <i class="fa-solid fa-trash"></i>
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+
+                        </div>
+                    </div>
+
+                {% else %}
+                    <div class="tnx-empty">
+                        <div class="tnx-empty-icon">
+                            <i class="fa-solid fa-receipt"></i>
+                        </div>
+                        <h3>Aucune transaction trouvee</h3>
+                        <p>Ajoutez votre premiere operation pour commencer le suivi.</p>
+                        <a class="tnx-empty-cta" href="#tnx-form-anchor">
+                            <i class="fa-solid fa-plus"></i> Creer une transaction
+                        </a>
+                    </div>
+                {% endfor %}
+            </div>
+
+            {# Pagination footer #}
+            <div class="tnx-footer">
+                <span class="tnx-footer-info">
+                    Affichage <strong>{{ items is empty ? '0' : '1–' ~ items|length }}</strong> sur <strong>{{ items|length }}</strong>
+                </span>
+                <div class="tnx-pager">
+                    <button type="button" class="tnx-pager-btn" aria-label="Precedent">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <button type="button" class="tnx-pager-btn tnx-pager-btn--active">
+                        {{ items is empty ? 0 : 1 }}
+                    </button>
+                    <button type="button" class="tnx-pager-btn" aria-label="Suivant">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                </div>
+                <span class="tnx-footer-month">
+                    <i class="fa-regular fa-calendar-check"></i>
+                    {{ operations_month }} op{{ operations_month > 1 ? 's' : '' }} ce mois
+                </span>
+            </div>
+
+        </main>
+    </div>
+
+</section>
+
+
+
+<style>
+/* Validation transaction */
+.tnx-field input.f-invalid,.tnx-field select.f-invalid,.tnx-field textarea.f-invalid{border-color:#dc2626!important;box-shadow:0 0 0 3px rgba(220,38,38,.12)!important;background:#fff5f5!important}
+.tnx-field input.f-valid,.tnx-field select.f-valid,.tnx-field textarea.f-valid{border-color:#16a34a!important;box-shadow:0 0 0 3px rgba(22,163,74,.1)!important;background:#f0fdf4!important}
+.f-err{color:#dc2626;font-size:12px;font-weight:600}
+.f-ok{color:#16a34a;font-size:12px;font-weight:600}
+</style>
+<script>
+(function(){
+var today=new Date();today.setHours(0,0,0,0);
+
+/* Show message in a dedicated span by ID */
+function showOk(spanId,el){
+  var s=document.getElementById(spanId);
+  if(s){s.className='f-ok';s.textContent='✓ Valide';}
+  if(el){el.classList.remove('f-invalid');el.classList.add('f-valid');}
+}
+function showErr(spanId,el,msg){
+  var s=document.getElementById(spanId);
+  if(s){s.className='f-err';s.textContent='⚠ '+msg;}
+  if(el){el.classList.remove('f-valid');el.classList.add('f-invalid');}
+}
+function clearMsg(spanId,el){
+  var s=document.getElementById(spanId);
+  if(s){s.className='';s.textContent='';}
+  if(el){el.classList.remove('f-valid','f-invalid');}
+}
+
+var tf=document.getElementById('transaction-form');
+if(!tf)return;
+
+function vCategorie(){
+  var el=document.getElementById('f-cat');
+  if(!el)return true;
+  if(!el.value){showErr('msg-categorie',el,'Sélectionner une catégorie.');return false;}
+  showOk('msg-categorie',el);return true;
+}
+function vType(){
+  var chk=tf.querySelector('input[name="typeTransaction"]:checked');
+  var s=document.getElementById('msg-typeTransaction');
+  if(!chk){if(s){s.className='f-err';s.textContent='⚠ Sélectionner un type.';}return false;}
+  if(s){s.className='f-ok';s.textContent='✓ Valide';}return true;
+}
+function vMontant(){
+  var el=document.getElementById('f-amount');
+  if(!el)return true;
+  var v=el.value.trim();
+  if(!v){showErr('msg-montant',el,'Le montant est obligatoire.');return false;}
+  if(parseFloat(v)<=0){showErr('msg-montant',el,'Doit être > 0.');return false;}
+  showOk('msg-montant',el);return true;
+}
+function vDate(){
+  var el=document.getElementById('f-date');
+  if(!el)return true;
+  if(!el.value){showErr('msg-dateTransaction',el,'La date est obligatoire.');return false;}
+  var d=new Date(el.value);d.setHours(0,0,0,0);
+  if(d>today){showErr('msg-dateTransaction',el,"Ne doit pas être dans le futur.");return false;}
+  showOk('msg-dateTransaction',el);return true;
+}
+function vSolde(){
+  var el=document.getElementById('f-solde');
+  if(!el||el.value.trim()===''){clearMsg('msg-soldeApres',el);return true;}
+  if(parseFloat(el.value)<0){showErr('msg-soldeApres',el,'Doit être ≥ 0.');return false;}
+  showOk('msg-soldeApres',el);return true;
+}
+function vDesc(){
+  var el=document.getElementById('f-desc');
+  if(!el||el.value.trim()===''){clearMsg('msg-description',el);return true;}
+  if(el.value.trim().length<10){showErr('msg-description',el,'Min. 10 caractères.');return false;}
+  showOk('msg-description',el);return true;
+}
+
+/* Live validation */
+var cat=document.getElementById('f-cat');
+if(cat){cat.addEventListener('change',vCategorie);}
+tf.querySelectorAll('input[name="typeTransaction"]').forEach(function(r){r.addEventListener('change',vType);});
+var amt=document.getElementById('f-amount');
+if(amt){['input','blur'].forEach(function(e){amt.addEventListener(e,vMontant);});}
+var dt=document.getElementById('f-date');
+if(dt){dt.addEventListener('change',vDate);}
+var sl=document.getElementById('f-solde');
+if(sl){['input','blur'].forEach(function(e){sl.addEventListener(e,vSolde);});}
+var dc=document.getElementById('f-desc');
+if(dc){['input','blur'].forEach(function(e){dc.addEventListener(e,vDesc);});}
+
+/* Submit */
+tf.addEventListener('submit',function(e){
+  var ok=vCategorie()&vType()&vMontant()&vDate();
+  vSolde();vDesc();
+  if(!ok)e.preventDefault();
+});
+})();
+</script>
+
+<script>
+/* ── Validation formulaires Réclamation ── */
+(function(){
+function wireRecForm(form){
+  /* Helpers — cible le span.rec-msg[data-field=X] dans ce formulaire */
+  function getSpan(name){
+    return form.querySelector('.rec-msg[data-field="'+name+'"]');
+  }
+  function getEl(name){
+    return form.querySelector('[name="'+name+'"]');
+  }
+  function setOk(name){
+    var el=getEl(name),s=getSpan(name);
+    if(el){el.style.borderColor='#16a34a';el.style.background='#f0fdf4';}
+    if(s){s.style.color='#16a34a';s.textContent='✓ Valide';}
+    return true;
+  }
+  function setErr(name,msg){
+    var el=getEl(name),s=getSpan(name);
+    if(el){el.style.borderColor='#dc2626';el.style.background='#fff5f5';}
+    if(s){s.style.color='#dc2626';s.textContent='⚠ '+msg;}
+    return false;
+  }
+  function clr(name){
+    var el=getEl(name),s=getSpan(name);
+    if(el){el.style.borderColor='';el.style.background='';}
+    if(s){s.textContent='';}
+    return true;
+  }
+
+  function vDate(){
+    var el=getEl('dateReclamation');
+    if(!el)return true;
+    return el.value?setOk('dateReclamation'):setErr('dateReclamation','La date est obligatoire.');
+  }
+  function vType(){
+    var el=getEl('typeReclamation');
+    if(!el)return true;
+    return el.value?setOk('typeReclamation'):setErr('typeReclamation','Sélectionner un type.');
+  }
+  function vDesc(){
+    var el=getEl('description');
+    if(!el||el.value.trim()==='')return clr('description');
+    return setOk('description');
+  }
+
+  /* Live */
+  var d=getEl('dateReclamation');
+  if(d){['change','blur'].forEach(function(e){d.addEventListener(e,vDate);});}
+  var t=getEl('typeReclamation');
+  if(t){t.addEventListener('change',vType);}
+  var dc=getEl('description');
+  if(dc){['input','blur'].forEach(function(e){dc.addEventListener(e,vDesc);});}
+
+  /* Submit */
+  form.addEventListener('submit',function(e){
+    var ok=vDate()&vType();
+    vDesc();
+    if(!ok)e.preventDefault();
+  });
+}
+
+/* Wire tous les formulaires réclamation présents */
+document.querySelectorAll('form input[name="action"][value="reclamation_save"]').forEach(function(i){
+  var f=i.closest('form');
+  if(f)wireRecForm(f);
+});
+})();
+</script>

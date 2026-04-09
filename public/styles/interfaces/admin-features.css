@@ -1,0 +1,29 @@
+@import url('/styles/interfaces/admin-main.css');
+
+body.admin-main-body .bar-list {
+    display: grid;
+    gap: 12px;
+}
+
+body.admin-main-body .bar-item {
+    display: grid;
+    gap: 8px;
+}
+
+body.admin-main-body .bar-head {
+    display: flex;
+    justify-content: space-between;
+}
+
+body.admin-main-body .bar-track {
+    border-radius: 999px;
+    background: #eaf1f8;
+    height: 10px;
+    overflow: hidden;
+}
+
+body.admin-main-body .bar-track span {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, #1dc8b0, #5be8d5);
+}

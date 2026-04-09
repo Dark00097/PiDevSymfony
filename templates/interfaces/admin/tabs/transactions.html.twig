@@ -1,0 +1,981 @@
+{% set active_panel = panel|default(support.active_panel|default('transaction')) %}
+{% set transaction_items = support.transactions|default(items) %}
+{% set reclamation_items = support.reclamations|default([]) %}
+{% set accounts = support.accounts|default([]) %}
+{% set all_transaction_items = support.all_transactions|default(transaction_items) %}
+{% set transaction_categories = support.transaction_categories|default(['Alimentation', 'Education', 'Loyer', 'Restaurant', 'Vetements', 'Assurance sante']) %}
+{% set transaction_types = support.transaction_types|default(['Credit', 'Debit']) %}
+{% set transaction_sort_fields = support.transaction_sort_fields|default({}) %}
+{% set transaction_query = support.transaction_query|default({ q: '', sort: 'dateTransaction', dir: 'desc', edit_id: null, view_id: null }) %}
+{% set transaction_stats = support.transaction_stats|default({ total: 0, total_amount: 0, categories: [] }) %}
+{% set edit_transaction = support.edit_transaction|default(null) %}
+{% set view_transaction = support.view_transaction|default(null) %}
+{% set tx = edit_transaction ?? {} %}
+{% set reclamation_transactions = support.reclamation_transactions|default(all_transaction_items) %}
+{% set reclamation_types = support.reclamation_types|default(['Echec de montant', 'Virement non recu', 'Erreur de transaction', 'Probleme de connexion au compte']) %}
+{% set reclamation_statuses = support.reclamation_statuses|default(['Valide', 'Ferme', 'Attende']) %}
+{% set reclamation_sort_fields = support.reclamation_sort_fields|default({}) %}
+{% set reclamation_query = support.reclamation_query|default({ q: '', sort: 'dateReclamation', dir: 'desc', edit_id: null, view_id: null }) %}
+{% set edit_reclamation = support.edit_reclamation|default(null) %}
+{% set view_reclamation = support.view_reclamation|default(null) %}
+{% set rec = edit_reclamation ?? {} %}
+
+<style>
+:root{--na-bg:#f0f4f9;--na-surface:#fff;--na-border:#e4ecf4;--na-txt:#1a2b3c;--na-muted:#6b85a0;--na-radius:14px;--na-shadow:0 2px 16px rgba(0,0,0,.07);--na-shadow-lg:0 6px 32px rgba(0,0,0,.1);--na-teal:#11b7aa;--na-teal-dk:#0d9e93;--na-blue:#2b7de9;--na-gold:#e8a202}
+.nx-tx{display:flex;flex-direction:column;gap:1.5rem;padding:1.75rem 2rem;background:var(--na-bg);min-height:100%;font-family:'Inter',system-ui,sans-serif;color:var(--na-txt)}
+.nx-tx__hero{display:flex;align-items:center;justify-content:space-between;gap:1.25rem;background:linear-gradient(135deg,#1a2b3c 0%,#1e3448 60%,#1a3050 100%);border-radius:var(--na-radius);padding:1.5rem 1.8rem;box-shadow:var(--na-shadow-lg);flex-wrap:wrap;position:relative;overflow:hidden}
+.nx-tx__hero::before{content:'';position:absolute;width:260px;height:260px;top:-80px;right:-50px;border-radius:50%;background:radial-gradient(circle,rgba(17,183,170,.22) 0%,transparent 70%)}
+.nx-tx__hero::after{content:'';position:absolute;width:160px;height:160px;bottom:-60px;left:30%;border-radius:50%;background:radial-gradient(circle,rgba(43,125,233,.18) 0%,transparent 70%)}
+.nx-tx__hero-left,.nx-tx__hero-actions,.nx-tx__tabs,.nx-tx__search,.nx-tx__form-actions,.nx-tx__act-group{display:flex;align-items:center;gap:.65rem;flex-wrap:wrap}.nx-tx__hero-left{position:relative;z-index:1}.nx-tx__hero-actions{position:relative;z-index:1}
+.nx-tx__hero-icon{width:50px;height:50px;border-radius:13px;background:linear-gradient(135deg,var(--na-teal),var(--na-teal-dk));display:grid;place-items:center;font-size:1.3rem;color:#fff;box-shadow:0 4px 16px rgba(17,183,170,.4)}
+.nx-tx__hero-text h2{font-size:1.1rem;font-weight:800;color:#fff;margin:0 0 .25rem}.nx-tx__hero-text p{font-size:.76rem;color:rgba(255,255,255,.56);margin:0}
+.na-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.52rem 1.1rem;border-radius:9px;font-size:.82rem;font-weight:600;border:none;cursor:pointer;text-decoration:none;transition:all .2s ease;font-family:inherit;white-space:nowrap}
+.na-btn--primary{background:linear-gradient(135deg,var(--na-teal),var(--na-teal-dk));color:#fff;box-shadow:0 3px 10px rgba(17,183,170,.35)}.na-btn--ghost{background:rgba(255,255,255,.1);color:rgba(255,255,255,.88);border:1px solid rgba(255,255,255,.18);backdrop-filter:blur(4px)}.na-btn--save{background:linear-gradient(135deg,var(--na-teal),var(--na-teal-dk));color:#fff;box-shadow:0 3px 10px rgba(17,183,170,.3)}.na-btn--reset{background:var(--na-bg);color:var(--na-muted);border:1px solid var(--na-border)}
+.nx-tx__tabs{background:var(--na-surface);border:1px solid var(--na-border);border-radius:var(--na-radius);padding:.55rem .65rem;box-shadow:var(--na-shadow)}.nx-tx__tab{display:inline-flex;align-items:center;gap:.45rem;padding:.5rem 1.1rem;border-radius:9px;font-size:.82rem;font-weight:600;color:var(--na-muted);text-decoration:none;transition:all .2s ease;border:1px solid transparent}.nx-tx__tab.is-active{background:linear-gradient(135deg,var(--na-teal),var(--na-teal-dk));color:#fff;box-shadow:0 3px 10px rgba(17,183,170,.3)}.nx-tx__tabs-spacer{flex:1}.nx-tx__stats-link{display:inline-flex;align-items:center;gap:.4rem;padding:.5rem 1rem;border-radius:9px;font-size:.78rem;font-weight:600;color:var(--na-blue);background:rgba(43,125,233,.07);border:1px solid rgba(43,125,233,.18);cursor:pointer}
+.nx-tx__stats-panel{display:none;background:linear-gradient(180deg,#f8fbff 0%,#eef5fd 100%);border-radius:18px;padding:1rem 1.1rem;border:1px solid #dce7f4;box-shadow:var(--na-shadow)}.nx-tx__stats-panel.is-open{display:block;animation:nxTxReveal .35s ease}
+.nx-tx__stats-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1rem;flex-wrap:wrap}.nx-tx__stats-head h3{margin:0 0 .2rem;font-size:1rem;font-weight:800;color:var(--na-txt)}.nx-tx__stats-head p{margin:0;color:var(--na-muted);font-size:.76rem}.nx-tx__stats-close{width:38px;height:38px;border:none;border-radius:12px;background:#fff;color:var(--na-muted);cursor:pointer;border:1px solid var(--na-border)}
+.nx-tx__stats-card{display:grid;grid-template-columns:240px 1fr;gap:1.1rem;align-items:center;background:#fff;border:1px solid var(--na-border);border-radius:16px;padding:1rem;box-shadow:0 10px 25px rgba(148,163,184,.08)}
+.nx-tx__stats-donut-wrap{display:flex;align-items:center;justify-content:center;min-height:220px}
+.nx-tx__stats-donut{width:160px;height:160px;border-radius:50%;position:relative;background:conic-gradient(#14b8a6 0 100%)}
+.nx-tx__stats-donut::before{content:'';position:absolute;inset:26px;border-radius:50%;background:#fff;box-shadow:inset 0 0 0 1px #e2e8f0}
+.nx-tx__stats-center{position:absolute;inset:0;display:grid;place-items:center;text-align:center;z-index:1;padding:0 1.1rem}
+.nx-tx__stats-center strong{display:block;font-size:1.8rem;line-height:1;color:var(--na-txt)}
+.nx-tx__stats-center small{display:block;margin-top:.28rem;color:var(--na-muted);font-size:.74rem}
+.nx-tx__stats-legend{display:flex;flex-direction:column;gap:.6rem}
+.nx-tx__stats-row{display:grid;grid-template-columns:1fr auto auto auto;gap:.7rem;align-items:center;padding:.78rem .9rem;border-radius:12px;background:#f8fbff;border:1px solid #dce7f4}
+.nx-tx__stats-row strong{font-size:.83rem;color:var(--na-txt)}
+.nx-tx__stats-row span{font-size:.79rem;color:var(--na-muted)}
+.nx-tx__stats-row b{font-size:.86rem;color:var(--na-txt)}
+.nx-tx__stats-dot{width:10px;height:10px;border-radius:999px;display:inline-block;margin-right:.55rem;vertical-align:middle}
+.nx-tx__kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}.nx-tx__kpi{background:var(--na-surface);border:1px solid var(--na-border);border-radius:var(--na-radius);padding:1.1rem 1.25rem;box-shadow:var(--na-shadow);display:flex;align-items:center;gap:1rem;position:relative}.nx-tx__kpi::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:3px 0 0 3px}.nx-tx__kpi:nth-child(1)::after{background:var(--na-teal)}.nx-tx__kpi:nth-child(2)::after{background:var(--na-blue)}.nx-tx__kpi:nth-child(3)::after{background:var(--na-gold)}
+.nx-tx__kpi-icon{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;font-size:1.05rem}.nx-tx__kpi:nth-child(1) .nx-tx__kpi-icon{background:rgba(17,183,170,.1);color:var(--na-teal)}.nx-tx__kpi:nth-child(2) .nx-tx__kpi-icon{background:rgba(43,125,233,.1);color:var(--na-blue)}.nx-tx__kpi:nth-child(3) .nx-tx__kpi-icon{background:rgba(232,162,2,.1);color:var(--na-gold)}.nx-tx__kpi-body strong{display:block;font-size:1.5rem;font-weight:800;color:var(--na-txt);line-height:1;margin-bottom:.18rem}.nx-tx__kpi-body small{font-size:.73rem;color:var(--na-muted);font-weight:500}
+.nx-tx__grid{display:grid;grid-template-columns:280px 1fr;gap:1.15rem;align-items:start}.nx-tx__panel{background:var(--na-surface);border:1px solid var(--na-border);border-radius:var(--na-radius);box-shadow:var(--na-shadow);display:flex;flex-direction:column;overflow:hidden}.nx-tx__panel-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:1rem 1.2rem;border-bottom:1px solid var(--na-border);background:linear-gradient(to right,#fafcff,#f5f8fd);flex-wrap:wrap}.nx-tx__panel-head-left h3{font-size:.9rem;font-weight:700;color:var(--na-txt);margin:0 0 .12rem}.nx-tx__panel-head-left p{font-size:.72rem;color:var(--na-muted);margin:0}
+.nx-tx__form{display:flex;flex-direction:column;gap:.7rem;padding:1rem 1.15rem 1.15rem}.nx-tx__form label{display:flex;flex-direction:column;gap:.3rem;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.45px;color:var(--na-muted)}.nx-tx__form input[type="text"],.nx-tx__form input[type="number"],.nx-tx__form input[type="date"],.nx-tx__form select,.nx-tx__form textarea{width:100%;box-sizing:border-box;border:1px solid var(--na-border);border-radius:9px;font-size:.82rem;color:var(--na-txt);background:var(--na-bg);outline:none;font-family:inherit}.nx-tx__form input[type="text"],.nx-tx__form input[type="number"],.nx-tx__form input[type="date"],.nx-tx__form select{height:38px;padding:0 .8rem}.nx-tx__form textarea{padding:.7rem .8rem;min-height:88px;resize:vertical}.nx-tx__form input:focus,.nx-tx__form select:focus,.nx-tx__form textarea:focus,.nx-tx__search-input:focus,.nx-tx__sort-select:focus{border-color:var(--na-teal);box-shadow:0 0 0 3px rgba(17,183,170,.12);background:#fff}
+.nx-tx__field-feedback{font-size:.7rem;font-weight:600;line-height:1.3;min-height:1rem;text-transform:none;letter-spacing:0}
+.nx-tx__field-feedback.is-error{color:#dc2626}
+.nx-tx__field-feedback.is-valid{color:#16a34a}
+.nx-tx__field-feedback.is-neutral{color:var(--na-muted)}
+.nx-tx__field-input.is-error,.nx-tx__field-input.is-error:focus{border-color:#f87171;box-shadow:0 0 0 3px rgba(248,113,113,.14);background:#fff}
+.nx-tx__field-input.is-valid,.nx-tx__field-input.is-valid:focus{border-color:#4ade80;box-shadow:0 0 0 3px rgba(74,222,128,.14);background:#fff}
+.nx-tx__form-divider{height:1px;background:var(--na-border)}.nx-tx__form-label-id{display:flex;align-items:center;gap:.45rem;font-size:.72rem;font-weight:700;color:var(--na-blue);padding:.5rem .7rem;background:rgba(43,125,233,.06);border:1px solid rgba(43,125,233,.14);border-radius:8px}.nx-tx__form-actions .na-btn{flex:1;justify-content:center}
+.nx-tx__table-wrap{overflow-x:auto}.nx-tx__table{width:100%;border-collapse:collapse;font-size:.8rem}.nx-tx__table thead th{padding:.68rem .9rem;text-align:left;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.55px;color:var(--na-muted);background:var(--na-bg);border-bottom:1px solid var(--na-border);white-space:nowrap}.nx-tx__table tbody td{padding:.78rem .9rem;border-bottom:1px solid var(--na-border);vertical-align:middle;color:var(--na-txt)}
+.nx-tx__table tbody tr:last-child td{border-bottom:none}.nx-tx__table tbody tr{cursor:pointer;transition:background .18s ease,box-shadow .18s ease}.nx-tx__table tbody tr:hover td{background:rgba(17,183,170,.03)}.nx-tx__table tbody tr.is-selected td{background:rgba(17,183,170,.08)}.nx-tx__table tbody tr.is-selected{box-shadow:inset 4px 0 0 var(--na-teal)}
+.nx-tx__search{padding:.75rem 1rem;border-bottom:1px solid var(--na-border)}.nx-tx__search-box{position:relative;flex:1;min-width:190px}.nx-tx__search-wrap{position:relative}.nx-tx__search-wrap i{position:absolute;left:.75rem;top:50%;transform:translateY(-50%);color:var(--na-muted);font-size:.78rem}.nx-tx__search-input{width:100%;height:36px;padding:0 .8rem 0 2rem;border:1px solid var(--na-border);border-radius:8px;font-size:.8rem;color:var(--na-txt);background:var(--na-bg);outline:none;box-sizing:border-box;font-family:inherit}
+.nx-tx__suggestions{position:absolute;left:0;right:0;top:calc(100% + .45rem);background:#fff;border:1px solid var(--na-border);border-radius:14px;box-shadow:0 18px 38px rgba(15,23,42,.12);padding:.45rem;display:grid;gap:.28rem;z-index:20}.nx-tx__suggestions[hidden]{display:none !important}.nx-tx__suggestion{display:flex;align-items:center;justify-content:space-between;gap:.7rem;padding:.58rem .72rem;border:none;border-radius:10px;background:transparent;color:var(--na-txt);text-align:left;cursor:pointer;font-family:inherit}.nx-tx__suggestion:hover{background:rgba(43,125,233,.07)}.nx-tx__suggestion span{font-size:.76rem;color:var(--na-muted)}
+.nx-tx__row-count{font-size:.71rem;font-weight:600;color:var(--na-muted);background:var(--na-bg);border:1px solid var(--na-border);border-radius:20px;padding:.2rem .65rem;white-space:nowrap}.nx-tx__sort-select{height:36px;min-width:170px;padding:0 .8rem;border:1px solid var(--na-border);border-radius:8px;background:var(--na-bg);font-size:.78rem;color:var(--na-txt)}.nx-tx__sort-dir{width:36px;height:36px;border-radius:8px;border:1px solid var(--na-border);background:var(--na-bg);color:var(--na-muted);display:grid;place-items:center;cursor:pointer}
+.nx-tx__num{font-size:.78rem;color:var(--na-blue);font-weight:700}.nx-tx__amount{font-weight:700;color:var(--na-txt)}.nx-tx__amount em{font-style:normal;font-size:.7rem;color:var(--na-muted);margin-left:.12rem}
+.nx-tx__tag{display:inline-flex;align-items:center;padding:.18rem .62rem;border-radius:999px;font-size:.69rem;font-weight:700;border:1px solid transparent}.nx-tx__tag.is-credit{background:rgba(67,160,71,.12);color:#2e7d32;border-color:rgba(67,160,71,.3)}.nx-tx__tag.is-debit{background:rgba(229,57,53,.12);color:#c62828;border-color:rgba(229,57,53,.3)}.nx-tx__tag.cat-alimentation{background:rgba(22,163,74,.12);color:#2e7d32;border-color:rgba(22,163,74,.24)}.nx-tx__tag.cat-education{background:rgba(37,99,235,.1);color:#1d4ed8;border-color:rgba(37,99,235,.24)}.nx-tx__tag.cat-loyer{background:rgba(124,58,237,.1);color:#6d28d9;border-color:rgba(124,58,237,.22)}.nx-tx__tag.cat-restaurant{background:rgba(234,88,12,.12);color:#c2410c;border-color:rgba(234,88,12,.24)}.nx-tx__tag.cat-vetements{background:rgba(219,39,119,.1);color:#be185d;border-color:rgba(219,39,119,.22)}.nx-tx__tag.cat-assurance-sante{background:rgba(8,145,178,.1);color:#0e7490;border-color:rgba(8,145,178,.24)}.nx-tx__tag.cat-default{background:rgba(100,116,139,.1);color:#475569;border-color:rgba(100,116,139,.2)}.nx-tx__tag.rec-echec-de-montant{background:rgba(239,68,68,.12);color:#b91c1c;border-color:rgba(239,68,68,.26)}.nx-tx__tag.rec-virement-non-recu{background:rgba(59,130,246,.12);color:#1d4ed8;border-color:rgba(59,130,246,.24)}.nx-tx__tag.rec-erreur-de-transaction{background:rgba(245,158,11,.14);color:#b45309;border-color:rgba(245,158,11,.28)}.nx-tx__tag.rec-probleme-de-connexion-au-compte{background:rgba(139,92,246,.12);color:#6d28d9;border-color:rgba(139,92,246,.25)}
+.nx-tx__act-btn{width:30px;height:30px;border-radius:8px;border:none;display:grid;place-items:center;cursor:pointer;font-size:.8rem;transition:all .18s ease;text-decoration:none}.nx-tx__act-btn.edit{background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7}.nx-tx__act-btn.del{background:#ffebee;color:#c62828;border:1px solid #ef9a9a}.nx-tx__act-btn.view{background:#fff8e1;color:#e65100;border:1px solid #ffcc80}
+.nx-tx__modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:1.5rem;background:rgba(15,23,42,.4);backdrop-filter:blur(8px);z-index:1200}.nx-tx__modal.is-open{display:flex}.nx-tx__modal-dialog{width:min(760px,100%);max-height:min(88vh,860px);overflow:auto;border-radius:24px;background:linear-gradient(180deg,#fdfefe 0%,#f5f9ff 100%);box-shadow:0 30px 90px rgba(15,23,42,.22);border:1px solid rgba(255,255,255,.7)}.nx-tx__modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;padding:1.2rem 1.2rem 1rem;background:linear-gradient(135deg,#10243b 0%,#17395f 55%,#135c7a 100%);color:#fff;position:relative;overflow:hidden}.nx-tx__modal-head::after{content:'';position:absolute;right:-40px;top:-50px;width:180px;height:180px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.16) 0%,transparent 68%)}
+.nx-tx__modal-title{position:relative;z-index:1;display:flex;align-items:flex-start;gap:.85rem}.nx-tx__modal-icon{width:48px;height:48px;border-radius:16px;display:grid;place-items:center;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.18);font-size:1.1rem}.nx-tx__modal-copy h3{margin:0 0 .2rem;font-size:1.05rem;font-weight:800}.nx-tx__modal-copy p{margin:0;color:rgba(255,255,255,.72);font-size:.76rem}.nx-tx__modal-close{position:relative;z-index:1;width:40px;height:40px;border:none;border-radius:12px;display:grid;place-items:center;background:rgba(255,255,255,.14);color:#fff;cursor:pointer}
+.nx-tx__modal-body{padding:1.1rem 1.2rem 1.25rem;display:flex;flex-direction:column;gap:1rem}.nx-tx__modal-banner{display:grid;grid-template-columns:1.35fr .85fr;gap:.9rem}.nx-tx__spotlight{border-radius:20px;padding:1rem 1.05rem;background:linear-gradient(135deg,rgba(17,183,170,.1) 0%,rgba(43,125,233,.1) 100%);border:1px solid rgba(17,183,170,.16)}.nx-tx__spotlight small,.nx-tx__mini-card small,.nx-tx__modal-field small{display:block;font-size:.66rem;text-transform:uppercase;letter-spacing:.5px;color:var(--na-muted);margin-bottom:.2rem}.nx-tx__spotlight strong{display:block;font-size:1.65rem;font-weight:800;color:var(--na-txt);line-height:1.1}.nx-tx__spotlight p{margin:.32rem 0 0;color:var(--na-muted);font-size:.78rem}.nx-tx__mini-stack{display:grid;gap:.9rem}.nx-tx__mini-card{border-radius:18px;padding:.92rem 1rem;background:#fff;border:1px solid var(--na-border);box-shadow:0 10px 22px rgba(148,163,184,.1)}.nx-tx__mini-card strong{display:block;font-size:1rem;color:var(--na-txt)}
+.nx-tx__modal-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.85rem}.nx-tx__modal-field{padding:.92rem 1rem;border-radius:18px;background:#fff;border:1px solid var(--na-border);box-shadow:0 10px 22px rgba(148,163,184,.08)}.nx-tx__modal-field strong{display:block;font-size:.94rem;color:var(--na-txt);word-break:break-word}.nx-tx__modal-field.is-wide{grid-column:1 / -1}
+.nx-tx__empty{text-align:center;padding:2.2rem 1rem;color:var(--na-muted);font-size:.81rem}.nx-tx__empty i{display:block;font-size:1.8rem;opacity:.22;margin-bottom:.5rem}
+@keyframes nxTxReveal{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+@media (max-width:1100px){.nx-tx__grid{grid-template-columns:1fr}.nx-tx__kpis{grid-template-columns:1fr 1fr}.nx-tx__stats-card{grid-template-columns:1fr}.nx-tx__modal-banner{grid-template-columns:1fr}.nx-tx__modal-grid{grid-template-columns:1fr 1fr}}
+@media (max-width:760px){.nx-tx{padding:1rem}.nx-tx__hero{flex-direction:column;align-items:flex-start}.nx-tx__kpis{grid-template-columns:1fr}.nx-tx__tabs{gap:.25rem}.nx-tx__search{flex-direction:column;align-items:stretch}.nx-tx__sort-select,.nx-tx__sort-dir{width:100%}.nx-tx__stats-donut{width:138px;height:138px}.nx-tx__stats-row{grid-template-columns:1fr auto}.nx-tx__modal{padding:1rem}.nx-tx__modal-head,.nx-tx__modal-body{padding:1rem}.nx-tx__modal-grid{grid-template-columns:1fr}}
+</style>
+
+<section class="nx-tx">
+  <header class="nx-tx__hero">
+    <div class="nx-tx__hero-left">
+      <span class="nx-tx__hero-icon"><i class="fa-solid fa-building-columns"></i></span>
+      <div class="nx-tx__hero-text">
+        <h2>Gestion Transactions Bancaires</h2>
+        <p>Gerer et superviser les donnees des transactions</p>
+      </div>
+    </div>
+    <div class="nx-tx__hero-actions">
+      <a class="na-btn na-btn--ghost" id="nx-export-btn" href="{{ path('admin_transactions_export_pdf', { q: transaction_query.q, sort: transaction_query.sort, dir: transaction_query.dir }) }}" target="_blank"><i class="fa-solid fa-file-pdf"></i> Exporter PDF</a>
+      <a class="na-btn na-btn--primary" href="#nx-tx-form"><i class="fa-solid fa-plus"></i> Ajouter</a>
+    </div>
+  </header>
+
+  <div class="nx-tx__tabs">
+    <a class="nx-tx__tab {{ active_panel == 'transaction' ? 'is-active' : '' }}" href="{{ path(route_name, { tab: 'transactions', panel: 'transaction' }) }}"><i class="fa-solid fa-right-left"></i> Transaction</a>
+    <a class="nx-tx__tab {{ active_panel == 'reclamation' ? 'is-active' : '' }}" href="{{ path(route_name, { tab: 'transactions', panel: 'reclamation' }) }}"><i class="fa-solid fa-comments"></i> Reclamation</a>
+    <span class="nx-tx__tabs-spacer"></span>
+    <button class="nx-tx__stats-link" type="button" id="nx-tx-stats-toggle"><i class="fa-solid fa-chart-pie"></i> Statistiques</button>
+  </div>
+
+  {% if active_panel == 'transaction' %}
+    <div class="nx-tx__stats-panel" id="nx-tx-stats-panel">
+      <div class="nx-tx__stats-head">
+        <div>
+          <h3>Statistiques des transactions</h3>
+          <p>Repartition des transactions selon la categorie, avec pourcentage et montant total.</p>
+        </div>
+        <button type="button" class="nx-tx__stats-close" id="nx-tx-stats-close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      {% set initial_segments = [] %}
+      {% for stat in transaction_stats.categories|default([]) %}
+        {% set start = loop.first ? 0 : initial_segments|last.end %}
+        {% set end = start + stat.percentage %}
+        {% set initial_segments = initial_segments|merge([{ start: start, end: end, color: stat.color }]) %}
+      {% endfor %}
+      {% set donut_background = '' %}
+      {% for segment in initial_segments %}
+        {% set donut_background = donut_background ~ segment.color ~ ' ' ~ segment.start ~ '% ' ~ segment.end ~ '%' ~ (not loop.last ? ', ' : '') %}
+      {% endfor %}
+      <div class="nx-tx__stats-card">
+        <div class="nx-tx__stats-donut-wrap">
+          <div class="nx-tx__stats-donut" id="nx-category-donut" style="background:conic-gradient({{ donut_background != '' ? donut_background : '#dbe7f3 0 100%' }});">
+            <div class="nx-tx__stats-center">
+              <div>
+                <strong id="nx-stats-total">{{ transaction_stats.total|default(transaction_items|length) }}</strong>
+                <small id="nx-stats-amount">{{ transaction_stats.total_amount|default(0)|number_format(2, '.', ' ') }} DT</small>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="nx-tx__stats-legend" id="nx-category-legend">
+          {% for stat in transaction_stats.categories|default([]) %}
+            <div class="nx-tx__stats-row" data-category-row="{{ stat.label }}">
+              <strong><span class="nx-tx__stats-dot" style="background:{{ stat.color }}"></span>{{ stat.label }}</strong>
+              <b>{{ stat.count }}</b>
+              <span>{{ stat.percentage|number_format(1, '.', '') }}%</span>
+              <span>{{ stat.amount|number_format(2, '.', ' ') }} DT</span>
+            </div>
+          {% else %}
+            <div class="nx-tx__stats-row"><strong>Aucune categorie</strong><span>0</span><span>0%</span><span>0.00 DT</span></div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="nx-tx__kpis" id="nx-tx-summary">
+      <div class="nx-tx__kpi"><span class="nx-tx__kpi-icon"><i class="fa-solid fa-wallet"></i></span><div class="nx-tx__kpi-body"><strong>{{ accounts|length }}</strong><small>Comptes relies</small></div></div>
+      <div class="nx-tx__kpi"><span class="nx-tx__kpi-icon"><i class="fa-solid fa-building-columns"></i></span><div class="nx-tx__kpi-body"><strong>{{ summary.transactions_total|default(all_transaction_items|length) }}</strong><small>Transactions total</small></div></div>
+      <div class="nx-tx__kpi"><span class="nx-tx__kpi-icon"><i class="fa-solid fa-layer-group"></i></span><div class="nx-tx__kpi-body"><strong id="nx-tx-lines">{{ transaction_items|length }}</strong><small>Lignes affichees</small></div></div>
+    </div>
+
+    <div class="nx-tx__grid">
+      <article class="nx-tx__panel" id="nx-tx-form">
+        <div class="nx-tx__panel-head">
+          <div class="nx-tx__panel-head-left">
+            <h3><i class="fa-solid fa-right-left" style="color:var(--na-teal);margin-right:.4rem"></i>Transaction</h3>
+            <p>Ajouter ou modifier une transaction</p>
+          </div>
+        </div>
+        <form method="post" class="nx-tx__form" id="nx-transaction-form" novalidate>
+          <input type="hidden" name="tab" value="transactions">
+          <input type="hidden" name="panel" value="transaction">
+          <input type="hidden" name="action" value="transaction_save">
+          <input type="hidden" name="idTransaction" id="f-idTransaction" value="{{ tx.idTransaction|default('') }}">
+          <input type="hidden" name="q" value="{{ transaction_query.q }}">
+          <input type="hidden" name="sort" value="{{ transaction_query.sort }}">
+          <input type="hidden" name="dir" value="{{ transaction_query.dir }}">
+          <div class="nx-tx__form-label-id"><i class="fa-solid fa-pen-to-square"></i><span id="f-mode-label">{{ tx.idTransaction is defined ? 'Modification transaction #' ~ tx.idTransaction : 'Nouvelle transaction' }}</span></div>
+          <div class="nx-tx__form-divider"></div>
+          <label><span>Numero de Compte</span><select name="idCompte" id="f-idCompte" class="nx-tx__field-input" required><option value="">-- Selectionner --</option>{% for account in accounts %}<option value="{{ account.idCompte }}" {{ tx.idCompte|default('') == account.idCompte ? 'selected' : '' }}>{{ account.numeroCompte }}</option>{% endfor %}</select><small class="nx-tx__field-feedback is-neutral" id="f-idCompte-feedback">Veuillez selectionner un compte.</small></label>
+          <label><span>Categorie</span><select name="categorie" id="f-categorie" class="nx-tx__field-input" required><option value="">-- Selectionner --</option>{% for category in transaction_categories %}<option value="{{ category }}" {{ tx.categorie|default('') == category ? 'selected' : '' }}>{{ category }}</option>{% endfor %}</select><small class="nx-tx__field-feedback is-neutral" id="f-categorie-feedback">Veuillez selectionner une categorie.</small></label>
+          <label><span>Date Transaction</span><input type="date" name="dateTransaction" id="f-dateTransaction" class="nx-tx__field-input" value="{{ tx.dateTransaction|default('now'|date('Y-m-d')) }}" required><small class="nx-tx__field-feedback is-neutral" id="f-dateTransaction-feedback">Veuillez choisir une date valide.</small></label>
+          <label><span>Montant (DT)</span><input type="number" step="0.01" min="0" name="montant" id="f-montant" class="nx-tx__field-input" value="{{ tx.montant_value|default('') }}" placeholder="0.00" required><small class="nx-tx__field-feedback is-neutral" id="f-montant-feedback">Le montant doit etre superieur a 0.</small></label>
+          <label><span>Type Transaction</span><select name="typeTransaction" id="f-typeTransaction" class="nx-tx__field-input" required><option value="">-- Selectionner --</option>{% for type in transaction_types %}<option value="{{ type }}" {{ tx.typeTransaction|default('') == type ? 'selected' : '' }}>{{ type }}</option>{% endfor %}</select><small class="nx-tx__field-feedback is-neutral" id="f-typeTransaction-feedback">Veuillez selectionner un type de transaction.</small></label>
+          <label><span>Solde Apres (DT)</span><input type="number" step="0.01" name="soldeApres" id="f-soldeApres" class="nx-tx__field-input" value="{{ tx.soldeApres|default('') }}" placeholder="0.00"><small class="nx-tx__field-feedback is-neutral" id="f-soldeApres-feedback">Champ optionnel. Si rempli, la valeur doit etre positive.</small></label>
+          <label><span>Description</span><textarea name="description" id="f-description" class="nx-tx__field-input" placeholder="Description de la transaction">{{ tx.description|default('') }}</textarea><small class="nx-tx__field-feedback is-neutral" id="f-description-feedback">Champ optionnel. Si rempli, au moins 10 caracteres.</small></label>
+          <label><span>Montant Paye (DT)</span><input type="number" step="0.01" min="0" name="montantPaye" id="f-montantPaye" class="nx-tx__field-input" value="{{ tx.montantPaye_value|default('') }}" placeholder="0.00"><small class="nx-tx__field-feedback is-neutral" id="f-montantPaye-feedback">Champ optionnel. Si rempli, la valeur doit etre positive.</small></label>
+          <div class="nx-tx__form-actions"><button class="na-btn na-btn--save" type="submit"><i class="fa-solid fa-floppy-disk"></i> Enregistrer</button><button class="na-btn na-btn--reset" type="button" onclick="nxResetTransactionForm()"><i class="fa-solid fa-rotate-left"></i> Annuler</button></div>
+        </form>
+      </article>
+      <article class="nx-tx__panel" id="nx-tx-table-panel">
+        <div class="nx-tx__panel-head">
+          <div class="nx-tx__panel-head-left">
+            <h3>Liste des Transactions</h3>
+            <p>Gestion complete des transactions bancaires</p>
+          </div>
+          <span class="nx-tx__row-count" id="nx-tx-count">{{ transaction_items|length }} transaction{{ transaction_items|length != 1 ? 's' : '' }}</span>
+        </div>
+        <form method="get" class="nx-tx__search" id="nx-tx-search-form">
+          <input type="hidden" name="tab" value="transactions">
+          <input type="hidden" name="panel" value="transaction">
+          <div class="nx-tx__search-box">
+            <div class="nx-tx__search-wrap">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input class="nx-tx__search-input" type="text" name="q" id="nx-tx-search-input" value="{{ transaction_query.q }}" placeholder="Recherche avancee: compte, categorie, type, montant, utilisateur...">
+            </div>
+            <div class="nx-tx__suggestions" id="nx-tx-suggestions" hidden></div>
+          </div>
+          <select class="nx-tx__sort-select" id="nx-tx-sort-field" name="sort" title="Trier par">
+            {% for field, label in transaction_sort_fields %}
+              <option value="{{ field }}" {{ transaction_query.sort == field ? 'selected' : '' }}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <input type="hidden" id="nx-tx-dir-input" name="dir" value="{{ transaction_query.dir|default('desc') }}">
+          <button class="nx-tx__sort-dir" id="nx-tx-sort-dir" title="Ordre" type="button"><i class="fa-solid {{ transaction_query.dir == 'asc' ? 'fa-arrow-up-a-z' : 'fa-arrow-down-z-a' }}"></i></button>
+        </form>
+        <div class="nx-tx__table-wrap">
+          <table class="nx-tx__table" id="nx-tx-table">
+            <thead>
+              <tr>
+                <th>N Compte</th>
+                <th>Categorie</th>
+                <th>Date</th>
+                <th>Montant</th>
+                <th>Type</th>
+                <th>Solde Apres</th>
+                <th>Montant Paye</th>
+                <th>Description</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in transaction_items %}
+                {% set type_key = item.typeTransaction|default('')|lower %}
+                {% set category_key = item.categorie|default('')|lower|replace({' ': '-', 'ê': 'e', 'é': 'e', 'è': 'e', 'à': 'a', 'â': 'a', 'ù': 'u'}) %}
+                <tr tabindex="0" data-id="{{ item.idTransaction }}" data-user-id="{{ item.resolved_user_id|default(item.idUser|default('')) }}" data-id-compte="{{ item.idCompte|default('') }}" data-numero-compte="{{ item.numeroCompte|default('') }}" data-categorie="{{ item.categorie|default('') }}" data-date="{{ item.dateTransaction|default('') }}" data-montant="{{ item.montant_value|default(0) }}" data-type="{{ item.typeTransaction|default('') }}" data-solde-apres="{{ item.soldeApres|default('') }}" data-montant-paye="{{ item.montantPaye_value|default(0) }}" data-description="{{ item.description|default('') }}" data-user-name="{{ item.user_name|default('') }}" data-account-type="{{ item.linked_account.typeCompte|default('') }}" data-account-status="{{ item.linked_account.statutCompte|default('') }}" data-account-solde="{{ item.linked_account.solde|default('') }}">
+                  <td><span class="nx-tx__num">{{ item.numeroCompte|default('-') }}</span></td>
+                  <td><span class="nx-tx__tag {{ category_key ? 'cat-' ~ category_key : 'cat-default' }}">{{ item.categorie|default('-') }}</span></td>
+                  <td>{{ item.dateTransaction|default('-') }}</td>
+                  <td class="nx-tx__amount">{{ item.montant_value|default(0)|number_format(2, '.', ' ') }} <em>DT</em></td>
+                  <td><span class="nx-tx__tag is-{{ 'debit' in type_key ? 'debit' : 'credit' }}">{{ item.typeTransaction|default('-') }}</span></td>
+                  <td>{{ item.soldeApres is not null ? item.soldeApres|number_format(2, '.', ' ') ~ ' DT' : '-' }}</td>
+                  <td>{{ item.montantPaye_value|default(0)|number_format(2, '.', ' ') }} DT</td>
+                  <td>{{ item.description|default('-') }}</td>
+                  <td>
+                    <div class="nx-tx__act-group">
+                      <button type="button" class="nx-tx__act-btn edit" title="Modifier" onclick="nxEditTransaction(this.closest('tr'))"><i class="fa-solid fa-pen-to-square"></i></button>
+                      <form method="post" style="display:inline">
+                        <input type="hidden" name="tab" value="transactions">
+                        <input type="hidden" name="panel" value="transaction">
+                        <input type="hidden" name="action" value="transaction_delete">
+                        <input type="hidden" name="idTransaction" value="{{ item.idTransaction }}">
+                        <input type="hidden" name="q" value="{{ transaction_query.q }}">
+                        <input type="hidden" name="sort" value="{{ transaction_query.sort }}">
+                        <input type="hidden" name="dir" value="{{ transaction_query.dir }}">
+                        <button type="submit" class="nx-tx__act-btn del" title="Supprimer" onclick="return confirm('Supprimer cette transaction ?')"><i class="fa-solid fa-trash-can"></i></button>
+                      </form>
+                      <button type="button" class="nx-tx__act-btn view" title="Voir" onclick="nxViewTransaction(this.closest('tr'))"><i class="fa-solid fa-eye"></i></button>
+                    </div>
+                  </td>
+                </tr>
+              {% else %}
+                <tr><td colspan="9" class="nx-tx__empty"><i class="fa-solid fa-right-left"></i>Aucune transaction enregistree.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </div>
+  {% else %}
+    <div class="nx-tx__kpis" id="nx-tx-summary">
+      <div class="nx-tx__kpi"><span class="nx-tx__kpi-icon"><i class="fa-solid fa-comments"></i></span><div class="nx-tx__kpi-body"><strong>{{ reclamation_items|length }}</strong><small>Total reclamations</small></div></div>
+      <div class="nx-tx__kpi"><span class="nx-tx__kpi-icon"><i class="fa-solid fa-right-left"></i></span><div class="nx-tx__kpi-body"><strong>{{ all_transaction_items|length }}</strong><small>Transactions reliees</small></div></div>
+      <div class="nx-tx__kpi"><span class="nx-tx__kpi-icon"><i class="fa-solid fa-flag"></i></span><div class="nx-tx__kpi-body"><strong id="nx-rec-lines">{{ reclamation_items|length }}</strong><small>Lignes affichees</small></div></div>
+    </div>
+    <div class="nx-tx__grid">
+      <article class="nx-tx__panel" id="nx-rec-form-panel">
+        <div class="nx-tx__panel-head">
+          <div class="nx-tx__panel-head-left">
+            <h3><i class="fa-solid fa-comments" style="color:var(--na-teal);margin-right:.4rem"></i>Reclamation</h3>
+            <p>Ajouter ou modifier une reclamation</p>
+          </div>
+        </div>
+        <form method="post" class="nx-tx__form" id="nx-reclamation-form" novalidate>
+          <input type="hidden" name="tab" value="transactions">
+          <input type="hidden" name="panel" value="reclamation">
+          <input type="hidden" name="action" value="reclamation_save">
+          <input type="hidden" name="idReclamation" id="r-idReclamation" value="{{ rec.idReclamation|default('') }}">
+          <input type="hidden" name="q" value="{{ reclamation_query.q }}">
+          <input type="hidden" name="sort" value="{{ reclamation_query.sort }}">
+          <input type="hidden" name="dir" value="{{ reclamation_query.dir }}">
+          <div class="nx-tx__form-label-id"><i class="fa-solid fa-pen-to-square"></i><span id="r-mode-label">{{ rec.idReclamation is defined ? 'Modification reclamation #' ~ rec.idReclamation : 'Nouvelle reclamation' }}</span></div>
+          <div class="nx-tx__form-divider"></div>
+          <label><span>Date Reclamation</span><input type="date" name="dateReclamation" id="r-dateReclamation" class="nx-tx__field-input" value="{{ rec.dateReclamation|default('now'|date('Y-m-d')) }}" required><small class="nx-tx__field-feedback is-neutral" id="r-dateReclamation-feedback">Veuillez choisir une date valide.</small></label>
+          <label><span>Type Reclamation</span><select name="typeReclamation" id="r-typeReclamation" class="nx-tx__field-input" required><option value="">-- Selectionner --</option>{% for type in reclamation_types %}<option value="{{ type }}" {{ rec.typeReclamation|default('') == type ? 'selected' : '' }}>{{ type }}</option>{% endfor %}</select><small class="nx-tx__field-feedback is-neutral" id="r-typeReclamation-feedback">Veuillez selectionner un type de reclamation.</small></label>
+          <label><span>Description</span><textarea name="description" id="r-description" class="nx-tx__field-input" placeholder="Description de la reclamation" required>{{ rec.description|default('') }}</textarea><small class="nx-tx__field-feedback is-neutral" id="r-description-feedback">La description doit contenir au moins 10 caracteres.</small></label>
+          <label><span>Status</span><select name="status" id="r-status" class="nx-tx__field-input" required><option value="">-- Selectionner --</option>{% for status in reclamation_statuses %}<option value="{{ status }}" {{ rec.status|default('') == status ? 'selected' : '' }}>{{ status }}</option>{% endfor %}</select><small class="nx-tx__field-feedback is-neutral" id="r-status-feedback">Veuillez selectionner un status.</small></label>
+          <label><span>ID Transaction</span><select name="idTransaction" id="r-idTransaction" class="nx-tx__field-input" required><option value="">-- Selectionner --</option>{% for transaction in reclamation_transactions %}<option value="{{ transaction.idTransaction }}" {{ rec.idTransaction|default('') == transaction.idTransaction ? 'selected' : '' }}>#{{ transaction.idTransaction }}</option>{% endfor %}</select><small class="nx-tx__field-feedback is-neutral" id="r-idTransaction-feedback">Veuillez selectionner une transaction.</small></label>
+          <div class="nx-tx__form-actions"><button class="na-btn na-btn--save" type="submit"><i class="fa-solid fa-floppy-disk"></i> Enregistrer</button><button class="na-btn na-btn--reset" type="button" onclick="nxResetReclamationForm()"><i class="fa-solid fa-rotate-left"></i> Annuler</button></div>
+        </form>
+      </article>
+      <article class="nx-tx__panel" id="nx-rec-table-panel">
+        <div class="nx-tx__panel-head">
+          <div class="nx-tx__panel-head-left">
+            <h3>Liste des Reclamations</h3>
+            <p>Gestion complete des reclamations bancaires</p>
+          </div>
+          <span class="nx-tx__row-count" id="nx-rec-count">{{ reclamation_items|length }} reclamation{{ reclamation_items|length != 1 ? 's' : '' }}</span>
+        </div>
+        <form method="get" class="nx-tx__search" id="nx-rec-search-form">
+          <input type="hidden" name="tab" value="transactions">
+          <input type="hidden" name="panel" value="reclamation">
+          <div class="nx-tx__search-box">
+            <div class="nx-tx__search-wrap">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input class="nx-tx__search-input" type="text" name="q" id="nx-rec-search-input" value="{{ reclamation_query.q }}" placeholder="Recherche avancee: transaction, type, status, description, utilisateur...">
+            </div>
+            <div class="nx-tx__suggestions" id="nx-rec-suggestions" hidden></div>
+          </div>
+          <select class="nx-tx__sort-select" id="nx-rec-sort-field" name="sort" title="Trier par">
+            {% for field, label in reclamation_sort_fields %}
+              <option value="{{ field }}" {{ reclamation_query.sort == field ? 'selected' : '' }}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <input type="hidden" id="nx-rec-dir-input" name="dir" value="{{ reclamation_query.dir|default('desc') }}">
+          <button class="nx-tx__sort-dir" id="nx-rec-sort-dir" title="Ordre" type="button"><i class="fa-solid {{ reclamation_query.dir == 'asc' ? 'fa-arrow-up-a-z' : 'fa-arrow-down-z-a' }}"></i></button>
+        </form>
+        <div class="nx-tx__table-wrap">
+          <table class="nx-tx__table" id="nx-rec-table">
+            <thead>
+              <tr><th>Date</th><th>Type</th><th>Status</th><th>ID Transaction</th><th>Description</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+              {% for item in reclamation_items %}
+                {% set status_key = item.status|default('')|lower|replace({' ': '-', 'é': 'e', 'è': 'e', 'ê': 'e'}) %}
+                {% set type_key = item.typeReclamation|default('')|lower|replace({' ': '-', 'é': 'e', 'è': 'e', 'ê': 'e', 'à': 'a'}) %}
+                <tr tabindex="0" data-id="{{ item.idReclamation }}" data-date="{{ item.dateReclamation|default('') }}" data-type="{{ item.typeReclamation|default('') }}" data-status="{{ item.status|default('') }}" data-id-transaction="{{ item.idTransaction|default('') }}" data-numero-compte="{{ item.numeroCompte|default('') }}" data-user-id="{{ item.resolved_user_id|default(item.idUser|default('')) }}" data-user-name="{{ item.user_name|default('') }}" data-description="{{ item.description|default('') }}" data-inappropriate="{{ item.is_inappropriate|default(0) }}" data-blurred="{{ item.is_blurred|default(0) }}" data-transaction-type="{{ item.transaction_type|default('') }}" data-transaction-category="{{ item.transaction_category|default('') }}">
+                  <td>{{ item.dateReclamation|default('-') }}</td><td><span class="nx-tx__tag {{ type_key ? 'rec-' ~ type_key : 'cat-default' }}">{{ item.typeReclamation|default('-') }}</span></td><td><span class="nx-tx__tag {{ status_key in ['valide'] ? 'is-credit' : (status_key in ['ferme'] ? 'is-debit' : 'cat-default') }}">{{ item.status|default('-') }}</span></td><td>#{{ item.idTransaction|default('-') }}</td><td>{{ item.description|default('-') }}</td>
+                  <td>
+                    <div class="nx-tx__act-group">
+                      <button type="button" class="nx-tx__act-btn edit" title="Modifier" onclick="nxEditReclamation(this.closest('tr'))"><i class="fa-solid fa-pen-to-square"></i></button>
+                      <form method="post" style="display:inline">
+                        <input type="hidden" name="tab" value="transactions"><input type="hidden" name="panel" value="reclamation"><input type="hidden" name="action" value="reclamation_delete"><input type="hidden" name="idReclamation" value="{{ item.idReclamation }}"><input type="hidden" name="q" value="{{ reclamation_query.q }}"><input type="hidden" name="sort" value="{{ reclamation_query.sort }}"><input type="hidden" name="dir" value="{{ reclamation_query.dir }}">
+                        <button type="submit" class="nx-tx__act-btn del" title="Supprimer" onclick="return confirm('Supprimer cette reclamation ?')"><i class="fa-solid fa-trash-can"></i></button>
+                      </form>
+                      <button type="button" class="nx-tx__act-btn view" title="Voir" onclick="nxViewReclamation(this.closest('tr'))"><i class="fa-solid fa-eye"></i></button>
+                    </div>
+                  </td>
+                </tr>
+              {% else %}
+                <tr><td colspan="6" class="nx-tx__empty"><i class="fa-solid fa-flag"></i>Aucune reclamation enregistree.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </div>
+  {% endif %}
+</section>
+{% set detail_tx = view_transaction ?: {} %}
+{% set detail_account = view_transaction and view_transaction.linked_account is defined and view_transaction.linked_account ? view_transaction.linked_account : {} %}
+{% set detail_type_key = detail_tx.typeTransaction|default('')|lower %}
+{% set detail_category_key = detail_tx.categorie|default('')|lower|replace({' ': '-', 'ê': 'e', 'é': 'e', 'è': 'e', 'à': 'a', 'â': 'a', 'ù': 'u'}) %}
+<div class="nx-tx__modal {% if view_transaction %}is-open{% endif %}" id="nx-tx-modal" {% if view_transaction %}aria-hidden="false"{% else %}aria-hidden="true"{% endif %}>
+  <div class="nx-tx__modal-dialog" role="dialog" aria-modal="true" aria-labelledby="nx-tx-modal-title">
+    <div class="nx-tx__modal-head">
+      <div class="nx-tx__modal-title">
+        <div class="nx-tx__modal-icon"><i class="fa-solid fa-receipt"></i></div>
+        <div class="nx-tx__modal-copy">
+          <h3 id="nx-tx-modal-title">Details de la transaction</h3>
+          <p>Toutes les informations importantes de la transaction selectionnee.</p>
+        </div>
+      </div>
+      <button type="button" class="nx-tx__modal-close" id="nx-tx-modal-close" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="nx-tx__modal-body">
+      <div class="nx-tx__modal-banner">
+        <div class="nx-tx__spotlight">
+          <small>Montant transaction</small>
+          <strong id="d-montant">{{ detail_tx.montant_value|default(0)|number_format(2, '.', ' ') }} DT</strong>
+          <p>
+            <span class="nx-tx__tag {{ detail_category_key ? 'cat-' ~ detail_category_key : 'cat-default' }}" id="d-categorie-badge">{{ detail_tx.categorie|default('-') }}</span>
+            <span class="nx-tx__tag {{ 'debit' in detail_type_key ? 'is-debit' : 'is-credit' }}" id="d-type-badge">{{ detail_tx.typeTransaction|default('-') }}</span>
+          </p>
+        </div>
+        <div class="nx-tx__mini-stack">
+          <div class="nx-tx__mini-card"><small>ID transaction</small><strong id="d-id">{{ detail_tx.idTransaction is defined ? '#' ~ detail_tx.idTransaction : '-' }}</strong></div>
+          <div class="nx-tx__mini-card"><small>Numero compte</small><strong id="d-numero">{{ detail_tx.numeroCompte|default('-') }}</strong></div>
+        </div>
+      </div>
+      <div class="nx-tx__modal-grid">
+        <div class="nx-tx__modal-field"><small>Date transaction</small><strong id="d-date">{{ detail_tx.dateTransaction|default('-') }}</strong></div>
+        <div class="nx-tx__modal-field"><small>ID compte</small><strong id="d-idcompte">{{ detail_tx.idCompte|default('-') }}</strong></div>
+        <div class="nx-tx__modal-field"><small>ID utilisateur</small><strong id="d-userid">{{ detail_tx.resolved_user_id|default(detail_tx.idUser|default('-')) }}</strong></div>
+        <div class="nx-tx__modal-field"><small>Utilisateur</small><strong id="d-username">{{ detail_tx.user_name|default('-') }}</strong></div>
+        <div class="nx-tx__modal-field"><small>Solde apres</small><strong id="d-soldeapres">{{ detail_tx.soldeApres is defined and detail_tx.soldeApres is not null ? detail_tx.soldeApres|number_format(2, '.', ' ') ~ ' DT' : '-' }}</strong></div>
+        <div class="nx-tx__modal-field"><small>Montant paye</small><strong id="d-montantpaye">{{ detail_tx.montantPaye_value|default(0)|number_format(2, '.', ' ') }} DT</strong></div>
+        <div class="nx-tx__modal-field"><small>Type compte lie</small><strong id="d-typecompte">{{ detail_account.typeCompte|default('-') }}</strong></div>
+        <div class="nx-tx__modal-field"><small>Statut compte lie</small><strong id="d-statutcompte">{{ detail_account.statutCompte|default('-') }}</strong></div>
+        <div class="nx-tx__modal-field"><small>Solde compte lie</small><strong id="d-soldecompte">{% if detail_account.solde is defined and detail_account.solde is not null %}{{ detail_account.solde|number_format(2, '.', ' ') }} DT{% else %}-{% endif %}</strong></div>
+        <div class="nx-tx__modal-field is-wide"><small>Description</small><strong id="d-description">{{ detail_tx.description|default('-') }}</strong></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% set detail_rec = view_reclamation ?: {} %}
+{% set detail_rec_tx = view_reclamation and view_reclamation.linked_transaction is defined and view_reclamation.linked_transaction ? view_reclamation.linked_transaction : {} %}
+<div class="nx-tx__modal {% if active_panel == 'reclamation' and view_reclamation %}is-open{% endif %}" id="nx-rec-modal" {% if active_panel == 'reclamation' and view_reclamation %}aria-hidden="false"{% else %}aria-hidden="true"{% endif %}>
+  <div class="nx-tx__modal-dialog" role="dialog" aria-modal="true" aria-labelledby="nx-rec-modal-title">
+    <div class="nx-tx__modal-head">
+      <div class="nx-tx__modal-title">
+        <div class="nx-tx__modal-icon"><i class="fa-solid fa-flag"></i></div>
+        <div class="nx-tx__modal-copy">
+          <h3 id="nx-rec-modal-title">Details de la reclamation</h3>
+          <p>Toutes les informations importantes de la reclamation selectionnee.</p>
+        </div>
+      </div>
+      <button type="button" class="nx-tx__modal-close" id="nx-rec-modal-close" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="nx-tx__modal-body">
+      <div class="nx-tx__modal-banner">
+        <div class="nx-tx__spotlight">
+          <small>Type reclamation</small>
+          <strong id="vr-type">{{ detail_rec.typeReclamation|default('-') }}</strong>
+          <p><span class="nx-tx__tag cat-default" id="vr-status">{{ detail_rec.status|default('-') }}</span></p>
+        </div>
+        <div class="nx-tx__mini-stack">
+          <div class="nx-tx__mini-card"><small>ID reclamation</small><strong id="vr-id">{{ detail_rec.idReclamation is defined ? '#' ~ detail_rec.idReclamation : '-' }}</strong></div>
+          <div class="nx-tx__mini-card"><small>ID transaction</small><strong id="vr-txid">{{ detail_rec.idTransaction is defined ? '#' ~ detail_rec.idTransaction : '-' }}</strong></div>
+        </div>
+      </div>
+      <div class="nx-tx__modal-grid">
+        <div class="nx-tx__modal-field"><small>Date reclamation</small><strong id="vr-date">{{ detail_rec.dateReclamation|default('-') }}</strong></div>
+        <div class="nx-tx__modal-field"><small>Numero compte</small><strong id="vr-numero">{{ detail_rec.numeroCompte|default('-') }}</strong></div>
+        <div class="nx-tx__modal-field"><small>ID utilisateur</small><strong id="vr-userid">{{ detail_rec.resolved_user_id|default(detail_rec.idUser|default('-')) }}</strong></div>
+        <div class="nx-tx__modal-field"><small>Utilisateur</small><strong id="vr-username">{{ detail_rec.user_name|default('-') }}</strong></div>
+        <div class="nx-tx__modal-field"><small>Transaction liee type</small><strong id="vr-txtype">{{ detail_rec.transaction_type|default('-') }}</strong></div>
+        <div class="nx-tx__modal-field"><small>Transaction liee categorie</small><strong id="vr-txcat">{{ detail_rec.transaction_category|default('-') }}</strong></div>
+        <div class="nx-tx__modal-field"><small>Inappropriee</small><strong id="vr-inappropriate">{{ detail_rec.is_inappropriate|default(0) ? 'Oui' : 'Non' }}</strong></div>
+        <div class="nx-tx__modal-field"><small>Flou</small><strong id="vr-blurred">{{ detail_rec.is_blurred|default(0) ? 'Oui' : 'Non' }}</strong></div>
+        <div class="nx-tx__modal-field is-wide"><small>Description</small><strong id="vr-description">{{ detail_rec.description|default('-') }}</strong></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(() => {
+  const form = document.getElementById('nx-transaction-form');
+  const searchInput = document.getElementById('nx-tx-search-input');
+  const suggestions = document.getElementById('nx-tx-suggestions');
+  const sortField = document.getElementById('nx-tx-sort-field');
+  const dirInput = document.getElementById('nx-tx-dir-input');
+  const dirButton = document.getElementById('nx-tx-sort-dir');
+  const searchForm = document.getElementById('nx-tx-search-form');
+  const table = document.getElementById('nx-tx-table');
+  const count = document.getElementById('nx-tx-count');
+  const exportBtn = document.getElementById('nx-export-btn');
+  const statsToggle = document.getElementById('nx-tx-stats-toggle');
+  const statsPanel = document.getElementById('nx-tx-stats-panel');
+  const statsClose = document.getElementById('nx-tx-stats-close');
+  const modal = document.getElementById('nx-tx-modal');
+  const modalClose = document.getElementById('nx-tx-modal-close');
+  if (!form) return;
+
+  let selectedRow = null;
+  let searchTimer = null;
+
+  const setValue = (id, value) => { const el = document.getElementById(id); if (el) el.value = value ?? ''; };
+  const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value ?? '-'; };
+  const transactionFieldIds = ['f-idCompte','f-categorie','f-dateTransaction','f-montant','f-typeTransaction','f-soldeApres','f-description','f-montantPaye'];
+  const transactionNeutralMessages = {
+    'f-idCompte': 'Veuillez selectionner un compte.',
+    'f-categorie': 'Veuillez selectionner une categorie.',
+    'f-dateTransaction': 'Veuillez choisir une date valide.',
+    'f-montant': 'Le montant doit etre superieur a 0.',
+    'f-typeTransaction': 'Veuillez selectionner un type de transaction.',
+    'f-soldeApres': 'Champ optionnel. Si rempli, la valeur doit etre positive.',
+    'f-description': 'Champ optionnel. Si rempli, au moins 10 caracteres.',
+    'f-montantPaye': 'Champ optionnel. Si rempli, la valeur doit etre positive.',
+  };
+  let transactionValidationStarted = false;
+  const formatMoney = (value) => { const amount = Number(value); return Number.isFinite(amount) ? `${amount.toFixed(2)} DT` : '-'; };
+  const setFieldState = (id, state, message) => {
+    const input = document.getElementById(id);
+    const feedback = document.getElementById(`${id}-feedback`);
+    if (!input || !feedback) return state === 'valid';
+    input.classList.remove('is-error', 'is-valid');
+    feedback.classList.remove('is-error', 'is-valid', 'is-neutral');
+    if (state === 'error') {
+      input.classList.add('is-error');
+      feedback.classList.add('is-error');
+    } else if (state === 'valid') {
+      input.classList.add('is-valid');
+      feedback.classList.add('is-valid');
+    } else {
+      feedback.classList.add('is-neutral');
+    }
+    feedback.textContent = message;
+    return state === 'valid';
+  };
+  const resetTransactionValidationState = () => {
+    transactionValidationStarted = false;
+    transactionFieldIds.forEach((fieldId) => {
+      setFieldState(fieldId, 'neutral', transactionNeutralMessages[fieldId] || '');
+    });
+  };
+  const today = '{{ 'now'|date('Y-m-d') }}';
+  const validateTransactionField = (id) => {
+    const value = String(document.getElementById(id)?.value ?? '').trim();
+    switch (id) {
+      case 'f-idCompte':
+        return value !== '' ? setFieldState(id, 'valid', 'Compte valide.') : setFieldState(id, 'error', 'Veuillez selectionner un compte.');
+      case 'f-categorie':
+        return value !== '' ? setFieldState(id, 'valid', 'Categorie valide.') : setFieldState(id, 'error', 'Veuillez selectionner une categorie.');
+      case 'f-dateTransaction':
+        if (value === '') return setFieldState(id, 'error', 'La date de transaction est obligatoire.');
+        if (value > today) return setFieldState(id, 'error', 'La date ne doit pas etre dans le futur.');
+        return setFieldState(id, 'valid', 'Date valide.');
+      case 'f-montant':
+        if (value === '') return setFieldState(id, 'error', 'Le montant est obligatoire.');
+        if (Number(value) <= 0) return setFieldState(id, 'error', 'Le montant doit etre superieur a 0.');
+        return setFieldState(id, 'valid', 'Montant valide.');
+      case 'f-typeTransaction':
+        return value !== '' ? setFieldState(id, 'valid', 'Type de transaction valide.') : setFieldState(id, 'error', 'Veuillez selectionner un type de transaction.');
+      case 'f-soldeApres':
+        if (value === '') return setFieldState(id, 'valid', 'Champ optionnel.');
+        if (Number(value) < 0) return setFieldState(id, 'error', 'Le solde apres doit etre positif ou egal a 0.');
+        return setFieldState(id, 'valid', 'Solde apres valide.');
+      case 'f-description':
+        if (value === '') return setFieldState(id, 'valid', 'Champ optionnel.');
+        if (value.length < 10) return setFieldState(id, 'error', 'La description doit contenir au moins 10 caracteres.');
+        return setFieldState(id, 'valid', 'Description valide.');
+      case 'f-montantPaye':
+        if (value === '') return setFieldState(id, 'valid', 'Champ optionnel.');
+        if (Number(value) < 0) return setFieldState(id, 'error', 'Le montant paye doit etre positif ou egal a 0.');
+        return setFieldState(id, 'valid', 'Montant paye valide.');
+      default:
+        return true;
+    }
+  };
+  const validateTransactionForm = () => transactionFieldIds.every(validateTransactionField);
+  const categoryClass = (value) => {
+    const normalized = String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-');
+    return normalized ? `cat-${normalized}` : 'cat-default';
+  };
+  const categoryColors = {
+    'Alimentation': '#14b8a6',
+    'Education': '#2563eb',
+    'Loyer': '#7c3aed',
+    'Restaurant': '#ea580c',
+    'Vetements': '#db2777',
+    'Assurance sante': '#ca8a04',
+    'Autre': '#64748b',
+  };
+  const canonicalType = (value) => String(value || '').toLowerCase().includes('debit') ? 'debit' : 'credit';
+  const openModal = () => { if (!modal) return; modal.classList.add('is-open'); modal.setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden'; };
+  const closeModal = () => { if (!modal) return; modal.classList.remove('is-open'); modal.setAttribute('aria-hidden', 'true'); document.body.style.overflow = ''; };
+  const visibleRows = () => Array.from(table?.querySelectorAll('tbody tr') || []).filter((row) => row.children.length > 1 && row.style.display !== 'none');
+  const searchValueForRow = (row) => [row.dataset.id,row.dataset.userId,row.dataset.userName,row.dataset.idCompte,row.dataset.numeroCompte,row.dataset.categorie,row.dataset.date,row.dataset.montant,row.dataset.type,row.dataset.soldeApres,row.dataset.montantPaye,row.dataset.description,row.dataset.accountType,row.dataset.accountStatus,row.textContent].join(' ').toLowerCase();
+  const buildExportUrl = () => {
+    const params = new URLSearchParams();
+    params.set('q', searchInput?.value || '');
+    params.set('sort', sortField?.value || 'dateTransaction');
+    params.set('dir', dirInput?.value || 'desc');
+    if (selectedRow?.dataset.id) params.set('idTransaction', selectedRow.dataset.id);
+    return `{{ path('admin_transactions_export_pdf') }}?${params.toString()}`;
+  };
+  const updateExportLink = () => { if (exportBtn) exportBtn.href = buildExportUrl(); };
+  const selectRow = (row) => {
+    if (!row || row.children.length <= 1) return;
+    table?.querySelectorAll('tbody tr').forEach((item) => item.classList.remove('is-selected'));
+    row.classList.add('is-selected');
+    selectedRow = row;
+    updateExportLink();
+  };
+  const renderSuggestions = (rows, query) => {
+    if (!suggestions) return;
+    const q = String(query || '').trim().toLowerCase();
+    if (q === '') { suggestions.hidden = true; suggestions.innerHTML = ''; return; }
+    const matches = rows.slice(0, 5);
+    if (matches.length === 0) {
+      suggestions.hidden = false;
+      suggestions.innerHTML = '<div class="nx-tx__suggestion"><strong>Aucun resultat</strong><span>Essayez un compte, categorie, type ou description</span></div>';
+      return;
+    }
+    suggestions.hidden = false;
+    suggestions.innerHTML = matches.map((row) => `<button type="button" class="nx-tx__suggestion" data-suggest-id="${row.dataset.id}"><strong>${row.dataset.numeroCompte || '-'} · ${row.dataset.categorie || '-'}</strong><span>${row.dataset.type || '-'} · ${Number(row.dataset.montant || 0).toFixed(2)} DT</span></button>`).join('');
+    suggestions.querySelectorAll('[data-suggest-id]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const row = table?.querySelector(`tbody tr[data-id="${button.getAttribute('data-suggest-id')}"]`);
+        if (!row) return;
+        selectRow(row);
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        suggestions.hidden = true;
+      });
+    });
+  };
+  const updateVisibleCount = () => {
+    const visible = visibleRows().length;
+    count.textContent = `${visible} transaction${visible !== 1 ? 's' : ''}`;
+    const lines = document.getElementById('nx-tx-lines');
+    if (lines) lines.textContent = String(visible);
+  };
+  const updateStats = () => {
+    const rows = visibleRows();
+    const stats = { total: rows.length, amount: 0, categories: {} };
+    rows.forEach((row) => {
+      const amount = Number(row.dataset.montant || 0);
+      const category = row.dataset.categorie || 'Autre';
+      stats.amount += amount;
+      if (!stats.categories[category]) {
+        stats.categories[category] = { label: category, count: 0, amount: 0, percentage: 0, color: categoryColors[category] || categoryColors.Autre };
+      }
+      stats.categories[category].count += 1;
+      stats.categories[category].amount += amount;
+    });
+
+    const categories = Object.values(stats.categories).sort((left, right) => {
+      const countDiff = right.count - left.count;
+      return countDiff !== 0 ? countDiff : left.label.localeCompare(right.label);
+    });
+    categories.forEach((item) => {
+      item.percentage = stats.total > 0 ? ((item.count / stats.total) * 100) : 0;
+    });
+
+    const donut = document.getElementById('nx-category-donut');
+    if (donut) {
+      let start = 0;
+      const segments = categories.map((item) => {
+        const end = start + item.percentage;
+        const part = `${item.color} ${start}% ${end}%`;
+        start = end;
+        return part;
+      });
+      donut.style.background = `conic-gradient(${segments.length ? segments.join(', ') : '#dbe7f3 0 100%'})`;
+    }
+
+    const totalEl = document.getElementById('nx-stats-total');
+    const amountEl = document.getElementById('nx-stats-amount');
+    if (totalEl) totalEl.textContent = String(stats.total);
+    if (amountEl) amountEl.textContent = `${stats.amount.toFixed(2)} DT`;
+
+    const legend = document.getElementById('nx-category-legend');
+    if (legend) {
+      legend.innerHTML = categories.length
+        ? categories.map((item) => `<div class="nx-tx__stats-row"><strong><span class="nx-tx__stats-dot" style="background:${item.color}"></span>${item.label}</strong><b>${item.count}</b><span>${item.percentage.toFixed(1)}%</span><span>${item.amount.toFixed(2)} DT</span></div>`).join('')
+        : '<div class="nx-tx__stats-row"><strong>Aucune categorie</strong><span>0</span><span>0.0%</span><span>0.00 DT</span></div>';
+    }
+  };
+  const applyLiveSearch = () => {
+    if (!table || !searchInput) return;
+    const query = searchInput.value.trim().toLowerCase();
+    const bodyRows = Array.from(table.querySelectorAll('tbody tr')).filter((row) => row.children.length > 1);
+    const matches = [];
+    bodyRows.forEach((row) => {
+      const show = query === '' || searchValueForRow(row).includes(query);
+      row.style.display = show ? '' : 'none';
+      if (show) matches.push(row);
+    });
+    if (selectedRow && selectedRow.style.display === 'none') { selectedRow.classList.remove('is-selected'); selectedRow = null; }
+    renderSuggestions(matches, query);
+    updateVisibleCount();
+    updateStats();
+    updateExportLink();
+  };
+  const toggleStatsPanel = (open) => {
+    if (!statsPanel) return;
+    const shouldOpen = open ?? !statsPanel.classList.contains('is-open');
+    statsPanel.classList.toggle('is-open', shouldOpen);
+    if (shouldOpen) setTimeout(updateStats, 30);
+  };
+
+  if (modal?.classList.contains('is-open')) document.body.style.overflow = 'hidden';
+
+  window.nxResetTransactionForm = () => {
+    setValue('f-idTransaction', '');
+    setValue('f-idCompte', '');
+    setValue('f-categorie', '');
+    setValue('f-dateTransaction', '{{ 'now'|date('Y-m-d') }}');
+    setValue('f-montant', '');
+    setValue('f-typeTransaction', '');
+    setValue('f-soldeApres', '');
+    setValue('f-description', '');
+    setValue('f-montantPaye', '');
+    const label = document.getElementById('f-mode-label');
+    if (label) label.textContent = 'Nouvelle transaction';
+    resetTransactionValidationState();
+  };
+
+  window.nxEditTransaction = (row) => {
+    if (!row) return;
+    setValue('f-idTransaction', row.dataset.id);
+    setValue('f-idCompte', row.dataset.idCompte);
+    setValue('f-categorie', row.dataset.categorie);
+    setValue('f-dateTransaction', row.dataset.date);
+    setValue('f-montant', row.dataset.montant);
+    setValue('f-typeTransaction', row.dataset.type);
+    setValue('f-soldeApres', row.dataset.soldeApres);
+    setValue('f-description', row.dataset.description);
+    setValue('f-montantPaye', row.dataset.montantPaye);
+    const label = document.getElementById('f-mode-label');
+    if (label) label.textContent = `Modification transaction #${row.dataset.id}`;
+    selectRow(row);
+    resetTransactionValidationState();
+    form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  window.nxViewTransaction = (row) => {
+    if (!row || !modal) return;
+    selectRow(row);
+    setText('d-id', row.dataset.id ? `#${row.dataset.id}` : '-');
+    setText('d-date', row.dataset.date || '-');
+    setText('d-numero', row.dataset.numeroCompte || '-');
+    setText('d-idcompte', row.dataset.idCompte || '-');
+    setText('d-userid', row.dataset.userId || '-');
+    setText('d-username', row.dataset.userName || '-');
+    setText('d-typecompte', row.dataset.accountType || '-');
+    setText('d-statutcompte', row.dataset.accountStatus || '-');
+    setText('d-soldecompte', row.dataset.accountSolde ? formatMoney(row.dataset.accountSolde) : '-');
+    setText('d-montant', formatMoney(row.dataset.montant));
+    setText('d-soldeapres', row.dataset.soldeApres ? formatMoney(row.dataset.soldeApres) : '-');
+    setText('d-montantpaye', formatMoney(row.dataset.montantPaye));
+    setText('d-description', row.dataset.description || '-');
+    const categoryBadge = document.getElementById('d-categorie-badge');
+    if (categoryBadge) { categoryBadge.textContent = row.dataset.categorie || '-'; categoryBadge.className = `nx-tx__tag ${categoryClass(row.dataset.categorie)}`; }
+    const typeBadge = document.getElementById('d-type-badge');
+    if (typeBadge) { const typeValue = row.dataset.type || '-'; typeBadge.textContent = typeValue; typeBadge.className = `nx-tx__tag ${canonicalType(typeValue) === 'debit' ? 'is-debit' : 'is-credit'}`; }
+    openModal();
+  };
+
+  modalClose?.addEventListener('click', closeModal);
+  modal?.addEventListener('click', (event) => { if (event.target === modal) closeModal(); });
+  document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && modal?.classList.contains('is-open')) closeModal(); });
+  statsToggle?.addEventListener('click', () => toggleStatsPanel());
+  statsClose?.addEventListener('click', () => toggleStatsPanel(false));
+  transactionFieldIds.forEach((fieldId) => {
+    const field = document.getElementById(fieldId);
+    field?.addEventListener('input', () => { if (transactionValidationStarted) validateTransactionField(fieldId); });
+    field?.addEventListener('change', () => { if (transactionValidationStarted) validateTransactionField(fieldId); });
+    field?.addEventListener('blur', () => { if (transactionValidationStarted) validateTransactionField(fieldId); });
+  });
+  form.addEventListener('submit', (event) => {
+    transactionValidationStarted = true;
+    if (!validateTransactionForm()) {
+      event.preventDefault();
+    }
+  });
+  dirButton?.addEventListener('click', () => {
+    dirInput.value = dirInput.value === 'asc' ? 'desc' : 'asc';
+    const icon = dirButton.querySelector('i');
+    if (icon) icon.className = 'fa-solid ' + (dirInput.value === 'asc' ? 'fa-arrow-up-a-z' : 'fa-arrow-down-z-a');
+    updateExportLink();
+    searchForm?.submit();
+  });
+  sortField?.addEventListener('change', () => { updateExportLink(); searchForm?.submit(); });
+  searchInput?.addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(applyLiveSearch, 120); });
+  searchInput?.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); applyLiveSearch(); } });
+  document.addEventListener('click', (event) => { if (suggestions && !event.target.closest('#nx-tx-search-form')) suggestions.hidden = true; });
+  table?.querySelectorAll('tbody tr').forEach((row) => {
+    if (row.children.length <= 1) return;
+    row.addEventListener('click', (event) => { if (event.target.closest('button, a, form')) return; selectRow(row); });
+    row.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectRow(row); } });
+  });
+
+  updateVisibleCount();
+  updateStats();
+  updateExportLink();
+  resetTransactionValidationState();
+  setTimeout(updateStats, 60);
+})();
+</script>
+<script>
+(() => {
+  const form = document.getElementById('nx-reclamation-form');
+  const searchInput = document.getElementById('nx-rec-search-input');
+  const suggestions = document.getElementById('nx-rec-suggestions');
+  const sortField = document.getElementById('nx-rec-sort-field');
+  const dirInput = document.getElementById('nx-rec-dir-input');
+  const dirButton = document.getElementById('nx-rec-sort-dir');
+  const searchForm = document.getElementById('nx-rec-search-form');
+  const table = document.getElementById('nx-rec-table');
+  const count = document.getElementById('nx-rec-count');
+  const modal = document.getElementById('nx-rec-modal');
+  const modalClose = document.getElementById('nx-rec-modal-close');
+  if (!form) return;
+
+  let selectedRow = null;
+  let searchTimer = null;
+
+  const setValue = (id, value) => { const el = document.getElementById(id); if (el) el.value = value ?? ''; };
+  const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value ?? '-'; };
+  const reclamationFieldIds = ['r-dateReclamation','r-typeReclamation','r-description','r-status','r-idTransaction'];
+  const reclamationNeutralMessages = {
+    'r-dateReclamation': 'Veuillez choisir une date valide.',
+    'r-typeReclamation': 'Veuillez selectionner un type de reclamation.',
+    'r-description': 'La description doit contenir au moins 10 caracteres.',
+    'r-status': 'Veuillez selectionner un status.',
+    'r-idTransaction': 'Veuillez selectionner une transaction.',
+  };
+  let reclamationValidationStarted = false;
+  const setFieldState = (id, state, message) => {
+    const input = document.getElementById(id);
+    const feedback = document.getElementById(`${id}-feedback`);
+    if (!input || !feedback) return state === 'valid';
+    input.classList.remove('is-error', 'is-valid');
+    feedback.classList.remove('is-error', 'is-valid', 'is-neutral');
+    if (state === 'error') {
+      input.classList.add('is-error');
+      feedback.classList.add('is-error');
+    } else if (state === 'valid') {
+      input.classList.add('is-valid');
+      feedback.classList.add('is-valid');
+    } else {
+      feedback.classList.add('is-neutral');
+    }
+    feedback.textContent = message;
+    return state === 'valid';
+  };
+  const resetReclamationValidationState = () => {
+    reclamationValidationStarted = false;
+    reclamationFieldIds.forEach((fieldId) => {
+      setFieldState(fieldId, 'neutral', reclamationNeutralMessages[fieldId] || '');
+    });
+  };
+  const today = '{{ 'now'|date('Y-m-d') }}';
+  const validateReclamationField = (id) => {
+    const value = String(document.getElementById(id)?.value ?? '').trim();
+    switch (id) {
+      case 'r-dateReclamation':
+        if (value === '') return setFieldState(id, 'error', 'La date de reclamation est obligatoire.');
+        if (value > today) return setFieldState(id, 'error', 'La date ne doit pas etre dans le futur.');
+        return setFieldState(id, 'valid', 'Date valide.');
+      case 'r-typeReclamation':
+        return value !== '' ? setFieldState(id, 'valid', 'Type de reclamation valide.') : setFieldState(id, 'error', 'Veuillez selectionner un type de reclamation.');
+      case 'r-description':
+        if (value === '') return setFieldState(id, 'error', 'La description est obligatoire.');
+        if (value.length < 10) return setFieldState(id, 'error', 'La description doit contenir au moins 10 caracteres.');
+        return setFieldState(id, 'valid', 'Description valide.');
+      case 'r-status':
+        return value !== '' ? setFieldState(id, 'valid', 'Status valide.') : setFieldState(id, 'error', 'Veuillez selectionner un status.');
+      case 'r-idTransaction':
+        return value !== '' ? setFieldState(id, 'valid', 'Transaction valide.') : setFieldState(id, 'error', 'Veuillez selectionner une transaction.');
+      default:
+        return true;
+    }
+  };
+  const validateReclamationForm = () => reclamationFieldIds.every(validateReclamationField);
+  const visibleRows = () => Array.from(table?.querySelectorAll('tbody tr') || []).filter((row) => row.children.length > 1 && row.style.display !== 'none');
+  const haystack = (row) => [row.dataset.id,row.dataset.date,row.dataset.type,row.dataset.status,row.dataset.idTransaction,row.dataset.numeroCompte,row.dataset.userId,row.dataset.userName,row.dataset.description,row.dataset.transactionType,row.dataset.transactionCategory,row.textContent].join(' ').toLowerCase();
+  const selectRow = (row) => {
+    if (!row || row.children.length <= 1) return;
+    table?.querySelectorAll('tbody tr').forEach((item) => item.classList.remove('is-selected'));
+    row.classList.add('is-selected');
+    selectedRow = row;
+  };
+  const renderSuggestions = (rows, query) => {
+    if (!suggestions) return;
+    const q = String(query || '').trim().toLowerCase();
+    if (q === '') { suggestions.hidden = true; suggestions.innerHTML = ''; return; }
+    const matches = rows.slice(0, 5);
+    if (matches.length === 0) {
+      suggestions.hidden = false;
+      suggestions.innerHTML = '<div class="nx-tx__suggestion"><strong>Aucun resultat</strong><span>Essayez type, status, transaction ou utilisateur</span></div>';
+      return;
+    }
+    suggestions.hidden = false;
+    suggestions.innerHTML = matches.map((row) => `<button type="button" class="nx-tx__suggestion" data-suggest-id="${row.dataset.id}"><strong>#${row.dataset.id} · ${row.dataset.type || '-'}</strong><span>${row.dataset.status || '-'} · ${row.dataset.userName || '-'}</span></button>`).join('');
+    suggestions.querySelectorAll('[data-suggest-id]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const row = table?.querySelector(`tbody tr[data-id="${button.getAttribute('data-suggest-id')}"]`);
+        if (!row) return;
+        selectRow(row);
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        suggestions.hidden = true;
+      });
+    });
+  };
+  const updateVisibleCount = () => {
+    const visible = visibleRows().length;
+    count.textContent = `${visible} reclamation${visible !== 1 ? 's' : ''}`;
+    const lines = document.getElementById('nx-rec-lines');
+    if (lines) lines.textContent = String(visible);
+  };
+  const applySearch = () => {
+    if (!table || !searchInput) return;
+    const query = searchInput.value.trim().toLowerCase();
+    const rows = Array.from(table.querySelectorAll('tbody tr')).filter((row) => row.children.length > 1);
+    const matches = [];
+    rows.forEach((row) => {
+      const show = query === '' || haystack(row).includes(query);
+      row.style.display = show ? '' : 'none';
+      if (show) matches.push(row);
+    });
+    if (selectedRow && selectedRow.style.display === 'none') { selectedRow.classList.remove('is-selected'); selectedRow = null; }
+    renderSuggestions(matches, query);
+    updateVisibleCount();
+  };
+
+  window.nxResetReclamationForm = () => {
+    setValue('r-idReclamation', '');
+    setValue('r-dateReclamation', '{{ 'now'|date('Y-m-d') }}');
+    setValue('r-typeReclamation', '');
+    setValue('r-description', '');
+    setValue('r-status', '');
+    setValue('r-idTransaction', '');
+    const label = document.getElementById('r-mode-label');
+    if (label) label.textContent = 'Nouvelle reclamation';
+    resetReclamationValidationState();
+  };
+
+  window.nxEditReclamation = (row) => {
+    if (!row) return;
+    setValue('r-idReclamation', row.dataset.id);
+    setValue('r-dateReclamation', row.dataset.date);
+    setValue('r-typeReclamation', row.dataset.type);
+    setValue('r-description', row.dataset.description);
+    setValue('r-status', row.dataset.status);
+    setValue('r-idTransaction', row.dataset.idTransaction);
+    const label = document.getElementById('r-mode-label');
+    if (label) label.textContent = `Modification reclamation #${row.dataset.id}`;
+    selectRow(row);
+    resetReclamationValidationState();
+    form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  window.nxViewReclamation = (row) => {
+    if (!row || !modal) return;
+    selectRow(row);
+    setText('vr-id', row.dataset.id ? `#${row.dataset.id}` : '-');
+    setText('vr-date', row.dataset.date || '-');
+    setText('vr-type', row.dataset.type || '-');
+    setText('vr-status', row.dataset.status || '-');
+    setText('vr-txid', row.dataset.idTransaction ? `#${row.dataset.idTransaction}` : '-');
+    setText('vr-numero', row.dataset.numeroCompte || '-');
+    setText('vr-userid', row.dataset.userId || '-');
+    setText('vr-username', row.dataset.userName || '-');
+    setText('vr-txtype', row.dataset.transactionType || '-');
+    setText('vr-txcat', row.dataset.transactionCategory || '-');
+    setText('vr-inappropriate', row.dataset.inappropriate === '1' ? 'Oui' : 'Non');
+    setText('vr-blurred', row.dataset.blurred === '1' ? 'Oui' : 'Non');
+    setText('vr-description', row.dataset.description || '-');
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  };
+
+  modalClose?.addEventListener('click', () => {
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  });
+  modal?.addEventListener('click', (event) => {
+    if (event.target === modal) {
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+    }
+  });
+
+  reclamationFieldIds.forEach((fieldId) => {
+    const field = document.getElementById(fieldId);
+    field?.addEventListener('input', () => { if (reclamationValidationStarted) validateReclamationField(fieldId); });
+    field?.addEventListener('change', () => { if (reclamationValidationStarted) validateReclamationField(fieldId); });
+    field?.addEventListener('blur', () => { if (reclamationValidationStarted) validateReclamationField(fieldId); });
+  });
+  form.addEventListener('submit', (event) => {
+    reclamationValidationStarted = true;
+    if (!validateReclamationForm()) {
+      event.preventDefault();
+    }
+  });
+  dirButton?.addEventListener('click', () => {
+    dirInput.value = dirInput.value === 'asc' ? 'desc' : 'asc';
+    const icon = dirButton.querySelector('i');
+    if (icon) icon.className = 'fa-solid ' + (dirInput.value === 'asc' ? 'fa-arrow-up-a-z' : 'fa-arrow-down-z-a');
+    searchForm?.submit();
+  });
+  sortField?.addEventListener('change', () => searchForm?.submit());
+  searchInput?.addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(applySearch, 120); });
+  searchInput?.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); applySearch(); } });
+  document.addEventListener('click', (event) => { if (suggestions && !event.target.closest('#nx-rec-search-form')) suggestions.hidden = true; });
+  table?.querySelectorAll('tbody tr').forEach((row) => {
+    if (row.children.length <= 1) return;
+    row.addEventListener('click', (event) => { if (event.target.closest('button, a, form')) return; selectRow(row); });
+    row.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectRow(row); } });
+  });
+
+  updateVisibleCount();
+  resetReclamationValidationState();
+})();
+</script>

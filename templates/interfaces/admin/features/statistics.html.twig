@@ -1,0 +1,31 @@
+<section class="summary-grid">
+    {% for card in statistics.user_management.headline %}
+        <article class="summary-card"><strong>{{ card.value }}</strong><span>{{ card.label }}</span></article>
+    {% endfor %}
+</section>
+
+{% for key, block in statistics %}
+    <section class="panel-grid">
+        <article class="panel-card">
+            <h2>{{ key|replace({'_': ' '})|title }}</h2>
+            <div class="bar-list">
+                {% for bar in block.bars %}
+                    <div class="bar-item">
+                        <div class="bar-head"><strong>{{ bar.label }}</strong><span>{{ bar.value }}</span></div>
+                        <div class="bar-track"><span style="width: {{ bar.percent }}%"></span></div>
+                    </div>
+                {% endfor %}
+            </div>
+        </article>
+        <article class="panel-card">
+            <h2>Recent Activity</h2>
+            <div class="notification-list">
+                {% for item in block.recent %}
+                    <div class="notification-item"><strong>{{ item.title }}</strong><p>{{ item.meta }}</p></div>
+                {% else %}
+                    <p>No activity.</p>
+                {% endfor %}
+            </div>
+        </article>
+    </section>
+{% endfor %}

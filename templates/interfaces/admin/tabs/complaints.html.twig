@@ -1,0 +1,122 @@
+{% set flagged_count = 0 %}
+{% for item in items %}
+    {% if item.is_inappropriate|default(0) %}
+        {% set flagged_count = flagged_count + 1 %}
+    {% endif %}
+{% endfor %}
+
+<section class="panel-card nx-crud-screen">
+    <header class="nx-crud-head">
+        <div>
+            <h2>Gestion Reclamations</h2>
+            <p>Moderation, suivi des statuts et nettoyage du contenu</p>
+        </div>
+    </header>
+
+    <div class="nx-crud-kpis">
+        <article class="nx-crud-kpi">
+            <span class="nx-crud-kpi-icon"><i class="fa-solid fa-comments"></i></span>
+            <div><strong>{{ summary.reclamations_total|default(items|length) }}</strong><small>Total reclamations</small></div>
+        </article>
+        <article class="nx-crud-kpi">
+            <span class="nx-crud-kpi-icon"><i class="fa-solid fa-triangle-exclamation"></i></span>
+            <div><strong>{{ flagged_count }}</strong><small>Contenu signale</small></div>
+        </article>
+        <article class="nx-crud-kpi">
+            <span class="nx-crud-kpi-icon"><i class="fa-solid fa-user-group"></i></span>
+            <div><strong>{{ support.users|default([])|length }}</strong><small>Utilisateurs relies</small></div>
+        </article>
+    </div>
+
+    <div class="nx-crud-grid">
+        <article class="nx-crud-form-card">
+            <div class="nx-crud-card-head">
+                <h3>Reclamation</h3>
+                <p>Ajouter ou modifier une reclamation</p>
+            </div>
+
+            <form method="post" class="editor-form nx-crud-form">
+                <input type="hidden" name="tab" value="complaints">
+                <input type="hidden" name="action" value="reclamation_save">
+                <label><span>ID pour modifier</span><input type="number" name="idReclamation"></label>
+                <label><span>Utilisateur</span>
+                    <select name="idUser">
+                        {% for u in support.users|default([]) %}
+                            <option value="{{ u.idUser }}">{{ u.idUser }} - {{ u.prenom }} {{ u.nom }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label><span>Transaction</span>
+                    <select name="idTransaction">
+                        <option value="">Sans transaction</option>
+                        {% for transaction in support.transactions|default([]) %}
+                            <option value="{{ transaction.idTransaction }}">{{ transaction.idTransaction }} - {{ transaction.categorie }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label><span>Date</span><input type="date" name="dateReclamation" value="{{ 'now'|date('Y-m-d') }}"></label>
+                <label><span>Type</span><input type="text" name="typeReclamation" required></label>
+                <label class="wide"><span>Description</span><textarea name="description" rows="3" required></textarea></label>
+                <label><span>Status</span><input type="text" name="status" value="En attente"></label>
+
+                <div class="nx-crud-form-actions">
+                    <button class="btn btn-primary nx-btn-save" type="submit">Enregistrer</button>
+                    <button class="btn btn-secondary" type="reset">Annuler</button>
+                </div>
+            </form>
+        </article>
+
+        <article class="nx-crud-table-card">
+            <div class="nx-crud-card-head">
+                <h3>Liste des reclamations</h3>
+                <p>Operations de moderation et suppression</p>
+            </div>
+
+            <div class="table-wrap">
+                <table class="data-table nx-crud-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>User</th>
+                            <th>Type</th>
+                            <th>Description</th>
+                            <th>Status</th>
+                            <th>Flou</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for item in items %}
+                        <tr>
+                            <td>{{ item.idReclamation }}</td>
+                            <td>{{ item.user_name|default('-') }}</td>
+                            <td>{{ item.typeReclamation }}</td>
+                            <td>{{ item.description|default('-') }}</td>
+                            <td>{{ item.status }}</td>
+                            <td>
+                                <form method="post">
+                                    <input type="hidden" name="tab" value="complaints">
+                                    <input type="hidden" name="action" value="reclamation_blur">
+                                    <input type="hidden" name="idReclamation" value="{{ item.idReclamation }}">
+                                    <input type="hidden" name="is_blurred" value="{{ item.is_blurred ? '0' : '1' }}">
+                                    <button class="btn btn-secondary" type="submit">{{ item.is_blurred ? 'Retirer flou' : 'Appliquer flou' }}</button>
+                                </form>
+                            </td>
+                            <td class="nx-cell-actions">
+                                <form method="post">
+                                    <input type="hidden" name="tab" value="complaints">
+                                    <input type="hidden" name="action" value="reclamation_delete">
+                                    <input type="hidden" name="idReclamation" value="{{ item.idReclamation }}">
+                                    <button class="btn btn-danger" type="submit">Supprimer</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="7">Aucune reclamation enregistree.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </article>
+    </div>
+</section>
