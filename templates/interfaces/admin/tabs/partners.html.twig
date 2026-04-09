@@ -1,0 +1,108 @@
+<section class="panel-card nx-crud-screen">
+    <header class="nx-crud-head">
+        <div>
+            <h2>Gestion Partenaires</h2>
+            <p>Reseau commercent, taux de cashback et conditions</p>
+        </div>
+    </header>
+
+    <div class="nx-crud-kpis">
+        <article class="nx-crud-kpi">
+            <span class="nx-crud-kpi-icon"><i class="fa-solid fa-handshake"></i></span>
+            <div><strong>{{ items|length }}</strong><small>Partenaires actifs</small></div>
+        </article>
+        <article class="nx-crud-kpi">
+            <span class="nx-crud-kpi-icon"><i class="fa-solid fa-star"></i></span>
+            {% set total_rating = 0 %}
+            {% for item in items %}
+                {% set total_rating = total_rating + (item.rating|default(0)) %}
+            {% endfor %}
+            <div><strong>{{ items|length > 0 ? (total_rating / items|length)|number_format(1, '.', ' ') : '0.0' }}</strong><small>Note moyenne</small></div>
+        </article>
+        <article class="nx-crud-kpi">
+            <span class="nx-crud-kpi-icon"><i class="fa-solid fa-percent"></i></span>
+            {% set avg_rate = 0 %}
+            {% for item in items %}
+                {% set avg_rate = avg_rate + (item.tauxCashback|default(0)) %}
+            {% endfor %}
+            <div><strong>{{ items|length > 0 ? (avg_rate / items|length)|number_format(2, '.', ' ') : '0.00' }}%</strong><small>Taux cashback moyen</small></div>
+        </article>
+    </div>
+
+    <div class="nx-crud-grid">
+        <article class="nx-crud-form-card">
+            <div class="nx-crud-card-head">
+                <h3>Partenaire</h3>
+                <p>Ajouter ou modifier un partenaire</p>
+            </div>
+
+            <form method="post" class="editor-form nx-crud-form">
+                <input type="hidden" name="tab" value="partners">
+                <input type="hidden" name="action" value="partner_save">
+                <label><span>ID pour modifier</span><input type="number" name="idPartenaire"></label>
+                <label><span>Nom</span><input type="text" name="nom" required></label>
+                <label><span>Categorie</span><input type="text" name="categorie" required></label>
+                <label class="wide"><span>Description</span><input type="text" name="description"></label>
+                <label><span>Taux cashback</span><input type="number" step="0.01" name="tauxCashback"></label>
+                <label><span>Taux cashback max</span><input type="number" step="0.01" name="tauxCashbackMax"></label>
+                <label><span>Plafond mensuel</span><input type="number" step="0.01" name="plafondMensuel"></label>
+                <label><span>Status</span><input type="text" name="status" value="Actif"></label>
+                <label><span>Rating</span><input type="number" step="0.1" min="0" max="5" name="rating" value="4"></label>
+
+                <div class="nx-crud-form-actions">
+                    <button class="btn btn-primary nx-btn-save" type="submit">Enregistrer</button>
+                    <button class="btn btn-secondary" type="reset">Annuler</button>
+                </div>
+            </form>
+        </article>
+
+        <article class="nx-crud-table-card">
+            <div class="nx-crud-card-head">
+                <h3>Liste des partenaires</h3>
+                <p>Fiche complete des partenaires cashback</p>
+            </div>
+
+            <div class="table-wrap">
+                <table class="data-table nx-crud-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nom</th>
+                            <th>Categorie</th>
+                            <th>Taux</th>
+                            <th>Taux max</th>
+                            <th>Plafond</th>
+                            <th>Rating</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for item in items %}
+                        <tr>
+                            <td>{{ item.idPartenaire }}</td>
+                            <td>{{ item.nom }}</td>
+                            <td>{{ item.categorie }}</td>
+                            <td>{{ item.tauxCashback|default(0)|number_format(2, '.', ' ') }}%</td>
+                            <td>{{ item.tauxCashbackMax|default(0)|number_format(2, '.', ' ') }}%</td>
+                            <td>{{ item.plafondMensuel|default(0)|number_format(2, '.', ' ') }} DT</td>
+                            <td>{{ item.rating|default(0)|number_format(1, '.', ' ') }}</td>
+                            <td>{{ item.status|default('-') }}</td>
+                            <td class="nx-cell-actions">
+                                <form method="post">
+                                    <input type="hidden" name="tab" value="partners">
+                                    <input type="hidden" name="action" value="partner_delete">
+                                    <input type="hidden" name="idPartenaire" value="{{ item.idPartenaire }}">
+                                    <button class="btn btn-danger" type="submit">Supprimer</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="9">Aucun partenaire enregistre.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </article>
+    </div>
+</section>

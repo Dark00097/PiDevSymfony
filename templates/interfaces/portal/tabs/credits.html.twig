@@ -1,0 +1,4441 @@
+﻿{% set current_date = 'now'|date('Y-m-d') %}
+{% set garanties = support.garanties|default([]) %}
+{% set pending_total = 0 %}
+{% set accepted_total = 0 %}
+{% set refused_total = 0 %}
+{% set average_risk = 0 %}
+{% set risk_sum = 0 %}
+{% set total_amount = 0 %}
+{% set total_monthly = 0 %}
+{% set current_month = 'now'|date('Y-m') %}
+{% set credits_month = 0 %}
+{% set max_credit_id = 0 %}
+{% for item in items %}
+    {% set status_key = item.statut|default('')|lower %}
+    {% if 'attente' in status_key %}
+        {% set pending_total = pending_total + 1 %}
+    {% endif %}
+    {% if 'accepte' in status_key or 'cours' in status_key or 'approved' in status_key %}
+        {% set accepted_total = accepted_total + 1 %}
+    {% endif %}
+    {% if 'refuse' in status_key %}
+        {% set refused_total = refused_total + 1 %}
+    {% endif %}
+    {% set risk_sum = risk_sum + (item.risk_score|default(0)) %}
+    {% set total_amount = total_amount + (item.montantDemande|default(0)) %}
+    {% set total_monthly = total_monthly + (item.mensualite|default(0)) %}
+    {% if item.idCredit|default(0) > max_credit_id %}
+        {% set max_credit_id = item.idCredit %}
+    {% endif %}
+    {% if item.dateDemande is not empty and item.dateDemande|date('Y-m') == current_month %}
+        {% set credits_month = credits_month + 1 %}
+    {% endif %}
+{% endfor %}
+{% set next_credit_id = max_credit_id + 1 %}
+{% if items|length > 0 %}
+    {% set average_risk = (risk_sum / items|length)|round(1, 'common') %}
+{% endif %}
+
+<div class="cr-root">
+
+    <section class="cr-hero">
+        <div class="cr-hero-main">
+            <div class="cr-hero-brand">
+                <div class="cr-hero-icon">
+                    <i class="fa-solid fa-hand-holding-dollar"></i>
+                </div>
+                <div class="cr-hero-copy">
+                    <h1>Gestion des credits</h1>
+                    <p>Demandez des prets, gerez vos credits et suivez les remboursements</p>
+                </div>
+            </div>
+
+            <div class="cr-hero-center">
+                <div class="cr-hero-stat">
+                    <span class="cr-hero-stat-num">{{ items|length }}</span>
+                    <span class="cr-hero-stat-lbl">Total dossiers</span>
+                </div>
+                <div class="cr-hero-divider"></div>
+                <div class="cr-hero-stat">
+                    <span class="cr-hero-stat-num">{{ credits_month }}</span>
+                    <span class="cr-hero-stat-lbl">Ce mois</span>
+                </div>
+                <div class="cr-hero-divider"></div>
+                <div class="cr-hero-stat">
+                    <span class="cr-hero-stat-num">{{ pending_total }}</span>
+                    <span class="cr-hero-stat-lbl">En attente</span>
+                </div>
+            </div>
+
+            <div class="cr-hero-nav">
+                <button type="button" class="cr-nav-pill" data-tool-open="history">
+                    <i class="fa-solid fa-clock-rotate-left"></i><span>Historique</span>
+                </button>
+                <button type="button" class="cr-nav-pill" id="cr-open-garanties">
+                    <i class="fa-solid fa-shield-halved"></i><span>Garanties</span>
+                </button>
+                <button type="button" class="cr-nav-pill cr-nav-pill--cta" id="cr-add-credit-btn">
+                    <i class="fa-solid fa-plus"></i><span>Nouveau</span>
+                </button>
+        </div>
+
+        <div class="cr-hero-toolbar">
+            <div class="cr-hero-toolbar-right">
+                <label class="cr-lang-select">
+                    <i class="fa-solid fa-globe"></i>
+                    <select id="cr-language">
+                        <option>Francais</option>
+                        <option>English</option>
+                        <option>Arabic</option>
+                    </select>
+                </label>
+                <button class="cr-topbar-btn" id="cr-dark-toggle" type="button">
+                    <i class="fa-solid fa-moon"></i>
+                </button>
+                <a class="cr-topbar-btn" href="{{ path(route_name, { tab: 'credits' }) }}" title="Actualiser">
+                    <i class="fa-solid fa-rotate"></i>
+                </a>
+                <div class="cr-user-chip">
+                    <div class="cr-user-avatar">
+                        {{ current_user.prenom|first|upper }}{{ current_user.nom|first|upper }}
+                    </div>
+                    <div class="cr-user-info">
+                        <strong>{{ current_user.prenom }} {{ current_user.nom }}</strong>
+                        <small>#{{ current_user.idUser }}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="cr-kpi-strip">
+        <div class="cr-kpi-card cr-kpi-card--amount">
+            <div class="cr-kpi-head">
+                <div class="cr-kpi-icon cr-kpi-icon-teal">
+                    <i class="fa-solid fa-coins"></i>
+                </div>
+                <div class="cr-kpi-copy">
+                    <span class="cr-kpi-label">Montant demande</span>
+                    <span class="cr-kpi-sub">Volume global</span>
+                </div>
+            </div>
+            <div class="cr-kpi-metric">
+                <strong class="cr-kpi-value">{{ total_amount|number_format(2, '.', ' ') }}</strong>
+                <span class="cr-kpi-unit">DT</span>
+            </div>
+            <div class="cr-kpi-bar"><span style="width:100%"></span></div>
+        </div>
+        <div class="cr-kpi-card cr-kpi-card--monthly">
+            <div class="cr-kpi-head">
+                <div class="cr-kpi-icon cr-kpi-icon-blue">
+                    <i class="fa-solid fa-calendar-check"></i>
+                </div>
+                <div class="cr-kpi-copy">
+                    <span class="cr-kpi-label">Mensualites</span>
+                    <span class="cr-kpi-sub">Charge cumulee</span>
+                </div>
+            </div>
+            <div class="cr-kpi-metric">
+                <strong class="cr-kpi-value">{{ total_monthly|number_format(2, '.', ' ') }}</strong>
+                <span class="cr-kpi-unit">DT</span>
+            </div>
+            <div class="cr-kpi-bar"><span style="width:{{ total_amount > 0 ? ((total_monthly / total_amount) * 100)|round : 0 }}%"></span></div>
+        </div>
+        <div class="cr-kpi-card cr-kpi-card--active">
+            <div class="cr-kpi-head">
+                <div class="cr-kpi-icon cr-kpi-icon-green">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+                <div class="cr-kpi-copy">
+                    <span class="cr-kpi-label">Acceptes / Actifs</span>
+                    <span class="cr-kpi-sub">Dossiers valides</span>
+                </div>
+            </div>
+            <div class="cr-kpi-metric">
+                <strong class="cr-kpi-value">{{ accepted_total }}</strong>
+                <span class="cr-kpi-unit">credits</span>
+            </div>
+            <div class="cr-kpi-bar"><span style="width:{{ items|length > 0 ? ((accepted_total / items|length) * 100)|round : 0 }}%"></span></div>
+        </div>
+        <div class="cr-kpi-card cr-kpi-card--risk">
+            <div class="cr-kpi-head">
+                <div class="cr-kpi-icon cr-kpi-icon-red">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <div class="cr-kpi-copy">
+                    <span class="cr-kpi-label">Risque moyen</span>
+                    <span class="cr-kpi-sub">Evaluation portefeuille</span>
+                </div>
+            </div>
+            <div class="cr-kpi-metric">
+                <strong class="cr-kpi-value">{{ average_risk }}</strong>
+                <span class="cr-kpi-unit">/100</span>
+            </div>
+            <div class="cr-kpi-bar"><span class="is-danger" style="width:{{ average_risk > 100 ? 100 : average_risk }}%"></span></div>
+        </div>
+    </div>
+    {# â”€â”€ MAIN SPLIT LAYOUT â”€â”€ #}
+    <div class="cr-tools-overlay" id="cr-tools-overlay" hidden></div>
+    <section class="cr-tools-modal" id="cr-tools-modal" hidden role="dialog" aria-modal="true" aria-labelledby="cr-tools-title">
+        <header class="cr-tools-header">
+            <div>
+                <h3 id="cr-tools-title">Simuler & Comparer</h3>
+                <p id="cr-tools-subtitle">Analysez vos credits sans quitter cette page.</p>
+            </div>
+            <button class="cr-tools-close" id="cr-tools-close" type="button" aria-label="Fermer">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </header>
+
+        <nav class="cr-tools-tabs" id="cr-tools-tabs">
+            <button type="button" class="cr-tools-tab is-active" data-tool-tab="simulate">Simulation</button>
+            <button type="button" class="cr-tools-tab" data-tool-tab="history">Historique</button>
+
+            <button type="button" class="cr-tools-tab" data-tool-tab="ratio">Endettement</button>
+            <button type="button" class="cr-tools-tab" data-tool-tab="projection">Projection</button>
+            <button type="button" class="cr-tools-tab" data-tool-tab="restruct">Restructuration</button>
+            <button type="button" class="cr-tools-tab" data-tool-tab="assistant">Assistant IA</button>
+        </nav>
+
+        <div class="cr-tools-body">
+            <section class="cr-tool-panel is-active" data-tool-panel="simulate">
+                <div class="cr-tool-grid-2">
+                    <article class="cr-tool-card">
+                        <h4>Scenario A</h4>
+                        <div class="cr-tool-fields">
+                            <label class="cr-tool-field">
+                                <span>Montant (DT)</span>
+                                <input type="number" step="0.01" min="0" id="cr-sim-a-amount" value="{{ items|length > 0 ? (items[0].montantDemande|default(10000)) : 10000 }}">
+                            </label>
+                            <label class="cr-tool-field">
+                                <span>Duree (mois)</span>
+                                <input type="number" min="1" id="cr-sim-a-duration" value="{{ items|length > 0 ? (items[0].duree|default(36)) : 36 }}">
+                            </label>
+                            <label class="cr-tool-field">
+                                <span>Taux annuel (%)</span>
+                                <input type="number" step="0.01" min="0" id="cr-sim-a-rate" value="{{ items|length > 0 ? (items[0].tauxInteret|default(8)) : 8 }}">
+                            </label>
+                        </div>
+                        <div class="cr-tool-kpis">
+                            <div><span>Mensualite</span><strong id="cr-sim-a-monthly">0.00 DT</strong></div>
+                            <div><span>Cout total</span><strong id="cr-sim-a-total">0.00 DT</strong></div>
+                            <div><span>Interets</span><strong id="cr-sim-a-interest">0.00 DT</strong></div>
+                        </div>
+                    </article>
+
+                    <article class="cr-tool-card">
+                        <h4>Scenario B</h4>
+                        <div class="cr-tool-fields">
+                            <label class="cr-tool-field">
+                                <span>Montant (DT)</span>
+                                <input type="number" step="0.01" min="0" id="cr-sim-b-amount" value="{{ items|length > 0 ? (items[0].montantDemande|default(10000)) : 10000 }}">
+                            </label>
+                            <label class="cr-tool-field">
+                                <span>Duree (mois)</span>
+                                <input type="number" min="1" id="cr-sim-b-duration" value="{{ items|length > 0 ? ((items[0].duree|default(36)) + 12) : 48 }}">
+                            </label>
+                            <label class="cr-tool-field">
+                                <span>Taux annuel (%)</span>
+                                <input type="number" step="0.01" min="0" id="cr-sim-b-rate" value="{{ items|length > 0 ? (items[0].tauxInteret|default(8)) : 8 }}">
+                            </label>
+                        </div>
+                        <div class="cr-tool-kpis">
+                            <div><span>Mensualite</span><strong id="cr-sim-b-monthly">0.00 DT</strong></div>
+                            <div><span>Cout total</span><strong id="cr-sim-b-total">0.00 DT</strong></div>
+                            <div><span>Interets</span><strong id="cr-sim-b-interest">0.00 DT</strong></div>
+                        </div>
+                    </article>
+                </div>
+
+                <div class="cr-tool-result" id="cr-sim-compare">
+                    <div><span>Difference mensualite</span><strong id="cr-sim-diff-monthly">0.00 DT</strong></div>
+                    <div><span>Ecart interets</span><strong id="cr-sim-diff-interest">0.00 DT</strong></div>
+                    <div><span>Scenario conseille</span><strong id="cr-sim-best">Aucun</strong></div>
+                </div>
+            </section>
+
+            <section class="cr-tool-panel" data-tool-panel="history">
+                {% if items|length > 0 %}
+                    <div class="cr-tool-table-wrap">
+                        <table class="cr-tool-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Type</th>
+                                    <th>Montant</th>
+                                    <th>Mensualite</th>
+                                    <th>Statut</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in items %}
+                                    <tr>
+                                        <td>#{{ item.idCredit }}</td>
+                                        <td>{{ item.typeCredit|default('-') }}</td>
+                                        <td>{{ item.montantDemande|default(0)|number_format(2, '.', ' ') }} DT</td>
+                                        <td>{{ item.mensualite|default(0)|number_format(2, '.', ' ') }} DT</td>
+                                        <td>{{ item.statut|default('-') }}</td>
+                                        <td>{{ item.dateDemande|default('-') }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="cr-tool-empty">Aucun historique credit disponible.</div>
+                {% endif %}
+            </section>
+
+            <section class="cr-tool-panel" data-tool-panel="ratio">
+                <div class="cr-tool-grid-2">
+                    <article class="cr-tool-card">
+                        <h4>Calcul du ratio d'endettement</h4>
+                        <div class="cr-tool-fields">
+                            <label class="cr-tool-field">
+                                <span>Credit</span>
+                                <select id="cr-ratio-credit">
+                                    {% for item in items %}
+                                        <option value="{{ item.idCredit }}" data-monthly="{{ item.mensualite|default(0) }}" data-salary="{{ item.salaire|default(0) }}">
+                                            #{{ item.idCredit }} - {{ item.typeCredit|default('Credit') }}
+                                        </option>
+                                    {% else %}
+                                        <option value="">Aucun credit</option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+                            <label class="cr-tool-field">
+                                <span>Salaire mensuel (DT)</span>
+                                <input type="number" step="0.01" min="0" id="cr-ratio-salary" value="">
+                            </label>
+                        </div>
+                    </article>
+
+                    <article class="cr-tool-card">
+                        <h4>Resultat</h4>
+                        <div class="cr-tool-kpis">
+                            <div><span>Mensualite</span><strong id="cr-ratio-monthly">0.00 DT</strong></div>
+                            <div><span>Ratio</span><strong id="cr-ratio-percent">0.0%</strong></div>
+                        </div>
+                        <div class="cr-tool-bar">
+                            <span class="cr-tool-bar-fill" id="cr-ratio-fill" style="width:0%;"></span>
+                        </div>
+                        <p class="cr-tool-note" id="cr-ratio-advice">Selectionnez un credit pour lancer l'analyse.</p>
+                    </article>
+                </div>
+            </section>
+
+            <section class="cr-tool-panel" data-tool-panel="projection">
+                <div class="cr-tool-grid-2">
+                    <article class="cr-tool-card">
+                        <h4>Projection future</h4>
+                        <div class="cr-tool-fields">
+                            <label class="cr-tool-field">
+                                <span>Credit</span>
+                                <select id="cr-projection-credit">
+                                    {% for item in items %}
+                                        <option value="{{ item.idCredit }}" data-approved="{{ item.montantAccorde|default(item.montantDemande|default(0)) }}" data-monthly="{{ item.mensualite|default(0) }}" data-duration="{{ item.duree|default(0) }}" data-date="{{ item.dateDemande|default(current_date)|slice(0, 10) }}">
+                                            #{{ item.idCredit }} - {{ item.typeCredit|default('Credit') }}
+                                        </option>
+                                    {% else %}
+                                        <option value="">Aucun credit</option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+                            <label class="cr-tool-field">
+                                <span>Horizon (mois)</span>
+                                <input type="number" min="1" id="cr-projection-months" value="12">
+                            </label>
+                        </div>
+                    </article>
+
+                    <article class="cr-tool-card">
+                        <h4>Estimation</h4>
+                        <div class="cr-tool-kpis">
+                            <div><span>Montant paye</span><strong id="cr-projection-paid">0.00 DT</strong></div>
+                            <div><span>Reste estime</span><strong id="cr-projection-remaining">0.00 DT</strong></div>
+                            <div><span>Date cible</span><strong id="cr-projection-date">-</strong></div>
+                        </div>
+                        <div class="cr-tool-bar">
+                            <span class="cr-tool-bar-fill" id="cr-projection-fill" style="width:0%;"></span>
+                        </div>
+                        <p class="cr-tool-note" id="cr-projection-progress">Progression estimee: 0%</p>
+                    </article>
+                </div>
+            </section>
+
+            <section class="cr-tool-panel" data-tool-panel="restruct">
+                <div class="cr-tool-grid-2">
+                    <article class="cr-tool-card">
+                        <h4>Simulation de restructuration</h4>
+                        <div class="cr-tool-fields">
+                            <label class="cr-tool-field">
+                                <span>Credit</span>
+                                <select id="cr-restruct-credit">
+                                    {% for item in items %}
+                                        <option value="{{ item.idCredit }}" data-principal="{{ item.montantAccorde|default(item.montantDemande|default(0)) }}" data-rate="{{ item.tauxInteret|default(0) }}" data-duration="{{ item.duree|default(0) }}" data-monthly="{{ item.mensualite|default(0) }}">
+                                            #{{ item.idCredit }} - {{ item.typeCredit|default('Credit') }}
+                                        </option>
+                                    {% else %}
+                                        <option value="">Aucun credit</option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+                            <label class="cr-tool-field">
+                                <span>Nouvelle duree (mois)</span>
+                                <input type="number" min="1" id="cr-restruct-duration" value="60">
+                            </label>
+                            <label class="cr-tool-field">
+                                <span>Nouveau taux (%)</span>
+                                <input type="number" step="0.01" min="0" id="cr-restruct-rate" value="6.50">
+                            </label>
+                        </div>
+                    </article>
+
+                    <article class="cr-tool-card">
+                        <h4>Impact previsionnel</h4>
+                        <div class="cr-tool-kpis">
+                            <div><span>Mensualite actuelle</span><strong id="cr-restruct-current">0.00 DT</strong></div>
+                            <div><span>Nouvelle mensualite</span><strong id="cr-restruct-new">0.00 DT</strong></div>
+                            <div><span>Gain mensuel</span><strong id="cr-restruct-diff">0.00 DT</strong></div>
+                            <div><span>Nouveau cout total</span><strong id="cr-restruct-total">0.00 DT</strong></div>
+                        </div>
+                    </article>
+                </div>
+            </section>
+
+            <section class="cr-tool-panel" data-tool-panel="assistant">
+                <article class="cr-tool-card">
+                    <h4>Assistant IA Credit (mode local)</h4>
+                    <p class="cr-tool-note">Reponses basees sur vos donnees affichees: {{ items|length }} credit(s), mensualites cumulees {{ total_monthly|number_format(2, '.', ' ') }} DT.</p>
+                    <div class="cr-ai-chips">
+                        <button type="button" class="cr-ai-chip" data-ai-question="Quel est mon niveau global de risque credit ?">Risque global</button>
+                        <button type="button" class="cr-ai-chip" data-ai-question="Comment reduire mon ratio d'endettement ?">Reduire ratio</button>
+                        <button type="button" class="cr-ai-chip" data-ai-question="Faut-il restructurer un credit ?">Restructuration</button>
+                        <button type="button" class="cr-ai-chip" data-ai-question="Resume mon historique credits.">Resume historique</button>
+                    </div>
+                    <label class="cr-tool-field">
+                        <span>Votre question</span>
+                        <textarea id="cr-ai-question" rows="3" placeholder="Ex: Comment ameliorer ma capacite de remboursement ?"></textarea>
+                    </label>
+                    <div class="cr-tool-actions">
+                        <button type="button" class="cr-hdr-btn cr-hdr-btn-primary" id="cr-ai-send">
+                            <i class="fa-solid fa-paper-plane"></i>
+                            Generer la reponse
+                        </button>
+                    </div>
+                    <div class="cr-tool-answer" id="cr-ai-answer">
+                        L'assistant affichera ici une recommandation concise adaptee a vos credits.
+                    </div>
+                </article>
+            </section>
+        </div>
+    </section>
+    <div class="cr-split">
+
+        {# â”€â”€â”€ LEFT: FORM COLUMN â”€â”€â”€ #}
+        <aside class="cr-form-col" id="cr-form-col">
+            <div class="cr-form-card" id="credit-form-card">
+                <div class="cr-form-card-header">
+                    <div class="cr-form-card-header-top">
+                        <div class="cr-fch-icon">
+                            <i class="fa-solid fa-file-pen"></i>
+                        </div>
+                        <div>
+                            <h2 class="cr-fch-title">Demande de Credit</h2>
+                            <p class="cr-fch-sub">Remplissez le formulaire ci-dessous</p>
+                        </div>
+                        <button class="cr-form-collapse-btn" id="cr-collapse-form" type="button" title="Reduire">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </button>
+                    </div>
+                    <div class="cr-form-steps">
+                        <div class="cr-step cr-step-active" data-step="1">
+                            <div class="cr-step-dot">1</div>
+                            <span>Identite</span>
+                        </div>
+                        <div class="cr-step-line"></div>
+                        <div class="cr-step" data-step="2">
+                            <div class="cr-step-dot">2</div>
+                            <span>Financier</span>
+                        </div>
+                        <div class="cr-step-line"></div>
+                        <div class="cr-step" data-step="3">
+                            <div class="cr-step-dot">3</div>
+                            <span>Profil</span>
+                        </div>
+                    </div>
+                </div>
+
+                <form method="post" class="cr-form" id="credit-form" novalidate>
+                    <input type="hidden" name="tab" value="credits">
+                    <input type="hidden" name="action" value="credit_save">
+
+                    {# STEP 1 â€” Identity #}
+                    <div class="cr-form-step-body" data-step-body="1">
+
+                        <div class="cr-field-group">
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-hashtag"></i> ID (auto)
+                                </label>
+                                <input class="cr-input" type="number" name="idCredit" id="cr-credit-id" placeholder="Laisser vide pour creer" readonly>
+                            </div>
+                        </div>
+
+                        <div class="cr-field-group cr-field-group-2">
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-building-columns"></i> Compte <span class="cr-req">*</span>
+                                </label>
+                                <div class="cr-select-wrap">
+                                    <select class="cr-input cr-select" name="idCompte" id="cr-credit-account">
+                                        <option value="">Selectionner</option>
+                                        {% for account in support.accounts|default([]) %}
+                                            <option value="{{ account.idCompte }}">{{ account.idCompte }} - {{ account.numeroCompte }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <i class="fa-solid fa-chevron-down cr-select-icon"></i>
+                                </div>
+                                <span id="cr-err-idCompte" class="cr-val-msg"></span>
+                            </div>
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-tag"></i> Type de credit <span class="cr-req">*</span>
+                                </label>
+                                <div class="cr-select-wrap">
+                                    <select class="cr-input cr-select" name="typeCredit" id="cr-credit-type">
+                                        <option value="">Selectionner</option>
+                                        <option value="Professionnel">Professionnel</option>
+                                        <option value="Immobilier">Immobilier</option>
+                                        <option value="Auto">Auto</option>
+                                        <option value="Consommation">Consommation</option>
+                                        <option value="Etudes">Etudes</option>
+                                        <option value="Travaux">Travaux</option>
+                                        <option value="Personnel">Personnel</option>
+                                        <option value="Autre">Autre</option>
+                                    </select>
+                                    <i class="fa-solid fa-chevron-down cr-select-icon"></i>
+                                </div>
+                                <span id="cr-err-typeCredit" class="cr-val-msg"></span>
+                            </div>
+                        </div>
+
+                        <div class="cr-field-group">
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-calendar-day"></i> Date de demande <span class="cr-req">*</span>
+                                </label>
+                                <input class="cr-input" type="date" name="dateDemande" id="cr-credit-date" value="{{ current_date }}">
+                                <span id="cr-err-dateDemande" class="cr-val-msg"></span>
+                            </div>
+                        </div>
+
+                        <div class="cr-step-nav">
+                            <span></span>
+                            <button type="button" class="cr-step-btn cr-step-next" data-next="2">
+                                Suivant <i class="fa-solid fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    {# STEP 2 â€” Financial #}
+                    <div class="cr-form-step-body" data-step-body="2" hidden>
+
+                        <div class="cr-field-group cr-field-group-2">
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-money-bill-wave"></i> Montant demande (TND) <span class="cr-req">*</span>
+                                </label>
+                                <div class="cr-input-pfx-wrap">
+                                    <span class="cr-input-pfx">TND</span>
+                                    <input class="cr-input cr-input-pfx-field" type="number" step="0.01" min="0" name="montantDemande" id="cr-credit-amount" placeholder="0.00">
+                                </div>
+                                <span id="cr-err-montantDemande" class="cr-val-msg"></span>
+                            </div>
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-piggy-bank"></i> Autofinancement (TND)
+                                </label>
+                                <div class="cr-input-pfx-wrap">
+                                    <span class="cr-input-pfx">TND</span>
+                                    <input class="cr-input cr-input-pfx-field" type="number" step="0.01" min="0" name="autofinancement" id="cr-credit-auto" placeholder="0.00">
+                                </div>
+                                <span id="cr-err-autofinancement" class="cr-val-msg"></span>
+                            </div>
+                        </div>
+
+                        <div class="cr-field-group cr-field-group-2">
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-hourglass-half"></i> Duree (mois) <span class="cr-req">*</span>
+                                </label>
+                                <div class="cr-select-wrap">
+                                    <select class="cr-input cr-select" name="duree" id="cr-credit-duree">
+                                        <option value="">Selectionner</option>
+                                        {% for month in [6, 12, 18, 24, 36, 48, 60, 72, 84, 120] %}
+                                            <option value="{{ month }}" {{ month == 12 ? 'selected' : '' }}>{{ month }} mois</option>
+                                        {% endfor %}
+                                    </select>
+                                    <i class="fa-solid fa-chevron-down cr-select-icon"></i>
+                                </div>
+                                <span id="cr-err-duree" class="cr-val-msg"></span>
+                            </div>
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-percent"></i> Taux TAEG (%) <span class="cr-req">*</span>
+                                </label>
+                                <input class="cr-input" type="number" step="0.01" min="0" name="tauxInteret" id="cr-credit-rate" value="3.5">
+                                <span id="cr-err-tauxInteret" class="cr-val-msg"></span>
+                            </div>
+                        </div>
+
+                        <div class="cr-field-group cr-field-group-2">
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-calendar-check"></i> Mensualite estimee (TND)
+                                </label>
+                                <div class="cr-input-pfx-wrap">
+                                    <span class="cr-input-pfx cr-input-pfx-auto">AUTO</span>
+                                    <input class="cr-input cr-input-pfx-field cr-auto-field" type="number" step="0.01" min="0" name="mensualite" id="cr-credit-monthly" placeholder="Calcule auto">
+                                </div>
+                            </div>
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-handshake"></i> Montant accorde (TND)
+                                </label>
+                                <div class="cr-input-pfx-wrap">
+                                    <span class="cr-input-pfx cr-input-pfx-auto">AUTO</span>
+                                    <input class="cr-input cr-input-pfx-field cr-auto-field" type="number" step="0.01" min="0" name="montantAccorde" id="cr-credit-approved" placeholder="Calcule auto">
+                                </div>
+                            </div>
+                        </div>
+
+                        {# Live calculator preview #}
+                        <div class="cr-calc-preview" id="cr-calc-preview">
+                            <div class="cr-calc-row">
+                                <span>Mensualite estimee</span>
+                                <strong id="cr-preview-monthly">-- DT</strong>
+                            </div>
+                            <div class="cr-calc-row">
+                                <span>Cout total credit</span>
+                                <strong id="cr-preview-total">-- DT</strong>
+                            </div>
+                            <div class="cr-calc-row">
+                                <span>Cout interets</span>
+                                <strong id="cr-preview-interest">-- DT</strong>
+                            </div>
+                        </div>
+
+                        <div class="cr-step-nav">
+                            <button type="button" class="cr-step-btn cr-step-back" data-back="1">
+                                <i class="fa-solid fa-arrow-left"></i> Precedent
+                            </button>
+                            <button type="button" class="cr-step-btn cr-step-next" data-next="3">
+                                Suivant <i class="fa-solid fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    {# STEP 3 â€” Profile #}
+                    <div class="cr-form-step-body" data-step-body="3" hidden>
+
+                        <div class="cr-field-group cr-field-group-2">
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-wallet"></i> Salaire mensuel (TND) <span class="cr-req">*</span>
+                                </label>
+                                <div class="cr-input-pfx-wrap">
+                                    <span class="cr-input-pfx">TND</span>
+                                    <input class="cr-input cr-input-pfx-field" type="number" step="0.01" min="0" name="salaire" id="cr-credit-salary" placeholder="Ex: 2500">
+                                </div>
+                                <span id="cr-err-salaire" class="cr-val-msg"></span>
+                            </div>
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-briefcase"></i> Type de contrat <span class="cr-req">*</span>
+                                </label>
+                                <div class="cr-select-wrap">
+                                    <select class="cr-input cr-select" name="typeContrat" id="cr-credit-contract">
+                                        <option value="">Selectionner</option>
+                                        <option value="CDI">CDI</option>
+                                        <option value="CDD">CDD</option>
+                                        <option value="Fonctionnaire">Fonctionnaire</option>
+                                        <option value="Profession liberale">Profession liberale</option>
+                                        <option value="Autre">Autre</option>
+                                    </select>
+                                    <i class="fa-solid fa-chevron-down cr-select-icon"></i>
+                                </div>
+                                <span id="cr-err-typeContrat" class="cr-val-msg"></span>
+                            </div>
+                        </div>
+
+                        <div class="cr-field-group">
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-medal"></i> Anciennete (annees) <span class="cr-req">*</span>
+                                </label>
+                                <input class="cr-input" type="number" min="0" name="ancienneteAnnees" id="cr-credit-seniority" placeholder="Ex: 3">
+                                <span id="cr-err-ancienneteAnnees" class="cr-val-msg"></span>
+                            </div>
+                        </div>
+
+                        {# Analysis block #}
+                        <div class="cr-analyze-block">
+                            <div class="cr-analyze-header">
+                                <i class="fa-solid fa-brain"></i>
+                                <span>Analyse automatique de capacite</span>
+                            </div>
+                            <button class="cr-analyze-btn" id="cr-credit-analyze" type="button">
+                                <i class="fa-solid fa-chart-simple"></i>
+                                Lancer l'analyse
+                            </button>
+                            <div class="cr-analysis-output" id="cr-analysis-output" hidden></div>
+                        </div>
+
+                        <div class="cr-step-nav cr-step-nav-final">
+                            <button type="button" class="cr-step-btn cr-step-back" data-back="2">
+                                <i class="fa-solid fa-arrow-left"></i> Precedent
+                            </button>
+                            <div class="cr-final-actions">
+                                <button class="cr-form-reset-btn" type="reset">
+                                    <i class="fa-solid fa-xmark"></i> Annuler
+                                </button>
+                                <button class="cr-submit-btn" type="submit">
+                                    <i class="fa-solid fa-floppy-disk"></i>
+                                    Enregistrer le credit
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </aside>
+
+        {# â”€â”€â”€ RIGHT: TABLE COLUMN â”€â”€â”€ #}
+        <main class="cr-table-col" id="cr-table-section">
+
+            {# Table toolbar #}
+            <div class="cr-table-toolbar">
+                <div class="cr-table-toolbar-left">
+                    <h2 class="cr-table-title">
+                        <i class="fa-solid fa-credit-card" id="cr-main-list-icon"></i>
+                        <span id="cr-main-list-label">Mes Credits</span>
+                    </h2>
+                    <span class="cr-table-count-badge" id="cr-main-list-count">{{ items|length }}</span>
+                </div>
+                <div class="cr-table-toolbar-right">
+                    <div class="cr-search-box">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" id="cr-search-input" placeholder="Rechercher un credit...">
+                        <button class="cr-search-clear" id="cr-search-clear" type="button" hidden>
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                    <div class="cr-select-wrap cr-sort-wrap">
+                        <select class="cr-input cr-select cr-sort-select" id="cr-sort-select">
+                            <option value="id_desc">Plus recent</option>
+                            <option value="id_asc">Plus ancien</option>
+                            <option value="amount_high">Montant eleve</option>
+                            <option value="amount_medium">Montant moyen</option>
+                            <option value="amount_low">Montant faible</option>
+                            <option value="risk_desc">Risque eleve</option>
+                        </select>
+                        <i class="fa-solid fa-chevron-down cr-select-icon"></i>
+                    </div>
+                    <button type="button" class="cr-garanties-btn" id="cr-open-garanties-inline">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <span id="cr-open-garanties-inline-label">Garanties</span>
+                    </button>
+                </div>
+            </div>
+
+            <div id="cr-credits-view">
+            {# Status filter tabs #}
+            <div class="cr-filter-tabs" id="cr-credit-filter-tabs">
+                <button class="cr-filter-tab cr-filter-tab-active" data-filter="all" type="button">
+                    Tous <span class="cr-tab-count">{{ items|length }}</span>
+                </button>
+                <button class="cr-filter-tab" data-filter="attente" type="button">
+                    En attente <span class="cr-tab-count">{{ pending_total }}</span>
+                </button>
+                <button class="cr-filter-tab" data-filter="accepte" type="button">
+                    Acceptes <span class="cr-tab-count">{{ accepted_total }}</span>
+                </button>
+                <button class="cr-filter-tab" data-filter="refuse" data-filter-val="refuse" type="button">
+                    Refuses <span class="cr-tab-count">{{ refused_total }}</span>
+                </button>
+            </div>
+
+            {# Cards grid view #}
+            <div class="cr-credits-grid" id="cr-credits-grid">
+                {% for item in items %}
+                    <div class="cr-credit-card"
+                         data-credit-row
+                         data-credit-id="{{ item.idCredit }}"
+                         data-credit-account="{{ item.idCompte|default('') }}"
+                         data-credit-account-number="{{ item.compte_numero|default('')|e('html_attr') }}"
+                         data-credit-type="{{ item.typeCredit|default('')|e('html_attr') }}"
+                         data-credit-amount="{{ item.montantDemande|default(0) }}"
+                         data-credit-auto="{{ item.autofinancement|default('') }}"
+                         data-credit-duration="{{ item.duree|default('') }}"
+                         data-credit-rate="{{ item.tauxInteret|default('') }}"
+                         data-credit-monthly="{{ item.mensualite|default('') }}"
+                         data-credit-approved="{{ item.montantAccorde|default('') }}"
+                         data-credit-date="{{ item.dateDemande|default(current_date) }}"
+                         data-credit-salary="{{ item.salaire|default('') }}"
+                         data-credit-contract="{{ item.typeContrat|default('')|e('html_attr') }}"
+                         data-credit-seniority="{{ item.ancienneteAnnees|default('') }}"
+                         data-credit-status="{{ item.statut|default('En attente')|e('html_attr') }}"
+                         data-credit-risk="{{ item.risk_score|default(0) }}"
+                         data-credit-search="{{ (item.idCredit ~ ' ' ~ item.idCompte ~ ' ' ~ item.compte_numero ~ ' ' ~ item.typeCredit ~ ' ' ~ item.statut ~ ' ' ~ item.montantDemande ~ ' ' ~ item.mensualite ~ ' ' ~ item.typeContrat ~ ' ' ~ item.dateDemande)|lower|e('html_attr') }}"
+                    >
+                        {% set st = item.statut|default('En attente')|lower %}
+                        {% set risk = item.risk_score|default(0) %}
+                        {% set risk_cls = risk > 70 ? 'high' : (risk > 40 ? 'medium' : 'low') %}
+
+                        <div class="cr-cc-top">
+                            <div class="cr-cc-id">
+                                <span class="cr-cc-id-label">#{{ item.idCredit }}</span>
+                                <span class="cr-cc-type">{{ item.typeCredit|default('-') }}</span>
+                            </div>
+                            <span class="cr-cc-status cr-status-{{ 'accepte' in st or 'cours' in st ? 'green' : ('refuse' in st ? 'red' : 'amber') }}">
+                                <i class="fa-solid fa-{{ 'accepte' in st or 'cours' in st ? 'circle-check' : ('refuse' in st ? 'circle-xmark' : 'clock') }}"></i>
+                                {{ item.statut|default('En attente') }}
+                            </span>
+                        </div>
+
+                        <div class="cr-cc-amount-row">
+                            <div class="cr-cc-amount">
+                                {{ item.montantDemande|default(0)|number_format(0, '.', ' ') }}
+                                <small>TND</small>
+                            </div>
+                            <div class="cr-cc-monthly">
+                                <span class="cr-cc-monthly-label">Mensualite</span>
+                                <span class="cr-cc-monthly-val">{{ item.mensualite|default(0)|number_format(2, '.', ' ') }} DT</span>
+                            </div>
+                        </div>
+
+                        <div class="cr-cc-meta">
+                            <div class="cr-cc-meta-item">
+                                <i class="fa-solid fa-hourglass-half"></i>
+                                <span>{{ item.duree|default('-') }} mois</span>
+                            </div>
+                            <div class="cr-cc-meta-item">
+                                <i class="fa-solid fa-percent"></i>
+                                <span>{{ item.tauxInteret|default('-') }}%</span>
+                            </div>
+                            <div class="cr-cc-meta-item">
+                                <i class="fa-solid fa-calendar-day"></i>
+                                <span>{{ item.dateDemande|default('-') }}</span>
+                            </div>
+                        </div>
+
+                        <div class="cr-cc-risk-row">
+                            <span class="cr-cc-risk-label">Score risque</span>
+                            <div class="cr-cc-risk-bar-wrap">
+                                <div class="cr-cc-risk-bar">
+                                    <div class="cr-cc-risk-fill cr-risk-{{ risk_cls }}" style="width: {{ risk }}%"></div>
+                                </div>
+                                <span class="cr-cc-risk-val cr-risk-{{ risk_cls }}">{{ risk }}/100</span>
+                            </div>
+                        </div>
+
+                        <div class="cr-cc-actions">
+                            <a class="cr-cc-pdf-btn" href="{{ path('portal_feature_pdf_download', { kind: 'credits' }) }}" title="Exporter en PDF">
+                                <i class="fa-solid fa-download"></i>
+                                PDF
+                            </a>
+                            <button class="cr-cc-edit-btn" type="button" data-credit-edit="{{ item.idCredit }}">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                                Modifier
+                            </button>
+                            <form method="post" onsubmit="return confirm('Supprimer ce credit ?');" class="cr-cc-delete-form">
+                                <input type="hidden" name="tab" value="credits">
+                                <input type="hidden" name="action" value="credit_delete">
+                                <input type="hidden" name="idCredit" value="{{ item.idCredit }}">
+                                <button class="cr-cc-delete-btn" type="submit">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="cr-empty-state" id="cr-empty-main">
+                        <div class="cr-empty-icon">
+                            <i class="fa-solid fa-file-circle-xmark"></i>
+                        </div>
+                        <strong>Aucun credit enregistre</strong>
+                        <span>Utilisez le formulaire pour creer votre premier dossier de credit.</span>
+                        <button type="button" class="cr-empty-cta" id="cr-empty-add-btn">
+                            <i class="fa-solid fa-plus"></i> Ajouter un credit
+                        </button>
+                    </div>
+                {% endfor %}
+
+            </div>
+
+            {# Table footer stats #}
+            <div class="cr-table-footer">
+                <div class="cr-tf-stat">
+                    <i class="fa-solid fa-layer-group"></i>
+                    <span>Total: <strong>{{ items|length }}</strong></span>
+                </div>
+                <div class="cr-tf-stat">
+                    <i class="fa-solid fa-clock"></i>
+                    <span>En attente: <strong>{{ pending_total }}</strong></span>
+                </div>
+                <div class="cr-tf-stat">
+                    <i class="fa-solid fa-circle-check"></i>
+                    <span>Acceptes: <strong>{{ accepted_total }}</strong></span>
+                </div>
+                <div class="cr-tf-stat">
+                    <i class="fa-solid fa-gauge"></i>
+                    <span>Risque moyen: <strong>{{ average_risk }}/100</strong></span>
+                </div>
+                <a class="cr-tf-refresh" href="{{ path(route_name, { tab: 'credits' }) }}">
+                    <i class="fa-solid fa-rotate"></i>
+                    Actualiser
+                </a>
+            </div>
+            </div>
+
+            <div id="cr-garanties-view" hidden>
+                {% if garanties|length > 0 %}
+                    <div class="cr-garanties-grid cr-garanties-list-main">
+                        {% for garantie in garanties %}
+                            {% set garantie_status_key = garantie.statut|default('')|lower %}
+                            {% set garantie_status_class = ('accepte' in garantie_status_key or 'verifie' in garantie_status_key or 'cours' in garantie_status_key or 'rembourse' in garantie_status_key) ? 'green' : (('refuse' in garantie_status_key or 'rejete' in garantie_status_key) ? 'red' : 'amber') %}
+                            {% set retained_percent = garantie.valeurEstimee|default(0) > 0 ? ((garantie.valeurRetenue|default(0) / garantie.valeurEstimee|default(1)) * 100)|round : 0 %}
+                            <div
+                                class="cr-garantie-card"
+                                data-main-garantie-row
+                                data-garantie-row
+                                data-garantie-id="{{ garantie.idGarantie }}"
+                                data-garantie-credit-id="{{ garantie.idCredit }}"
+                                data-garantie-type="{{ garantie.typeGarantie|default('')|e('html_attr') }}"
+                                data-garantie-description="{{ garantie.description|default('')|e('html_attr') }}"
+                                data-garantie-address="{{ garantie.adresseBien|default('')|e('html_attr') }}"
+                                data-garantie-estimated="{{ garantie.valeurEstimee|default(0) }}"
+                                data-garantie-retained="{{ garantie.valeurRetenue|default('') }}"
+                                data-garantie-document="{{ garantie.documentJustificatif|default('')|e('html_attr') }}"
+                                data-garantie-date="{{ garantie.dateEvaluation|default(current_date)|slice(0, 10) }}"
+                                data-garantie-guarantor="{{ garantie.nomGarant|default('')|e('html_attr') }}"
+                                data-garantie-status="{{ garantie.statut|default('')|e('html_attr') }}"
+                                data-garantie-search="{{ (garantie.idGarantie ~ ' ' ~ garantie.idCredit ~ ' ' ~ garantie.typeGarantie ~ ' ' ~ garantie.description ~ ' ' ~ garantie.statut ~ ' ' ~ garantie.nomGarant ~ ' ' ~ garantie.adresseBien ~ ' ' ~ garantie.valeurEstimee ~ ' ' ~ garantie.valeurRetenue)|lower|e('html_attr') }}"
+                            >
+                                <div class="cr-cc-top">
+                                    <div class="cr-cc-id">
+                                        <span class="cr-cc-id-label">#{{ garantie.idGarantie }}</span>
+                                        <span class="cr-cc-type">{{ garantie.typeGarantie|default('-') }}</span>
+                                    </div>
+                                    <span class="cr-cc-status cr-status-{{ garantie_status_class }}">
+                                        <i class="fa-solid fa-{{ garantie_status_class == 'green' ? 'circle-check' : (garantie_status_class == 'red' ? 'circle-xmark' : 'clock') }}"></i>
+                                        {{ garantie.statut|default('-') }}
+                                    </span>
+                                </div>
+
+                                <div class="cr-cc-amount-row">
+                                    <div class="cr-cc-amount">
+                                        {{ garantie.valeurEstimee|default(0)|number_format(0, '.', ' ') }}
+                                        <small>TND</small>
+                                    </div>
+                                    <div class="cr-cc-monthly">
+                                        <span class="cr-cc-monthly-label">Valeur retenue</span>
+                                        <span class="cr-cc-monthly-val">{{ garantie.valeurRetenue|default(0)|number_format(2, '.', ' ') }} DT</span>
+                                    </div>
+                                </div>
+
+                                <div class="cr-cc-meta">
+                                    <div class="cr-cc-meta-item">
+                                        <i class="fa-solid fa-link"></i>
+                                        <span>Credit #{{ garantie.idCredit }}</span>
+                                    </div>
+                                    <div class="cr-cc-meta-item">
+                                        <i class="fa-solid fa-calendar-day"></i>
+                                        <span>{{ garantie.dateEvaluation|default('-') }}</span>
+                                    </div>
+                                    <div class="cr-cc-meta-item">
+                                        <i class="fa-solid fa-user-tie"></i>
+                                        <span>{{ garantie.nomGarant|default('Sans garant') }}</span>
+                                    </div>
+                                </div>
+
+                                <div class="cr-cc-risk-row">
+                                    <span class="cr-cc-risk-label">Couverture retenue</span>
+                                    <div class="cr-cc-risk-bar-wrap">
+                                        <div class="cr-cc-risk-bar">
+                                            <div class="cr-cc-risk-fill cr-risk-{{ retained_percent > 79 ? 'low' : (retained_percent > 49 ? 'medium' : 'high') }}" style="width: {{ retained_percent > 100 ? 100 : retained_percent }}%"></div>
+                                        </div>
+                                        <span class="cr-cc-risk-val cr-risk-{{ retained_percent > 79 ? 'low' : (retained_percent > 49 ? 'medium' : 'high') }}">{{ retained_percent }}%</span>
+                                    </div>
+                                </div>
+
+                                <div class="cr-cc-actions">
+                                    <a class="cr-cc-pdf-btn" href="{{ path('portal_feature_pdf_download', { kind: 'garanties' }) }}" title="Exporter les garanties en PDF">
+                                        <i class="fa-solid fa-download"></i>
+                                        PDF
+                                    </a>
+                                    <button class="cr-garantie-edit-btn" type="button" data-garantie-edit="{{ garantie.idGarantie }}" title="Modifier">
+                                        <i class="fa-solid fa-pen-to-square"></i>
+                                    </button>
+                                    <form method="post" onsubmit="return confirm('Supprimer cette garantie ?');" class="cr-garantie-del-form">
+                                        <input type="hidden" name="tab" value="credits">
+                                        <input type="hidden" name="action" value="garantie_delete">
+                                        <input type="hidden" name="panel" value="garanties">
+                                        <input type="hidden" name="idGarantie" value="{{ garantie.idGarantie }}">
+                                        <button class="cr-garantie-del-btn" type="submit" title="Supprimer">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="cr-garanties-empty">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <span>Aucune garantie enregistree</span>
+                    </div>
+                {% endif %}
+
+                <div class="cr-table-footer">
+                    <div class="cr-tf-stat">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <span>Total garanties: <strong>{{ garanties|length }}</strong></span>
+                    </div>
+                    <a class="cr-tf-refresh" href="{{ path(route_name, { tab: 'credits' }) }}">
+                        <i class="fa-solid fa-rotate"></i>
+                        Actualiser
+                    </a>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    {# â”€â”€ GARANTIES DRAWER â”€â”€ #}
+    <div class="cr-drawer-overlay" id="cr-drawer-overlay" hidden></div>
+    <aside class="cr-drawer" id="cr-garanties-drawer" hidden>
+        <div class="cr-drawer-header">
+            <div class="cr-drawer-header-left">
+                <div class="cr-drawer-icon">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <div>
+                    <h3>Garanties du Credit</h3>
+                    <p>Gerer les garanties associees a vos dossiers</p>
+                </div>
+            </div>
+            <button class="cr-drawer-close" id="cr-close-garanties" type="button">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <div class="cr-drawer-body">
+
+            {# Garantie form #}
+            <div class="cr-drawer-section">
+                <div class="cr-drawer-section-title">
+                    <i class="fa-solid fa-plus-circle"></i>
+                    Ajouter une garantie
+                </div>
+
+                <form method="post" class="cr-form cr-drawer-form" id="cr-garantie-form" novalidate>
+                    <input type="hidden" name="tab" value="credits">
+                    <input type="hidden" name="action" value="garantie_save">
+                    <input type="hidden" name="panel" value="garanties">
+
+                    <p class="cr-drawer-form-note">
+                        Creation et modification d'une garantie, avec les memes regles metier que la version Java.
+                    </p>
+
+                    <div class="cr-field-group cr-field-group-2">
+                        <div class="cr-field">
+                            <label class="cr-field-label">
+                                <i class="fa-solid fa-hashtag"></i> ID (modification)
+                            </label>
+                            <input class="cr-input" type="number" name="idGarantie" id="cr-garantie-id" placeholder="Laisser vide pour creer">
+                        </div>
+                        <div class="cr-field">
+                            <label class="cr-field-label">
+                                <i class="fa-solid fa-link"></i> Credit lie <span class="cr-req">*</span>
+                            </label>
+                            <div class="cr-select-wrap">
+                                <select class="cr-input cr-select" name="idCredit" id="cr-garantie-credit">
+                                    <option value="">Selectionner</option>
+                                    {% for credit in items %}
+                                        <option value="{{ credit.idCredit }}">#{{ credit.idCredit }} - {{ credit.typeCredit|default('Credit') }}</option>
+                                    {% endfor %}
+                                </select>
+                                <i class="fa-solid fa-chevron-down cr-select-icon"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="cr-field-group cr-field-group-2">
+                        <div class="cr-field">
+                            <label class="cr-field-label">
+                                <i class="fa-solid fa-shield-halved"></i> Type garantie <span class="cr-req">*</span>
+                            </label>
+                            <div class="cr-select-wrap">
+                                <select class="cr-input cr-select" name="typeGarantie" id="cr-garantie-type">
+                                    {% for type in ['Hypotheque immobiliere', 'Titre vehicule', 'Caution personnelle', 'Garantie bancaire', 'Police assurance', 'Nantissement', 'Autre garantie'] %}
+                                        <option value="{{ type }}">{{ type }}</option>
+                                    {% endfor %}
+                                </select>
+                                <i class="fa-solid fa-chevron-down cr-select-icon"></i>
+                            </div>
+                        </div>
+                        <div class="cr-field">
+                            <label class="cr-field-label">
+                                <i class="fa-solid fa-coins"></i> Valeur estimee (TND) <span class="cr-req">*</span>
+                            </label>
+                            <div class="cr-input-pfx-wrap">
+                                <span class="cr-input-pfx">TND</span>
+                                <input class="cr-input cr-input-pfx-field" type="number" step="0.01" name="valeurEstimee" id="cr-garantie-estimated" placeholder="0.00">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="cr-field-group cr-field-group-2">
+                        <div class="cr-field">
+                            <label class="cr-field-label">
+                                <i class="fa-solid fa-percent"></i> Valeur retenue (TND)
+                            </label>
+                            <div class="cr-input-pfx-wrap">
+                                <span class="cr-input-pfx cr-input-pfx-auto">AUTO</span>
+                                <input class="cr-input cr-input-pfx-field cr-auto-field" type="number" step="0.01" name="valeurRetenue" id="cr-garantie-retained" placeholder="Auto (80% de l'estimee)">
+                            </div>
+                        </div>
+                        <div class="cr-field">
+                            <label class="cr-field-label">
+                                <i class="fa-solid fa-calendar-day"></i> Date d'evaluation
+                            </label>
+                            <input class="cr-input" type="date" name="dateEvaluation" id="cr-garantie-date" value="{{ current_date }}">
+                        </div>
+                    </div>
+
+                    <div class="cr-field-group">
+                        <div class="cr-field">
+                            <label class="cr-field-label">
+                                <i class="fa-solid fa-user-tie"></i> Nom garant
+                            </label>
+                            <input class="cr-input" type="text" name="nomGarant" id="cr-garantie-guarantor" placeholder="Nom du garant">
+                        </div>
+                    </div>
+
+                    <div class="cr-field-group cr-field-group-2">
+                        <div class="cr-field">
+                            <label class="cr-field-label">
+                                <i class="fa-solid fa-location-dot"></i> Adresse du bien
+                            </label>
+                            <input class="cr-input" type="text" name="adresseBien" id="cr-garantie-address" placeholder="Adresse du bien">
+                        </div>
+                        <div class="cr-field">
+                            <label class="cr-field-label">
+                                <i class="fa-solid fa-file-lines"></i> Document justificatif
+                            </label>
+                            <input class="cr-input" type="text" name="documentJustificatif" id="cr-garantie-document" placeholder="Reference document">
+                        </div>
+                    </div>
+
+                    <div class="cr-field-group">
+                        <div class="cr-field">
+                            <label class="cr-field-label">
+                                <i class="fa-solid fa-align-left"></i> Description
+                            </label>
+                            <input class="cr-input" type="text" name="description" id="cr-garantie-description" placeholder="Details de la garantie...">
+                        </div>
+                    </div>
+
+                    <div class="cr-form-actions cr-drawer-actions">
+                        <button class="cr-form-reset-btn" type="reset" id="cr-garantie-reset">
+                            <i class="fa-solid fa-rotate-left"></i>
+                            Vider
+                        </button>
+                        <button class="cr-submit-btn cr-submit-btn-sm" type="submit">
+                            <i class="fa-solid fa-floppy-disk"></i>
+                            Enregistrer la garantie
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            {# Garanties list #}
+            <div class="cr-drawer-section">
+                {% if garanties|length > 0 %}
+                    <div class="cr-garanties-list">
+                        {% for garantie in garanties %}
+                            {% set garantie_status_key = garantie.statut|default('')|lower %}
+                            {% set garantie_status_class = ('accepte' in garantie_status_key or 'verifie' in garantie_status_key or 'cours' in garantie_status_key or 'rembourse' in garantie_status_key) ? 'green' : (('refuse' in garantie_status_key or 'rejete' in garantie_status_key) ? 'red' : 'amber') %}
+                            <div
+                                class="cr-garantie-row"
+                                data-garantie-row
+                                data-garantie-id="{{ garantie.idGarantie }}"
+                                data-garantie-credit-id="{{ garantie.idCredit }}"
+                                data-garantie-type="{{ garantie.typeGarantie|default('')|e('html_attr') }}"
+                                data-garantie-description="{{ garantie.description|default('')|e('html_attr') }}"
+                                data-garantie-address="{{ garantie.adresseBien|default('')|e('html_attr') }}"
+                                data-garantie-estimated="{{ garantie.valeurEstimee|default('') }}"
+                                data-garantie-retained="{{ garantie.valeurRetenue|default('') }}"
+                                data-garantie-document="{{ garantie.documentJustificatif|default('')|e('html_attr') }}"
+                                data-garantie-date="{{ garantie.dateEvaluation|default(current_date)|slice(0, 10) }}"
+                                data-garantie-guarantor="{{ garantie.nomGarant|default('')|e('html_attr') }}"
+                                data-garantie-status="{{ garantie.statut|default('')|e('html_attr') }}"
+                            >
+                                <div class="cr-garantie-row-left">
+                                    <div class="cr-garantie-icon">
+                                        <i class="fa-solid fa-shield-halved"></i>
+                                    </div>
+                                    <div class="cr-garantie-info">
+                                        <strong>{{ garantie.typeGarantie|default('-') }}</strong>
+                                        <span>Credit #{{ garantie.idCredit }} - {{ garantie.valeurEstimee|default(0)|number_format(2, '.', ' ') }} DT</span>
+                                        <span>Retenue {{ garantie.valeurRetenue|default(0)|number_format(2, '.', ' ') }} DT</span>
+                                        <span class="cr-garantie-status cr-gstatus-{{ garantie_status_class }}">
+                                            {{ garantie.statut|default('-') }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="cr-garantie-actions">
+                                    <button class="cr-garantie-edit-btn" type="button" data-garantie-edit="{{ garantie.idGarantie }}" title="Modifier">
+                                        <i class="fa-solid fa-pen-to-square"></i>
+                                    </button>
+                                    <form method="post" onsubmit="return confirm('Supprimer cette garantie ?');" class="cr-garantie-del-form">
+                                        <input type="hidden" name="tab" value="credits">
+                                        <input type="hidden" name="action" value="garantie_delete">
+                                        <input type="hidden" name="panel" value="garanties">
+                                        <input type="hidden" name="idGarantie" value="{{ garantie.idGarantie }}">
+                                        <button class="cr-garantie-del-btn" type="submit" title="Supprimer">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="cr-garanties-empty">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <span>Aucune garantie enregistree</span>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </aside>
+
+</div>
+
+<style>
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   CR â€” CREDITS PAGE  |  White-background redesign
+   Palette: #0a2540 Â· #1565c0 Â· #1e88e5 Â· #00bcd4 Â· #fff
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+
+/* â”€â”€ Base Reset â”€â”€ */
+.cr-root *, .cr-root *::before, .cr-root *::after {
+  box-sizing: border-box; margin: 0; padding: 0;
+}
+
+.cr-root {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background: transparent;
+  min-height: auto;
+  font-family: inherit;
+  color: #0a2540;
+}
+
+.cr-hero {
+  background: linear-gradient(92deg, #0a2540 0%, #0b6c67 52%, #0db98f 100%);
+  border-radius: 20px;
+  padding: 20px 26px;
+  color: #fff;
+  box-shadow: 0 18px 40px rgba(10, 37, 64, 0.22);
+}
+
+.cr-hero-main {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 24px;
+}
+
+.cr-hero-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.cr-hero-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.cr-hero-copy h1 {
+  margin: 0;
+  font-size: clamp(18px, 1.8vw, 26px);
+  line-height: 1.1;
+  color: #fff;
+}
+
+.cr-hero-copy p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.cr-hero-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cr-hero-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 24px;
+}
+
+.cr-hero-stat-num {
+  font-size: clamp(22px, 2vw, 32px);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.cr-hero-stat-lbl {
+  margin-top: 4px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.65);
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.cr-hero-divider {
+  width: 1px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.cr-hero-nav {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cr-nav-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+
+.cr-nav-pill:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.cr-nav-pill--ai {
+  background: linear-gradient(120deg, #7c3aed, #4f46e5);
+  border-color: transparent;
+  box-shadow: 0 6px 16px rgba(79, 70, 229, 0.35);
+}
+
+.cr-nav-pill--cta {
+  background: #fff;
+  color: #0a2540;
+  border-color: #fff;
+}
+
+.cr-hero-toolbar {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.cr-hero-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   TOP NAV BAR
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.cr-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 28px;
+  height: 60px;
+  background: #fff;
+  border-bottom: 1px solid #dde8f5;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 12px rgba(10,37,64,.06);
+}
+
+.cr-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.cr-topbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 15px;
+  font-weight: 900;
+  color: #0a2540;
+  letter-spacing: -0.3px;
+}
+
+.cr-topbar-logo i {
+  font-size: 18px;
+  color: #1565c0;
+}
+
+.cr-topbar-divider {
+  width: 1px;
+  height: 22px;
+  background: #dde8f5;
+}
+
+.cr-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.cr-breadcrumb i:first-child { color: #fff; }
+.cr-bc-sep { font-size: 9px; color: rgba(255, 255, 255, 0.42); }
+.cr-bc-active { color: #fff; font-weight: 700; }
+
+.cr-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cr-lang-select {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 10px;
+  padding: 0 10px;
+  height: 36px;
+  cursor: pointer;
+}
+
+.cr-lang-select i { font-size: 13px; color: rgba(255, 255, 255, 0.82); }
+
+.cr-lang-select select {
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  color: #fff;
+  outline: none;
+  cursor: pointer;
+}
+
+.cr-topbar-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background .15s, color .15s;
+}
+
+.cr-topbar-btn:hover { background: rgba(255, 255, 255, 0.24); color: #fff; }
+
+.cr-user-chip {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 4px 12px 4px 4px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.cr-user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1565c0, #00bcd4);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cr-user-info strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.2;
+}
+
+.cr-user-info small {
+  display: block;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   PAGE HEADER
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.cr-page-header {
+  background: #fff;
+  border-bottom: 1px solid #dde8f5;
+  padding: 22px 28px;
+}
+
+.cr-page-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  max-width: 1600px;
+}
+
+.cr-page-header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.cr-page-icon-ring {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #1565c0 0%, #00bcd4 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 20px;
+  box-shadow: 0 8px 24px rgba(21,101,192,.25);
+  flex-shrink: 0;
+}
+
+.cr-page-title {
+  font-size: clamp(20px,2vw,28px);
+  font-weight: 900;
+  color: #0a2540;
+  letter-spacing: -0.4px;
+  line-height: 1.1;
+}
+
+.cr-page-sub {
+  font-size: 13px;
+  color: #7294ae;
+  margin-top: 4px;
+}
+
+.cr-page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cr-hdr-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 20px;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  border: none;
+  transition: all .18s;
+}
+
+.cr-hdr-btn-outline {
+  background: transparent;
+  border: 1.5px solid #c4d9ee;
+  color: #1565c0;
+}
+
+.cr-hdr-btn-outline:hover { background: #eaf2fd; }
+
+.cr-hdr-btn-primary {
+  background: linear-gradient(120deg, #1565c0, #1e88e5);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(21,101,192,.28);
+}
+
+.cr-hdr-btn-primary:hover { box-shadow: 0 8px 24px rgba(21,101,192,.38); opacity: .93; }
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   KPI STRIP
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.cr-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  padding: 0;
+  background: transparent;
+}
+
+.cr-kpi-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px 18px 12px;
+  border: 1px solid #dde8f5;
+  box-shadow: 0 6px 20px rgba(23, 54, 84, 0.07);
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow .2s, transform .2s;
+}
+
+.cr-kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 16px 16px 0 0;
+}
+
+.cr-kpi-card--amount::before { background: linear-gradient(90deg, #14b8a6, #0f766e); }
+.cr-kpi-card--monthly::before { background: linear-gradient(90deg, #2563eb, #1d4ed8); }
+.cr-kpi-card--active::before { background: linear-gradient(90deg, #16a34a, #22c55e); }
+.cr-kpi-card--risk::before { background: linear-gradient(90deg, #ef4444, #dc2626); }
+
+.cr-kpi-card:hover {
+  box-shadow: 0 8px 24px rgba(10,37,64,.10);
+  transform: translateY(-2px);
+}
+
+.cr-kpi-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cr-kpi-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.cr-kpi-icon-blue  { background: linear-gradient(135deg, #1565c0, #1e88e5); }
+.cr-kpi-icon-amber { background: linear-gradient(135deg, #f59e0b, #fbbf24); }
+.cr-kpi-icon-green { background: linear-gradient(135deg, #16a34a, #22c55e); }
+.cr-kpi-icon-red   { background: linear-gradient(135deg, #dc2626, #f87171); }
+.cr-kpi-icon-teal  { background: linear-gradient(135deg, #0097a7, #00bcd4); }
+
+.cr-kpi-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 1;
+}
+
+.cr-kpi-metric {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.cr-kpi-value {
+  font-size: clamp(20px, 1.8vw, 28px);
+  font-weight: 900;
+  color: #0a2540;
+  line-height: 1;
+  letter-spacing: -0.3px;
+}
+
+.cr-kpi-unit {
+  font-size: 12px;
+  font-weight: 700;
+  color: #7294ae;
+}
+
+.cr-kpi-label {
+  font-size: 10px;
+  color: #5d7d97;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.cr-kpi-sub {
+  font-size: 11px;
+  color: #94aec2;
+}
+
+.cr-kpi-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: #e8eef5;
+  overflow: hidden;
+}
+
+.cr-kpi-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #14b8a6, #0f766e);
+}
+
+.cr-kpi-bar span.is-danger {
+  background: linear-gradient(90deg, #ef4444, #dc2626);
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   QUICK LINKS
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.cr-quick-links {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  padding: 0 28px 16px;
+  flex-wrap: wrap;
+}
+
+.cr-ql-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border: 1px solid #dde8f5;
+  border-radius: 12px;
+  padding: 11px 16px;
+  text-decoration: none;
+  color: #1565c0;
+  font-size: 13px;
+  font-weight: 700;
+  transition: all .18s;
+  flex: 1;
+  min-width: 160px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  appearance: none;
+}
+
+.cr-ql-item:hover {
+  background: linear-gradient(120deg, #1565c0, #00bcd4);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 6px 18px rgba(21,101,192,.22);
+  transform: translateY(-1px);
+}
+
+.cr-ql-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: #eaf2fd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  flex-shrink: 0;
+  transition: background .18s;
+}
+
+.cr-ql-item:hover .cr-ql-icon {
+  background: rgba(255,255,255,.2);
+}
+
+.cr-ql-label { flex: 1; }
+
+.cr-ql-arrow {
+  font-size: 11px;
+  opacity: .5;
+  transition: transform .18s, opacity .18s;
+}
+
+.cr-ql-item:hover .cr-ql-arrow {
+  transform: translateX(4px);
+  opacity: 1;
+}
+
+.cr-ql-item:focus-visible {
+  outline: 2px solid #1e88e5;
+  outline-offset: 2px;
+}
+
+/* modal quick tools */
+.cr-tools-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 37, 64, .48);
+  backdrop-filter: blur(2px);
+  z-index: 210;
+}
+
+.cr-tools-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(1100px, calc(100vw - 44px));
+  max-height: calc(100vh - 72px);
+  background: #fff;
+  border: 1px solid #d9e6f5;
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(10, 37, 64, .28);
+  z-index: 211;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.cr-tools-overlay[hidden],
+.cr-tools-modal[hidden] {
+  display: none !important;
+}
+
+.cr-tools-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid #e8f0fb;
+  background: linear-gradient(180deg, #f8fbff, #ffffff);
+}
+
+.cr-tools-header h3 {
+  font-size: 18px;
+  font-weight: 900;
+  color: #0a2540;
+}
+
+.cr-tools-header p {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #6d8aa3;
+}
+
+.cr-tools-close {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid #dce8f6;
+  background: #f4f8fd;
+  color: #29527a;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.cr-tools-close:hover {
+  background: #e8f1fc;
+}
+
+.cr-tools-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #e8f0fb;
+  overflow-x: auto;
+  background: #fff;
+}
+
+.cr-tools-tab {
+  border: 1px solid #d9e7f6;
+  background: #f5f9fe;
+  color: #2f5f87;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.cr-tools-tab.is-active,
+.cr-tools-tab:hover {
+  background: linear-gradient(120deg, #1565c0, #1e88e5);
+  border-color: transparent;
+  color: #fff;
+}
+
+.cr-tools-body {
+  padding: 16px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cr-tool-panel {
+  display: none;
+}
+
+.cr-tool-panel.is-active {
+  display: block;
+}
+
+.cr-tool-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.cr-tool-card {
+  border: 1px solid #dbe8f5;
+  border-radius: 14px;
+  background: #f8fbff;
+  padding: 14px;
+}
+
+.cr-tool-card h4 {
+  font-size: 14px;
+  font-weight: 900;
+  color: #0a2540;
+  margin-bottom: 10px;
+}
+
+.cr-tool-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.cr-tool-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cr-tool-field span {
+  font-size: 11px;
+  font-weight: 700;
+  color: #567a97;
+}
+
+.cr-tool-field input,
+.cr-tool-field select,
+.cr-tool-field textarea {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid #d7e6f7;
+  border-radius: 10px;
+  background: #fff;
+  color: #0a2540;
+  font-size: 13px;
+  padding: 8px 10px;
+  font-family: inherit;
+}
+
+.cr-tool-field textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.cr-tool-kpis {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.cr-tool-kpis > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid #e1ecf9;
+  background: #fff;
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.cr-tool-kpis span {
+  font-size: 10px;
+  color: #6b87a0;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: .4px;
+}
+
+.cr-tool-kpis strong {
+  font-size: 14px;
+  color: #0a2540;
+  font-weight: 900;
+}
+
+.cr-tool-result {
+  margin-top: 12px;
+  border: 1px dashed #c4d8ef;
+  border-radius: 12px;
+  padding: 11px;
+  background: #f5f9ff;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.cr-tool-result > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cr-tool-result span {
+  font-size: 10px;
+  color: #5b7a96;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.cr-tool-result strong {
+  font-size: 14px;
+  color: #0a2540;
+  font-weight: 900;
+}
+
+.cr-tool-bar {
+  margin-top: 10px;
+  height: 9px;
+  background: #e5eef8;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.cr-tool-bar-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: linear-gradient(120deg, #16a34a, #22c55e);
+  transition: width .2s;
+}
+
+.cr-tool-note {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #486a88;
+  line-height: 1.45;
+}
+
+.cr-tool-table-wrap {
+  border: 1px solid #dae8f6;
+  border-radius: 12px;
+  overflow: auto;
+  background: #fff;
+}
+
+.cr-tool-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 640px;
+}
+
+.cr-tool-table th,
+.cr-tool-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid #edf3fb;
+  text-align: left;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.cr-tool-table th {
+  background: #f5f9fe;
+  color: #3a6488;
+  font-weight: 800;
+}
+
+.cr-tool-empty {
+  border: 1px dashed #c4d8ef;
+  background: #f5f9ff;
+  color: #567b99;
+  border-radius: 12px;
+  padding: 28px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.cr-tool-actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.cr-tool-answer {
+  margin-top: 10px;
+  border: 1px solid #dbe8f5;
+  border-radius: 12px;
+  background: #fff;
+  padding: 12px;
+  min-height: 66px;
+  color: #1f4363;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.cr-ai-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.cr-ai-chip {
+  border: 1px solid #d7e6f7;
+  background: #edf5ff;
+  color: #1d4f7a;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 7px 10px;
+  cursor: pointer;
+}
+
+.cr-ai-chip:hover {
+  background: #dcecff;
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   SPLIT LAYOUT
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.cr-split {
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  gap: 16px;
+  padding: 0 28px 28px;
+  align-items: start;
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   FORM COLUMN
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.cr-form-col {
+  position: sticky;
+  top: 76px;
+}
+
+.cr-form-card {
+  background: #fff;
+  border-radius: 20px;
+  border: 1px solid #dde8f5;
+  box-shadow: 0 4px 24px rgba(10,37,64,.07);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* â”€â”€ Form Card Header â”€â”€ */
+.cr-form-card-header {
+  background: linear-gradient(135deg, #0a2540 0%, #1565c0 100%);
+  padding: 22px 22px 0;
+}
+
+.cr-form-card-header-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding-bottom: 18px;
+}
+
+.cr-fch-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: rgba(255,255,255,.15);
+  border: 1px solid rgba(255,255,255,.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 17px;
+  flex-shrink: 0;
+}
+
+.cr-fch-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.2;
+}
+
+.cr-fch-sub {
+  font-size: 12px;
+  color: rgba(255,255,255,.68);
+  margin-top: 3px;
+}
+
+.cr-form-collapse-btn {
+  margin-left: auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.2);
+  color: rgba(255,255,255,.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+  flex-shrink: 0;
+  transition: background .15s;
+}
+
+.cr-form-collapse-btn:hover { background: rgba(255,255,255,.2); }
+
+/* â”€â”€ Steps indicator â”€â”€ */
+.cr-form-steps {
+  display: flex;
+  align-items: center;
+  padding: 0 4px 0;
+}
+
+.cr-step {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 0;
+  cursor: default;
+  opacity: 0.5;
+  transition: opacity .2s;
+}
+
+.cr-step.cr-step-active { opacity: 1; }
+
+.cr-step-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.4);
+  color: rgba(255,255,255,.7);
+  font-size: 11px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .2s;
+}
+
+.cr-step.cr-step-active .cr-step-dot {
+  background: #fff;
+  color: #1565c0;
+  border-color: #fff;
+}
+
+.cr-step.cr-step-done .cr-step-dot {
+  background: #00bcd4;
+  color: #fff;
+  border-color: #00bcd4;
+}
+
+.cr-step span {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255,255,255,.75);
+  white-space: nowrap;
+}
+
+.cr-step.cr-step-active span { color: #fff; }
+
+.cr-step-line {
+  flex: 1;
+  height: 1px;
+  background: rgba(255,255,255,.2);
+  margin: 0 8px;
+}
+
+/* â”€â”€ Form body â”€â”€ */
+.cr-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.cr-form-step-body {
+  padding: 20px 20px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cr-form-step-body[hidden] {
+  display: none !important;
+}
+
+.cr-field-group {
+  display: grid;
+  gap: 12px;
+}
+
+.cr-field-group-2 { grid-template-columns: 1fr 1fr; }
+
+.cr-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.cr-field-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #4e7490;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.cr-field-label i { color: #1565c0; font-size: 10px; }
+
+.cr-req { color: #e53935; }
+
+.cr-input {
+  width: 100%;
+  min-height: 40px;
+  border-radius: 11px;
+  border: 1.5px solid #ccddef;
+  background: #f7faff;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 13px;
+  color: #0a2540;
+  outline: none;
+  appearance: none;
+  transition: border-color .18s, box-shadow .18s;
+}
+
+.cr-input:focus {
+  border-color: #1e88e5;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(30,136,229,.12);
+}
+
+.cr-input::placeholder { color: #aabece; font-size: 12px; }
+
+.cr-select { cursor: pointer; padding-right: 30px; }
+
+.cr-select-wrap { position: relative; }
+
+.cr-select-icon {
+  position: absolute;
+  right: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #8aafc8;
+  font-size: 10px;
+  pointer-events: none;
+}
+
+/* Prefixed input */
+.cr-input-pfx-wrap { position: relative; }
+
+.cr-input-pfx {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  background: linear-gradient(135deg, #1565c0, #1e88e5);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  border-radius: 11px 0 0 11px;
+  letter-spacing: 0.3px;
+  z-index: 1;
+  white-space: nowrap;
+}
+
+.cr-input-pfx-auto {
+  background: linear-gradient(135deg, #00838f, #00bcd4);
+}
+
+.cr-input-pfx-field { padding-left: 52px; }
+
+/* Auto fields styling */
+.cr-auto-field { background: #f0fbfd; color: #006064; font-weight: 700; }
+
+/* â”€â”€ Calculator preview â”€â”€ */
+.cr-calc-preview {
+  background: linear-gradient(135deg, #f0f9ff, #e0f7fa);
+  border: 1px solid #b2ebf2;
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cr-calc-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cr-calc-row span {
+  font-size: 12px;
+  color: #006064;
+  font-weight: 600;
+}
+
+.cr-calc-row strong {
+  font-size: 13px;
+  font-weight: 800;
+  color: #00838f;
+}
+
+/* â”€â”€ Analyze block â”€â”€ */
+.cr-analyze-block {
+  background: linear-gradient(135deg, #fffbeb, #fef3c7);
+  border: 1px solid #fde68a;
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cr-analyze-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #92400e;
+}
+
+.cr-analyze-header i { color: #d97706; }
+
+.cr-analyze-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 16px;
+  border-radius: 10px;
+  background: linear-gradient(120deg, #d97706, #f59e0b);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: opacity .15s, transform .15s;
+  width: fit-content;
+}
+
+.cr-analyze-btn:hover { opacity: .9; transform: scale(.98); }
+
+.cr-analysis-output {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 8px;
+  line-height: 1.5;
+}
+
+.cr-analysis-output.is-ok   { background: #d1fae5; color: #065f46; }
+.cr-analysis-output.is-warn { background: #fef3c7; color: #92400e; }
+.cr-analysis-output.is-risk { background: #fee2e2; color: #991b1b; }
+
+/* â”€â”€ Step navigation â”€â”€ */
+.cr-step-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0 18px;
+  border-top: 1px solid #edf4fb;
+  margin-top: 6px;
+}
+
+.cr-step-nav-final { flex-direction: column; gap: 10px; align-items: stretch; }
+
+.cr-step-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: all .15s;
+}
+
+.cr-step-next {
+  background: linear-gradient(120deg, #1565c0, #1e88e5);
+  color: #fff;
+}
+
+.cr-step-back {
+  background: #f0f4f8;
+  color: #5b80a0;
+  border: 1px solid #dde8f5;
+}
+
+.cr-step-back:hover { background: #e2ecf8; }
+.cr-step-next:hover { opacity: .9; }
+
+.cr-final-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.cr-submit-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 12px;
+  background: linear-gradient(120deg, #1565c0, #00bcd4);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(21,101,192,.28);
+  transition: all .18s;
+}
+
+.cr-submit-btn:hover { opacity: .92; box-shadow: 0 8px 24px rgba(21,101,192,.38); }
+
+.cr-submit-btn-sm { min-height: 38px; font-size: 13px; }
+
+.cr-form-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 12px;
+  background: transparent;
+  border: 1.5px solid #cddff0;
+  color: #5b80a0;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .15s;
+}
+
+.cr-form-reset-btn:hover { background: #f0f4f8; }
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   TABLE COLUMN
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.cr-table-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* â”€â”€ Toolbar â”€â”€ */
+.cr-table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 14px 18px;
+  border: 1px solid #dde8f5;
+  box-shadow: 0 2px 10px rgba(10,37,64,.05);
+  flex-wrap: wrap;
+}
+
+.cr-table-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cr-table-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: #0a2540;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.cr-table-title i { color: #1565c0; }
+
+.cr-table-count-badge {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: linear-gradient(120deg, #1565c0, #1e88e5);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.cr-table-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cr-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f7faff;
+  border: 1.5px solid #cddff0;
+  border-radius: 11px;
+  padding: 0 12px;
+  min-height: 40px;
+  transition: border-color .18s;
+}
+
+.cr-search-box:focus-within {
+  border-color: #1e88e5;
+  box-shadow: 0 0 0 3px rgba(30,136,229,.10);
+}
+
+.cr-search-box i { color: #8aafc8; font-size: 12px; }
+
+.cr-search-box input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  color: #0a2540;
+  width: 190px;
+}
+
+.cr-search-box input::placeholder { color: #aabece; }
+
+.cr-search-clear {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #e2ecf8;
+  border: none;
+  color: #5b80a0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.cr-sort-wrap { min-width: 140px; }
+
+.cr-sort-select { font-size: 12px; min-height: 40px; }
+
+.cr-garanties-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 11px;
+  background: linear-gradient(120deg, #0a2540, #1565c0);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity .15s;
+}
+
+.cr-garanties-btn:hover { opacity: .88; }
+
+.cr-garanties-btn.is-active-alt {
+  background: linear-gradient(120deg, #eef5ff, #dbeafe);
+  color: #1565c0;
+  border: 1px solid #bfdbfe;
+}
+
+/* â”€â”€ Filter tabs â”€â”€ */
+.cr-filter-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff;
+  border-radius: 14px;
+  padding: 10px 14px;
+  border: 1px solid #dde8f5;
+  flex-wrap: wrap;
+}
+
+.cr-filter-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 9px;
+  background: transparent;
+  border: 1px solid transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: #7294ae;
+  cursor: pointer;
+  transition: all .15s;
+}
+
+.cr-filter-tab:hover { background: #f0f4f8; color: #0a2540; }
+
+.cr-filter-tab-active {
+  background: linear-gradient(120deg, #1565c0, #1e88e5);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(21,101,192,.2);
+}
+
+.cr-filter-tab-active:hover { background: linear-gradient(120deg, #1565c0, #1e88e5); color: #fff; }
+
+.cr-tab-count {
+  background: rgba(255,255,255,.25);
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.cr-filter-tab:not(.cr-filter-tab-active) .cr-tab-count {
+  background: #e8f0fb;
+  color: #1565c0;
+}
+
+/* â”€â”€ Credits card grid â”€â”€ */
+.cr-credits-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
+}
+
+/* â”€â”€ Single credit card â”€â”€ */
+.cr-credit-card {
+  background: #fff;
+  border-radius: 18px;
+  border: 1px solid #dde8f5;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 2px 12px rgba(10,37,64,.05);
+  transition: box-shadow .2s, transform .2s, border-color .2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.cr-credit-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #1565c0, #00bcd4);
+}
+
+.cr-credit-card:hover {
+  box-shadow: 0 10px 32px rgba(10,37,64,.12);
+  transform: translateY(-3px);
+  border-color: #b8d4f0;
+}
+
+.cr-cc-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cr-cc-id { display: flex; flex-direction: column; gap: 3px; }
+
+.cr-cc-id-label {
+  font-size: 11px;
+  font-weight: 800;
+  color: #7294ae;
+  letter-spacing: 0.3px;
+}
+
+.cr-cc-type {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0a2540;
+}
+
+/* Status badge on card */
+.cr-cc-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.cr-status-green  { background: #dcfce7; color: #166534; }
+.cr-status-red    { background: #fee2e2; color: #991b1b; }
+.cr-status-amber  { background: #fef9c3; color: #854d0e; }
+
+.cr-cc-amount-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cr-cc-amount {
+  font-size: 26px;
+  font-weight: 900;
+  color: #0a2540;
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+
+.cr-cc-amount small {
+  font-size: 12px;
+  font-weight: 600;
+  color: #7294ae;
+  margin-left: 3px;
+}
+
+.cr-cc-monthly {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.cr-cc-monthly-label {
+  font-size: 10px;
+  color: #aabece;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-weight: 700;
+}
+
+.cr-cc-monthly-val {
+  font-size: 13px;
+  font-weight: 800;
+  color: #1565c0;
+}
+
+.cr-cc-meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0;
+  border-top: 1px solid #f0f4f8;
+  border-bottom: 1px solid #f0f4f8;
+}
+
+.cr-cc-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: #5b80a0;
+  font-weight: 600;
+}
+
+.cr-cc-meta-item i { color: #1e88e5; font-size: 11px; }
+
+.cr-cc-risk-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cr-cc-risk-label {
+  font-size: 10px;
+  color: #aabece;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.cr-cc-risk-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cr-cc-risk-bar {
+  flex: 1;
+  height: 6px;
+  background: #e8f0f8;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.cr-cc-risk-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width .6s ease;
+}
+
+.cr-risk-low    .cr-cc-risk-fill,
+.cr-cc-risk-fill.cr-risk-low    { background: linear-gradient(90deg, #22c55e, #4ade80); }
+.cr-risk-medium .cr-cc-risk-fill,
+.cr-cc-risk-fill.cr-risk-medium { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+.cr-risk-high   .cr-cc-risk-fill,
+.cr-cc-risk-fill.cr-risk-high   { background: linear-gradient(90deg, #ef4444, #f87171); }
+
+.cr-cc-risk-val {
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.cr-risk-low    { color: #166534; }
+.cr-risk-medium { color: #854d0e; }
+.cr-risk-high   { color: #991b1b; }
+
+.cr-cc-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cr-cc-pdf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 10px;
+  background: linear-gradient(120deg, #ecfeff, #cffafe);
+  color: #0f766e;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid #99f6e4;
+  text-decoration: none;
+  transition: all .15s;
+}
+
+.cr-cc-pdf-btn:hover {
+  background: linear-gradient(120deg, #0f766e, #14b8a6);
+  color: #fff;
+  border-color: transparent;
+}
+
+.cr-cc-edit-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(120deg, #e8f0fd, #dbeafe);
+  color: #1565c0;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid #c3d9f5;
+  cursor: pointer;
+  transition: all .15s;
+}
+
+.cr-cc-edit-btn:hover {
+  background: linear-gradient(120deg, #1565c0, #1e88e5);
+  color: #fff;
+  border-color: transparent;
+}
+
+.cr-cc-delete-form { display: flex; }
+
+.cr-cc-delete-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #fff0f0;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all .15s;
+}
+
+.cr-cc-delete-btn:hover { background: #dc2626; color: #fff; }
+
+/* â”€â”€ Empty state â”€â”€ */
+.cr-empty-state {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 60px 20px;
+  background: #fff;
+  border-radius: 18px;
+  border: 1px dashed #c4d9ee;
+  text-align: center;
+}
+
+.cr-empty-icon {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #eaf2fd, #dbeafe);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  color: #7294ae;
+}
+
+.cr-empty-state strong { font-size: 17px; color: #0a2540; }
+.cr-empty-state span { font-size: 13px; color: #7294ae; max-width: 300px; }
+
+.cr-empty-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 20px;
+  border-radius: 12px;
+  background: linear-gradient(120deg, #1565c0, #1e88e5);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  margin-top: 6px;
+  transition: opacity .15s;
+}
+
+.cr-empty-cta:hover { opacity: .88; }
+
+/* â”€â”€ Table footer â”€â”€ */
+.cr-table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  background: #fff;
+  border-radius: 14px;
+  padding: 13px 18px;
+  border: 1px solid #dde8f5;
+}
+
+.cr-tf-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: #7294ae;
+  font-weight: 600;
+}
+
+.cr-tf-stat i { color: #1565c0; }
+.cr-tf-stat strong { color: #0a2540; }
+
+.cr-tf-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1565c0;
+  text-decoration: none;
+  padding: 6px 14px;
+  border-radius: 9px;
+  background: #eaf2fd;
+  border: 1px solid #c3d9f5;
+  transition: all .15s;
+}
+
+.cr-tf-refresh:hover { background: #1565c0; color: #fff; }
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   GARANTIES DRAWER
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.cr-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10,37,64,.4);
+  backdrop-filter: blur(4px);
+  z-index: 200;
+}
+
+.cr-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: min(680px, 100vw);
+  height: 100vh;
+  background: #fff;
+  border-left: 1px solid #dde8f5;
+  box-shadow: -8px 0 40px rgba(10,37,64,.15);
+  z-index: 201;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* hidden attribute must win against class display rules */
+.cr-drawer-overlay[hidden],
+.cr-drawer[hidden] {
+  display: none !important;
+}
+
+.cr-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, #0a2540, #1565c0);
+}
+
+.cr-drawer-header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.cr-drawer-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: rgba(255,255,255,.15);
+  border: 1px solid rgba(255,255,255,.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.cr-drawer-header h3 {
+  font-size: 16px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.cr-drawer-header p {
+  font-size: 12px;
+  color: rgba(255,255,255,.68);
+  margin-top: 3px;
+}
+
+.cr-drawer-close {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.2);
+  color: rgba(255,255,255,.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background .15s;
+}
+
+.cr-drawer-close:hover { background: rgba(255,255,255,.22); }
+
+.cr-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.cr-drawer-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cr-drawer-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #1565c0;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  padding-bottom: 10px;
+  border-bottom: 1.5px solid #e8f0fb;
+}
+
+.cr-drawer-badge {
+  margin-left: auto;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: linear-gradient(120deg, #1565c0, #00bcd4);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.cr-drawer-form { gap: 12px; }
+
+.cr-drawer-form-note {
+  font-size: 11.5px;
+  color: #5d7f9a;
+  background: #eef5ff;
+  border: 1px solid #d5e6fb;
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.cr-form-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+.cr-drawer-actions { padding-top: 6px; border-top: 1px solid #edf4fb; }
+
+/* Garantie list rows */
+.cr-garanties-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cr-garanties-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.cr-garanties-list-main {
+  margin-top: 10px;
+}
+
+.cr-garantie-card {
+  background: #fff;
+  border-radius: 18px;
+  border: 1px solid #dde8f5;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 2px 12px rgba(10,37,64,.05);
+  transition: box-shadow .2s, transform .2s, border-color .2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.cr-garantie-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #1565c0, #00bcd4);
+}
+
+.cr-garantie-card:hover {
+  box-shadow: 0 10px 32px rgba(10,37,64,.12);
+  transform: translateY(-3px);
+  border-color: #b8d4f0;
+}
+
+.cr-garantie-row:hover { border-color: #a8c8f0; }
+
+.cr-garantie-row-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cr-garantie-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #1565c0, #00bcd4);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.cr-garantie-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cr-garantie-info strong {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0a2540;
+}
+
+.cr-garantie-info span {
+  font-size: 11px;
+  color: #7294ae;
+}
+
+.cr-garantie-status {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  width: fit-content;
+}
+
+.cr-gstatus-green  { background: #dcfce7; color: #166534; }
+.cr-gstatus-red    { background: #fee2e2; color: #991b1b; }
+.cr-gstatus-amber  { background: #fef9c3; color: #854d0e; }
+
+.cr-garantie-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.cr-garantie-edit-btn,
+.cr-garantie-del-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all .15s;
+}
+
+.cr-garantie-edit-btn {
+  background: linear-gradient(120deg, #e8f0fd, #dbeafe);
+  border: 1px solid #c3d9f5;
+  color: #1565c0;
+}
+
+.cr-garantie-edit-btn:hover {
+  background: linear-gradient(120deg, #1565c0, #1e88e5);
+  color: #fff;
+}
+
+.cr-garantie-del-form { margin: 0; }
+
+.cr-garantie-del-btn {
+  background: #fff0f0;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+}
+
+.cr-garantie-del-btn:hover { background: #dc2626; color: #fff; }
+
+.cr-garanties-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 20px;
+  background: #f7faff;
+  border: 1px dashed #c4d9ee;
+  border-radius: 14px;
+  text-align: center;
+  color: #7294ae;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cr-garanties-empty i { font-size: 24px; color: #b8d4e8; }
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   DARK MODE
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.cr-root.cr-dark {
+  background: #0d1b2e;
+  color: #c8ddf0;
+}
+
+.cr-root.cr-dark .cr-topbar,
+.cr-root.cr-dark .cr-page-header,
+.cr-root.cr-dark .cr-kpi-card,
+.cr-root.cr-dark .cr-ql-item,
+.cr-root.cr-dark .cr-table-toolbar,
+.cr-root.cr-dark .cr-filter-tabs,
+.cr-root.cr-dark .cr-credit-card,
+.cr-root.cr-dark .cr-empty-state,
+.cr-root.cr-dark .cr-table-footer,
+.cr-root.cr-dark .cr-form-card,
+.cr-root.cr-dark .cr-drawer,
+.cr-root.cr-dark .cr-garantie-row {
+  background: #122038;
+  border-color: #1e3655;
+}
+
+.cr-root.cr-dark .cr-input {
+  background: #0d1b2e;
+  border-color: #1e3655;
+  color: #c8ddf0;
+}
+
+.cr-root.cr-dark .cr-topbar-btn,
+.cr-root.cr-dark .cr-lang-select,
+.cr-root.cr-dark .cr-user-chip {
+  background: #1a2f4a;
+  border-color: #1e3655;
+}
+
+.cr-root.cr-dark .cr-page-title,
+.cr-root.cr-dark .cr-table-title,
+.cr-root.cr-dark .cr-kpi-value,
+.cr-root.cr-dark .cr-cc-type,
+.cr-root.cr-dark .cr-cc-amount,
+.cr-root.cr-dark .cr-garantie-info strong {
+  color: #e4f0ff;
+}
+
+.cr-root.cr-dark .cr-drawer-form-note {
+  background: #0f2744;
+  border-color: #1e3655;
+  color: #9dc0df;
+}
+
+.cr-root.cr-dark .cr-garantie-edit-btn {
+  background: #18355a;
+  border-color: #295585;
+  color: #bfdbfe;
+}
+
+.cr-root.cr-dark .cr-garantie-edit-btn:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.cr-root.cr-dark .cr-search-box {
+  background: #0d1b2e;
+  border-color: #1e3655;
+}
+
+.cr-root.cr-dark .cr-search-box input { color: #c8ddf0; }
+.cr-root.cr-dark .cr-cc-meta { border-color: #1e3655; }
+.cr-root.cr-dark .cr-kpi-strip { background: #0d1b2e; }
+.cr-root.cr-dark .cr-quick-links { /* inherits */ }
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   HIDDEN UTILITY
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.cr-credit-card.cr-hidden,
+.cr-garantie-card.cr-hidden { display: none; }
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   RESPONSIVE
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+@media (max-width: 1300px) {
+  .cr-hero-main { grid-template-columns: 1fr; justify-items: start; }
+  .cr-hero-center { justify-content: flex-start; }
+  .cr-hero-nav { justify-content: flex-start; }
+  .cr-split { grid-template-columns: 380px 1fr; }
+  .cr-kpi-strip { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 1050px) {
+  .cr-split { grid-template-columns: 1fr; }
+  .cr-form-col { position: static; }
+  .cr-kpi-strip { grid-template-columns: repeat(2, 1fr); }
+  .cr-quick-links { overflow-x: auto; flex-wrap: nowrap; }
+}
+
+@media (max-width: 700px) {
+  .cr-hero { padding: 18px 16px; }
+  .cr-hero-center { flex-wrap: wrap; justify-content: flex-start; }
+  .cr-hero-stat { padding: 0 12px 0 0; align-items: flex-start; }
+  .cr-hero-divider { display: none; }
+  .cr-hero-toolbar-right { width: 100%; }
+  .cr-kpi-strip { grid-template-columns: 1fr; }
+  .cr-quick-links { padding: 0 0 12px; }
+  .cr-split { padding: 0 16px 20px; gap: 12px; }
+  .cr-table-toolbar { flex-direction: column; align-items: stretch; }
+  .cr-table-toolbar-right { flex-wrap: wrap; }
+  .cr-search-box input { width: 100%; }
+  .cr-form-card-header-top { flex-wrap: wrap; }
+  .cr-field-group-2 { grid-template-columns: 1fr; }
+  .cr-credits-grid { grid-template-columns: 1fr; }
+  .cr-table-footer { flex-direction: column; align-items: flex-start; }
+}
+</style>
+
+<script>
+(() => {
+  'use strict';
+
+  const ready = (fn) => {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', fn);
+    } else {
+      fn();
+    }
+  };
+
+  ready(() => {
+    const root = document.querySelector('.cr-root');
+    if (!root) return;
+
+    /* â”€â”€ helpers â”€â”€ */
+    const $  = (sel, ctx = root) => ctx.querySelector(sel);
+    const $$ = (sel, ctx = root) => Array.from(ctx.querySelectorAll(sel));
+    const parseNum = (v) => { const n = Number(v); return isFinite(n) ? n : 0; };
+    const fmtNum = (n, dec = 2) => n.toLocaleString('fr-TN', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+    const normalizeSearchValue = (value) => String(value ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+    const matchesSearchTokens = (searchText, query) => {
+      const normalizedQuery = normalizeSearchValue(query);
+      if (normalizedQuery === '') {
+        return true;
+      }
+
+      const haystack = normalizeSearchValue(searchText);
+      return normalizedQuery.split(' ').every((token) => haystack.includes(token));
+    };
+    const parseSortableDate = (value) => {
+      const raw = String(value ?? '').trim();
+      if (raw === '') {
+        return 0;
+      }
+
+      const parsed = Date.parse(raw);
+      return Number.isNaN(parsed) ? 0 : parsed;
+    };
+    const medianOf = (values) => {
+      const sorted = values.filter((value) => value > 0).sort((a, b) => a - b);
+      if (sorted.length === 0) {
+        return 0;
+      }
+
+      const middle = Math.floor(sorted.length / 2);
+      if (sorted.length % 2 === 0) {
+        return (sorted[middle - 1] + sorted[middle]) / 2;
+      }
+
+      return sorted[middle];
+    };
+
+    /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+       DARK MODE
+    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+    const darkBtn  = $('#cr-dark-toggle');
+    const DARK_KEY = 'nexora-credits-dark';
+
+    const applyDark = (on) => {
+      root.classList.toggle('cr-dark', on);
+      if (darkBtn) darkBtn.querySelector('i').className = on ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+    };
+
+    applyDark(localStorage.getItem(DARK_KEY) === '1');
+
+    darkBtn?.addEventListener('click', () => {
+      const next = !root.classList.contains('cr-dark');
+      applyDark(next);
+      localStorage.setItem(DARK_KEY, next ? '1' : '0');
+    });
+
+    /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+       MULTI-STEP FORM
+    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+    const creditForm  = $('#credit-form');
+    const creditIdField = $('#cr-credit-id');
+    const stepBodies  = creditForm ? $$('[data-step-body]', creditForm) : [];
+    const stepDots    = $$('[data-step]', root);
+    let currentStep   = 1;
+    const syncNextCreditId = () => {
+      if (!creditIdField) return;
+      creditIdField.value = '';
+    };
+
+    const validateStep = (n) => {
+      const body = creditForm?.querySelector(`[data-step-body="${n}"]`);
+      if (!(body instanceof HTMLElement)) return true;
+
+      const fields = $$('input, select, textarea', body).filter((field) => {
+        if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement)) {
+          return false;
+        }
+        return !field.disabled && field.type !== 'hidden';
+      });
+
+      for (const field of fields) {
+        if (!field.reportValidity()) {
+          field.focus();
+          return false;
+        }
+      }
+
+      return true;
+    };
+
+    const showStep = (n) => {
+      currentStep = n;
+      stepBodies.forEach((b) => {
+        b.hidden = parseInt(b.dataset.stepBody, 10) !== n;
+      });
+      stepDots.forEach((d) => {
+        const s = parseInt(d.dataset.step, 10);
+        d.classList.toggle('cr-step-active', s === n);
+        d.classList.toggle('cr-step-done', s < n);
+      });
+
+      const activeBody = creditForm?.querySelector(`[data-step-body="${n}"]`);
+      activeBody?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    $$('[data-next]', root).forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (!validateStep(currentStep)) return;
+        showStep(parseInt(btn.dataset.next, 10));
+      });
+    });
+
+    $$('[data-back]', root).forEach((btn) => {
+      btn.addEventListener('click', () => showStep(parseInt(btn.dataset.back, 10)));
+    });
+
+    showStep(1);
+
+    /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+       LOAN CALCULATOR
+    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+    const amountField  = $('#cr-credit-amount');
+    const durationField= $('#cr-credit-duree');
+    const rateField    = $('#cr-credit-rate');
+    const monthlyField = $('#cr-credit-monthly');
+    const approvedField= $('#cr-credit-approved');
+
+    const previewMonthly  = $('#cr-preview-monthly');
+    const previewTotal    = $('#cr-preview-total');
+    const previewInterest = $('#cr-preview-interest');
+
+    const recalculate = () => {
+      const amount   = parseNum(amountField?.value);
+      const duration = parseNum(durationField?.value);
+      const rate     = parseNum(rateField?.value);
+
+      if (amount <= 0 || duration <= 0) {
+        if (monthlyField)  monthlyField.value  = '';
+        if (approvedField) approvedField.value = '';
+        if (previewMonthly)  previewMonthly.textContent  = '-- DT';
+        if (previewTotal)    previewTotal.textContent    = '-- DT';
+        if (previewInterest) previewInterest.textContent = '-- DT';
+        return;
+      }
+
+      const mr = rate / 100 / 12;
+      const mensualite = mr <= 0
+        ? amount / duration
+        : (amount * mr) / (1 - Math.pow(1 + mr, -duration));
+
+      const totalCost     = mensualite * duration;
+      const interestCost  = totalCost - amount;
+
+      if (monthlyField)  monthlyField.value  = mensualite.toFixed(2);
+      if (approvedField) approvedField.value = amount.toFixed(2);
+
+      if (previewMonthly)  previewMonthly.textContent  = fmtNum(mensualite) + ' DT';
+      if (previewTotal)    previewTotal.textContent    = fmtNum(totalCost) + ' DT';
+      if (previewInterest) previewInterest.textContent = fmtNum(interestCost) + ' DT';
+    };
+
+    amountField?.addEventListener('input', recalculate);
+    durationField?.addEventListener('change', recalculate);
+    rateField?.addEventListener('input', recalculate);
+    recalculate();
+
+    /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+       CAPACITY ANALYSIS
+    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+    const analyzeBtn     = $('#cr-credit-analyze');
+    const analysisOutput = $('#cr-analysis-output');
+    const salaryField    = $('#cr-credit-salary');
+
+    analyzeBtn?.addEventListener('click', () => {
+      const mensualite = parseNum(monthlyField?.value);
+      const salary     = parseNum(salaryField?.value);
+
+      if (!analysisOutput) return;
+
+      if (mensualite <= 0 || salary <= 0) {
+        analysisOutput.textContent = 'Renseignez salaire, montant, duree et taux pour lancer l\'analyse.';
+        analysisOutput.className = 'cr-analysis-output is-warn';
+        analysisOutput.hidden = false;
+        return;
+      }
+
+      const ratio = mensualite / salary;
+      const pct   = (ratio * 100).toFixed(1);
+
+      if (ratio <= 0.33) {
+        analysisOutput.textContent = `[OK] Capacite solide - mensualite = ${pct}% du salaire. Statut suggere : Accepte.`;
+        analysisOutput.className = 'cr-analysis-output is-ok';
+      } else if (ratio <= 0.45) {
+        analysisOutput.textContent = `[!] Capacite limite - mensualite = ${pct}% du salaire. Statut suggere : En attente.`;
+        analysisOutput.className = 'cr-analysis-output is-warn';
+      } else {
+        analysisOutput.textContent = `[X] Risque eleve - mensualite = ${pct}% du salaire. Statut suggere : Refuse.`;
+        analysisOutput.className = 'cr-analysis-output is-risk';
+      }
+
+      analysisOutput.hidden = false;
+    });
+
+    /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+       EDIT BUTTON â†’ fill form
+    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+    const fillForm = (row) => {
+      if (!creditForm || !row) return;
+
+      const set = (name, val) => {
+        const f = creditForm.querySelector(`[name="${name}"]`);
+        if (f) f.value = val ?? '';
+      };
+
+      set('idCredit',       row.dataset.creditId);
+      set('idCompte',       row.dataset.creditAccount);
+      set('typeCredit',     row.dataset.creditType);
+      set('montantDemande', row.dataset.creditAmount);
+      set('autofinancement',row.dataset.creditAuto);
+      set('duree',          row.dataset.creditDuration);
+      set('tauxInteret',    row.dataset.creditRate);
+      set('mensualite',     row.dataset.creditMonthly);
+      set('montantAccorde', row.dataset.creditApproved);
+      set('dateDemande',    row.dataset.creditDate);
+      set('salaire',        row.dataset.creditSalary);
+      set('typeContrat',    row.dataset.creditContract);
+      set('ancienneteAnnees', row.dataset.creditSeniority);
+
+      recalculate();
+
+      if (analysisOutput) {
+        analysisOutput.textContent = `Mode edition - credit #${row.dataset.creditId}`;
+        analysisOutput.className = 'cr-analysis-output is-warn';
+        analysisOutput.hidden = false;
+      }
+
+      showStep(1);
+      document.getElementById('credit-form-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    $$('[data-credit-edit]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const card = btn.closest('[data-credit-row]');
+        fillForm(card);
+      });
+    });
+
+    /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+       ADD NEW BUTTON (header)
+    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+    const addBtn      = $('#cr-add-credit-btn');
+    const emptyAddBtn = $('#cr-empty-add-btn');
+
+    const resetAndFocus = () => {
+      creditForm?.reset();
+      syncNextCreditId();
+      recalculate();
+      if (analysisOutput) { analysisOutput.hidden = true; }
+      showStep(1);
+      document.getElementById('credit-form-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    addBtn?.addEventListener('click', resetAndFocus);
+    emptyAddBtn?.addEventListener('click', resetAndFocus);
+
+    /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+       FORM COLLAPSE (toggle)
+    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+    const collapseBtn = $('#cr-collapse-form');
+    const formBody    = creditForm;
+
+    collapseBtn?.addEventListener('click', () => {
+      const collapsed = formBody?.classList.toggle('cr-form-collapsed');
+      const icon = collapseBtn.querySelector('i');
+      if (icon) icon.className = collapsed ? 'fa-solid fa-chevron-right' : 'fa-solid fa-chevron-left';
+    });
+
+    /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+       SEARCH & SORT & FILTER
+    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+    const searchInput  = $('#cr-search-input');
+    const searchClear  = $('#cr-search-clear');
+    const sortSelect   = $('#cr-sort-select');
+    const filterTabs   = $$('.cr-filter-tab');
+    const allCards     = $$('[data-credit-row]');
+    const garantieRows = $$('[data-main-garantie-row]');
+    const creditsView  = $('#cr-credits-view');
+    const garantiesView = $('#cr-garanties-view');
+    const garantiesInlineBtn = $('#cr-open-garanties-inline');
+    const garantiesInlineLabel = $('#cr-open-garanties-inline-label');
+    const mainListLabel = $('#cr-main-list-label');
+    const mainListCount = $('#cr-main-list-count');
+    const mainListIcon = $('#cr-main-list-icon');
+    const creditFilterTabs = $('#cr-credit-filter-tabs');
+    const creditMedianAmount = medianOf(allCards.map((card) => parseNum(card.dataset.creditAmount)));
+    const garantieMedianAmount = medianOf(garantieRows.map((row) => parseNum(row.dataset.garantieEstimated)));
+
+    let activeFilter = 'all';
+    let activeListing = 'credits';
+
+    const updateListingUI = () => {
+      const showingGaranties = activeListing === 'garanties';
+
+      creditsView && (creditsView.hidden = showingGaranties);
+      garantiesView && (garantiesView.hidden = !showingGaranties);
+      creditFilterTabs && (creditFilterTabs.hidden = showingGaranties);
+
+      if (searchInput) {
+        searchInput.placeholder = showingGaranties ? 'Rechercher une garantie...' : 'Rechercher un credit...';
+        searchInput.value = '';
+      }
+      if (searchClear) searchClear.hidden = true;
+
+      if (mainListLabel) mainListLabel.textContent = showingGaranties ? 'Mes Garanties' : 'Mes Credits';
+      if (mainListCount) mainListCount.textContent = String(showingGaranties ? garantieRows.length : allCards.length);
+      if (mainListIcon) {
+        mainListIcon.className = showingGaranties ? 'fa-solid fa-shield-halved' : 'fa-solid fa-credit-card';
+      }
+      if (garantiesInlineLabel) garantiesInlineLabel.textContent = showingGaranties ? 'Mes credits' : 'Garanties';
+      if (garantiesInlineBtn) {
+        garantiesInlineBtn.classList.toggle('is-active-alt', showingGaranties);
+        const icon = garantiesInlineBtn.querySelector('i');
+        if (icon) {
+          icon.className = showingGaranties ? 'fa-solid fa-credit-card' : 'fa-solid fa-shield-halved';
+        }
+      }
+    };
+
+    const applyState = () => {
+      const kw       = searchInput?.value ?? '';
+      const sortBy   = sortSelect?.value ?? 'id_desc';
+
+      if (searchClear) searchClear.hidden = kw.trim() === '';
+
+      if (activeListing === 'garanties') {
+        const garantieList = $('.cr-garanties-list-main');
+        const visibleGaranties = garantieRows.filter((row) => {
+          const searchText = row.dataset.garantieSearch ?? '';
+          const show = matchesSearchTokens(searchText, kw);
+          row.classList.toggle('cr-hidden', !show);
+          return show;
+        });
+
+        if (mainListCount) {
+          mainListCount.textContent = String(visibleGaranties.length);
+        }
+        if (garantieList) {
+          visibleGaranties.sort((a, b) => {
+            const idA = parseNum(a.dataset.garantieId);
+            const idB = parseNum(b.dataset.garantieId);
+            const valA = parseNum(a.dataset.garantieEstimated);
+            const valB = parseNum(b.dataset.garantieEstimated);
+            const dateA = parseSortableDate(a.dataset.garantieDate);
+            const dateB = parseSortableDate(b.dataset.garantieDate);
+
+            switch (sortBy) {
+              case 'id_asc':
+                return dateA !== dateB ? dateA - dateB : idA - idB;
+              case 'amount_high':
+                return valB - valA || idB - idA;
+              case 'amount_medium':
+                return Math.abs(valA - garantieMedianAmount) - Math.abs(valB - garantieMedianAmount) || idB - idA;
+              case 'amount_low':
+                return valA - valB || idA - idB;
+              default:
+                return dateB !== dateA ? dateB - dateA : idB - idA;
+            }
+          }).forEach((row) => garantieList.appendChild(row));
+        }
+
+        return;
+      }
+
+      const visible = allCards.filter((card) => {
+        const searchText = card.dataset.creditSearch ?? '';
+        const matchKw    = matchesSearchTokens(searchText, kw);
+
+        let matchFilter = true;
+        if (activeFilter !== 'all') {
+          const st = normalizeSearchValue(card.dataset.creditStatus ?? '');
+          matchFilter = st.includes(activeFilter);
+        }
+
+        const show = matchKw && matchFilter;
+        card.classList.toggle('cr-hidden', !show);
+        return show;
+      });
+
+      if (mainListCount) {
+        mainListCount.textContent = String(visible.length);
+      }
+      const grid = $('#cr-credits-grid');
+      if (grid) {
+        visible.sort((a, b) => {
+          const idA  = parseNum(a.dataset.creditId);
+          const idB  = parseNum(b.dataset.creditId);
+          const amA  = parseNum(a.dataset.creditAmount);
+          const amB  = parseNum(b.dataset.creditAmount);
+          const rkA  = parseNum(a.dataset.creditRisk);
+          const rkB  = parseNum(b.dataset.creditRisk);
+          const dtA  = parseSortableDate(a.dataset.creditDate);
+          const dtB  = parseSortableDate(b.dataset.creditDate);
+
+          switch (sortBy) {
+            case 'id_asc':
+              return dtA !== dtB ? dtA - dtB : idA - idB;
+            case 'amount_high':
+              return amB - amA || idB - idA;
+            case 'amount_medium':
+              return Math.abs(amA - creditMedianAmount) - Math.abs(amB - creditMedianAmount) || idB - idA;
+            case 'amount_low':
+              return amA - amB || idA - idB;
+            case 'risk_desc':
+              return rkB - rkA || idB - idA;
+            default:
+              return dtB !== dtA ? dtB - dtA : idB - idA;
+          }
+        }).forEach((card) => grid.appendChild(card));
+      }
+
+    };
+
+    searchInput?.addEventListener('input', applyState);
+    searchClear?.addEventListener('click', () => { if (searchInput) searchInput.value = ''; applyState(); });
+    sortSelect?.addEventListener('change', applyState);
+
+    filterTabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        activeFilter = tab.dataset.filter ?? 'all';
+        filterTabs.forEach((t) => t.classList.remove('cr-filter-tab-active'));
+        tab.classList.add('cr-filter-tab-active');
+        applyState();
+      });
+    });
+
+    garantiesInlineBtn?.addEventListener('click', () => {
+      activeListing = activeListing === 'credits' ? 'garanties' : 'credits';
+      updateListingUI();
+      applyState();
+    });
+
+    /* ════════════════════════════════════════════════════════════════════
+       TOOLS MODAL
+    ════════════════════════════════════════════════════════════════════ */
+    const toolsOverlay = $('#cr-tools-overlay');
+    const toolsModal = $('#cr-tools-modal');
+    const toolsTitle = $('#cr-tools-title');
+    const toolsSubtitle = $('#cr-tools-subtitle');
+    const toolsClose = $('#cr-tools-close');
+    const toolTabs = $$('[data-tool-tab]', root);
+    const toolPanels = $$('[data-tool-panel]', root);
+    const toolOpenButtons = $$('[data-tool-open]', root);
+    const toolMeta = {
+      simulate: {
+        title: 'Simuler & Comparer',
+        subtitle: 'Analysez vos credits sans quitter cette page.'
+      },
+      history: {
+        title: 'Historique des credits',
+        subtitle: 'Consultez rapidement l historique complet de vos credits.'
+      },
+      ratio: {
+        title: 'Ratio d endettement',
+        subtitle: 'Visualisez votre capacite financiere en temps reel.'
+      },
+      projection: {
+        title: 'Projection future',
+        subtitle: 'Anticipez l evolution de vos remboursements.'
+      },
+      restruct: {
+        title: 'Restructuration',
+        subtitle: 'Comparez des scenarios de reajustement.'
+      },
+      assistant: {
+        title: 'Assistant IA',
+        subtitle: 'Obtenez des suggestions contextuelles sur vos credits.'
+      }
+    };
+
+    const openToolPanel = (panelName) => {
+      if (!toolsModal || !toolsOverlay) return;
+      const meta = toolMeta[panelName] ?? toolMeta.simulate;
+
+      toolTabs.forEach((tab) => {
+        tab.classList.toggle('is-active', tab.dataset.toolTab === panelName);
+      });
+      toolPanels.forEach((panel) => {
+        panel.classList.toggle('is-active', panel.dataset.toolPanel === panelName);
+      });
+
+      if (toolsTitle) toolsTitle.textContent = meta.title;
+      if (toolsSubtitle) toolsSubtitle.textContent = meta.subtitle;
+
+      toolsModal.hidden = false;
+      toolsOverlay.hidden = false;
+      document.body.style.overflow = 'hidden';
+    };
+
+    const closeToolPanel = () => {
+      if (!toolsModal || !toolsOverlay) return;
+      toolsModal.hidden = true;
+      toolsOverlay.hidden = true;
+      document.body.style.overflow = '';
+    };
+
+    toolOpenButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        openToolPanel(btn.dataset.toolOpen || 'simulate');
+      });
+    });
+
+    toolTabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        openToolPanel(tab.dataset.toolTab || 'simulate');
+      });
+    });
+
+    toolsClose?.addEventListener('click', closeToolPanel);
+    toolsOverlay?.addEventListener('click', closeToolPanel);
+
+    syncNextCreditId();
+    updateListingUI();
+    applyState();
+
+    /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+       GARANTIES DRAWER
+    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+    const overlay    = $('#cr-drawer-overlay');
+    const drawer     = $('#cr-garanties-drawer');
+    const openBtns   = [$('#cr-open-garanties')];
+    const closeBtn   = $('#cr-close-garanties');
+    const garantieForm = $('#cr-garantie-form');
+    const garantieIdField = $('#cr-garantie-id');
+    const garantieEstimatedField = $('#cr-garantie-estimated');
+    const garantieRetainedField = $('#cr-garantie-retained');
+    const garantieDateField = $('#cr-garantie-date');
+
+    const setDrawerUrlState = (isOpen) => {
+      const url = new URL(window.location.href);
+      if (isOpen) {
+        url.searchParams.set('panel', 'garanties');
+      } else {
+        url.searchParams.delete('panel');
+      }
+      const query = url.searchParams.toString();
+      window.history.replaceState({}, '', url.pathname + (query ? `?${query}` : ''));
+    };
+
+    const openDrawer = () => {
+      if (!drawer || !overlay) return;
+      drawer.hidden  = false;
+      overlay.hidden = false;
+      document.body.style.overflow = 'hidden';
+      setDrawerUrlState(true);
+    };
+
+    const closeDrawer = () => {
+      if (!drawer || !overlay) return;
+      drawer.hidden  = true;
+      overlay.hidden = true;
+      document.body.style.overflow = '';
+      setDrawerUrlState(false);
+    };
+
+    const normalizeIsoDate = (rawValue) => {
+      const raw = String(rawValue ?? '').trim();
+      if (raw === '') return '';
+      if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+      const parsed = new Date(raw);
+      if (Number.isNaN(parsed.getTime())) return '';
+      const y = parsed.getFullYear();
+      const m = String(parsed.getMonth() + 1).padStart(2, '0');
+      const d = String(parsed.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+
+    const setGarantieField = (name, value) => {
+      const field = garantieForm?.querySelector(`[name="${name}"]`);
+      if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement) {
+        field.value = value ?? '';
+      }
+    };
+
+    const syncRetainedFromEstimated = () => {
+      if (!(garantieEstimatedField instanceof HTMLInputElement) || !(garantieRetainedField instanceof HTMLInputElement)) {
+        return;
+      }
+      if (garantieRetainedField.dataset.manual === '1') {
+        return;
+      }
+
+      const estimated = parseNum(garantieEstimatedField.value);
+      garantieRetainedField.value = estimated > 0 ? (estimated * 0.8).toFixed(2) : '';
+    };
+
+    const validateGarantieFormValues = () => {
+      if (!(garantieEstimatedField instanceof HTMLInputElement) || !(garantieRetainedField instanceof HTMLInputElement)) {
+        return true;
+      }
+
+      garantieEstimatedField.setCustomValidity('');
+      garantieRetainedField.setCustomValidity('');
+
+      const estimated = parseNum(garantieEstimatedField.value);
+      const retainedRaw = garantieRetainedField.value.trim();
+      const retained = parseNum(retainedRaw);
+
+      let valid = true;
+      if (estimated <= 0) {
+        garantieEstimatedField.setCustomValidity('La valeur estimee doit etre superieure a 0.');
+        valid = false;
+      }
+
+      if (retainedRaw !== '' && retained <= 0) {
+        garantieRetainedField.setCustomValidity('La valeur retenue doit etre superieure a 0.');
+        valid = false;
+      }
+
+      if (retainedRaw !== '' && estimated > 0 && retained > estimated) {
+        garantieRetainedField.setCustomValidity('La valeur retenue ne peut pas depasser la valeur estimee.');
+        valid = false;
+      }
+
+      return valid;
+    };
+
+    const resetGarantieFormState = (withFormReset = true) => {
+      if (withFormReset && garantieForm instanceof HTMLFormElement) {
+        garantieForm.reset();
+      }
+      if (garantieIdField instanceof HTMLInputElement) {
+        garantieIdField.value = '';
+      }
+      if (garantieDateField instanceof HTMLInputElement && garantieDateField.value === '') {
+        garantieDateField.value = '{{ current_date }}';
+      }
+      if (garantieRetainedField instanceof HTMLInputElement) {
+        garantieRetainedField.dataset.manual = '0';
+      }
+      syncRetainedFromEstimated();
+      validateGarantieFormValues();
+    };
+
+    garantieEstimatedField?.addEventListener('input', () => {
+      syncRetainedFromEstimated();
+      validateGarantieFormValues();
+    });
+
+    garantieRetainedField?.addEventListener('input', () => {
+      if (!(garantieRetainedField instanceof HTMLInputElement)) {
+        return;
+      }
+      garantieRetainedField.dataset.manual = garantieRetainedField.value.trim() === '' ? '0' : '1';
+      validateGarantieFormValues();
+    });
+
+    garantieForm?.addEventListener('reset', () => {
+      window.requestAnimationFrame(() => {
+        resetGarantieFormState(false);
+      });
+    });
+
+    garantieForm?.addEventListener('submit', (event) => {
+      if (!validateGarantieFormValues()) {
+        event.preventDefault();
+        garantieForm.reportValidity();
+        return;
+      }
+
+      if (garantieRetainedField instanceof HTMLInputElement && garantieRetainedField.value.trim() === '') {
+        garantieRetainedField.dataset.manual = '0';
+        syncRetainedFromEstimated();
+      }
+    });
+
+    const fillGarantieForm = (row) => {
+      if (!(row instanceof HTMLElement)) {
+        return;
+      }
+
+      setGarantieField('idGarantie', row.dataset.garantieId ?? '');
+      setGarantieField('idCredit', row.dataset.garantieCreditId ?? '');
+      setGarantieField('typeGarantie', row.dataset.garantieType ?? '');
+      setGarantieField('description', row.dataset.garantieDescription ?? '');
+      setGarantieField('adresseBien', row.dataset.garantieAddress ?? '');
+      setGarantieField('valeurEstimee', row.dataset.garantieEstimated ?? '');
+      setGarantieField('valeurRetenue', row.dataset.garantieRetained ?? '');
+      setGarantieField('documentJustificatif', row.dataset.garantieDocument ?? '');
+      setGarantieField('dateEvaluation', normalizeIsoDate(row.dataset.garantieDate ?? ''));
+      setGarantieField('nomGarant', row.dataset.garantieGuarantor ?? '');
+
+      if (garantieRetainedField instanceof HTMLInputElement) {
+        garantieRetainedField.dataset.manual = (row.dataset.garantieRetained ?? '').trim() !== '' ? '1' : '0';
+      }
+      syncRetainedFromEstimated();
+      validateGarantieFormValues();
+
+      openDrawer();
+      garantieForm?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    $$('[data-garantie-edit]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const row = btn.closest('[data-garantie-row]');
+        fillGarantieForm(row);
+      });
+    });
+
+    openBtns.forEach((btn) => btn?.addEventListener('click', () => {
+      resetGarantieFormState(true);
+      openDrawer();
+    }));
+    closeBtn?.addEventListener('click', closeDrawer);
+    overlay?.addEventListener('click', closeDrawer);
+
+    /* open if redirected back with panel=garanties */
+    if (new URLSearchParams(location.search).get('panel') === 'garanties') {
+      openDrawer();
+      validateGarantieFormValues();
+    }
+
+    /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+       LANGUAGE SELECT (UI stub)
+    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+    const langSel = $('#cr-language');
+    langSel?.addEventListener('change', () => {
+      langSel.title = `Langue: ${langSel.value}`;
+    });
+  });
+})();
+</script>
+
+
+<style>
+/* Validation crédit */
+.cr-val-msg{font-size:12px;font-weight:600;margin-top:4px;display:block;min-height:16px}
+.cr-val-msg.ok{color:#16a34a}
+.cr-val-msg.err{color:#dc2626}
+.cr-input.cr-v-invalid{border-color:#dc2626!important;box-shadow:0 0 0 3px rgba(220,38,38,.12)!important;background:#fff5f5!important}
+.cr-input.cr-v-valid{border-color:#16a34a!important;box-shadow:0 0 0 3px rgba(22,163,74,.1)!important;background:#f0fdf4!important}
+</style>
+<script>
+(function(){
+var today=new Date();today.setHours(0,0,0,0);
+
+function g(id){return document.getElementById(id);}
+function ok(inputId,spanId,label){
+  var el=g(inputId),s=g(spanId);
+  if(el){el.classList.remove('cr-v-invalid');el.classList.add('cr-v-valid');}
+  if(s){s.className='cr-val-msg ok';s.textContent='✓ '+(label||'Valide');}
+  return true;
+}
+function err(inputId,spanId,msg){
+  var el=g(inputId),s=g(spanId);
+  if(el){el.classList.remove('cr-v-valid');el.classList.add('cr-v-invalid');}
+  if(s){s.className='cr-val-msg err';s.textContent='⚠ '+msg;}
+  return false;
+}
+function clr(inputId,spanId){
+  var el=g(inputId),s=g(spanId);
+  if(el){el.classList.remove('cr-v-valid','cr-v-invalid');}
+  if(s){s.className='cr-val-msg';s.textContent='';}
+  return true;
+}
+
+/* ── Règles par champ ── */
+function vIdCompte(){
+  var el=g('cr-credit-account');
+  if(!el)return true;
+  return el.value?ok('cr-credit-account','cr-err-idCompte'):err('cr-credit-account','cr-err-idCompte','Veuillez sélectionner un compte.');
+}
+function vTypeCredit(){
+  var el=g('cr-credit-type');
+  if(!el)return true;
+  return el.value?ok('cr-credit-type','cr-err-typeCredit'):err('cr-credit-type','cr-err-typeCredit','Le type de crédit est obligatoire.');
+}
+function vDateDemande(){
+  var el=g('cr-credit-date');
+  if(!el)return true;
+  if(!el.value)return err('cr-credit-date','cr-err-dateDemande','La date de demande est obligatoire.');
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(el.value))return err('cr-credit-date','cr-err-dateDemande','Format requis : AAAA-MM-JJ.');
+  return ok('cr-credit-date','cr-err-dateDemande');
+}
+function vMontant(){
+  var el=g('cr-credit-amount');
+  if(!el)return true;
+  var v=parseFloat(el.value);
+  if(!el.value||isNaN(v))return err('cr-credit-amount','cr-err-montantDemande','Le montant demandé est obligatoire.');
+  if(v<=0)return err('cr-credit-amount','cr-err-montantDemande','Doit être un nombre positif.');
+  if(v<500||v>10000000)return err('cr-credit-amount','cr-err-montantDemande','Doit être entre 500 et 10 000 000 DT.');
+  return ok('cr-credit-amount','cr-err-montantDemande');
+}
+function vAutofinancement(){
+  var el=g('cr-credit-auto');
+  if(!el||el.value==='')return clr('cr-credit-auto','cr-err-autofinancement');
+  var v=parseFloat(el.value);
+  if(isNaN(v)||v<0)return err('cr-credit-auto','cr-err-autofinancement','Doit être positif ou nul.');
+  return ok('cr-credit-auto','cr-err-autofinancement');
+}
+function vDuree(){
+  var el=g('cr-credit-duree');
+  if(!el)return true;
+  if(!el.value)return err('cr-credit-duree','cr-err-duree','La durée est obligatoire.');
+  var v=parseInt(el.value);
+  if(v<1||v>360)return err('cr-credit-duree','cr-err-duree','Entre 1 et 360 mois.');
+  return ok('cr-credit-duree','cr-err-duree');
+}
+function vTaux(){
+  var el=g('cr-credit-rate');
+  if(!el)return true;
+  if(el.value==='')return err('cr-credit-rate','cr-err-tauxInteret',"Le taux d'intérêt est obligatoire.");
+  var v=parseFloat(el.value);
+  if(isNaN(v)||v<0||v>100)return err('cr-credit-rate','cr-err-tauxInteret','Entre 0% et 100%.');
+  return ok('cr-credit-rate','cr-err-tauxInteret');
+}
+function vSalaire(){
+  var el=g('cr-credit-salary');
+  if(!el)return true;
+  if(!el.value)return err('cr-credit-salary','cr-err-salaire','Le salaire est obligatoire.');
+  var v=parseFloat(el.value);
+  if(v<=0)return err('cr-credit-salary','cr-err-salaire','Doit être un nombre positif.');
+  return ok('cr-credit-salary','cr-err-salaire');
+}
+function vTypeContrat(){
+  var el=g('cr-credit-contract');
+  if(!el)return true;
+  return el.value?ok('cr-credit-contract','cr-err-typeContrat'):err('cr-credit-contract','cr-err-typeContrat','Le type de contrat est obligatoire.');
+}
+function vAnciennete(){
+  var el=g('cr-credit-seniority');
+  if(!el)return true;
+  if(el.value==='')return err('cr-credit-seniority','cr-err-ancienneteAnnees',"L'ancienneté est obligatoire.");
+  var v=parseInt(el.value);
+  if(isNaN(v)||v<0||v>60)return err('cr-credit-seniority','cr-err-ancienneteAnnees','Entre 0 et 60 ans.');
+  return ok('cr-credit-seniority','cr-err-ancienneteAnnees');
+}
+
+/* ── Validation par étape ── */
+function validateStep(step){
+  if(step===1) return vIdCompte()&vTypeCredit()&vDateDemande();
+  if(step===2) return vMontant()&vDuree()&vTaux();
+  if(step===3) return vSalaire()&vTypeContrat()&vAnciennete();
+  return true;
+}
+
+/* ── Intercepter les boutons Suivant ── */
+document.querySelectorAll('.cr-step-next').forEach(function(btn){
+  btn.addEventListener('click',function(e){
+    var nextStep=parseInt(btn.dataset.next||'2');
+    var currentStep=nextStep-1;
+    if(!validateStep(currentStep)){
+      e.stopImmediatePropagation();
+      e.preventDefault();
+    }
+  },true);
+});
+
+/* ── Intercepter le submit final ── */
+var form=document.getElementById('credit-form');
+if(form){
+  form.addEventListener('submit',function(e){
+    var ok3=vSalaire()&vTypeContrat()&vAnciennete();
+    if(!ok3)e.preventDefault();
+  });
+}
+
+/* ── Live validation ── */
+var liveMap={
+  'cr-credit-account':vIdCompte,'cr-credit-type':vTypeCredit,
+  'cr-credit-date':vDateDemande,'cr-credit-amount':vMontant,
+  'cr-credit-auto':vAutofinancement,'cr-credit-duree':vDuree,
+  'cr-credit-rate':vTaux,'cr-credit-salary':vSalaire,
+  'cr-credit-contract':vTypeContrat,'cr-credit-seniority':vAnciennete
+};
+Object.keys(liveMap).forEach(function(id){
+  var el=g(id);
+  if(!el)return;
+  ['input','change','blur'].forEach(function(ev){
+    el.addEventListener(ev,liveMap[id]);
+  });
+});
+})();
+</script>

@@ -1,0 +1,30 @@
+<section class="panel-grid">
+    <article class="panel-card">
+        <h2>PDF Exports</h2>
+        <div class="actions">
+            <a class="btn btn-secondary" href="{{ path('portal_feature_pdf_download', { kind: 'transactions' }) }}">Transactions PDF</a>
+            <a class="btn btn-secondary" href="{{ path('portal_feature_pdf_download', { kind: 'credits' }) }}">Credits PDF</a>
+            <a class="btn btn-secondary" href="{{ path('portal_feature_pdf_download', { kind: 'garanties' }) }}">Garanties PDF</a>
+        </div>
+    </article>
+    <article class="panel-card">
+        <h2>Notifications</h2>
+        <div class="notification-list">
+            {% for item in notifications %}
+                <div class="notification-item"><strong>{{ item.title }}</strong><p>{{ item.message }}</p></div>
+            {% else %}
+                <p>No notifications.</p>
+            {% endfor %}
+        </div>
+    </article>
+</section>
+
+<section class="panel-card">
+    <h2>Transactions and QR Codes</h2>
+    <div class="table-wrap"><table class="data-table"><thead><tr><th>ID</th><th>Category</th><th>Amount</th><th>Status</th><th>QR</th></tr></thead><tbody>{% for item in exports_data.transactions %}<tr><td>{{ item.idTransaction }}</td><td>{{ item.categorie }}</td><td>{{ item.montant_value|number_format(2, '.', ' ') }} DT</td><td>{{ item.statutTransaction }}</td><td><a class="btn btn-secondary" href="{{ path('portal_feature_transaction_qr', { id: item.idTransaction }) }}">Open QR</a></td></tr>{% else %}<tr><td colspan="5">No transactions.</td></tr>{% endfor %}</tbody></table></div>
+</section>
+
+<section class="panel-grid">
+    <article class="panel-card"><h2>Credits Export Scope</h2><div class="table-wrap"><table class="data-table"><thead><tr><th>ID</th><th>Type</th><th>Amount</th><th>Status</th></tr></thead><tbody>{% for item in exports_data.credits %}<tr><td>{{ item.idCredit }}</td><td>{{ item.typeCredit }}</td><td>{{ item.montantDemande|number_format(2, '.', ' ') }} DT</td><td>{{ item.statut }}</td></tr>{% else %}<tr><td colspan="4">No credits.</td></tr>{% endfor %}</tbody></table></div></article>
+    <article class="panel-card"><h2>Garanties Export Scope</h2><div class="table-wrap"><table class="data-table"><thead><tr><th>ID</th><th>Type</th><th>Value</th><th>Status</th></tr></thead><tbody>{% for item in exports_data.garanties %}<tr><td>{{ item.idGarantie }}</td><td>{{ item.typeGarantie }}</td><td>{{ item.valeurEstimee|number_format(2, '.', ' ') }} DT</td><td>{{ item.statut }}</td></tr>{% else %}<tr><td colspan="4">No garanties.</td></tr>{% endfor %}</tbody></table></div></article>
+</section>

@@ -1,0 +1,45 @@
+<section class="panel-card">
+    <h2>Reclamations</h2>
+    <form method="post" class="editor-form">
+        <input type="hidden" name="tab" value="complaints">
+        <input type="hidden" name="action" value="reclamation_save">
+        <label><span>ID pour modifier</span><input type="number" name="idReclamation"></label>
+        <label><span>Transaction</span>
+            <select name="idTransaction">
+                <option value="">Sans transaction</option>
+                {% for transaction in support.transactions|default([]) %}
+                    <option value="{{ transaction.idTransaction }}">{{ transaction.idTransaction }} - {{ transaction.categorie }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label><span>Date</span><input type="date" name="dateReclamation" value="{{ 'now'|date('Y-m-d') }}"></label>
+        <label><span>Type</span><input type="text" name="typeReclamation" required></label>
+        <label class="wide"><span>Description</span><input type="text" name="description" required></label>
+        <label><span>Status</span><input type="text" name="status" value="En attente"></label>
+        <button class="btn btn-primary" type="submit">Create / Update</button>
+    </form>
+
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead><tr><th>ID</th><th>Type</th><th>Status</th><th>Visibilite</th><th>Delete</th></tr></thead>
+            <tbody>
+            {% for item in items %}
+                <tr>
+                    <td>{{ item.idReclamation }}</td>
+                    <td>{{ item.typeReclamation }}</td>
+                    <td>{{ item.status }}</td>
+                    <td>{{ item.is_blurred ? 'Blurred' : 'Visible' }}</td>
+                    <td>
+                        <form method="post">
+                            <input type="hidden" name="tab" value="complaints">
+                            <input type="hidden" name="action" value="reclamation_delete">
+                            <input type="hidden" name="idReclamation" value="{{ item.idReclamation }}">
+                            <button class="btn btn-danger" type="submit">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
