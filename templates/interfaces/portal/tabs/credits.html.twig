@@ -3,6 +3,7 @@
 {% set pending_total = 0 %}
 {% set accepted_total = 0 %}
 {% set refused_total = 0 %}
+{% set encours_total = 0 %}
 {% set average_risk = 0 %}
 {% set risk_sum = 0 %}
 {% set total_amount = 0 %}
@@ -10,15 +11,37 @@
 {% set current_month = 'now'|date('Y-m') %}
 {% set credits_month = 0 %}
 {% set max_credit_id = 0 %}
+{% set credit_feedback = support.credit_form_feedback|default({}) %}
+{% if credit_feedback is empty %}
+    {% set credit_feedback = {'errors': support.form_errors_credit|default({}), 'input': support.form_data_credit|default({})} %}
+{% endif %}
+{% set credit_old = credit_feedback.input|default({}) %}
+{% set credit_errors = credit_feedback.errors|default({}) %}
+{% set garantie_feedback = support.garantie_form_feedback|default({}) %}
+{% if garantie_feedback is empty %}
+    {% set garantie_feedback = {'errors': support.form_errors_garantie|default({}), 'input': support.form_data_garantie|default({})} %}
+{% endif %}
+{% set garantie_old = garantie_feedback.input|default({}) %}
+{% set garantie_errors = garantie_feedback.errors|default({}) %}
+{% set current_language = 'fr' %}
+{% set credit_error_step = 1 %}
+{% if credit_errors.montantDemande is defined or credit_errors.autofinancement is defined or credit_errors.duree is defined or credit_errors.tauxInteret is defined or credit_errors.mensualite is defined or credit_errors.montantAccorde is defined %}
+    {% set credit_error_step = 2 %}
+{% elseif credit_errors.salaire is defined or credit_errors.typeContrat is defined or credit_errors.ancienneteAnnees is defined %}
+    {% set credit_error_step = 3 %}
+{% endif %}
 {% for item in items %}
     {% set status_key = item.statut|default('')|lower %}
     {% if 'attente' in status_key %}
         {% set pending_total = pending_total + 1 %}
     {% endif %}
-    {% if 'accepte' in status_key or 'cours' in status_key or 'approved' in status_key %}
+    {% if 'accepte' in status_key or 'approved' in status_key %}
         {% set accepted_total = accepted_total + 1 %}
     {% endif %}
-    {% if 'refuse' in status_key %}
+    {% if 'cours' in status_key %}
+        {% set encours_total = encours_total + 1 %}
+    {% endif %}
+    {% if 'refuse' in status_key or 'rejet' in status_key %}
         {% set refused_total = refused_total + 1 %}
     {% endif %}
     {% set risk_sum = risk_sum + (item.risk_score|default(0)) %}
@@ -71,23 +94,22 @@
                 <button type="button" class="cr-nav-pill" data-tool-open="history">
                     <i class="fa-solid fa-clock-rotate-left"></i><span>Historique</span>
                 </button>
-                <button type="button" class="cr-nav-pill" id="cr-open-garanties">
-                    <i class="fa-solid fa-shield-halved"></i><span>Garanties</span>
-                </button>
                 <button type="button" class="cr-nav-pill cr-nav-pill--cta" id="cr-add-credit-btn">
-                    <i class="fa-solid fa-plus"></i><span>Nouveau</span>
+                    <i class="fa-solid fa-plus"></i><span>Nouveau credit</span>
                 </button>
         </div>
 
         <div class="cr-hero-toolbar">
             <div class="cr-hero-toolbar-right">
-                <label class="cr-lang-select">
+                <label class="cr-lang-select" for="cr-language" aria-label="Choisir la langue">
+                    <span class="cr-visually-hidden">Choisir la langue</span>
                     <i class="fa-solid fa-globe"></i>
-                    <select id="cr-language">
-                        <option>Francais</option>
-                        <option>English</option>
-                        <option>Arabic</option>
+                    <select id="cr-language" name="language" aria-label="Choisir la langue">
+                        <option value="fr" {{ current_language == 'fr' ? 'selected' : '' }}>Francais</option>
+                        <option value="en" {{ current_language == 'en' ? 'selected' : '' }}>English</option>
+                        <option value="ar" {{ current_language == 'ar' ? 'selected' : '' }}>العربية</option>
                     </select>
+                    <i class="fa-solid fa-chevron-down cr-lang-chevron"></i>
                 </label>
                 <button class="cr-topbar-btn" id="cr-dark-toggle" type="button">
                     <i class="fa-solid fa-moon"></i>
@@ -174,87 +196,21 @@
             <div class="cr-kpi-bar"><span class="is-danger" style="width:{{ average_risk > 100 ? 100 : average_risk }}%"></span></div>
         </div>
     </div>
-    {# â”€â”€ MAIN SPLIT LAYOUT â”€â”€ #}
+    {#  MAIN SPLIT LAYOUT #}
     <div class="cr-tools-overlay" id="cr-tools-overlay" hidden></div>
     <section class="cr-tools-modal" id="cr-tools-modal" hidden role="dialog" aria-modal="true" aria-labelledby="cr-tools-title">
         <header class="cr-tools-header">
             <div>
-                <h3 id="cr-tools-title">Simuler & Comparer</h3>
-                <p id="cr-tools-subtitle">Analysez vos credits sans quitter cette page.</p>
+                <h3 id="cr-tools-title">Historique des credits</h3>
+                <p id="cr-tools-subtitle">Consultez rapidement l historique complet de vos credits.</p>
             </div>
             <button class="cr-tools-close" id="cr-tools-close" type="button" aria-label="Fermer">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </header>
 
-        <nav class="cr-tools-tabs" id="cr-tools-tabs">
-            <button type="button" class="cr-tools-tab is-active" data-tool-tab="simulate">Simulation</button>
-            <button type="button" class="cr-tools-tab" data-tool-tab="history">Historique</button>
-
-            <button type="button" class="cr-tools-tab" data-tool-tab="ratio">Endettement</button>
-            <button type="button" class="cr-tools-tab" data-tool-tab="projection">Projection</button>
-            <button type="button" class="cr-tools-tab" data-tool-tab="restruct">Restructuration</button>
-            <button type="button" class="cr-tools-tab" data-tool-tab="assistant">Assistant IA</button>
-        </nav>
-
         <div class="cr-tools-body">
-            <section class="cr-tool-panel is-active" data-tool-panel="simulate">
-                <div class="cr-tool-grid-2">
-                    <article class="cr-tool-card">
-                        <h4>Scenario A</h4>
-                        <div class="cr-tool-fields">
-                            <label class="cr-tool-field">
-                                <span>Montant (DT)</span>
-                                <input type="number" step="0.01" min="0" id="cr-sim-a-amount" value="{{ items|length > 0 ? (items[0].montantDemande|default(10000)) : 10000 }}">
-                            </label>
-                            <label class="cr-tool-field">
-                                <span>Duree (mois)</span>
-                                <input type="number" min="1" id="cr-sim-a-duration" value="{{ items|length > 0 ? (items[0].duree|default(36)) : 36 }}">
-                            </label>
-                            <label class="cr-tool-field">
-                                <span>Taux annuel (%)</span>
-                                <input type="number" step="0.01" min="0" id="cr-sim-a-rate" value="{{ items|length > 0 ? (items[0].tauxInteret|default(8)) : 8 }}">
-                            </label>
-                        </div>
-                        <div class="cr-tool-kpis">
-                            <div><span>Mensualite</span><strong id="cr-sim-a-monthly">0.00 DT</strong></div>
-                            <div><span>Cout total</span><strong id="cr-sim-a-total">0.00 DT</strong></div>
-                            <div><span>Interets</span><strong id="cr-sim-a-interest">0.00 DT</strong></div>
-                        </div>
-                    </article>
-
-                    <article class="cr-tool-card">
-                        <h4>Scenario B</h4>
-                        <div class="cr-tool-fields">
-                            <label class="cr-tool-field">
-                                <span>Montant (DT)</span>
-                                <input type="number" step="0.01" min="0" id="cr-sim-b-amount" value="{{ items|length > 0 ? (items[0].montantDemande|default(10000)) : 10000 }}">
-                            </label>
-                            <label class="cr-tool-field">
-                                <span>Duree (mois)</span>
-                                <input type="number" min="1" id="cr-sim-b-duration" value="{{ items|length > 0 ? ((items[0].duree|default(36)) + 12) : 48 }}">
-                            </label>
-                            <label class="cr-tool-field">
-                                <span>Taux annuel (%)</span>
-                                <input type="number" step="0.01" min="0" id="cr-sim-b-rate" value="{{ items|length > 0 ? (items[0].tauxInteret|default(8)) : 8 }}">
-                            </label>
-                        </div>
-                        <div class="cr-tool-kpis">
-                            <div><span>Mensualite</span><strong id="cr-sim-b-monthly">0.00 DT</strong></div>
-                            <div><span>Cout total</span><strong id="cr-sim-b-total">0.00 DT</strong></div>
-                            <div><span>Interets</span><strong id="cr-sim-b-interest">0.00 DT</strong></div>
-                        </div>
-                    </article>
-                </div>
-
-                <div class="cr-tool-result" id="cr-sim-compare">
-                    <div><span>Difference mensualite</span><strong id="cr-sim-diff-monthly">0.00 DT</strong></div>
-                    <div><span>Ecart interets</span><strong id="cr-sim-diff-interest">0.00 DT</strong></div>
-                    <div><span>Scenario conseille</span><strong id="cr-sim-best">Aucun</strong></div>
-                </div>
-            </section>
-
-            <section class="cr-tool-panel" data-tool-panel="history">
+            <section class="cr-tool-panel is-active" data-tool-panel="history">
                 {% if items|length > 0 %}
                     <div class="cr-tool-table-wrap">
                         <table class="cr-tool-table">
@@ -286,148 +242,107 @@
                     <div class="cr-tool-empty">Aucun historique credit disponible.</div>
                 {% endif %}
             </section>
-
-            <section class="cr-tool-panel" data-tool-panel="ratio">
-                <div class="cr-tool-grid-2">
-                    <article class="cr-tool-card">
-                        <h4>Calcul du ratio d'endettement</h4>
-                        <div class="cr-tool-fields">
-                            <label class="cr-tool-field">
-                                <span>Credit</span>
-                                <select id="cr-ratio-credit">
-                                    {% for item in items %}
-                                        <option value="{{ item.idCredit }}" data-monthly="{{ item.mensualite|default(0) }}" data-salary="{{ item.salaire|default(0) }}">
-                                            #{{ item.idCredit }} - {{ item.typeCredit|default('Credit') }}
-                                        </option>
-                                    {% else %}
-                                        <option value="">Aucun credit</option>
-                                    {% endfor %}
-                                </select>
-                            </label>
-                            <label class="cr-tool-field">
-                                <span>Salaire mensuel (DT)</span>
-                                <input type="number" step="0.01" min="0" id="cr-ratio-salary" value="">
-                            </label>
+            
+            <section class="cr-tool-panel" data-tool-panel="simulate">
+                <style>
+                    .sim-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; }
+                    .sim-card { background: var(--cr-bg-card, #fefefe); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--cr-border, #eaeaea); }
+                    .sim-val { font-size: 1.8rem; font-weight: 700; color: var(--cr-primary, #4f46e5); }
+                    .sim-val.risk { color: var(--cr-error, #ef4444); }
+                    @media (max-width: 768px) { .sim-grid { grid-template-columns: 1fr; } }
+                    .proj-bar { width: 100%; border-radius: 4px 4px 0 0; position: relative; transition: height 0.3s ease; }
+                    .proj-bar-wrap { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 5px; height: 100%; }
+                    .proj-bar span { font-size: 0.7rem; color: #666; text-align: center; }
+                </style>
+                <div class="sim-grid">
+                    <div class="sim-card">
+                        <h4 style="margin-bottom: 1rem; color: var(--cr-title);">Paramètres du crédit</h4>
+                        <div style="margin-bottom: 1rem;">
+                            <label style="display:block; font-size:0.85rem; margin-bottom:0.3rem;">Montant (DT)</label>
+                            <input type="number" id="sim-montant" value="20000" style="width:100%; padding:0.6rem; border-radius:6px; border:1px solid #ccc; outline:none;">
                         </div>
-                    </article>
-
-                    <article class="cr-tool-card">
-                        <h4>Resultat</h4>
-                        <div class="cr-tool-kpis">
-                            <div><span>Mensualite</span><strong id="cr-ratio-monthly">0.00 DT</strong></div>
-                            <div><span>Ratio</span><strong id="cr-ratio-percent">0.0%</strong></div>
+                        <div style="margin-bottom: 1rem;">
+                            <label style="display:block; font-size:0.85rem; margin-bottom:0.3rem;">Durée (Mois)</label>
+                            <input type="number" id="sim-duree" value="36" style="width:100%; padding:0.6rem; border-radius:6px; border:1px solid #ccc; outline:none;">
                         </div>
-                        <div class="cr-tool-bar">
-                            <span class="cr-tool-bar-fill" id="cr-ratio-fill" style="width:0%;"></span>
+                        <div style="margin-bottom: 1.5rem;">
+                            <label style="display:block; font-size:0.85rem; margin-bottom:0.3rem;">Taux Annuel (%)</label>
+                            <input type="number" step="0.1" id="sim-taux" value="8" style="width:100%; padding:0.6rem; border-radius:6px; border:1px solid #ccc; outline:none;">
                         </div>
-                        <p class="cr-tool-note" id="cr-ratio-advice">Selectionnez un credit pour lancer l'analyse.</p>
-                    </article>
+                        <button id="sim-btn" style="width:100%; padding:0.8rem; border:none; border-radius:6px; background:var(--cr-primary, #4f46e5); color:#fff; font-weight:600; cursor:pointer;">Simuler Amortissement</button>
+                    </div>
+                    <div class="sim-card">
+                        <div id="sim-result" hidden>
+                            <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #eaeaea;">
+                                <div>
+                                    <div style="font-size:0.85rem; color:#666;">Mensualité estimée</div>
+                                    <div class="sim-val" id="sim-mensualite">0.00 <span style="font-size:1rem;">DT</span></div>
+                                </div>
+                                <div style="text-align:right;">
+                                    <div style="font-size:0.85rem; color:#666;">Coût total du crédit</div>
+                                    <div class="sim-val risk" id="sim-cout-total">0.00 <span style="font-size:1rem;">DT</span></div>
+                                </div>
+                            </div>
+                            <h5 style="margin-bottom:0.5rem; color:var(--cr-title);">Tableau Prévisionnel</h5>
+                            <div style="max-height: 250px; overflow-y: auto; border: 1px solid #eaeaea; border-radius: 8px;">
+                                <table class="cr-tool-table" style="width:100%; text-align:right; border-collapse:collapse;">
+                                    <thead style="position:sticky; top:0; background:#f9f9f9; z-index:1;">
+                                        <tr>
+                                            <th style="padding:0.5rem;">Mois</th>
+                                            <th style="padding:0.5rem;">Part Intérêt</th>
+                                            <th style="padding:0.5rem;">Part Capital</th>
+                                            <th style="padding:0.5rem;">Capital Restant</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="sim-tbody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div id="sim-placeholder" style="display:flex; align-items:center; justify-content:center; height:100%; color:#aaa; font-style:italic;">
+                            Remplissez les critères pour lancer la simulation.
+                        </div>
+                    </div>
                 </div>
             </section>
 
             <section class="cr-tool-panel" data-tool-panel="projection">
-                <div class="cr-tool-grid-2">
-                    <article class="cr-tool-card">
-                        <h4>Projection future</h4>
-                        <div class="cr-tool-fields">
-                            <label class="cr-tool-field">
-                                <span>Credit</span>
-                                <select id="cr-projection-credit">
-                                    {% for item in items %}
-                                        <option value="{{ item.idCredit }}" data-approved="{{ item.montantAccorde|default(item.montantDemande|default(0)) }}" data-monthly="{{ item.mensualite|default(0) }}" data-duration="{{ item.duree|default(0) }}" data-date="{{ item.dateDemande|default(current_date)|slice(0, 10) }}">
-                                            #{{ item.idCredit }} - {{ item.typeCredit|default('Credit') }}
-                                        </option>
-                                    {% else %}
-                                        <option value="">Aucun credit</option>
-                                    {% endfor %}
-                                </select>
-                            </label>
-                            <label class="cr-tool-field">
-                                <span>Horizon (mois)</span>
-                                <input type="number" min="1" id="cr-projection-months" value="12">
-                            </label>
+                 <div class="sim-grid">
+                    <div class="sim-card">
+                        <h4 style="margin-bottom: 1rem; color: var(--cr-title);">Modèle de Projection</h4>
+                        <div style="margin-bottom: 1rem;">
+                            <label style="display:block; font-size:0.85rem; margin-bottom:0.3rem;">Revenus mensuels (DT)</label>
+                            <input type="number" id="proj-revenus" value="3000" style="width:100%; padding:0.6rem; border-radius:6px; border:1px solid #ccc; outline:none;">
                         </div>
-                    </article>
-
-                    <article class="cr-tool-card">
-                        <h4>Estimation</h4>
-                        <div class="cr-tool-kpis">
-                            <div><span>Montant paye</span><strong id="cr-projection-paid">0.00 DT</strong></div>
-                            <div><span>Reste estime</span><strong id="cr-projection-remaining">0.00 DT</strong></div>
-                            <div><span>Date cible</span><strong id="cr-projection-date">-</strong></div>
+                        <div style="margin-bottom: 1rem;">
+                            <label style="display:block; font-size:0.85rem; margin-bottom:0.3rem;">Dépenses courantes (DT)</label>
+                            <input type="number" id="proj-depenses" value="1200" style="width:100%; padding:0.6rem; border-radius:6px; border:1px solid #ccc; outline:none;">
                         </div>
-                        <div class="cr-tool-bar">
-                            <span class="cr-tool-bar-fill" id="cr-projection-fill" style="width:0%;"></span>
+                        <div style="margin-bottom: 1rem;">
+                            <label style="display:block; font-size:0.85rem; margin-bottom:0.3rem;">Mensualité du crédit (DT)</label>
+                            <input type="number" id="proj-mensualite" value="500" style="width:100%; padding:0.6rem; border-radius:6px; border:1px solid #ccc; outline:none;">
                         </div>
-                        <p class="cr-tool-note" id="cr-projection-progress">Progression estimee: 0%</p>
-                    </article>
-                </div>
-            </section>
-
-            <section class="cr-tool-panel" data-tool-panel="restruct">
-                <div class="cr-tool-grid-2">
-                    <article class="cr-tool-card">
-                        <h4>Simulation de restructuration</h4>
-                        <div class="cr-tool-fields">
-                            <label class="cr-tool-field">
-                                <span>Credit</span>
-                                <select id="cr-restruct-credit">
-                                    {% for item in items %}
-                                        <option value="{{ item.idCredit }}" data-principal="{{ item.montantAccorde|default(item.montantDemande|default(0)) }}" data-rate="{{ item.tauxInteret|default(0) }}" data-duration="{{ item.duree|default(0) }}" data-monthly="{{ item.mensualite|default(0) }}">
-                                            #{{ item.idCredit }} - {{ item.typeCredit|default('Credit') }}
-                                        </option>
-                                    {% else %}
-                                        <option value="">Aucun credit</option>
-                                    {% endfor %}
-                                </select>
-                            </label>
-                            <label class="cr-tool-field">
-                                <span>Nouvelle duree (mois)</span>
-                                <input type="number" min="1" id="cr-restruct-duration" value="60">
-                            </label>
-                            <label class="cr-tool-field">
-                                <span>Nouveau taux (%)</span>
-                                <input type="number" step="0.01" min="0" id="cr-restruct-rate" value="6.50">
-                            </label>
+                        <div style="margin-bottom: 1.5rem;">
+                            <label style="display:block; font-size:0.85rem; margin-bottom:0.3rem;">Inflation annuelle Prévue (%)</label>
+                            <input type="number" step="0.1" id="proj-inflation" value="6.5" style="width:100%; padding:0.6rem; border-radius:6px; border:1px solid #ccc; outline:none;">
                         </div>
-                    </article>
-
-                    <article class="cr-tool-card">
-                        <h4>Impact previsionnel</h4>
-                        <div class="cr-tool-kpis">
-                            <div><span>Mensualite actuelle</span><strong id="cr-restruct-current">0.00 DT</strong></div>
-                            <div><span>Nouvelle mensualite</span><strong id="cr-restruct-new">0.00 DT</strong></div>
-                            <div><span>Gain mensuel</span><strong id="cr-restruct-diff">0.00 DT</strong></div>
-                            <div><span>Nouveau cout total</span><strong id="cr-restruct-total">0.00 DT</strong></div>
-                        </div>
-                    </article>
-                </div>
-            </section>
-
-            <section class="cr-tool-panel" data-tool-panel="assistant">
-                <article class="cr-tool-card">
-                    <h4>Assistant IA Credit (mode local)</h4>
-                    <p class="cr-tool-note">Reponses basees sur vos donnees affichees: {{ items|length }} credit(s), mensualites cumulees {{ total_monthly|number_format(2, '.', ' ') }} DT.</p>
-                    <div class="cr-ai-chips">
-                        <button type="button" class="cr-ai-chip" data-ai-question="Quel est mon niveau global de risque credit ?">Risque global</button>
-                        <button type="button" class="cr-ai-chip" data-ai-question="Comment reduire mon ratio d'endettement ?">Reduire ratio</button>
-                        <button type="button" class="cr-ai-chip" data-ai-question="Faut-il restructurer un credit ?">Restructuration</button>
-                        <button type="button" class="cr-ai-chip" data-ai-question="Resume mon historique credits.">Resume historique</button>
+                        <button id="proj-btn" style="width:100%; padding:0.8rem; border:none; border-radius:6px; background:#10b981; color:#fff; font-weight:600; cursor:pointer;">Projeter sur 5 ans</button>
                     </div>
-                    <label class="cr-tool-field">
-                        <span>Votre question</span>
-                        <textarea id="cr-ai-question" rows="3" placeholder="Ex: Comment ameliorer ma capacite de remboursement ?"></textarea>
-                    </label>
-                    <div class="cr-tool-actions">
-                        <button type="button" class="cr-hdr-btn cr-hdr-btn-primary" id="cr-ai-send">
-                            <i class="fa-solid fa-paper-plane"></i>
-                            Generer la reponse
-                        </button>
+                    <div class="sim-card">
+                        <div id="proj-result" hidden>
+                             <h4 style="margin-bottom: 0.5rem; color: var(--cr-title);">Capacité Résiduelle Nette (5 Ans)</h4>
+                             <p style="font-size:0.85rem; color:#666; margin-bottom:1rem;">Évaluation de votre reste-à-vivre face à l'inflation constante des dépenses.</p>
+                             
+                             <div id="proj-chart" style="display:flex; align-items:flex-end; gap:8px; height:200px; padding:1rem; border-radius:8px; background:#fafafa; border:1px solid #eaeaea;">
+                                 <!-- Barres générées en JS -->
+                             </div>
+                             
+                             <div id="proj-conclusion" style="margin-top: 1.5rem; padding: 1rem; border-radius: 8px; font-weight: 500; text-align:center;"></div>
+                        </div>
+                        <div id="proj-placeholder" style="display:flex; align-items:center; justify-content:center; height:100%; color:#aaa; font-style:italic;">
+                            Définissez vos revenus/dépenses actuels pour projeter votre viabilité financière.
+                        </div>
                     </div>
-                    <div class="cr-tool-answer" id="cr-ai-answer">
-                        L'assistant affichera ici une recommandation concise adaptee a vos credits.
-                    </div>
-                </article>
+                 </div>
             </section>
         </div>
     </section>
@@ -435,277 +350,152 @@
 
         {# â”€â”€â”€ LEFT: FORM COLUMN â”€â”€â”€ #}
         <aside class="cr-form-col" id="cr-form-col">
-            <div class="cr-form-card" id="credit-form-card">
+            <div class="cr-form-card" id="garantie-form-card">
                 <div class="cr-form-card-header">
                     <div class="cr-form-card-header-top">
                         <div class="cr-fch-icon">
-                            <i class="fa-solid fa-file-pen"></i>
+                            <i class="fa-solid fa-shield-halved"></i>
                         </div>
                         <div>
-                            <h2 class="cr-fch-title">Demande de Credit</h2>
-                            <p class="cr-fch-sub">Remplissez le formulaire ci-dessous</p>
-                        </div>
-                        <button class="cr-form-collapse-btn" id="cr-collapse-form" type="button" title="Reduire">
-                            <i class="fa-solid fa-chevron-left"></i>
-                        </button>
-                    </div>
-                    <div class="cr-form-steps">
-                        <div class="cr-step cr-step-active" data-step="1">
-                            <div class="cr-step-dot">1</div>
-                            <span>Identite</span>
-                        </div>
-                        <div class="cr-step-line"></div>
-                        <div class="cr-step" data-step="2">
-                            <div class="cr-step-dot">2</div>
-                            <span>Financier</span>
-                        </div>
-                        <div class="cr-step-line"></div>
-                        <div class="cr-step" data-step="3">
-                            <div class="cr-step-dot">3</div>
-                            <span>Profil</span>
+                            <h2 class="cr-fch-title">Demande de Garantie</h2>
+                            <p class="cr-fch-sub">Ajoutez une garantie et associez-lui un credit</p>
                         </div>
                     </div>
                 </div>
 
-                <form method="post" class="cr-form" id="credit-form" novalidate>
+                <form method="post" class="cr-form" id="cr-garantie-form" novalidate enctype="multipart/form-data">
                     <input type="hidden" name="tab" value="credits">
-                    <input type="hidden" name="action" value="credit_save">
+                    <input type="hidden" name="action" value="garantie_save">
 
-                    {# STEP 1 â€” Identity #}
-                    <div class="cr-form-step-body" data-step-body="1">
-
-                        <div class="cr-field-group">
-                            <div class="cr-field">
-                                <label class="cr-field-label">
-                                    <i class="fa-solid fa-hashtag"></i> ID (auto)
-                                </label>
-                                <input class="cr-input" type="number" name="idCredit" id="cr-credit-id" placeholder="Laisser vide pour creer" readonly>
-                            </div>
-                        </div>
+                    <div class="cr-form-step-body">
+                        <p class="cr-drawer-form-note">
+                            Creation et modification d'une garantie, avec les memes regles metier que la version Java.
+                        </p>
 
                         <div class="cr-field-group cr-field-group-2">
                             <div class="cr-field">
                                 <label class="cr-field-label">
-                                    <i class="fa-solid fa-building-columns"></i> Compte <span class="cr-req">*</span>
+                                    <i class="fa-solid fa-hashtag"></i> ID (modification)
+                                </label>
+                                <input class="cr-input{{ garantie_errors.idGarantie is defined ? ' cr-input--error' : '' }}" type="number" name="idGarantie" id="cr-garantie-id" placeholder="Laisser vide pour creer" value="{{ garantie_old.idGarantie|default('') }}">
+                                <span id="cr-garantie-err-idGarantie" class="cr-val-msg{{ garantie_errors.idGarantie is defined ? ' is-error' : '' }}">{{ garantie_errors.idGarantie|default('') }}</span>
+                            </div>
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-link"></i> Credit associe <span class="cr-req">*</span>
                                 </label>
                                 <div class="cr-select-wrap">
-                                    <select class="cr-input cr-select" name="idCompte" id="cr-credit-account">
+                                    <select class="cr-input cr-select{{ garantie_errors.idCredit is defined ? ' cr-input--error' : '' }}" name="idCredit" id="cr-garantie-credit">
                                         <option value="">Selectionner</option>
-                                        {% for account in support.accounts|default([]) %}
-                                            <option value="{{ account.idCompte }}">{{ account.idCompte }} - {{ account.numeroCompte }}</option>
+                                        {% for credit in items %}
+                                            <option value="{{ credit.idCredit }}" {{ garantie_old.idCredit|default('') == credit.idCredit ? 'selected' : '' }}>#{{ credit.idCredit }} - {{ credit.typeCredit|default('Credit') }}</option>
                                         {% endfor %}
                                     </select>
                                     <i class="fa-solid fa-chevron-down cr-select-icon"></i>
                                 </div>
-                                <span id="cr-err-idCompte" class="cr-val-msg"></span>
-                            </div>
-                            <div class="cr-field">
-                                <label class="cr-field-label">
-                                    <i class="fa-solid fa-tag"></i> Type de credit <span class="cr-req">*</span>
-                                </label>
-                                <div class="cr-select-wrap">
-                                    <select class="cr-input cr-select" name="typeCredit" id="cr-credit-type">
-                                        <option value="">Selectionner</option>
-                                        <option value="Professionnel">Professionnel</option>
-                                        <option value="Immobilier">Immobilier</option>
-                                        <option value="Auto">Auto</option>
-                                        <option value="Consommation">Consommation</option>
-                                        <option value="Etudes">Etudes</option>
-                                        <option value="Travaux">Travaux</option>
-                                        <option value="Personnel">Personnel</option>
-                                        <option value="Autre">Autre</option>
-                                    </select>
-                                    <i class="fa-solid fa-chevron-down cr-select-icon"></i>
-                                </div>
-                                <span id="cr-err-typeCredit" class="cr-val-msg"></span>
-                            </div>
-                        </div>
-
-                        <div class="cr-field-group">
-                            <div class="cr-field">
-                                <label class="cr-field-label">
-                                    <i class="fa-solid fa-calendar-day"></i> Date de demande <span class="cr-req">*</span>
-                                </label>
-                                <input class="cr-input" type="date" name="dateDemande" id="cr-credit-date" value="{{ current_date }}">
-                                <span id="cr-err-dateDemande" class="cr-val-msg"></span>
-                            </div>
-                        </div>
-
-                        <div class="cr-step-nav">
-                            <span></span>
-                            <button type="button" class="cr-step-btn cr-step-next" data-next="2">
-                                Suivant <i class="fa-solid fa-arrow-right"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    {# STEP 2 â€” Financial #}
-                    <div class="cr-form-step-body" data-step-body="2" hidden>
-
-                        <div class="cr-field-group cr-field-group-2">
-                            <div class="cr-field">
-                                <label class="cr-field-label">
-                                    <i class="fa-solid fa-money-bill-wave"></i> Montant demande (TND) <span class="cr-req">*</span>
-                                </label>
-                                <div class="cr-input-pfx-wrap">
-                                    <span class="cr-input-pfx">TND</span>
-                                    <input class="cr-input cr-input-pfx-field" type="number" step="0.01" min="0" name="montantDemande" id="cr-credit-amount" placeholder="0.00">
-                                </div>
-                                <span id="cr-err-montantDemande" class="cr-val-msg"></span>
-                            </div>
-                            <div class="cr-field">
-                                <label class="cr-field-label">
-                                    <i class="fa-solid fa-piggy-bank"></i> Autofinancement (TND)
-                                </label>
-                                <div class="cr-input-pfx-wrap">
-                                    <span class="cr-input-pfx">TND</span>
-                                    <input class="cr-input cr-input-pfx-field" type="number" step="0.01" min="0" name="autofinancement" id="cr-credit-auto" placeholder="0.00">
-                                </div>
-                                <span id="cr-err-autofinancement" class="cr-val-msg"></span>
+                                <span id="cr-garantie-err-idCredit" class="cr-val-msg{{ garantie_errors.idCredit is defined ? ' is-error' : '' }}">{{ garantie_errors.idCredit|default('') }}</span>
                             </div>
                         </div>
 
                         <div class="cr-field-group cr-field-group-2">
                             <div class="cr-field">
                                 <label class="cr-field-label">
-                                    <i class="fa-solid fa-hourglass-half"></i> Duree (mois) <span class="cr-req">*</span>
+                                    <i class="fa-solid fa-shield-halved"></i> Type garantie <span class="cr-req">*</span>
                                 </label>
                                 <div class="cr-select-wrap">
-                                    <select class="cr-input cr-select" name="duree" id="cr-credit-duree">
+                                    <select class="cr-input cr-select{{ garantie_errors.typeGarantie is defined ? ' cr-input--error' : '' }}" name="typeGarantie" id="cr-garantie-type">
                                         <option value="">Selectionner</option>
-                                        {% for month in [6, 12, 18, 24, 36, 48, 60, 72, 84, 120] %}
-                                            <option value="{{ month }}" {{ month == 12 ? 'selected' : '' }}>{{ month }} mois</option>
+                                        {% for type in ['Hypotheque immobiliere', 'Titre vehicule', 'Caution personnelle', 'Garantie bancaire', 'Police assurance', 'Nantissement', 'Autre garantie'] %}
+                                            <option value="{{ type }}" {{ garantie_old.typeGarantie|default('') == type ? 'selected' : '' }}>{{ type }}</option>
                                         {% endfor %}
                                     </select>
                                     <i class="fa-solid fa-chevron-down cr-select-icon"></i>
                                 </div>
-                                <span id="cr-err-duree" class="cr-val-msg"></span>
+                                <span id="cr-garantie-err-typeGarantie" class="cr-val-msg{{ garantie_errors.typeGarantie is defined ? ' is-error' : '' }}">{{ garantie_errors.typeGarantie|default('') }}</span>
                             </div>
                             <div class="cr-field">
                                 <label class="cr-field-label">
-                                    <i class="fa-solid fa-percent"></i> Taux TAEG (%) <span class="cr-req">*</span>
-                                </label>
-                                <input class="cr-input" type="number" step="0.01" min="0" name="tauxInteret" id="cr-credit-rate" value="3.5">
-                                <span id="cr-err-tauxInteret" class="cr-val-msg"></span>
-                            </div>
-                        </div>
-
-                        <div class="cr-field-group cr-field-group-2">
-                            <div class="cr-field">
-                                <label class="cr-field-label">
-                                    <i class="fa-solid fa-calendar-check"></i> Mensualite estimee (TND)
-                                </label>
-                                <div class="cr-input-pfx-wrap">
-                                    <span class="cr-input-pfx cr-input-pfx-auto">AUTO</span>
-                                    <input class="cr-input cr-input-pfx-field cr-auto-field" type="number" step="0.01" min="0" name="mensualite" id="cr-credit-monthly" placeholder="Calcule auto">
-                                </div>
-                            </div>
-                            <div class="cr-field">
-                                <label class="cr-field-label">
-                                    <i class="fa-solid fa-handshake"></i> Montant accorde (TND)
-                                </label>
-                                <div class="cr-input-pfx-wrap">
-                                    <span class="cr-input-pfx cr-input-pfx-auto">AUTO</span>
-                                    <input class="cr-input cr-input-pfx-field cr-auto-field" type="number" step="0.01" min="0" name="montantAccorde" id="cr-credit-approved" placeholder="Calcule auto">
-                                </div>
-                            </div>
-                        </div>
-
-                        {# Live calculator preview #}
-                        <div class="cr-calc-preview" id="cr-calc-preview">
-                            <div class="cr-calc-row">
-                                <span>Mensualite estimee</span>
-                                <strong id="cr-preview-monthly">-- DT</strong>
-                            </div>
-                            <div class="cr-calc-row">
-                                <span>Cout total credit</span>
-                                <strong id="cr-preview-total">-- DT</strong>
-                            </div>
-                            <div class="cr-calc-row">
-                                <span>Cout interets</span>
-                                <strong id="cr-preview-interest">-- DT</strong>
-                            </div>
-                        </div>
-
-                        <div class="cr-step-nav">
-                            <button type="button" class="cr-step-btn cr-step-back" data-back="1">
-                                <i class="fa-solid fa-arrow-left"></i> Precedent
-                            </button>
-                            <button type="button" class="cr-step-btn cr-step-next" data-next="3">
-                                Suivant <i class="fa-solid fa-arrow-right"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    {# STEP 3 â€” Profile #}
-                    <div class="cr-form-step-body" data-step-body="3" hidden>
-
-                        <div class="cr-field-group cr-field-group-2">
-                            <div class="cr-field">
-                                <label class="cr-field-label">
-                                    <i class="fa-solid fa-wallet"></i> Salaire mensuel (TND) <span class="cr-req">*</span>
+                                    <i class="fa-solid fa-coins"></i> Valeur estimee (TND) <span class="cr-req">*</span>
                                 </label>
                                 <div class="cr-input-pfx-wrap">
                                     <span class="cr-input-pfx">TND</span>
-                                    <input class="cr-input cr-input-pfx-field" type="number" step="0.01" min="0" name="salaire" id="cr-credit-salary" placeholder="Ex: 2500">
+                                    <input class="cr-input cr-input-pfx-field{{ garantie_errors.valeurEstimee is defined ? ' cr-input--error' : '' }}" type="number" step="0.01" name="valeurEstimee" id="cr-garantie-estimated" placeholder="0.00" value="{{ garantie_old.valeurEstimee|default('') }}">
                                 </div>
-                                <span id="cr-err-salaire" class="cr-val-msg"></span>
+                                <span id="cr-garantie-err-valeurEstimee" class="cr-val-msg{{ garantie_errors.valeurEstimee is defined ? ' is-error' : '' }}">{{ garantie_errors.valeurEstimee|default('') }}</span>
+                            </div>
+                        </div>
+
+                        <div class="cr-field-group cr-field-group-2">
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-percent"></i> Valeur retenue (TND)
+                                </label>
+                                <div class="cr-input-pfx-wrap">
+                                    <span class="cr-input-pfx cr-input-pfx-auto">AUTO</span>
+                                    <input class="cr-input cr-input-pfx-field cr-auto-field{{ garantie_errors.valeurRetenue is defined ? ' cr-input--error' : '' }}" type="number" step="0.01" name="valeurRetenue" id="cr-garantie-retained" placeholder="Auto (80% de l'estimee)" value="{{ garantie_old.valeurRetenue|default('') }}">
+                                </div>
+                                <span id="cr-garantie-err-valeurRetenue" class="cr-val-msg{{ garantie_errors.valeurRetenue is defined ? ' is-error' : '' }}">{{ garantie_errors.valeurRetenue|default('') }}</span>
                             </div>
                             <div class="cr-field">
                                 <label class="cr-field-label">
-                                    <i class="fa-solid fa-briefcase"></i> Type de contrat <span class="cr-req">*</span>
+                                    <i class="fa-solid fa-calendar-day"></i> Date d'evaluation <span class="cr-req">*</span>
                                 </label>
-                                <div class="cr-select-wrap">
-                                    <select class="cr-input cr-select" name="typeContrat" id="cr-credit-contract">
-                                        <option value="">Selectionner</option>
-                                        <option value="CDI">CDI</option>
-                                        <option value="CDD">CDD</option>
-                                        <option value="Fonctionnaire">Fonctionnaire</option>
-                                        <option value="Profession liberale">Profession liberale</option>
-                                        <option value="Autre">Autre</option>
-                                    </select>
-                                    <i class="fa-solid fa-chevron-down cr-select-icon"></i>
-                                </div>
-                                <span id="cr-err-typeContrat" class="cr-val-msg"></span>
+                                <input class="cr-input{{ garantie_errors.dateEvaluation is defined ? ' cr-input--error' : '' }}" type="date" name="dateEvaluation" id="cr-garantie-date" value="{{ garantie_old.dateEvaluation|default(current_date) }}">
+                                <span id="cr-garantie-err-dateEvaluation" class="cr-val-msg{{ garantie_errors.dateEvaluation is defined ? ' is-error' : '' }}">{{ garantie_errors.dateEvaluation|default('') }}</span>
                             </div>
                         </div>
 
                         <div class="cr-field-group">
                             <div class="cr-field">
                                 <label class="cr-field-label">
-                                    <i class="fa-solid fa-medal"></i> Anciennete (annees) <span class="cr-req">*</span>
+                                    <i class="fa-solid fa-user-tie"></i> Nom garant <span class="cr-req">*</span>
                                 </label>
-                                <input class="cr-input" type="number" min="0" name="ancienneteAnnees" id="cr-credit-seniority" placeholder="Ex: 3">
-                                <span id="cr-err-ancienneteAnnees" class="cr-val-msg"></span>
+                                <input class="cr-input{{ garantie_errors.nomGarant is defined ? ' cr-input--error' : '' }}" type="text" name="nomGarant" id="cr-garantie-guarantor" placeholder="Nom du garant" value="{{ garantie_old.nomGarant|default('') }}">
+                                <span id="cr-garantie-err-nomGarant" class="cr-val-msg{{ garantie_errors.nomGarant is defined ? ' is-error' : '' }}">{{ garantie_errors.nomGarant|default('') }}</span>
                             </div>
                         </div>
 
-                        {# Analysis block #}
-                        <div class="cr-analyze-block">
-                            <div class="cr-analyze-header">
-                                <i class="fa-solid fa-brain"></i>
-                                <span>Analyse automatique de capacite</span>
+                        <div class="cr-field-group cr-field-group-2">
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-location-dot"></i> Adresse du bien <span class="cr-req">*</span>
+                                </label>
+                                <input class="cr-input{{ garantie_errors.adresseBien is defined ? ' cr-input--error' : '' }}" type="text" name="adresseBien" id="cr-garantie-address" placeholder="Adresse du bien" value="{{ garantie_old.adresseBien|default('') }}">
+                                <span id="cr-garantie-err-adresseBien" class="cr-val-msg{{ garantie_errors.adresseBien is defined ? ' is-error' : '' }}">{{ garantie_errors.adresseBien|default('') }}</span>
                             </div>
-                            <button class="cr-analyze-btn" id="cr-credit-analyze" type="button">
-                                <i class="fa-solid fa-chart-simple"></i>
-                                Lancer l'analyse
-                            </button>
-                            <div class="cr-analysis-output" id="cr-analysis-output" hidden></div>
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-file-lines"></i> Document justificatif <span class="cr-req">*</span>
+                                </label>
+                                <input type="hidden" name="existingDocumentJustificatif" id="cr-garantie-document-existing" value="{{ garantie_old.documentJustificatif|default('') }}">
+                                <input class="cr-input{{ garantie_errors.documentJustificatif is defined ? ' cr-input--error' : '' }}" type="file" name="documentJustificatifFile" id="cr-garantie-document" accept="image/png,image/jpeg,image/webp,image/gif">
+                                <div style="display:flex; gap:10px; align-items:center; margin-top:8px; font-size:12px; color:#6b7280;">
+                                    <span id="cr-garantie-document-label">{{ garantie_old.documentJustificatif|default('') ? 'Image deja enregistree' : 'Formats acceptes: PNG, JPG, WEBP, GIF' }}</span>
+                                    <a id="cr-garantie-document-link" href="{{ garantie_old.documentJustificatif|default('') ? asset(garantie_old.documentJustificatif) : '#' }}" target="_blank" rel="noopener" {{ garantie_old.documentJustificatif|default('') ? '' : 'hidden' }}>Voir l'image</a>
+                                </div>
+                                <span id="cr-garantie-err-documentJustificatif" class="cr-val-msg{{ garantie_errors.documentJustificatif is defined ? ' is-error' : '' }}">{{ garantie_errors.documentJustificatif|default('') }}</span>
+                            </div>
                         </div>
 
-                        <div class="cr-step-nav cr-step-nav-final">
-                            <button type="button" class="cr-step-btn cr-step-back" data-back="2">
-                                <i class="fa-solid fa-arrow-left"></i> Precedent
-                            </button>
-                            <div class="cr-final-actions">
-                                <button class="cr-form-reset-btn" type="reset">
-                                    <i class="fa-solid fa-xmark"></i> Annuler
-                                </button>
-                                <button class="cr-submit-btn" type="submit">
-                                    <i class="fa-solid fa-floppy-disk"></i>
-                                    Enregistrer le credit
-                                </button>
+                        <div class="cr-field-group">
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-align-left"></i> Description <span class="cr-req">*</span>
+                                </label>
+                                <input class="cr-input{{ garantie_errors.description is defined ? ' cr-input--error' : '' }}" type="text" name="description" id="cr-garantie-description" placeholder="Details de la garantie..." value="{{ garantie_old.description|default('') }}">
+                                <span id="cr-garantie-err-description" class="cr-val-msg{{ garantie_errors.description is defined ? ' is-error' : '' }}">{{ garantie_errors.description|default('') }}</span>
                             </div>
+                        </div>
+
+                        <div class="cr-form-actions">
+                            <button class="cr-form-reset-btn" type="reset" id="cr-garantie-reset">
+                                <i class="fa-solid fa-rotate-left"></i>
+                                Vider
+                            </button>
+                            <button class="cr-submit-btn" type="submit">
+                                <i class="fa-solid fa-floppy-disk"></i>
+                                Enregistrer la garantie
+                            </button>
                         </div>
                     </div>
                 </form>
@@ -745,7 +535,7 @@
                     </div>
                     <button type="button" class="cr-garanties-btn" id="cr-open-garanties-inline">
                         <i class="fa-solid fa-shield-halved"></i>
-                        <span id="cr-open-garanties-inline-label">Garanties</span>
+                        <span id="cr-open-garanties-inline-label">Toutes les garanties</span>
                     </button>
                 </div>
             </div>
@@ -759,11 +549,14 @@
                 <button class="cr-filter-tab" data-filter="attente" type="button">
                     En attente <span class="cr-tab-count">{{ pending_total }}</span>
                 </button>
+                <button class="cr-filter-tab" data-filter="cours" type="button">
+                    En cours <span class="cr-tab-count">{{ encours_total }}</span>
+                </button>
                 <button class="cr-filter-tab" data-filter="accepte" type="button">
-                    Acceptes <span class="cr-tab-count">{{ accepted_total }}</span>
+                    Acceptés <span class="cr-tab-count">{{ accepted_total }}</span>
                 </button>
                 <button class="cr-filter-tab" data-filter="refuse" data-filter-val="refuse" type="button">
-                    Refuses <span class="cr-tab-count">{{ refused_total }}</span>
+                    Refusés <span class="cr-tab-count">{{ refused_total }}</span>
                 </button>
             </div>
 
@@ -772,7 +565,7 @@
                 {% for item in items %}
                     <div class="cr-credit-card"
                          data-credit-row
-                         data-credit-id="{{ item.idCredit }}"
+                         data-credit-id="{{ item.idCredit|default('') }}"
                          data-credit-account="{{ item.idCompte|default('') }}"
                          data-credit-account-number="{{ item.compte_numero|default('')|e('html_attr') }}"
                          data-credit-type="{{ item.typeCredit|default('')|e('html_attr') }}"
@@ -846,6 +639,10 @@
                                 <i class="fa-solid fa-download"></i>
                                 PDF
                             </a>
+                            <button class="cr-cc-garanties-btn" type="button" data-credit-garanties="{{ item.idCredit }}">
+                                <i class="fa-solid fa-shield-halved"></i>
+                                Garanties
+                            </button>
                             <button class="cr-cc-edit-btn" type="button" data-credit-edit="{{ item.idCredit }}">
                                 <i class="fa-solid fa-pen-to-square"></i>
                                 Modifier
@@ -868,7 +665,7 @@
                         <strong>Aucun credit enregistre</strong>
                         <span>Utilisez le formulaire pour creer votre premier dossier de credit.</span>
                         <button type="button" class="cr-empty-cta" id="cr-empty-add-btn">
-                            <i class="fa-solid fa-plus"></i> Ajouter un credit
+                            <i class="fa-solid fa-plus"></i> Nouveau credit
                         </button>
                     </div>
                 {% endfor %}
@@ -949,7 +746,7 @@
                                 <div class="cr-cc-meta">
                                     <div class="cr-cc-meta-item">
                                         <i class="fa-solid fa-link"></i>
-                                        <span>Credit #{{ garantie.idCredit }}</span>
+                                        <span>Credit associe #{{ garantie.idCredit }}</span>
                                     </div>
                                     <div class="cr-cc-meta-item">
                                         <i class="fa-solid fa-calendar-day"></i>
@@ -982,7 +779,6 @@
                                     <form method="post" onsubmit="return confirm('Supprimer cette garantie ?');" class="cr-garantie-del-form">
                                         <input type="hidden" name="tab" value="credits">
                                         <input type="hidden" name="action" value="garantie_delete">
-                                        <input type="hidden" name="panel" value="garanties">
                                         <input type="hidden" name="idGarantie" value="{{ garantie.idGarantie }}">
                                         <button class="cr-garantie-del-btn" type="submit" title="Supprimer">
                                             <i class="fa-solid fa-trash-can"></i>
@@ -1019,11 +815,11 @@
         <div class="cr-drawer-header">
             <div class="cr-drawer-header-left">
                 <div class="cr-drawer-icon">
-                    <i class="fa-solid fa-shield-halved"></i>
+                    <i class="fa-solid fa-file-pen"></i>
                 </div>
                 <div>
-                    <h3>Garanties du Credit</h3>
-                    <p>Gerer les garanties associees a vos dossiers</p>
+                    <h3>Demande de Credit</h3>
+                    <p>Remplissez ou modifiez votre dossier de credit</p>
                 </div>
             </div>
             <button class="cr-drawer-close" id="cr-close-garanties" type="button">
@@ -1032,193 +828,275 @@
         </div>
 
         <div class="cr-drawer-body">
-
-            {# Garantie form #}
-            <div class="cr-drawer-section">
-                <div class="cr-drawer-section-title">
-                    <i class="fa-solid fa-plus-circle"></i>
-                    Ajouter une garantie
+            <div class="cr-form-card" id="credit-form-card">
+                <div class="cr-form-card-header">
+                    <div class="cr-form-card-header-top">
+                        <div class="cr-fch-icon">
+                            <i class="fa-solid fa-file-pen"></i>
+                        </div>
+                        <div>
+                            <h2 class="cr-fch-title">Demande de Credit</h2>
+                            <p class="cr-fch-sub">Remplissez le formulaire ci-dessous</p>
+                        </div>
+                        <button class="cr-form-collapse-btn" id="cr-collapse-form" type="button" title="Reduire">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </button>
+                    </div>
+                    <div class="cr-form-steps">
+                        <div class="cr-step {{ credit_error_step == 1 ? 'cr-step-active' : '' }}" data-step="1">
+                            <div class="cr-step-dot">1</div>
+                            <span>Identite</span>
+                        </div>
+                        <div class="cr-step-line"></div>
+                        <div class="cr-step {{ credit_error_step == 2 ? 'cr-step-active' : '' }}" data-step="2">
+                            <div class="cr-step-dot">2</div>
+                            <span>Financier</span>
+                        </div>
+                        <div class="cr-step-line"></div>
+                        <div class="cr-step {{ credit_error_step == 3 ? 'cr-step-active' : '' }}" data-step="3">
+                            <div class="cr-step-dot">3</div>
+                            <span>Profil</span>
+                        </div>
+                    </div>
                 </div>
 
-                <form method="post" class="cr-form cr-drawer-form" id="cr-garantie-form" novalidate>
+                <form method="post" class="cr-form" id="credit-form" novalidate data-initial-step="{{ credit_error_step }}">
                     <input type="hidden" name="tab" value="credits">
-                    <input type="hidden" name="action" value="garantie_save">
-                    <input type="hidden" name="panel" value="garanties">
+                    <input type="hidden" name="action" value="credit_save">
+                    <input type="hidden" name="panel" value="credit">
 
-                    <p class="cr-drawer-form-note">
-                        Creation et modification d'une garantie, avec les memes regles metier que la version Java.
-                    </p>
-
-                    <div class="cr-field-group cr-field-group-2">
-                        <div class="cr-field">
-                            <label class="cr-field-label">
-                                <i class="fa-solid fa-hashtag"></i> ID (modification)
-                            </label>
-                            <input class="cr-input" type="number" name="idGarantie" id="cr-garantie-id" placeholder="Laisser vide pour creer">
-                        </div>
-                        <div class="cr-field">
-                            <label class="cr-field-label">
-                                <i class="fa-solid fa-link"></i> Credit lie <span class="cr-req">*</span>
-                            </label>
-                            <div class="cr-select-wrap">
-                                <select class="cr-input cr-select" name="idCredit" id="cr-garantie-credit">
-                                    <option value="">Selectionner</option>
-                                    {% for credit in items %}
-                                        <option value="{{ credit.idCredit }}">#{{ credit.idCredit }} - {{ credit.typeCredit|default('Credit') }}</option>
-                                    {% endfor %}
-                                </select>
-                                <i class="fa-solid fa-chevron-down cr-select-icon"></i>
+                    <div class="cr-form-step-body" data-step-body="1">
+                        <div class="cr-field-group">
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-hashtag"></i> ID (auto)
+                                </label>
+                                <input class="cr-input" type="number" name="idCredit" id="cr-credit-id" placeholder="Laisser vide pour creer" readonly value="{{ credit_old.idCredit|default('') }}">
                             </div>
                         </div>
-                    </div>
 
-                    <div class="cr-field-group cr-field-group-2">
-                        <div class="cr-field">
-                            <label class="cr-field-label">
-                                <i class="fa-solid fa-shield-halved"></i> Type garantie <span class="cr-req">*</span>
-                            </label>
-                            <div class="cr-select-wrap">
-                                <select class="cr-input cr-select" name="typeGarantie" id="cr-garantie-type">
-                                    {% for type in ['Hypotheque immobiliere', 'Titre vehicule', 'Caution personnelle', 'Garantie bancaire', 'Police assurance', 'Nantissement', 'Autre garantie'] %}
-                                        <option value="{{ type }}">{{ type }}</option>
-                                    {% endfor %}
-                                </select>
-                                <i class="fa-solid fa-chevron-down cr-select-icon"></i>
+                        <div class="cr-field-group cr-field-group-2">
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-building-columns"></i> Compte <span class="cr-req">*</span>
+                                </label>
+                                <div class="cr-select-wrap">
+                                    <select class="cr-input cr-select{{ credit_errors.idCompte is defined ? ' cr-input--error' : '' }}" name="idCompte" id="cr-credit-account">
+                                        <option value="">Selectionner</option>
+                                        {% for account in support.accounts|default([]) %}
+                                            <option value="{{ account.idCompte }}" {{ credit_old.idCompte|default('') == account.idCompte ? 'selected' : '' }}>{{ account.idCompte }} - {{ account.numeroCompte }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <i class="fa-solid fa-chevron-down cr-select-icon"></i>
+                                </div>
+                                <span id="cr-err-idCompte" class="cr-val-msg{{ credit_errors.idCompte is defined ? ' is-error' : '' }}">{{ credit_errors.idCompte|default('') }}</span>
+                            </div>
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-tag"></i> Type de credit <span class="cr-req">*</span>
+                                </label>
+                                <div class="cr-select-wrap">
+                                    <select class="cr-input cr-select{{ credit_errors.typeCredit is defined ? ' cr-input--error' : '' }}" name="typeCredit" id="cr-credit-type">
+                                        <option value="">Selectionner</option>
+                                        <option value="Professionnel" {{ credit_old.typeCredit|default('') == 'Professionnel' ? 'selected' : '' }}>Professionnel</option>
+                                        <option value="Immobilier" {{ credit_old.typeCredit|default('') == 'Immobilier' ? 'selected' : '' }}>Immobilier</option>
+                                        <option value="Auto" {{ credit_old.typeCredit|default('') == 'Auto' ? 'selected' : '' }}>Auto</option>
+                                        <option value="Consommation" {{ credit_old.typeCredit|default('') == 'Consommation' ? 'selected' : '' }}>Consommation</option>
+                                        <option value="Etudes" {{ credit_old.typeCredit|default('') == 'Etudes' ? 'selected' : '' }}>Etudes</option>
+                                        <option value="Travaux" {{ credit_old.typeCredit|default('') == 'Travaux' ? 'selected' : '' }}>Travaux</option>
+                                        <option value="Personnel" {{ credit_old.typeCredit|default('') == 'Personnel' ? 'selected' : '' }}>Personnel</option>
+                                        <option value="Autre" {{ credit_old.typeCredit|default('') == 'Autre' ? 'selected' : '' }}>Autre</option>
+                                    </select>
+                                    <i class="fa-solid fa-chevron-down cr-select-icon"></i>
+                                </div>
+                                <span id="cr-err-typeCredit" class="cr-val-msg{{ credit_errors.typeCredit is defined ? ' is-error' : '' }}">{{ credit_errors.typeCredit|default('') }}</span>
                             </div>
                         </div>
-                        <div class="cr-field">
-                            <label class="cr-field-label">
-                                <i class="fa-solid fa-coins"></i> Valeur estimee (TND) <span class="cr-req">*</span>
-                            </label>
-                            <div class="cr-input-pfx-wrap">
-                                <span class="cr-input-pfx">TND</span>
-                                <input class="cr-input cr-input-pfx-field" type="number" step="0.01" name="valeurEstimee" id="cr-garantie-estimated" placeholder="0.00">
+
+                        <div class="cr-field-group">
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-calendar-day"></i> Date de demande <span class="cr-req">*</span>
+                                </label>
+                                <input class="cr-input{{ credit_errors.dateDemande is defined ? ' cr-input--error' : '' }}" type="date" name="dateDemande" id="cr-credit-date" value="{{ credit_old.dateDemande|default(current_date) }}" min="{{ current_date }}">
+                                <span id="cr-err-dateDemande" class="cr-val-msg{{ credit_errors.dateDemande is defined ? ' is-error' : '' }}">{{ credit_errors.dateDemande|default('') }}</span>
                             </div>
                         </div>
+
+                        <div class="cr-step-nav">
+                            <span></span>
+                            <button type="button" class="cr-step-btn cr-step-next" data-next="2">
+                                Suivant <i class="fa-solid fa-arrow-right"></i>
+                            </button>
+                        </div>
                     </div>
 
-                    <div class="cr-field-group cr-field-group-2">
-                        <div class="cr-field">
-                            <label class="cr-field-label">
-                                <i class="fa-solid fa-percent"></i> Valeur retenue (TND)
-                            </label>
-                            <div class="cr-input-pfx-wrap">
-                                <span class="cr-input-pfx cr-input-pfx-auto">AUTO</span>
-                                <input class="cr-input cr-input-pfx-field cr-auto-field" type="number" step="0.01" name="valeurRetenue" id="cr-garantie-retained" placeholder="Auto (80% de l'estimee)">
+                    <div class="cr-form-step-body" data-step-body="2" hidden>
+                        <div class="cr-field-group cr-field-group-2">
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-money-bill-wave"></i> Montant demande (TND) <span class="cr-req">*</span>
+                                </label>
+                                <div class="cr-input-pfx-wrap">
+                                    <span class="cr-input-pfx">TND</span>
+                                    <input class="cr-input cr-input-pfx-field{{ credit_errors.montantDemande is defined ? ' cr-input--error' : '' }}" type="number" step="0.01" name="montantDemande" id="cr-credit-amount" placeholder="0.00" value="{{ credit_old.montantDemande|default('') }}">
+                                </div>
+                                <span id="cr-err-montantDemande" class="cr-val-msg{{ credit_errors.montantDemande is defined ? ' is-error' : '' }}">{{ credit_errors.montantDemande|default('') }}</span>
+                            </div>
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-piggy-bank"></i> Autofinancement (TND)
+                                </label>
+                                <div class="cr-input-pfx-wrap">
+                                    <span class="cr-input-pfx">TND</span>
+                                    <input class="cr-input cr-input-pfx-field{{ credit_errors.autofinancement is defined ? ' cr-input--error' : '' }}" type="number" step="0.01" name="autofinancement" id="cr-credit-auto" placeholder="0.00" value="{{ credit_old.autofinancement|default('') }}">
+                                </div>
+                                <span id="cr-err-autofinancement" class="cr-val-msg{{ credit_errors.autofinancement is defined ? ' is-error' : '' }}">{{ credit_errors.autofinancement|default('') }}</span>
                             </div>
                         </div>
-                        <div class="cr-field">
-                            <label class="cr-field-label">
-                                <i class="fa-solid fa-calendar-day"></i> Date d'evaluation
-                            </label>
-                            <input class="cr-input" type="date" name="dateEvaluation" id="cr-garantie-date" value="{{ current_date }}">
+
+                        <div class="cr-field-group cr-field-group-2">
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-hourglass-half"></i> Duree (mois) <span class="cr-req">*</span>
+                                </label>
+                                <div class="cr-select-wrap">
+                                    <select class="cr-input cr-select{{ credit_errors.duree is defined ? ' cr-input--error' : '' }}" name="duree" id="cr-credit-duree">
+                                        <option value="">Selectionner</option>
+                                        {% for month in [6, 12, 18, 24, 36, 48, 60, 72, 84, 120] %}
+                                            <option value="{{ month }}" {{ credit_old.duree|default('12') == (month ~ '') ? 'selected' : '' }}>{{ month }} mois</option>
+                                        {% endfor %}
+                                    </select>
+                                    <i class="fa-solid fa-chevron-down cr-select-icon"></i>
+                                </div>
+                                <span id="cr-err-duree" class="cr-val-msg{{ credit_errors.duree is defined ? ' is-error' : '' }}">{{ credit_errors.duree|default('') }}</span>
+                            </div>
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-percent"></i> Taux TAEG (%) <span class="cr-req">*</span>
+                                </label>
+                                <input class="cr-input{{ credit_errors.tauxInteret is defined ? ' cr-input--error' : '' }}" type="number" step="0.01" name="tauxInteret" id="cr-credit-rate" value="{{ credit_old.tauxInteret|default('8') }}">
+                                <span id="cr-err-tauxInteret" class="cr-val-msg{{ credit_errors.tauxInteret is defined ? ' is-error' : '' }}">{{ credit_errors.tauxInteret|default('') }}</span>
+                            </div>
+                        </div>
+
+                        <div class="cr-field-group cr-field-group-2">
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-calendar-check"></i> Mensualite estimee (TND)
+                                </label>
+                                <div class="cr-input-pfx-wrap">
+                                    <span class="cr-input-pfx cr-input-pfx-auto">AUTO</span>
+                                    <input class="cr-input cr-input-pfx-field cr-auto-field{{ credit_errors.mensualite is defined ? ' cr-input--error' : '' }}" type="number" step="0.01" name="mensualite" id="cr-credit-monthly" placeholder="Calcule auto" value="{{ credit_old.mensualite|default('') }}">
+                                </div>
+                                <span id="cr-err-mensualite" class="cr-val-msg{{ credit_errors.mensualite is defined ? ' is-error' : '' }}">{{ credit_errors.mensualite|default('') }}</span>
+                            </div>
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-handshake"></i> Montant accorde (TND)
+                                </label>
+                                <div class="cr-input-pfx-wrap">
+                                    <span class="cr-input-pfx cr-input-pfx-auto">AUTO</span>
+                                    <input class="cr-input cr-input-pfx-field cr-auto-field{{ credit_errors.montantAccorde is defined ? ' cr-input--error' : '' }}" type="number" step="0.01" name="montantAccorde" id="cr-credit-approved" placeholder="Calcule auto" value="{{ credit_old.montantAccorde|default('') }}">
+                                </div>
+                                <span id="cr-err-montantAccorde" class="cr-val-msg{{ credit_errors.montantAccorde is defined ? ' is-error' : '' }}">{{ credit_errors.montantAccorde|default('') }}</span>
+                            </div>
+                        </div>
+
+                        <div class="cr-calc-preview" id="cr-calc-preview">
+                            <div class="cr-calc-row">
+                                <span>Mensualite estimee</span>
+                                <strong id="cr-preview-monthly">-- DT</strong>
+                            </div>
+                            <div class="cr-calc-row">
+                                <span>Cout total credit</span>
+                                <strong id="cr-preview-total">-- DT</strong>
+                            </div>
+                            <div class="cr-calc-row">
+                                <span>Cout interets</span>
+                                <strong id="cr-preview-interest">-- DT</strong>
+                            </div>
+                        </div>
+
+                        <div class="cr-step-nav">
+                            <button type="button" class="cr-step-btn cr-step-back" data-back="1">
+                                <i class="fa-solid fa-arrow-left"></i> Precedent
+                            </button>
+                            <button type="button" class="cr-step-btn cr-step-next" data-next="3">
+                                Suivant <i class="fa-solid fa-arrow-right"></i>
+                            </button>
                         </div>
                     </div>
 
-                    <div class="cr-field-group">
-                        <div class="cr-field">
-                            <label class="cr-field-label">
-                                <i class="fa-solid fa-user-tie"></i> Nom garant
-                            </label>
-                            <input class="cr-input" type="text" name="nomGarant" id="cr-garantie-guarantor" placeholder="Nom du garant">
+                    <div class="cr-form-step-body" data-step-body="3" hidden>
+                        <div class="cr-field-group cr-field-group-2">
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-wallet"></i> Salaire mensuel (TND) <span class="cr-req">*</span>
+                                </label>
+                                <div class="cr-input-pfx-wrap">
+                                    <span class="cr-input-pfx">TND</span>
+                                    <input class="cr-input cr-input-pfx-field{{ credit_errors.salaire is defined ? ' cr-input--error' : '' }}" type="number" step="0.01" name="salaire" id="cr-credit-salary" placeholder="Ex: 2500" value="{{ credit_old.salaire|default('2000') }}">
+                                </div>
+                                <span id="cr-err-salaire" class="cr-val-msg{{ credit_errors.salaire is defined ? ' is-error' : '' }}">{{ credit_errors.salaire|default('') }}</span>
+                            </div>
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-briefcase"></i> Type de contrat <span class="cr-req">*</span>
+                                </label>
+                                <div class="cr-select-wrap">
+                                    <select class="cr-input cr-select{{ credit_errors.typeContrat is defined ? ' cr-input--error' : '' }}" name="typeContrat" id="cr-credit-contract">
+                                        <option value="">Selectionner</option>
+                                        <option value="CDI" {{ credit_old.typeContrat|default('') == 'CDI' ? 'selected' : '' }}>CDI</option>
+                                        <option value="CDD" {{ credit_old.typeContrat|default('') == 'CDD' ? 'selected' : '' }}>CDD</option>
+                                        <option value="Fonctionnaire" {{ credit_old.typeContrat|default('') == 'Fonctionnaire' ? 'selected' : '' }}>Fonctionnaire</option>
+                                        <option value="Profession liberale" {{ credit_old.typeContrat|default('') in ['Profession liberale', 'Profession libérale'] ? 'selected' : '' }}>Profession liberale</option>
+                                        <option value="Autre" {{ credit_old.typeContrat|default('') == 'Autre' ? 'selected' : '' }}>Autre</option>
+                                    </select>
+                                    <i class="fa-solid fa-chevron-down cr-select-icon"></i>
+                                </div>
+                                <span id="cr-err-typeContrat" class="cr-val-msg{{ credit_errors.typeContrat is defined ? ' is-error' : '' }}">{{ credit_errors.typeContrat|default('') }}</span>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="cr-field-group cr-field-group-2">
-                        <div class="cr-field">
-                            <label class="cr-field-label">
-                                <i class="fa-solid fa-location-dot"></i> Adresse du bien
-                            </label>
-                            <input class="cr-input" type="text" name="adresseBien" id="cr-garantie-address" placeholder="Adresse du bien">
+                        <div class="cr-field-group">
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-medal"></i> Anciennete (annees) <span class="cr-req">*</span>
+                                </label>
+                                <input class="cr-input{{ credit_errors.ancienneteAnnees is defined ? ' cr-input--error' : '' }}" type="number" name="ancienneteAnnees" id="cr-credit-seniority" placeholder="Ex: 3" value="{{ credit_old.ancienneteAnnees|default('2') }}">
+                                <span id="cr-err-ancienneteAnnees" class="cr-val-msg{{ credit_errors.ancienneteAnnees is defined ? ' is-error' : '' }}">{{ credit_errors.ancienneteAnnees|default('') }}</span>
+                            </div>
                         </div>
-                        <div class="cr-field">
-                            <label class="cr-field-label">
-                                <i class="fa-solid fa-file-lines"></i> Document justificatif
-                            </label>
-                            <input class="cr-input" type="text" name="documentJustificatif" id="cr-garantie-document" placeholder="Reference document">
-                        </div>
-                    </div>
 
-                    <div class="cr-field-group">
-                        <div class="cr-field">
-                            <label class="cr-field-label">
-                                <i class="fa-solid fa-align-left"></i> Description
-                            </label>
-                            <input class="cr-input" type="text" name="description" id="cr-garantie-description" placeholder="Details de la garantie...">
+                        <div class="cr-analyze-block">
+                            <div class="cr-analyze-header">
+                                <i class="fa-solid fa-brain"></i>
+                                <span>Analyse automatique de capacite</span>
+                            </div>
+                            <button class="cr-analyze-btn" id="cr-credit-analyze" type="button">
+                                <i class="fa-solid fa-chart-simple"></i>
+                                Lancer l'analyse
+                            </button>
+                            <div class="cr-analysis-output" id="cr-analysis-output" hidden></div>
                         </div>
-                    </div>
 
-                    <div class="cr-form-actions cr-drawer-actions">
-                        <button class="cr-form-reset-btn" type="reset" id="cr-garantie-reset">
-                            <i class="fa-solid fa-rotate-left"></i>
-                            Vider
-                        </button>
-                        <button class="cr-submit-btn cr-submit-btn-sm" type="submit">
-                            <i class="fa-solid fa-floppy-disk"></i>
-                            Enregistrer la garantie
-                        </button>
+                        <div class="cr-step-nav cr-step-nav-final">
+                            <button type="button" class="cr-step-btn cr-step-back" data-back="2">
+                                <i class="fa-solid fa-arrow-left"></i> Precedent
+                            </button>
+                            <div class="cr-final-actions">
+                                <button class="cr-form-reset-btn" type="reset">
+                                    <i class="fa-solid fa-xmark"></i> Annuler
+                                </button>
+                                <button class="cr-submit-btn" type="submit">
+                                    <i class="fa-solid fa-floppy-disk"></i>
+                                    Enregistrer le credit
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </form>
-            </div>
-
-            {# Garanties list #}
-            <div class="cr-drawer-section">
-                {% if garanties|length > 0 %}
-                    <div class="cr-garanties-list">
-                        {% for garantie in garanties %}
-                            {% set garantie_status_key = garantie.statut|default('')|lower %}
-                            {% set garantie_status_class = ('accepte' in garantie_status_key or 'verifie' in garantie_status_key or 'cours' in garantie_status_key or 'rembourse' in garantie_status_key) ? 'green' : (('refuse' in garantie_status_key or 'rejete' in garantie_status_key) ? 'red' : 'amber') %}
-                            <div
-                                class="cr-garantie-row"
-                                data-garantie-row
-                                data-garantie-id="{{ garantie.idGarantie }}"
-                                data-garantie-credit-id="{{ garantie.idCredit }}"
-                                data-garantie-type="{{ garantie.typeGarantie|default('')|e('html_attr') }}"
-                                data-garantie-description="{{ garantie.description|default('')|e('html_attr') }}"
-                                data-garantie-address="{{ garantie.adresseBien|default('')|e('html_attr') }}"
-                                data-garantie-estimated="{{ garantie.valeurEstimee|default('') }}"
-                                data-garantie-retained="{{ garantie.valeurRetenue|default('') }}"
-                                data-garantie-document="{{ garantie.documentJustificatif|default('')|e('html_attr') }}"
-                                data-garantie-date="{{ garantie.dateEvaluation|default(current_date)|slice(0, 10) }}"
-                                data-garantie-guarantor="{{ garantie.nomGarant|default('')|e('html_attr') }}"
-                                data-garantie-status="{{ garantie.statut|default('')|e('html_attr') }}"
-                            >
-                                <div class="cr-garantie-row-left">
-                                    <div class="cr-garantie-icon">
-                                        <i class="fa-solid fa-shield-halved"></i>
-                                    </div>
-                                    <div class="cr-garantie-info">
-                                        <strong>{{ garantie.typeGarantie|default('-') }}</strong>
-                                        <span>Credit #{{ garantie.idCredit }} - {{ garantie.valeurEstimee|default(0)|number_format(2, '.', ' ') }} DT</span>
-                                        <span>Retenue {{ garantie.valeurRetenue|default(0)|number_format(2, '.', ' ') }} DT</span>
-                                        <span class="cr-garantie-status cr-gstatus-{{ garantie_status_class }}">
-                                            {{ garantie.statut|default('-') }}
-                                        </span>
-                                    </div>
-                                </div>
-                                <div class="cr-garantie-actions">
-                                    <button class="cr-garantie-edit-btn" type="button" data-garantie-edit="{{ garantie.idGarantie }}" title="Modifier">
-                                        <i class="fa-solid fa-pen-to-square"></i>
-                                    </button>
-                                    <form method="post" onsubmit="return confirm('Supprimer cette garantie ?');" class="cr-garantie-del-form">
-                                        <input type="hidden" name="tab" value="credits">
-                                        <input type="hidden" name="action" value="garantie_delete">
-                                        <input type="hidden" name="panel" value="garanties">
-                                        <input type="hidden" name="idGarantie" value="{{ garantie.idGarantie }}">
-                                        <button class="cr-garantie-del-btn" type="submit" title="Supprimer">
-                                            <i class="fa-solid fa-trash-can"></i>
-                                        </button>
-                                    </form>
-                                </div>
-                            </div>
-                        {% endfor %}
-                    </div>
-                {% else %}
-                    <div class="cr-garanties-empty">
-                        <i class="fa-solid fa-shield-halved"></i>
-                        <span>Aucune garantie enregistree</span>
-                    </div>
-                {% endif %}
             </div>
         </div>
     </aside>
@@ -1338,8 +1216,8 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 36px;
-  padding: 0 14px;
+  height: 40px;
+  padding: 0 16px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.28);
   background: rgba(255, 255, 255, 0.12);
@@ -1365,6 +1243,12 @@
   background: #fff;
   color: #0a2540;
   border-color: #fff;
+  min-width: 148px;
+  justify-content: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow: 0 10px 22px rgba(10, 37, 64, 0.18);
 }
 
 .cr-hero-toolbar {
@@ -1449,27 +1333,55 @@
 }
 
 .cr-lang-select {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 7px;
-  background: rgba(255, 255, 255, 0.12);
+  gap: 10px;
+  min-width: 132px;
+  background: rgba(20, 53, 82, 0.48);
   border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 10px;
-  padding: 0 10px;
-  height: 36px;
+  border-radius: 14px;
+  padding: 0 14px;
+  height: 46px;
   cursor: pointer;
+  position: relative;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
 }
 
-.cr-lang-select i { font-size: 13px; color: rgba(255, 255, 255, 0.82); }
+.cr-lang-select i { font-size: 15px; color: rgba(255, 255, 255, 0.9); }
 
 .cr-lang-select select {
   border: none;
   background: transparent;
   font: inherit;
-  font-size: 12px;
+  font-size: 14px;
+  font-weight: 700;
   color: #fff;
   outline: none;
   cursor: pointer;
+  width: 100%;
+  padding-right: 18px;
+  appearance: none;
+}
+
+.cr-lang-chevron {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  pointer-events: none;
+}
+
+.cr-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .cr-topbar-btn {
@@ -2367,6 +2279,23 @@
 
 .cr-input::placeholder { color: #aabece; font-size: 12px; }
 
+.cr-input--error {
+  border-color: #ef5350 !important;
+  background: #fff8f7;
+  box-shadow: 0 0 0 3px rgba(239, 83, 80, 0.12);
+}
+
+.cr-val-msg {
+  min-height: 16px;
+  font-size: 12px;
+  font-weight: 700;
+  color: transparent;
+}
+
+.cr-val-msg.is-error {
+  color: #d93025;
+}
+
 .cr-select { cursor: pointer; padding-right: 30px; }
 
 .cr-select-wrap { position: relative; }
@@ -3003,6 +2932,30 @@
   transition: all .15s;
 }
 
+.cr-cc-garanties-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(120deg, #eff6ff, #dbeafe);
+  color: #1d4ed8;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid #bfdbfe;
+  cursor: pointer;
+  transition: all .15s;
+}
+
+.cr-cc-garanties-btn:hover {
+  background: linear-gradient(120deg, #1d4ed8, #2563eb);
+  color: #fff;
+  border-color: transparent;
+}
+
 .cr-cc-edit-btn:hover {
   background: linear-gradient(120deg, #1565c0, #1e88e5);
   color: #fff;
@@ -3592,6 +3545,61 @@
 
       return sorted[middle];
     };
+    const currentDateIso = '{{ current_date }}';
+    const todayDate = new Date(`${currentDateIso}T00:00:00`);
+    const setFieldError = (field, messageEl, message) => {
+      if (field) {
+        field.classList.add('cr-input--error');
+        field.classList.remove('cr-input--valid');
+        field.style.setProperty('border-color', '#dc2626', 'important');
+        field.style.setProperty('box-shadow', '0 0 0 3px rgba(220,38,38,0.12)', 'important');
+        field.style.setProperty('background-color', '#fff5f5', 'important');
+      }
+      if (messageEl) {
+        messageEl.textContent = '⚠ ' + message;
+        messageEl.classList.add('is-error');
+        messageEl.style.color = '#dc2626';
+        messageEl.style.fontWeight = '600';
+      }
+      return false;
+    };
+    const setFieldOk = (field, messageEl) => {
+      if (field) {
+        field.classList.remove('cr-input--error');
+        field.classList.add('cr-input--valid');
+        field.style.setProperty('border-color', '#16a34a', 'important');
+        field.style.setProperty('box-shadow', '0 0 0 3px rgba(22,163,74,0.1)', 'important');
+        field.style.setProperty('background-color', '#f0fdf4', 'important');
+      }
+      if (messageEl) {
+        messageEl.textContent = '✓ Valide';
+        messageEl.classList.remove('is-error');
+        messageEl.style.color = '#16a34a';
+        messageEl.style.fontWeight = '600';
+      }
+      return true;
+    };
+    const clearFieldValidation = (field, messageEl) => {
+      if (field) {
+        field.classList.remove('cr-input--error', 'cr-input--valid');
+        field.style.removeProperty('border-color');
+        field.style.removeProperty('box-shadow');
+        field.style.removeProperty('background-color');
+      }
+      if (messageEl) {
+        messageEl.textContent = '';
+        messageEl.classList.remove('is-error');
+      }
+    };
+    const parseInputDate = (rawValue) => {
+      const raw = String(rawValue ?? '').trim();
+      if (raw === '') {
+        return null;
+      }
+
+      const parsed = new Date(`${raw}T00:00:00`);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    };
 
     /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
        DARK MODE
@@ -3625,26 +3633,148 @@
       creditIdField.value = '';
     };
 
-    const validateStep = (n) => {
-      const body = creditForm?.querySelector(`[data-step-body="${n}"]`);
-      if (!(body instanceof HTMLElement)) return true;
+    const creditStepFields = {
+      1: ['idCompte', 'typeCredit', 'dateDemande'],
+      2: ['montantDemande', 'autofinancement', 'duree', 'tauxInteret', 'mensualite', 'montantAccorde'],
+      3: ['salaire', 'typeContrat', 'ancienneteAnnees']
+    };
+    const getCreditField = (name) => creditForm?.querySelector(`[name="${name}"]`);
+    const getCreditMessage = (name) => $(`#cr-err-${name}`, creditForm);
+    const validateCreditField = (name) => {
+      const field = getCreditField(name);
+      const messageEl = getCreditMessage(name);
+      const rawValue = field?.value ?? '';
+      const value = String(rawValue).trim();
 
-      const fields = $$('input, select, textarea', body).filter((field) => {
-        if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement)) {
-          return false;
-        }
-        return !field.disabled && field.type !== 'hidden';
-      });
-
-      for (const field of fields) {
-        if (!field.reportValidity()) {
-          field.focus();
-          return false;
-        }
+      if (!field) {
+        return true;
       }
 
-      return true;
+      switch (name) {
+        case 'idCompte':
+          return value === ''
+            ? setFieldError(field, messageEl, 'Veuillez selectionner un compte.')
+            : setFieldOk(field, messageEl);
+        case 'typeCredit':
+          return value === ''
+            ? setFieldError(field, messageEl, 'Veuillez selectionner un type de credit.')
+            : setFieldOk(field, messageEl);
+        case 'dateDemande': {
+          const parsedDate = parseInputDate(value);
+          if (value === '') {
+            return setFieldError(field, messageEl, 'La date de demande est obligatoire.');
+          }
+          if (!parsedDate) {
+            return setFieldError(field, messageEl, 'Date de demande invalide.');
+          }
+          if (parsedDate < todayDate) {
+            return setFieldError(field, messageEl, "La date de demande ne peut pas être dans le passé.");
+          }
+          return setFieldOk(field, messageEl);
+        }
+        case 'montantDemande': {
+          const amount = parseNum(value);
+          if (value === '') {
+            return setFieldError(field, messageEl, 'Le montant demande est obligatoire.');
+          }
+          if (amount <= 0) {
+            return setFieldError(field, messageEl, 'Le montant demande doit etre positif.');
+          }
+          if (amount < 500 || amount > 10000000) {
+            return setFieldError(field, messageEl, 'Le montant doit etre compris entre 500 et 10000000 DT.');
+          }
+          return setFieldOk(field, messageEl);
+        }
+        case 'autofinancement': {
+          if (value === '') {
+            return setFieldOk(field, messageEl);
+          }
+          const amount = parseNum(getCreditField('montantDemande')?.value);
+          const autoFunding = parseNum(value);
+          if (autoFunding < 0) {
+            return setFieldError(field, messageEl, "L'autofinancement doit etre positif ou nul.");
+          }
+          if (amount > 0 && autoFunding > amount) {
+            return setFieldError(field, messageEl, "L'autofinancement ne doit pas depasser le montant demande.");
+          }
+          return setFieldOk(field, messageEl);
+        }
+        case 'duree': {
+          const allowedDurations = ['6', '12', '18', '24', '36', '48', '60', '72', '84', '120'];
+          if (value === '') {
+            return setFieldError(field, messageEl, 'La duree est obligatoire.');
+          }
+          if (!allowedDurations.includes(value)) {
+            return setFieldError(field, messageEl, 'Veuillez selectionner une duree valide.');
+          }
+          return setFieldOk(field, messageEl);
+        }
+        case 'tauxInteret': {
+          const rate = parseNum(value);
+          if (value === '') {
+            return setFieldError(field, messageEl, "Le taux d'interet est obligatoire.");
+          }
+          if (rate < 0 || rate > 100) {
+            return setFieldError(field, messageEl, "Le taux d'interet doit etre compris entre 0 et 100%.");
+          }
+          return setFieldOk(field, messageEl);
+        }
+        case 'mensualite': {
+          if (value === '') {
+            return setFieldOk(field, messageEl);
+          }
+          return parseNum(value) <= 0
+            ? setFieldError(field, messageEl, 'La mensualite doit etre positive.')
+            : setFieldOk(field, messageEl);
+        }
+        case 'montantAccorde': {
+          if (value === '') {
+            return setFieldOk(field, messageEl);
+          }
+          if (parseNum(value) < 0) {
+            return setFieldError(field, messageEl, 'Le montant accorde doit etre positif ou nul.');
+          }
+          return setFieldOk(field, messageEl);
+        }
+        case 'salaire': {
+          const salary = parseNum(value);
+          if (value === '') {
+            return setFieldError(field, messageEl, 'Le salaire est obligatoire.');
+          }
+          if (salary <= 0) {
+            return setFieldError(field, messageEl, 'Le salaire doit etre positif.');
+          }
+          if (salary > 1000000) {
+            return setFieldError(field, messageEl, 'Le salaire doit rester inferieur ou egal a 1000000 DT.');
+          }
+          return setFieldOk(field, messageEl);
+        }
+        case 'typeContrat':
+          return value === ''
+            ? setFieldError(field, messageEl, 'Veuillez selectionner un type de contrat.')
+            : setFieldOk(field, messageEl);
+        case 'ancienneteAnnees': {
+          if (value === '') {
+            return setFieldError(field, messageEl, "L'anciennete est obligatoire.");
+          }
+          if (!/^\d+$/.test(value)) {
+            return setFieldError(field, messageEl, "L'anciennete doit etre un entier.");
+          }
+          const seniority = parseNum(value);
+          if (seniority < 0 || seniority > 60) {
+            return setFieldError(field, messageEl, "L'anciennete doit etre comprise entre 0 et 60 ans.");
+          }
+          return setFieldOk(field, messageEl);
+        }
+        default:
+          return true;
+      }
     };
+    const validateStep = (step = currentStep) => {
+      const fields = creditStepFields[step] ?? [];
+      return fields.map((name) => validateCreditField(name)).every((res) => res);
+    };
+    const validateCreditForm = () => Object.values(creditStepFields).flat().map((name) => validateCreditField(name)).every((res) => res);
 
     const showStep = (n) => {
       currentStep = n;
@@ -3672,7 +3802,19 @@
       btn.addEventListener('click', () => showStep(parseInt(btn.dataset.back, 10)));
     });
 
-    showStep(1);
+    Object.values(creditStepFields).flat().forEach((name) => {
+      const field = getCreditField(name);
+      if (!field) {
+        return;
+      }
+
+      field.addEventListener('input', () => validateCreditField(name));
+      field.addEventListener('change', () => validateCreditField(name));
+      field.addEventListener('blur', () => validateCreditField(name));
+    });
+
+    const initialCreditStep = Math.max(1, Math.min(3, parseInt(creditForm?.dataset.initialStep || '1', 10) || 1));
+    showStep(initialCreditStep);
 
     /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
        LOAN CALCULATOR
@@ -3717,10 +3859,31 @@
       if (previewInterest) previewInterest.textContent = fmtNum(interestCost) + ' DT';
     };
 
-    amountField?.addEventListener('input', recalculate);
-    durationField?.addEventListener('change', recalculate);
-    rateField?.addEventListener('input', recalculate);
+    amountField?.addEventListener('input', () => { recalculate(); validateCreditField('montantDemande'); validateCreditField('autofinancement'); });
+    durationField?.addEventListener('change', () => { recalculate(); validateCreditField('duree'); });
+    rateField?.addEventListener('input', () => { recalculate(); validateCreditField('tauxInteret'); });
     recalculate();
+
+    creditForm?.addEventListener('submit', (event) => {
+      recalculate();
+      if (!validateCreditForm()) {
+        event.preventDefault();
+        return;
+      }
+
+      if (analysisOutput && !analysisOutput.hidden && analysisOutput.classList.contains('is-risk')) {
+        analysisOutput.hidden = false;
+      }
+    });
+    creditForm?.addEventListener('reset', () => {
+      window.requestAnimationFrame(() => {
+        Object.values(creditStepFields).flat().forEach((name) => {
+          clearFieldValidation(getCreditField(name), getCreditMessage(name));
+        });
+        recalculate();
+        showStep(1);
+      });
+    });
 
     /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
        CAPACITY ANALYSIS
@@ -3793,6 +3956,7 @@
       }
 
       showStep(1);
+      openDrawer();
       document.getElementById('credit-form-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
@@ -3815,6 +3979,7 @@
       recalculate();
       if (analysisOutput) { analysisOutput.hidden = true; }
       showStep(1);
+      openDrawer();
       document.getElementById('credit-form-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
@@ -3855,6 +4020,7 @@
 
     let activeFilter = 'all';
     let activeListing = 'credits';
+    let selectedGarantieCreditId = null;
 
     const updateListingUI = () => {
       const showingGaranties = activeListing === 'garanties';
@@ -3869,17 +4035,27 @@
       }
       if (searchClear) searchClear.hidden = true;
 
-      if (mainListLabel) mainListLabel.textContent = showingGaranties ? 'Mes Garanties' : 'Mes Credits';
+      if (mainListLabel) {
+        mainListLabel.textContent = showingGaranties
+          ? (selectedGarantieCreditId ? `Garanties du credit #${selectedGarantieCreditId}` : 'Mes Garanties')
+          : 'Mes Credits';
+      }
       if (mainListCount) mainListCount.textContent = String(showingGaranties ? garantieRows.length : allCards.length);
       if (mainListIcon) {
         mainListIcon.className = showingGaranties ? 'fa-solid fa-shield-halved' : 'fa-solid fa-credit-card';
       }
-      if (garantiesInlineLabel) garantiesInlineLabel.textContent = showingGaranties ? 'Mes credits' : 'Garanties';
+      if (garantiesInlineLabel) {
+        garantiesInlineLabel.textContent = showingGaranties
+          ? (selectedGarantieCreditId ? 'Toutes les garanties' : 'Tous les credits')
+          : 'Toutes les garanties';
+      }
       if (garantiesInlineBtn) {
         garantiesInlineBtn.classList.toggle('is-active-alt', showingGaranties);
         const icon = garantiesInlineBtn.querySelector('i');
         if (icon) {
-          icon.className = showingGaranties ? 'fa-solid fa-credit-card' : 'fa-solid fa-shield-halved';
+          icon.className = showingGaranties
+            ? (selectedGarantieCreditId ? 'fa-solid fa-shield-halved' : 'fa-solid fa-credit-card')
+            : 'fa-solid fa-shield-halved';
         }
       }
     };
@@ -3894,7 +4070,8 @@
         const garantieList = $('.cr-garanties-list-main');
         const visibleGaranties = garantieRows.filter((row) => {
           const searchText = row.dataset.garantieSearch ?? '';
-          const show = matchesSearchTokens(searchText, kw);
+          const matchesCredit = !selectedGarantieCreditId || row.dataset.garantieCreditId === String(selectedGarantieCreditId);
+          const show = matchesCredit && matchesSearchTokens(searchText, kw);
           row.classList.toggle('cr-hidden', !show);
           return show;
         });
@@ -3992,9 +4169,27 @@
     });
 
     garantiesInlineBtn?.addEventListener('click', () => {
-      activeListing = activeListing === 'credits' ? 'garanties' : 'credits';
+      if (activeListing === 'credits') {
+        activeListing = 'garanties';
+        selectedGarantieCreditId = null;
+      } else if (selectedGarantieCreditId) {
+        selectedGarantieCreditId = null;
+        activeListing = 'garanties';
+      } else {
+        activeListing = 'credits';
+        selectedGarantieCreditId = null;
+      }
       updateListingUI();
       applyState();
+    });
+
+    $$('[data-credit-garanties]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        selectedGarantieCreditId = btn.dataset.creditGaranties ?? null;
+        activeListing = 'garanties';
+        updateListingUI();
+        applyState();
+      });
     });
 
     /* ════════════════════════════════════════════════════════════════════
@@ -4092,11 +4287,16 @@
     const garantieEstimatedField = $('#cr-garantie-estimated');
     const garantieRetainedField = $('#cr-garantie-retained');
     const garantieDateField = $('#cr-garantie-date');
+    const garantieDocumentField = $('#cr-garantie-document');
+    const garantieExistingDocumentField = $('#cr-garantie-document-existing');
+    const garantieDocumentLabel = $('#cr-garantie-document-label');
+    const garantieDocumentLink = $('#cr-garantie-document-link');
+    const garantieFieldNames = ['idCredit', 'typeGarantie', 'valeurEstimee', 'valeurRetenue', 'dateEvaluation', 'nomGarant', 'adresseBien', 'documentJustificatif', 'description'];
 
     const setDrawerUrlState = (isOpen) => {
       const url = new URL(window.location.href);
       if (isOpen) {
-        url.searchParams.set('panel', 'garanties');
+        url.searchParams.set('panel', 'credit');
       } else {
         url.searchParams.delete('panel');
       }
@@ -4138,6 +4338,26 @@
         field.value = value ?? '';
       }
     };
+    const getGarantieField = (name) => garantieForm?.querySelector(`[name="${name}"]`);
+    const getGarantieMessage = (name) => $(`#cr-garantie-err-${name}`, garantieForm);
+    const syncGarantieDocumentMeta = (path = '', label = '') => {
+      const resolvedPath = String(path ?? '').trim();
+      if (garantieExistingDocumentField instanceof HTMLInputElement) {
+        garantieExistingDocumentField.value = resolvedPath;
+      }
+      if (garantieDocumentLabel) {
+        garantieDocumentLabel.textContent = label || (resolvedPath !== '' ? 'Image deja enregistree' : 'Formats acceptes: PNG, JPG, WEBP, GIF');
+      }
+      if (garantieDocumentLink instanceof HTMLAnchorElement) {
+        if (resolvedPath !== '') {
+          garantieDocumentLink.href = resolvedPath.startsWith('/') ? resolvedPath : `/${resolvedPath}`;
+          garantieDocumentLink.hidden = false;
+        } else {
+          garantieDocumentLink.href = '#';
+          garantieDocumentLink.hidden = true;
+        }
+      }
+    };
 
     const syncRetainedFromEstimated = () => {
       if (!(garantieEstimatedField instanceof HTMLInputElement) || !(garantieRetainedField instanceof HTMLInputElement)) {
@@ -4151,36 +4371,113 @@
       garantieRetainedField.value = estimated > 0 ? (estimated * 0.8).toFixed(2) : '';
     };
 
-    const validateGarantieFormValues = () => {
-      if (!(garantieEstimatedField instanceof HTMLInputElement) || !(garantieRetainedField instanceof HTMLInputElement)) {
+    const validateGarantieField = (name) => {
+      const field = getGarantieField(name);
+      const messageEl = getGarantieMessage(name);
+      const rawValue = field?.value ?? '';
+      const value = String(rawValue).trim();
+
+      if (!field && name !== 'documentJustificatif') {
         return true;
       }
 
-      garantieEstimatedField.setCustomValidity('');
-      garantieRetainedField.setCustomValidity('');
+      switch (name) {
+        case 'idCredit':
+          return value === ''
+            ? setFieldError(field, messageEl, 'Veuillez selectionner un credit associe.')
+            : setFieldOk(field, messageEl);
+        case 'typeGarantie':
+          return value === ''
+            ? setFieldError(field, messageEl, 'Veuillez selectionner un type de garantie.')
+            : setFieldOk(field, messageEl);
+        case 'valeurEstimee': {
+          const estimated = parseNum(value);
+          if (value === '') {
+            return setFieldError(field, messageEl, 'La valeur estimee est obligatoire.');
+          }
+          if (estimated <= 0) {
+            return setFieldError(field, messageEl, 'La valeur estimee doit etre positive.');
+          }
+          if (estimated < 1000 || estimated > 100000000) {
+            return setFieldError(field, messageEl, 'La valeur estimee doit etre comprise entre 1000 et 100000000 DT.');
+          }
+          return setFieldOk(field, messageEl);
+        }
+        case 'valeurRetenue': {
+          const retained = parseNum(value);
+          const estimated = parseNum(garantieEstimatedField?.value);
+          if (value === '') {
+            return setFieldError(field, messageEl, 'La valeur retenue est obligatoire.');
+          }
+          if (retained <= 0) {
+            return setFieldError(field, messageEl, 'La valeur retenue doit etre positive.');
+          }
+          if (estimated > 0 && retained > estimated) {
+            return setFieldError(field, messageEl, "La valeur retenue ne doit pas depasser l'estimee.");
+          }
+          return setFieldOk(field, messageEl);
+        }
+        case 'dateEvaluation': {
+          const parsedDate = parseInputDate(value);
+          if (value === '') {
+            return setFieldError(field, messageEl, "La date d'evaluation est obligatoire.");
+          }
+          if (!parsedDate) {
+            return setFieldError(field, messageEl, "Date d'evaluation invalide.");
+          }
+          if (parsedDate < todayDate) {
+            return setFieldError(field, messageEl, "La date d'évaluation ne peut pas être dans le passé.");
+          }
+          return setFieldOk(field, messageEl);
+        }
+        case 'nomGarant':
+          if (value === '') {
+            return setFieldError(field, messageEl, 'Le nom du garant est obligatoire.');
+          }
+          if (value.length < 2) {
+            return setFieldError(field, messageEl, 'Le nom doit contenir au moins 2 caracteres.');
+          }
+          if (!/^[\p{L}\s\-']+$/u.test(value)) {
+            return setFieldError(field, messageEl, 'Le nom du garant ne doit contenir que des lettres.');
+          }
+          return setFieldOk(field, messageEl);
+        case 'adresseBien':
+          if (value === '') {
+            return setFieldError(field, messageEl, "L'adresse du bien est obligatoire.");
+          }
+          if (value.length < 5) {
+            return setFieldError(field, messageEl, "L'adresse doit contenir au moins 5 caracteres.");
+          }
+          return setFieldOk(field, messageEl);
+        case 'documentJustificatif': {
+          const file = garantieDocumentField instanceof HTMLInputElement ? garantieDocumentField.files?.[0] ?? null : null;
+          const existingPath = garantieExistingDocumentField instanceof HTMLInputElement ? garantieExistingDocumentField.value.trim() : '';
+          const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
-      const estimated = parseNum(garantieEstimatedField.value);
-      const retainedRaw = garantieRetainedField.value.trim();
-      const retained = parseNum(retainedRaw);
-
-      let valid = true;
-      if (estimated <= 0) {
-        garantieEstimatedField.setCustomValidity('La valeur estimee doit etre superieure a 0.');
-        valid = false;
+          if (file) {
+            if (!allowedTypes.includes(file.type)) {
+              return setFieldError(garantieDocumentField, messageEl, 'Le document justificatif doit etre une image JPG, PNG, WEBP ou GIF.');
+            }
+            return setFieldOk(garantieDocumentField, messageEl);
+          }
+          if (existingPath === '') {
+            return setFieldError(garantieDocumentField, messageEl, 'Le document justificatif est obligatoire.');
+          }
+          return setFieldOk(garantieDocumentField, messageEl);
+        }
+        case 'description':
+          if (value === '') {
+            return setFieldError(field, messageEl, 'La description est obligatoire.');
+          }
+          if (value.length < 10) {
+            return setFieldError(field, messageEl, 'La description doit contenir au moins 10 caracteres.');
+          }
+          return setFieldOk(field, messageEl);
+        default:
+          return true;
       }
-
-      if (retainedRaw !== '' && retained <= 0) {
-        garantieRetainedField.setCustomValidity('La valeur retenue doit etre superieure a 0.');
-        valid = false;
-      }
-
-      if (retainedRaw !== '' && estimated > 0 && retained > estimated) {
-        garantieRetainedField.setCustomValidity('La valeur retenue ne peut pas depasser la valeur estimee.');
-        valid = false;
-      }
-
-      return valid;
     };
+    const validateGarantieFormValues = () => garantieFieldNames.map((name) => validateGarantieField(name)).every((res) => res);
 
     const resetGarantieFormState = (withFormReset = true) => {
       if (withFormReset && garantieForm instanceof HTMLFormElement) {
@@ -4195,13 +4492,20 @@
       if (garantieRetainedField instanceof HTMLInputElement) {
         garantieRetainedField.dataset.manual = '0';
       }
+      if (garantieDocumentField instanceof HTMLInputElement) {
+        garantieDocumentField.value = '';
+      }
+      syncGarantieDocumentMeta('', '');
+      garantieFieldNames.forEach((name) => {
+        clearFieldValidation(getGarantieField(name), getGarantieMessage(name));
+      });
       syncRetainedFromEstimated();
-      validateGarantieFormValues();
     };
 
     garantieEstimatedField?.addEventListener('input', () => {
       syncRetainedFromEstimated();
-      validateGarantieFormValues();
+      validateGarantieField('valeurEstimee');
+      validateGarantieField('valeurRetenue');
     });
 
     garantieRetainedField?.addEventListener('input', () => {
@@ -4209,7 +4513,25 @@
         return;
       }
       garantieRetainedField.dataset.manual = garantieRetainedField.value.trim() === '' ? '0' : '1';
-      validateGarantieFormValues();
+      validateGarantieField('valeurRetenue');
+    });
+    garantieDocumentField?.addEventListener('change', () => {
+      const file = garantieDocumentField instanceof HTMLInputElement ? garantieDocumentField.files?.[0] ?? null : null;
+      syncGarantieDocumentMeta(
+        garantieExistingDocumentField instanceof HTMLInputElement ? garantieExistingDocumentField.value : '',
+        file ? `Fichier selectionne: ${file.name}` : ''
+      );
+      validateGarantieField('documentJustificatif');
+    });
+    garantieFieldNames.forEach((name) => {
+      const field = getGarantieField(name);
+      if (!field || name === 'documentJustificatif') {
+        return;
+      }
+
+      field.addEventListener('input', () => validateGarantieField(name));
+      field.addEventListener('change', () => validateGarantieField(name));
+      field.addEventListener('blur', () => validateGarantieField(name));
     });
 
     garantieForm?.addEventListener('reset', () => {
@@ -4219,15 +4541,12 @@
     });
 
     garantieForm?.addEventListener('submit', (event) => {
-      if (!validateGarantieFormValues()) {
-        event.preventDefault();
-        garantieForm.reportValidity();
-        return;
-      }
-
       if (garantieRetainedField instanceof HTMLInputElement && garantieRetainedField.value.trim() === '') {
         garantieRetainedField.dataset.manual = '0';
         syncRetainedFromEstimated();
+      }
+      if (!validateGarantieFormValues()) {
+        event.preventDefault();
       }
     });
 
@@ -4243,9 +4562,12 @@
       setGarantieField('adresseBien', row.dataset.garantieAddress ?? '');
       setGarantieField('valeurEstimee', row.dataset.garantieEstimated ?? '');
       setGarantieField('valeurRetenue', row.dataset.garantieRetained ?? '');
-      setGarantieField('documentJustificatif', row.dataset.garantieDocument ?? '');
       setGarantieField('dateEvaluation', normalizeIsoDate(row.dataset.garantieDate ?? ''));
       setGarantieField('nomGarant', row.dataset.garantieGuarantor ?? '');
+      if (garantieDocumentField instanceof HTMLInputElement) {
+        garantieDocumentField.value = '';
+      }
+      syncGarantieDocumentMeta(row.dataset.garantieDocument ?? '', '');
 
       if (garantieRetainedField instanceof HTMLInputElement) {
         garantieRetainedField.dataset.manual = (row.dataset.garantieRetained ?? '').trim() !== '' ? '1' : '0';
@@ -4253,7 +4575,8 @@
       syncRetainedFromEstimated();
       validateGarantieFormValues();
 
-      openDrawer();
+      closeDrawer();
+      document.getElementById('garantie-form-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       garantieForm?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
@@ -4264,178 +4587,37 @@
       });
     });
 
+    syncGarantieDocumentMeta(garantieExistingDocumentField instanceof HTMLInputElement ? garantieExistingDocumentField.value : '', '');
     openBtns.forEach((btn) => btn?.addEventListener('click', () => {
-      resetGarantieFormState(true);
+      resetGarantieFormState();
       openDrawer();
+      garantieForm?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }));
     closeBtn?.addEventListener('click', closeDrawer);
     overlay?.addEventListener('click', closeDrawer);
 
-    /* open if redirected back with panel=garanties */
-    if (new URLSearchParams(location.search).get('panel') === 'garanties') {
+    /* open if redirected back with panel=credit */
+    if (new URLSearchParams(location.search).get('panel') === 'credit') {
       openDrawer();
-      validateGarantieFormValues();
     }
 
     /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
        LANGUAGE SELECT (UI stub)
     â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
     const langSel = $('#cr-language');
+    const savedLanguage = window.localStorage.getItem('nexora.portal.credits.language');
+    if (langSel && savedLanguage && Array.from(langSel.options).some((option) => option.value === savedLanguage)) {
+      langSel.value = savedLanguage;
+      document.documentElement.lang = savedLanguage;
+    }
     langSel?.addEventListener('change', () => {
-      langSel.title = `Langue: ${langSel.value}`;
+      const selectedLabel = langSel.options[langSel.selectedIndex]?.textContent?.trim() || langSel.value;
+      langSel.title = `Langue: ${selectedLabel}`;
+      document.documentElement.lang = langSel.value;
+      window.localStorage.setItem('nexora.portal.credits.language', langSel.value);
     });
   });
 })();
 </script>
 
 
-<style>
-/* Validation crédit */
-.cr-val-msg{font-size:12px;font-weight:600;margin-top:4px;display:block;min-height:16px}
-.cr-val-msg.ok{color:#16a34a}
-.cr-val-msg.err{color:#dc2626}
-.cr-input.cr-v-invalid{border-color:#dc2626!important;box-shadow:0 0 0 3px rgba(220,38,38,.12)!important;background:#fff5f5!important}
-.cr-input.cr-v-valid{border-color:#16a34a!important;box-shadow:0 0 0 3px rgba(22,163,74,.1)!important;background:#f0fdf4!important}
-</style>
-<script>
-(function(){
-var today=new Date();today.setHours(0,0,0,0);
-
-function g(id){return document.getElementById(id);}
-function ok(inputId,spanId,label){
-  var el=g(inputId),s=g(spanId);
-  if(el){el.classList.remove('cr-v-invalid');el.classList.add('cr-v-valid');}
-  if(s){s.className='cr-val-msg ok';s.textContent='✓ '+(label||'Valide');}
-  return true;
-}
-function err(inputId,spanId,msg){
-  var el=g(inputId),s=g(spanId);
-  if(el){el.classList.remove('cr-v-valid');el.classList.add('cr-v-invalid');}
-  if(s){s.className='cr-val-msg err';s.textContent='⚠ '+msg;}
-  return false;
-}
-function clr(inputId,spanId){
-  var el=g(inputId),s=g(spanId);
-  if(el){el.classList.remove('cr-v-valid','cr-v-invalid');}
-  if(s){s.className='cr-val-msg';s.textContent='';}
-  return true;
-}
-
-/* ── Règles par champ ── */
-function vIdCompte(){
-  var el=g('cr-credit-account');
-  if(!el)return true;
-  return el.value?ok('cr-credit-account','cr-err-idCompte'):err('cr-credit-account','cr-err-idCompte','Veuillez sélectionner un compte.');
-}
-function vTypeCredit(){
-  var el=g('cr-credit-type');
-  if(!el)return true;
-  return el.value?ok('cr-credit-type','cr-err-typeCredit'):err('cr-credit-type','cr-err-typeCredit','Le type de crédit est obligatoire.');
-}
-function vDateDemande(){
-  var el=g('cr-credit-date');
-  if(!el)return true;
-  if(!el.value)return err('cr-credit-date','cr-err-dateDemande','La date de demande est obligatoire.');
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(el.value))return err('cr-credit-date','cr-err-dateDemande','Format requis : AAAA-MM-JJ.');
-  return ok('cr-credit-date','cr-err-dateDemande');
-}
-function vMontant(){
-  var el=g('cr-credit-amount');
-  if(!el)return true;
-  var v=parseFloat(el.value);
-  if(!el.value||isNaN(v))return err('cr-credit-amount','cr-err-montantDemande','Le montant demandé est obligatoire.');
-  if(v<=0)return err('cr-credit-amount','cr-err-montantDemande','Doit être un nombre positif.');
-  if(v<500||v>10000000)return err('cr-credit-amount','cr-err-montantDemande','Doit être entre 500 et 10 000 000 DT.');
-  return ok('cr-credit-amount','cr-err-montantDemande');
-}
-function vAutofinancement(){
-  var el=g('cr-credit-auto');
-  if(!el||el.value==='')return clr('cr-credit-auto','cr-err-autofinancement');
-  var v=parseFloat(el.value);
-  if(isNaN(v)||v<0)return err('cr-credit-auto','cr-err-autofinancement','Doit être positif ou nul.');
-  return ok('cr-credit-auto','cr-err-autofinancement');
-}
-function vDuree(){
-  var el=g('cr-credit-duree');
-  if(!el)return true;
-  if(!el.value)return err('cr-credit-duree','cr-err-duree','La durée est obligatoire.');
-  var v=parseInt(el.value);
-  if(v<1||v>360)return err('cr-credit-duree','cr-err-duree','Entre 1 et 360 mois.');
-  return ok('cr-credit-duree','cr-err-duree');
-}
-function vTaux(){
-  var el=g('cr-credit-rate');
-  if(!el)return true;
-  if(el.value==='')return err('cr-credit-rate','cr-err-tauxInteret',"Le taux d'intérêt est obligatoire.");
-  var v=parseFloat(el.value);
-  if(isNaN(v)||v<0||v>100)return err('cr-credit-rate','cr-err-tauxInteret','Entre 0% et 100%.');
-  return ok('cr-credit-rate','cr-err-tauxInteret');
-}
-function vSalaire(){
-  var el=g('cr-credit-salary');
-  if(!el)return true;
-  if(!el.value)return err('cr-credit-salary','cr-err-salaire','Le salaire est obligatoire.');
-  var v=parseFloat(el.value);
-  if(v<=0)return err('cr-credit-salary','cr-err-salaire','Doit être un nombre positif.');
-  return ok('cr-credit-salary','cr-err-salaire');
-}
-function vTypeContrat(){
-  var el=g('cr-credit-contract');
-  if(!el)return true;
-  return el.value?ok('cr-credit-contract','cr-err-typeContrat'):err('cr-credit-contract','cr-err-typeContrat','Le type de contrat est obligatoire.');
-}
-function vAnciennete(){
-  var el=g('cr-credit-seniority');
-  if(!el)return true;
-  if(el.value==='')return err('cr-credit-seniority','cr-err-ancienneteAnnees',"L'ancienneté est obligatoire.");
-  var v=parseInt(el.value);
-  if(isNaN(v)||v<0||v>60)return err('cr-credit-seniority','cr-err-ancienneteAnnees','Entre 0 et 60 ans.');
-  return ok('cr-credit-seniority','cr-err-ancienneteAnnees');
-}
-
-/* ── Validation par étape ── */
-function validateStep(step){
-  if(step===1) return vIdCompte()&vTypeCredit()&vDateDemande();
-  if(step===2) return vMontant()&vDuree()&vTaux();
-  if(step===3) return vSalaire()&vTypeContrat()&vAnciennete();
-  return true;
-}
-
-/* ── Intercepter les boutons Suivant ── */
-document.querySelectorAll('.cr-step-next').forEach(function(btn){
-  btn.addEventListener('click',function(e){
-    var nextStep=parseInt(btn.dataset.next||'2');
-    var currentStep=nextStep-1;
-    if(!validateStep(currentStep)){
-      e.stopImmediatePropagation();
-      e.preventDefault();
-    }
-  },true);
-});
-
-/* ── Intercepter le submit final ── */
-var form=document.getElementById('credit-form');
-if(form){
-  form.addEventListener('submit',function(e){
-    var ok3=vSalaire()&vTypeContrat()&vAnciennete();
-    if(!ok3)e.preventDefault();
-  });
-}
-
-/* ── Live validation ── */
-var liveMap={
-  'cr-credit-account':vIdCompte,'cr-credit-type':vTypeCredit,
-  'cr-credit-date':vDateDemande,'cr-credit-amount':vMontant,
-  'cr-credit-auto':vAutofinancement,'cr-credit-duree':vDuree,
-  'cr-credit-rate':vTaux,'cr-credit-salary':vSalaire,
-  'cr-credit-contract':vTypeContrat,'cr-credit-seniority':vAnciennete
-};
-Object.keys(liveMap).forEach(function(id){
-  var el=g(id);
-  if(!el)return;
-  ['input','change','blur'].forEach(function(ev){
-    el.addEventListener(ev,liveMap[id]);
-  });
-});
-})();
-</script>

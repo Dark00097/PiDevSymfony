@@ -34,6 +34,75 @@ final class GeminiService
         ];
     }
 
+    /**
+     * Génère un scoring IA pour un dossier de crédit via Gemini.
+     *
+     * @return array{provider: string, text: string}
+     */
+    public function generateCreditScoringAdvice(string $prompt): array
+    {
+        $responseText = $this->requestGeminiForCredit($prompt);
+
+        if ($responseText !== null) {
+            return [
+                'provider' => 'Gemini',
+                'text' => $responseText,
+            ];
+        }
+
+        return [
+            'provider' => 'Fallback',
+            'text' => '',
+        ];
+    }
+
+    /**
+     * Appel Gemini spécifique au scoring crédit avec des paramètres optimisés.
+     */
+    private function requestGeminiForCredit(string $prompt): ?string
+    {
+        $apiKey = $this->apiKey();
+        if ($apiKey === '') {
+            return null;
+        }
+
+        $model = $this->modelName();
+        $endpoint = sprintf(
+            'https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s',
+            rawurlencode($model),
+            rawurlencode($apiKey)
+        );
+
+        try {
+            $response = $this->httpClient->request('POST', $endpoint, [
+                'json' => [
+                    'contents' => [
+                        [
+                            'role' => 'user',
+                            'parts' => [
+                                ['text' => $prompt],
+                            ],
+                        ],
+                    ],
+                    'generationConfig' => [
+                        'temperature' => 0.2,
+                        'maxOutputTokens' => 500,
+                        'responseMimeType' => 'text/plain',
+                    ],
+                ],
+                'timeout' => 20,
+            ]);
+
+            $data = $response->toArray(false);
+            $candidateText = trim((string) ($data['candidates'][0]['content']['parts'][0]['text'] ?? ''));
+
+            return $candidateText !== '' ? $candidateText : null;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+
     private function requestGemini(string $prompt): ?string
     {
         $apiKey = $this->apiKey();

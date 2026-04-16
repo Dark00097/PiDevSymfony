@@ -1,72 +1,83 @@
-﻿{% set current_date = 'now'|date('Y-m-d') %}
+{% set current_date = 'now'|date('Y-m-d') %}
+{% set garantie_feedback = support.garantie_form_feedback|default({}) %}
+{% if garantie_feedback is empty %}
+    {% set garantie_feedback = {'errors': support.form_errors_garantie|default({}), 'input': support.form_data_garantie|default({})} %}
+{% endif %}
+{% set garantie_old = garantie_feedback.input|default({}) %}
+{% set garantie_errors = garantie_feedback.errors|default({}) %}
 
 <section class="panel-card">
     <h2>Garanties</h2>
     <p style="margin:6px 0 16px; color:#6b7280; font-size:13px;">
-        Meme logique metier que la version Java: creation, modification, suppression et validation des valeurs.
+        Creation, modification, suppression et validation complete des garanties, avec le meme principe que le module compte bancaire.
     </p>
 
-    <form method="post" class="editor-form" id="portal-garantie-form" novalidate>
+    <form method="post" class="editor-form" id="portal-garantie-form" novalidate enctype="multipart/form-data">
         <input type="hidden" name="tab" value="garanties">
         <input type="hidden" name="action" value="garantie_save">
 
         <label>
             <span>ID pour modifier</span>
-            <input type="number" name="idGarantie" id="portal-garantie-id" placeholder="Laisser vide pour creer">
+            <input type="number" name="idGarantie" id="portal-garantie-id" placeholder="Laisser vide pour creer" value="{{ garantie_old.idGarantie|default('') }}">
+            <span id="g-err-idGarantie" class="g-val-msg">{{ garantie_errors.idGarantie|default('') }}</span>
         </label>
         <label>
             <span>Credit lie <span style="color:#dc2626">*</span></span>
-            <select name="idCredit" id="portal-garantie-credit">
+            <select name="idCredit" id="portal-garantie-credit" class="{{ garantie_errors.idCredit is defined ? 'acc-invalid' : '' }}">
                 <option value="">Selectionner</option>
                 {% for credit in support.credits|default([]) %}
-                    <option value="{{ credit.idCredit }}">#{{ credit.idCredit }} - {{ credit.typeCredit|default('Credit') }}</option>
+                    <option value="{{ credit.idCredit }}" {{ garantie_old.idCredit|default('') == credit.idCredit ? 'selected' : '' }}>#{{ credit.idCredit }} - {{ credit.typeCredit|default('Credit') }}</option>
                 {% endfor %}
             </select>
-            <span id="g-err-idCredit" class="g-val-msg"></span>
+            <span id="g-err-idCredit" class="g-val-msg">{{ garantie_errors.idCredit|default('') }}</span>
         </label>
         <label>
             <span>Type garantie <span style="color:#dc2626">*</span></span>
-            <select name="typeGarantie" id="portal-garantie-type">
+            <select name="typeGarantie" id="portal-garantie-type" class="{{ garantie_errors.typeGarantie is defined ? 'acc-invalid' : '' }}">
+                <option value="">Selectionner</option>
                 {% for type in ['Hypotheque immobiliere', 'Titre vehicule', 'Caution personnelle', 'Garantie bancaire', 'Police assurance', 'Nantissement', 'Autre garantie'] %}
-                    <option value="{{ type }}">{{ type }}</option>
+                    <option value="{{ type }}" {{ garantie_old.typeGarantie|default('') == type ? 'selected' : '' }}>{{ type }}</option>
                 {% endfor %}
             </select>
-            <span id="g-err-typeGarantie" class="g-val-msg"></span>
+            <span id="g-err-typeGarantie" class="g-val-msg">{{ garantie_errors.typeGarantie|default('') }}</span>
         </label>
         <label>
             <span>Description <span style="color:#dc2626">*</span></span>
-            <input type="text" name="description" id="portal-garantie-description" placeholder="Description courte (min. 10 caractères)">
-            <span id="g-err-description" class="g-val-msg"></span>
+            <input type="text" name="description" id="portal-garantie-description" placeholder="Description courte (min. 10 caracteres)" value="{{ garantie_old.description|default('') }}" class="{{ garantie_errors.description is defined ? 'acc-invalid' : '' }}">
+            <span id="g-err-description" class="g-val-msg">{{ garantie_errors.description|default('') }}</span>
         </label>
         <label>
             <span>Adresse du bien <span style="color:#dc2626">*</span></span>
-            <input type="text" name="adresseBien" id="portal-garantie-address" placeholder="Adresse du bien (min. 5 caractères)">
-            <span id="g-err-adresseBien" class="g-val-msg"></span>
+            <input type="text" name="adresseBien" id="portal-garantie-address" placeholder="Adresse du bien (min. 5 caracteres)" value="{{ garantie_old.adresseBien|default('') }}" class="{{ garantie_errors.adresseBien is defined ? 'acc-invalid' : '' }}">
+            <span id="g-err-adresseBien" class="g-val-msg">{{ garantie_errors.adresseBien|default('') }}</span>
         </label>
         <label>
             <span>Valeur estimee (TND) <span style="color:#dc2626">*</span></span>
-            <input type="number" step="0.01" name="valeurEstimee" id="portal-garantie-estimated" placeholder="0.00">
-            <span id="g-err-valeurEstimee" class="g-val-msg"></span>
+            <input type="number" step="0.01" name="valeurEstimee" id="portal-garantie-estimated" placeholder="0.00" value="{{ garantie_old.valeurEstimee|default('') }}" class="{{ garantie_errors.valeurEstimee is defined ? 'acc-invalid' : '' }}">
+            <span id="g-err-valeurEstimee" class="g-val-msg">{{ garantie_errors.valeurEstimee|default('') }}</span>
         </label>
         <label>
             <span>Valeur retenue (TND)</span>
-            <input type="number" step="0.01" name="valeurRetenue" id="portal-garantie-retained" placeholder="Auto (80% estimee)">
-            <span id="g-err-valeurRetenue" class="g-val-msg"></span>
+            <input type="number" step="0.01" name="valeurRetenue" id="portal-garantie-retained" placeholder="Auto (80% estimee)" value="{{ garantie_old.valeurRetenue|default('') }}" class="{{ garantie_errors.valeurRetenue is defined ? 'acc-invalid' : '' }}">
+            <span id="g-err-valeurRetenue" class="g-val-msg">{{ garantie_errors.valeurRetenue|default('') }}</span>
         </label>
         <label>
             <span>Date evaluation <span style="color:#dc2626">*</span></span>
-            <input type="date" name="dateEvaluation" id="portal-garantie-date" value="{{ current_date }}">
-            <span id="g-err-dateEvaluation" class="g-val-msg"></span>
+            <input type="date" name="dateEvaluation" id="portal-garantie-date" value="{{ garantie_old.dateEvaluation|default(current_date) }}" min="{{ current_date }}" class="{{ garantie_errors.dateEvaluation is defined ? 'acc-invalid' : '' }}">
+            <span id="g-err-dateEvaluation" class="g-val-msg">{{ garantie_errors.dateEvaluation|default('') }}</span>
         </label>
         <label>
             <span>Document justificatif <span style="color:#dc2626">*</span></span>
-            <input type="text" name="documentJustificatif" id="portal-garantie-document" placeholder="Reference document">
-            <span id="g-err-documentJustificatif" class="g-val-msg"></span>
+            <input type="hidden" name="existingDocumentJustificatif" id="portal-garantie-document-existing" value="{{ garantie_old.documentJustificatif|default('') }}">
+            <input type="file" name="documentJustificatifFile" id="portal-garantie-document" accept="image/png,image/jpeg,image/webp,image/gif" class="{{ garantie_errors.documentJustificatif is defined ? 'acc-invalid' : '' }}">
+            <small id="portal-garantie-document-label" style="display:block; margin-top:6px; color:#6b7280;">{{ garantie_old.documentJustificatif|default('') ? 'Image deja enregistree' : 'Formats acceptes: PNG, JPG, WEBP, GIF' }}</small>
+            <a id="portal-garantie-document-link" href="{{ garantie_old.documentJustificatif|default('') ? asset(garantie_old.documentJustificatif) : '#' }}" target="_blank" rel="noopener" {{ garantie_old.documentJustificatif|default('') ? '' : 'hidden' }}>Voir l'image actuelle</a>
+            <span id="g-err-documentJustificatif" class="g-val-msg">{{ garantie_errors.documentJustificatif|default('') }}</span>
         </label>
         <label>
             <span>Nom garant <span style="color:#dc2626">*</span></span>
-            <input type="text" name="nomGarant" id="portal-garantie-guarantor" placeholder="Nom du garant">
-            <span id="g-err-nomGarant" class="g-val-msg"></span>
+            <input type="text" name="nomGarant" id="portal-garantie-guarantor" placeholder="Nom du garant" value="{{ garantie_old.nomGarant|default('') }}" class="{{ garantie_errors.nomGarant is defined ? 'acc-invalid' : '' }}">
+            <span id="g-err-nomGarant" class="g-val-msg">{{ garantie_errors.nomGarant|default('') }}</span>
         </label>
         <div style="display:flex; gap:8px; margin-top:8px;">
             <button class="btn btn-primary" type="submit">Enregistrer</button>
@@ -135,189 +146,227 @@
     if (!(form instanceof HTMLFormElement)) return;
 
     const estimatedField = document.getElementById('portal-garantie-estimated');
-    const retainedField  = document.getElementById('portal-garantie-retained');
-    const dateField      = document.getElementById('portal-garantie-date');
-    const idField        = document.getElementById('portal-garantie-id');
+    const retainedField = document.getElementById('portal-garantie-retained');
+    const dateField = document.getElementById('portal-garantie-date');
+    const idField = document.getElementById('portal-garantie-id');
+    const documentField = document.getElementById('portal-garantie-document');
+    const existingDocumentField = document.getElementById('portal-garantie-document-existing');
+    const documentLabel = document.getElementById('portal-garantie-document-label');
+    const documentLink = document.getElementById('portal-garantie-document-link');
+    const currentDateIso = '{{ current_date }}';
+    const todayDate = new Date(`${currentDateIso}T00:00:00`);
+    const fieldNames = ['idCredit', 'typeGarantie', 'description', 'adresseBien', 'valeurEstimee', 'valeurRetenue', 'dateEvaluation', 'documentJustificatif', 'nomGarant'];
 
-    const parseNum = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+    const parseNum = (v) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : 0;
+    };
+    const parseInputDate = (rawValue) => {
+        const raw = String(rawValue ?? '').trim();
+        if (raw === '') return null;
+        const parsed = new Date(`${raw}T00:00:00`);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+    };
+    const fieldElement = (name) => form.querySelector(`[name="${name}"]`);
+    const messageElement = (name) => document.getElementById(`g-err-${name}`);
+    const setError = (field, msgEl, message) => {
+        field?.classList.add('acc-invalid');
+        field?.classList.remove('acc-valid');
+        if (msgEl) {
+            msgEl.textContent = '⚠ ' + message;
+            msgEl.style.color = '#dc2626';
+            msgEl.style.fontWeight = '600';
+            msgEl.style.fontSize = '12px';
+            msgEl.style.marginTop = '4px';
+        }
+        return false;
+    };
+    const setValid = (field, msgEl) => {
+        field?.classList.remove('acc-invalid');
+        field?.classList.add('acc-valid');
+        if (msgEl) {
+            msgEl.textContent = '✓ Valide';
+            msgEl.style.color = '#16a34a';
+            msgEl.style.fontWeight = '600';
+            msgEl.style.fontSize = '12px';
+            msgEl.style.marginTop = '4px';
+        }
+        return true;
+    };
+    const clearValid = (field, msgEl) => {
+        field?.classList.remove('acc-invalid', 'acc-valid');
+        if (msgEl) {
+            msgEl.textContent = '';
+        }
+        return true;
+    };
+    const syncDocumentMeta = (path = '', label = '') => {
+        const resolvedPath = String(path ?? '').trim();
+        if (existingDocumentField instanceof HTMLInputElement) {
+            existingDocumentField.value = resolvedPath;
+        }
+        if (documentLabel) {
+            documentLabel.textContent = label || (resolvedPath !== '' ? 'Image deja enregistree' : 'Formats acceptes: PNG, JPG, WEBP, GIF');
+        }
+        if (documentLink instanceof HTMLAnchorElement) {
+            if (resolvedPath !== '') {
+                documentLink.href = resolvedPath.startsWith('/') ? resolvedPath : `/${resolvedPath}`;
+                documentLink.hidden = false;
+            } else {
+                documentLink.href = '#';
+                documentLink.hidden = true;
+            }
+        }
+    };
 
     const syncRetained = () => {
-        if (!estimatedField || !retainedField) return;
+        if (!(estimatedField instanceof HTMLInputElement) || !(retainedField instanceof HTMLInputElement)) return;
         if (retainedField.dataset.manual === '1') return;
         const est = parseNum(estimatedField.value);
         retainedField.value = est > 0 ? (est * 0.8).toFixed(2) : '';
     };
 
-    estimatedField?.addEventListener('input', syncRetained);
+    const validateField = (name) => {
+        const field = fieldElement(name);
+        const msgEl = messageElement(name);
+        const value = String(field?.value ?? '').trim();
+
+        switch (name) {
+            case 'idCredit':
+                return value === '' ? setError(field, msgEl, 'Veuillez selectionner un credit associe.') : setValid(field, msgEl);
+            case 'typeGarantie':
+                return value === '' ? setError(field, msgEl, 'Veuillez selectionner un type de garantie.') : setValid(field, msgEl);
+            case 'description':
+                if (value === '') return setError(field, msgEl, 'La description est obligatoire.');
+                if (value.length < 10) return setError(field, msgEl, 'La description doit contenir au moins 10 caracteres.');
+                return setValid(field, msgEl);
+            case 'adresseBien':
+                if (value === '') return setError(field, msgEl, "L'adresse du bien est obligatoire.");
+                if (value.length < 5) return setError(field, msgEl, "L'adresse doit contenir au moins 5 caracteres.");
+                return setValid(field, msgEl);
+            case 'valeurEstimee': {
+                const estimated = parseNum(value);
+                if (value === '') return setError(field, msgEl, 'La valeur estimee est obligatoire.');
+                if (estimated <= 0) return setError(field, msgEl, 'La valeur estimee doit etre positive.');
+                if (estimated < 1000 || estimated > 100000000) return setError(field, msgEl, 'La valeur estimee doit etre comprise entre 1000 et 100000000 DT.');
+                return setValid(field, msgEl);
+            }
+            case 'valeurRetenue': {
+                if (value === '') return setError(field, msgEl, 'La valeur retenue est obligatoire.');
+                const retained = parseNum(value);
+                const estimated = parseNum(estimatedField?.value);
+                if (retained <= 0) return setError(field, msgEl, 'La valeur retenue doit etre positive.');
+                if (estimated > 0 && retained > estimated) return setError(field, msgEl, "La valeur retenue ne doit pas depasser l'estimee.");
+                return setValid(field, msgEl);
+            }
+            case 'dateEvaluation': {
+                const parsedDate = parseInputDate(value);
+                if (value === '') return setError(field, msgEl, "La date d'evaluation est obligatoire.");
+                if (!parsedDate) return setError(field, msgEl, "Date d'evaluation invalide.");
+                if (parsedDate < todayDate) return setError(field, msgEl, "La date d'évaluation ne peut pas être dans le passé.");
+                return setValid(field, msgEl);
+            }
+            case 'documentJustificatif': {
+                const file = documentField instanceof HTMLInputElement ? documentField.files?.[0] ?? null : null;
+                const existingPath = existingDocumentField instanceof HTMLInputElement ? existingDocumentField.value.trim() : '';
+                const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+                if (file) {
+                    if (!allowedTypes.includes(file.type)) {
+                        return setError(documentField, msgEl, 'Le document justificatif doit etre une image JPG, PNG, WEBP ou GIF.');
+                    }
+                    return setValid(documentField, msgEl);
+                }
+                if (existingPath === '') return setError(documentField, msgEl, 'Le document justificatif est obligatoire.');
+                return setValid(documentField, msgEl);
+            }
+            case 'nomGarant':
+                if (value === '') return setError(field, msgEl, 'Le nom du garant est obligatoire.');
+                if (value.length < 2) return setError(field, msgEl, 'Le nom doit contenir au moins 2 caracteres.');
+                if (!/^[\p{L}\s\-']+$/u.test(value)) return setError(field, msgEl, 'Le nom du garant ne doit contenir que des lettres.');
+                return setValid(field, msgEl);
+            default:
+                return true;
+        }
+    };
+    const validateForm = () => fieldNames.map((name) => validateField(name)).every((res) => res);
+
+    estimatedField?.addEventListener('input', () => {
+        syncRetained();
+        validateField('valeurEstimee');
+        validateField('valeurRetenue');
+    });
     retainedField?.addEventListener('input', () => {
-        if (retainedField) retainedField.dataset.manual = retainedField.value.trim() === '' ? '0' : '1';
+        if (retainedField instanceof HTMLInputElement) {
+            retainedField.dataset.manual = retainedField.value.trim() === '' ? '0' : '1';
+        }
+        validateField('valeurRetenue');
+    });
+    documentField?.addEventListener('change', () => {
+        const file = documentField instanceof HTMLInputElement ? documentField.files?.[0] ?? null : null;
+        syncDocumentMeta(existingDocumentField instanceof HTMLInputElement ? existingDocumentField.value : '', file ? `Fichier selectionne: ${file.name}` : '');
+        validateField('documentJustificatif');
+    });
+
+    fieldNames.forEach((name) => {
+        if (name === 'valeurEstimee' || name === 'valeurRetenue' || name === 'documentJustificatif') return;
+        const field = fieldElement(name);
+        if (!field) return;
+        field.addEventListener('input', () => validateField(name));
+        field.addEventListener('change', () => validateField(name));
+        field.addEventListener('blur', () => validateField(name));
     });
 
     form.addEventListener('reset', () => {
         requestAnimationFrame(() => {
-            if (idField) idField.value = '';
-            if (retainedField) retainedField.dataset.manual = '0';
-            if (dateField && !dateField.value) dateField.value = '{{ current_date }}';
+            if (idField instanceof HTMLInputElement) idField.value = '';
+            if (retainedField instanceof HTMLInputElement) retainedField.dataset.manual = '0';
+            if (dateField instanceof HTMLInputElement) dateField.value = currentDateIso;
+            if (documentField instanceof HTMLInputElement) documentField.value = '';
+            syncDocumentMeta('', '');
+            fieldNames.forEach((name) => clearValid(fieldElement(name), messageElement(name)));
             syncRetained();
         });
     });
 
+    form.addEventListener('submit', (event) => {
+        if (retainedField instanceof HTMLInputElement && retainedField.value.trim() === '') {
+            retainedField.dataset.manual = '0';
+            syncRetained();
+        }
+        if (!validateForm()) {
+            event.preventDefault();
+        }
+    });
+
     const setFieldValue = (name, value) => {
-        const f = form.querySelector(`[name="${name}"]`);
-        if (f) f.value = value ?? '';
+        const field = fieldElement(name);
+        if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement) {
+            field.value = value ?? '';
+        }
     };
 
     document.querySelectorAll('.js-garantie-edit').forEach((btn) => {
         btn.addEventListener('click', () => {
             const row = btn.closest('[data-garantie-row]');
             if (!row) return;
-            setFieldValue('idGarantie',          row.dataset.garantieId ?? '');
-            setFieldValue('idCredit',             row.dataset.garantieCreditId ?? '');
-            setFieldValue('typeGarantie',         row.dataset.garantieType ?? '');
-            setFieldValue('description',          row.dataset.garantieDescription ?? '');
-            setFieldValue('adresseBien',          row.dataset.garantieAddress ?? '');
-            setFieldValue('valeurEstimee',        row.dataset.garantieEstimated ?? '');
-            setFieldValue('valeurRetenue',        row.dataset.garantieRetained ?? '');
-            setFieldValue('documentJustificatif', row.dataset.garantieDocument ?? '');
-            setFieldValue('dateEvaluation',       (row.dataset.garantieDate ?? '').slice(0,10));
-            setFieldValue('nomGarant',            row.dataset.garantieGuarantor ?? '');
-            if (retainedField) retainedField.dataset.manual = (row.dataset.garantieRetained ?? '').trim() !== '' ? '1' : '0';
+            setFieldValue('idGarantie', row.dataset.garantieId ?? '');
+            setFieldValue('idCredit', row.dataset.garantieCreditId ?? '');
+            setFieldValue('typeGarantie', row.dataset.garantieType ?? '');
+            setFieldValue('description', row.dataset.garantieDescription ?? '');
+            setFieldValue('adresseBien', row.dataset.garantieAddress ?? '');
+            setFieldValue('valeurEstimee', row.dataset.garantieEstimated ?? '');
+            setFieldValue('valeurRetenue', row.dataset.garantieRetained ?? '');
+            setFieldValue('dateEvaluation', (row.dataset.garantieDate ?? '').slice(0, 10));
+            setFieldValue('nomGarant', row.dataset.garantieGuarantor ?? '');
+            if (documentField instanceof HTMLInputElement) documentField.value = '';
+            syncDocumentMeta(row.dataset.garantieDocument ?? '', '');
+            if (retainedField instanceof HTMLInputElement) retainedField.dataset.manual = (row.dataset.garantieRetained ?? '').trim() !== '' ? '1' : '0';
             syncRetained();
+            validateForm();
             form.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
     });
-})();
-</script>
 
-<style>
-.g-val-msg{font-size:12px;font-weight:600;margin-top:4px;display:block;min-height:16px}
-.g-val-msg.ok{color:#16a34a}
-.g-val-msg.err{color:#dc2626}
-#portal-garantie-form input.g-invalid,
-#portal-garantie-form select.g-invalid{border-color:#dc2626!important;box-shadow:0 0 0 3px rgba(220,38,38,.12)!important;background:#fff5f5!important}
-#portal-garantie-form input.g-valid,
-#portal-garantie-form select.g-valid{border-color:#16a34a!important;box-shadow:0 0 0 3px rgba(22,163,74,.1)!important;background:#f0fdf4!important}
-</style>
-<script>
-(function(){
-function g(id){return document.getElementById(id);}
-function setOk(inputId,spanId){
-  var el=g(inputId),s=g(spanId);
-  if(el){el.classList.remove('g-invalid');el.classList.add('g-valid');}
-  if(s){s.className='g-val-msg ok';s.textContent='✓ Valide';}
-  return true;
-}
-function setErr(inputId,spanId,msg){
-  var el=g(inputId),s=g(spanId);
-  if(el){el.classList.remove('g-valid');el.classList.add('g-invalid');}
-  if(s){s.className='g-val-msg err';s.textContent='⚠ '+msg;}
-  return false;
-}
-function clr(inputId,spanId){
-  var el=g(inputId),s=g(spanId);
-  if(el){el.classList.remove('g-valid','g-invalid');}
-  if(s){s.className='g-val-msg';s.textContent='';}
-  return true;
-}
-
-function vIdCredit(){
-  var el=g('portal-garantie-credit');
-  if(!el)return true;
-  return el.value?setOk('portal-garantie-credit','g-err-idCredit'):setErr('portal-garantie-credit','g-err-idCredit','Le crédit lié est obligatoire.');
-}
-function vTypeGarantie(){
-  var el=g('portal-garantie-type');
-  if(!el)return true;
-  return el.value?setOk('portal-garantie-type','g-err-typeGarantie'):setErr('portal-garantie-type','g-err-typeGarantie','Le type de garantie est obligatoire.');
-}
-function vDescription(){
-  var el=g('portal-garantie-description');
-  if(!el)return true;
-  var v=el.value.trim();
-  if(!v)return setErr('portal-garantie-description','g-err-description','La description est obligatoire.');
-  if(v.length<10)return setErr('portal-garantie-description','g-err-description','Min. 10 caractères.');
-  if(v.length>1000)return setErr('portal-garantie-description','g-err-description','Max. 1000 caractères.');
-  return setOk('portal-garantie-description','g-err-description');
-}
-function vAdresse(){
-  var el=g('portal-garantie-address');
-  if(!el)return true;
-  var v=el.value.trim();
-  if(!v)return setErr('portal-garantie-address','g-err-adresseBien',"L'adresse du bien est obligatoire.");
-  if(v.length<5)return setErr('portal-garantie-address','g-err-adresseBien','Min. 5 caractères.');
-  return setOk('portal-garantie-address','g-err-adresseBien');
-}
-function vValeurEstimee(){
-  var el=g('portal-garantie-estimated');
-  if(!el)return true;
-  if(!el.value)return setErr('portal-garantie-estimated','g-err-valeurEstimee','La valeur estimée est obligatoire.');
-  var v=parseFloat(el.value);
-  if(v<=0)return setErr('portal-garantie-estimated','g-err-valeurEstimee','Doit être un nombre positif.');
-  if(v<1000||v>100000000)return setErr('portal-garantie-estimated','g-err-valeurEstimee','Entre 1 000 et 100 000 000 DT.');
-  return setOk('portal-garantie-estimated','g-err-valeurEstimee');
-}
-function vValeurRetenue(){
-  var el=g('portal-garantie-retained');
-  if(!el||el.value==='')return clr('portal-garantie-retained','g-err-valeurRetenue');
-  var v=parseFloat(el.value);
-  if(isNaN(v)||v<0)return setErr('portal-garantie-retained','g-err-valeurRetenue','Doit être positive ou nulle.');
-  var est=g('portal-garantie-estimated');
-  if(est&&est.value&&v>parseFloat(est.value))return setErr('portal-garantie-retained','g-err-valeurRetenue','Ne peut pas dépasser la valeur estimée.');
-  return setOk('portal-garantie-retained','g-err-valeurRetenue');
-}
-function vDate(){
-  var el=g('portal-garantie-date');
-  if(!el)return true;
-  if(!el.value)return setErr('portal-garantie-date','g-err-dateEvaluation',"La date d'évaluation est obligatoire.");
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(el.value))return setErr('portal-garantie-date','g-err-dateEvaluation','Format requis : AAAA-MM-JJ.');
-  return setOk('portal-garantie-date','g-err-dateEvaluation');
-}
-function vDocument(){
-  var el=g('portal-garantie-document');
-  if(!el)return true;
-  var v=el.value.trim();
-  if(!v)return setErr('portal-garantie-document','g-err-documentJustificatif','Le document justificatif est obligatoire.');
-  if(v.length>255)return setErr('portal-garantie-document','g-err-documentJustificatif','Max. 255 caractères.');
-  return setOk('portal-garantie-document','g-err-documentJustificatif');
-}
-function vNomGarant(){
-  var el=g('portal-garantie-guarantor');
-  if(!el)return true;
-  var v=el.value.trim();
-  if(!v)return setErr('portal-garantie-guarantor','g-err-nomGarant','Le nom du garant est obligatoire.');
-  if(v.length<2)return setErr('portal-garantie-guarantor','g-err-nomGarant','Min. 2 caractères.');
-  if(v.length>150)return setErr('portal-garantie-guarantor','g-err-nomGarant','Max. 150 caractères.');
-  return setOk('portal-garantie-guarantor','g-err-nomGarant');
-}
-
-/* Live validation */
-var liveMap={
-  'portal-garantie-credit':vIdCredit,
-  'portal-garantie-type':vTypeGarantie,
-  'portal-garantie-description':vDescription,
-  'portal-garantie-address':vAdresse,
-  'portal-garantie-estimated':vValeurEstimee,
-  'portal-garantie-retained':vValeurRetenue,
-  'portal-garantie-date':vDate,
-  'portal-garantie-document':vDocument,
-  'portal-garantie-guarantor':vNomGarant
-};
-Object.keys(liveMap).forEach(function(id){
-  var el=g(id);
-  if(!el)return;
-  ['input','change','blur'].forEach(function(ev){
-    el.addEventListener(ev,liveMap[id]);
-  });
-});
-
-/* Submit */
-var form=g('portal-garantie-form');
-if(form){
-  form.addEventListener('submit',function(e){
-    var ok=vIdCredit()&vTypeGarantie()&vDescription()&vAdresse()&vValeurEstimee()&vDate()&vDocument()&vNomGarant();
-    vValeurRetenue();
-    if(!ok)e.preventDefault();
-  });
-}
+    syncDocumentMeta(existingDocumentField instanceof HTMLInputElement ? existingDocumentField.value : '', '');
 })();
 </script>

@@ -27,6 +27,8 @@ use Symfony\Component\Routing\Attribute\Route;
 
 final class PortalController extends AbstractController
 {
+    private const FORM_FEEDBACK_SESSION_KEY = 'portal.form_feedback';
+
     public function __construct(
         private readonly AccountsSectionController $accountsSectionController,
         private readonly CoffrevirtuelleSectionController $coffrevirtuelleSectionController,
@@ -179,11 +181,30 @@ final class PortalController extends AbstractController
     ): void {
         $action = (string) $request->request->get('action', '');
         $userId = (int) $user['idUser'];
-        $profileImagePath = $action === 'profile_save'
-            ? $this->handleProfileImageUpload($request, 'profile_image')
-            : null;
 
         try {
+            $profileImagePath = $action === 'profile_save'
+                ? $this->handleProfileImageUpload($request, 'profile_image')
+                : null;
+
+            if ($action === 'garantie_save') {
+                $existingDocument = trim((string) $request->request->get('existingDocumentJustificatif', ''));
+                if ($existingDocument !== '') {
+                    $request->request->set('documentJustificatif', $existingDocument);
+                }
+                $uploadedDocument = $this->handlePortalImageUpload(
+                    $request,
+                    'documentJustificatifFile',
+                    'uploads/garanties',
+                    'garantie_doc',
+                    'Le document justificatif'
+                );
+
+                if ($uploadedDocument !== null) {
+                    $request->request->set('documentJustificatif', $uploadedDocument);
+                }
+            }
+
             $accountsFlash = $this->accountsSectionController->handlePortalAction($action, $request, $bankingService, $userId);
 
             foreach ([
@@ -215,6 +236,10 @@ final class PortalController extends AbstractController
                     break;
             }
         } catch (\Throwable $exception) {
+            if ($this->capturePortalFormFeedback($request, $action, $exception)) {
+                return;
+            }
+
             $this->addFlash('error', $exception->getMessage());
         }
     }
@@ -249,18 +274,20 @@ final class PortalController extends AbstractController
             $queryParams = $request->query->all();
             $data = $this->mergeTabData($data, $this->transactionsSectionController->buildPortalData($bankingService, $userId, $queryParams));
         } elseif ($tab === 'credits') {
-            $creditsData = $this->creditsSectionController->buildPortalData($bankingService, $userId);
-            $garantiesData = $this->garantiesSectionController->buildPortalData($bankingService, $userId);
+            $creditsData = $this->creditsSectionController->buildPortalData($bankingService, $userId, $request);
+            $garantiesData = $this->garantiesSectionController->buildPortalData($bankingService, $userId, $request);
             $data = $this->mergeTabData($data, $creditsData);
             $data = $this->mergeTabData($data, $garantiesData);
             $data['items'] = $creditsData['items'] ?? [];
+            $data['support'] = array_replace($data['support'], $this->consumePortalFormFeedback($request));
         } elseif ($tab === 'garanties') {
-            $garantiesData = $this->garantiesSectionController->buildPortalData($bankingService, $userId);
-            $creditsData = $this->creditsSectionController->buildPortalData($bankingService, $userId);
+            $garantiesData = $this->garantiesSectionController->buildPortalData($bankingService, $userId, $request);
+            $creditsData = $this->creditsSectionController->buildPortalData($bankingService, $userId, $request);
             $data = $this->mergeTabData($data, $creditsData);
             $data = $this->mergeTabData($data, $garantiesData);
             $data['items'] = $garantiesData['items'] ?? [];
             $data['support']['credits'] = $creditsData['items'] ?? [];
+            $data['support'] = array_replace($data['support'], $this->consumePortalFormFeedback($request));
         } elseif ($tab === 'cashback') {
             $cashbackData = $this->cashbackSectionController->buildPortalData($bankingService, $userId);
             $partnersData = $this->partnersSectionController->buildPortalData($bankingService);
@@ -319,6 +346,108 @@ final class PortalController extends AbstractController
         ];
     }
 
+    private function capturePortalFormFeedback(Request $request, string $action, \Throwable $exception): bool
+    {
+        $formKey = match ($action) {
+            'credit_save' => 'credit',
+            'garantie_save' => 'garantie',
+            default => null,
+        };
+
+        if ($formKey === null) {
+            return false;
+        }
+
+        $errors = $this->mapPortalFormErrors($formKey, $exception->getMessage());
+        if ($errors === []) {
+            return false;
+        }
+
+        $session = $request->getSession();
+        $feedback = $session->get(self::FORM_FEEDBACK_SESSION_KEY, []);
+        if (!is_array($feedback)) {
+            $feedback = [];
+        }
+
+        $feedback[$formKey.'_form_feedback'] = [
+            'errors' => $errors,
+            'input' => $this->sanitizePortalFormInput($formKey, $request->request->all()),
+        ];
+
+        $session->set(self::FORM_FEEDBACK_SESSION_KEY, $feedback);
+
+        return true;
+    }
+
+    private function consumePortalFormFeedback(Request $request): array
+    {
+        $session = $request->getSession();
+        $feedback = $session->get(self::FORM_FEEDBACK_SESSION_KEY, []);
+        $session->remove(self::FORM_FEEDBACK_SESSION_KEY);
+
+        return is_array($feedback) ? $feedback : [];
+    }
+
+    private function sanitizePortalFormInput(string $formKey, array $input): array
+    {
+        $allowedFields = match ($formKey) {
+            'credit' => ['idCredit', 'idCompte', 'typeCredit', 'dateDemande', 'montantDemande', 'autofinancement', 'duree', 'tauxInteret', 'mensualite', 'montantAccorde', 'salaire', 'typeContrat', 'ancienneteAnnees', 'statut'],
+            'garantie' => ['idGarantie', 'idCredit', 'typeGarantie', 'valeurEstimee', 'valeurRetenue', 'dateEvaluation', 'nomGarant', 'adresseBien', 'documentJustificatif', 'description', 'statut'],
+            default => [],
+        };
+
+        $clean = [];
+        foreach ($allowedFields as $field) {
+            $clean[$field] = (string) ($input[$field] ?? '');
+        }
+
+        return $clean;
+    }
+
+    private function mapPortalFormErrors(string $formKey, string $message): array
+    {
+        $fieldPatterns = match ($formKey) {
+            'credit' => [
+                'idCompte' => ['Le compte associe est obligatoire', 'Compte requis pour le credit', 'Compte introuvable', 'Le compte selectionne n\'appartient pas a l\'utilisateur choisi'],
+                'typeCredit' => ['Le type de credit est obligatoire'],
+                'dateDemande' => ['La date de demande est obligatoire', 'Date de demande invalide', 'La date doit etre au format'],
+                'montantDemande' => ['Le montant demande est obligatoire', 'Le montant demande doit etre un nombre positif', 'Le montant doit etre compris', 'Montant demande invalide'],
+                'autofinancement' => ['autofinancement doit etre positif ou nul', 'Autofinancement invalide'],
+                'duree' => ['La duree est obligatoire', 'La duree doit etre comprise', 'Duree invalide'],
+                'tauxInteret' => ['Le taux d\'interet est obligatoire', 'Le taux d\'interet doit etre compris'],
+                'mensualite' => ['La mensualite doit etre un nombre positif', 'Mensualite invalide'],
+                'montantAccorde' => ['Le montant accorde doit etre positif ou nul', 'Montant accorde invalide'],
+                'salaire' => ['Le salaire est obligatoire', 'Le salaire doit etre un nombre positif', 'Le salaire doit etre compris'],
+                'typeContrat' => ['Le type de contrat est obligatoire', 'Le type de contrat ne peut pas depasser'],
+                'ancienneteAnnees' => ['anciennete est obligatoire', 'anciennete doit etre comprise'],
+            ],
+            'garantie' => [
+                'idCredit' => ['L\'identifiant du credit est obligatoire', 'L\'identifiant du credit doit etre un entier positif', 'Credit associe introuvable'],
+                'typeGarantie' => ['Le type de garantie est obligatoire', 'Le type doit contenir au moins', 'Le type ne peut pas depasser'],
+                'valeurEstimee' => ['La valeur estimee est obligatoire', 'La valeur estimee doit etre un nombre positif', 'La valeur estimee doit etre comprise'],
+                'valeurRetenue' => ['La valeur retenue doit etre positive', 'Valeur retenue invalide', 'La valeur retenue ne peut pas depasser la valeur estimee'],
+                'dateEvaluation' => ['La date d\'evaluation est obligatoire', 'Date d\'evaluation invalide', 'La date doit etre au format'],
+                'nomGarant' => ['Le nom du garant est obligatoire', 'Le nom doit contenir au moins', 'Le nom du garant ne doit contenir que des lettres'],
+                'adresseBien' => ['L\'adresse du bien est obligatoire', 'L\'adresse doit contenir au moins', 'Cette adresse de garantie est deja utilisee'],
+                'documentJustificatif' => ['Le document justificatif est obligatoire', 'Le nom du document ne peut pas depasser', 'Le document justificatif doit etre une image', 'Le document justificatif n a pas pu etre televerse'],
+                'description' => ['La description est obligatoire', 'La description doit contenir au moins', 'La description ne peut pas depasser'],
+            ],
+            default => [],
+        };
+
+        $errors = [];
+        foreach ($fieldPatterns as $field => $patterns) {
+            foreach ($patterns as $pattern) {
+                if (stripos($message, $pattern) !== false) {
+                    $errors[$field] = rtrim($pattern, '.').'.';
+                    break;
+                }
+            }
+        }
+
+        return $errors;
+    }
+
     private function handleProfileImageUpload(Request $request, string $fieldName): ?string
     {
         $file = $request->files->get($fieldName);
@@ -352,6 +481,46 @@ final class PortalController extends AbstractController
         $file->move($targetDirectory, $fileName);
 
         return 'uploads/profile/'.$fileName;
+    }
+
+    private function handlePortalImageUpload(
+        Request $request,
+        string $fieldName,
+        string $targetFolder,
+        string $filePrefix,
+        string $label
+    ): ?string {
+        $file = $request->files->get($fieldName);
+        if (!$file instanceof UploadedFile) {
+            return null;
+        }
+
+        if (!$file->isValid()) {
+            throw new \RuntimeException($label.' n a pas pu etre televerse.');
+        }
+
+        $allowedMimeTypes = [
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+            'image/gif' => 'gif',
+        ];
+
+        $mimeType = (string) $file->getMimeType();
+        if (!array_key_exists($mimeType, $allowedMimeTypes)) {
+            throw new \InvalidArgumentException($label.' doit etre une image JPG, PNG, WEBP ou GIF.');
+        }
+
+        $projectDir = (string) $this->getParameter('kernel.project_dir');
+        $absoluteTargetDirectory = $projectDir.'/public/'.$targetFolder;
+        if (!is_dir($absoluteTargetDirectory) && !mkdir($absoluteTargetDirectory, 0777, true) && !is_dir($absoluteTargetDirectory)) {
+            throw new \RuntimeException('Impossible de creer le dossier de televersement.');
+        }
+
+        $fileName = sprintf('%s_%s.%s', $filePrefix, bin2hex(random_bytes(10)), $allowedMimeTypes[$mimeType]);
+        $file->move($absoluteTargetDirectory, $fileName);
+
+        return trim($targetFolder, '/').'/'.$fileName;
     }
 
     private function resolvePortalTabTemplate(string $tab): string

@@ -2,7 +2,11 @@
 
 namespace App\Service;
 
+use App\Form\CreditType;
+use App\Form\GarantiecreditType;
 use Doctrine\DBAL\Connection;
+use Symfony\Component\Form\FormFactoryInterface;
+use Symfony\Component\Form\FormInterface;
 
 final class BankingService
 {
@@ -22,6 +26,7 @@ final class BankingService
         private readonly LegacyBankingSecurity $security,
         private readonly NotificationService $notificationService,
         private readonly ActivityService $activityService,
+        private readonly FormFactoryInterface $formFactory,
     ) {
     }
 
@@ -457,10 +462,13 @@ final class BankingService
             $id = null;
         }
 
-        $accountId = (int) ($data['idCompte'] ?? 0);
-        if ($accountId <= 0) {
-            throw new \InvalidArgumentException('Compte requis pour le credit.');
-        }
+        $validatedData = $this->validateCrudInput(
+            CreditType::class,
+            array_replace($data, ['idUser' => $forcedUserId ?? ($data['idUser'] ?? null)]),
+            'Donnees du credit invalides.'
+        );
+
+        $accountId = (int) ($validatedData['idCompte'] ?? 0);
 
         $account = $this->connection->fetchAssociative(
             'SELECT idCompte, idUser FROM compte WHERE idCompte = ? LIMIT 1',
@@ -471,7 +479,7 @@ final class BankingService
         }
 
         $accountOwnerId = $this->nullableInt($account['idUser'] ?? null);
-        $requestedUserId = $forcedUserId ?? $this->nullableInt($data['idUser'] ?? null);
+        $requestedUserId = $forcedUserId ?? $this->nullableInt($validatedData['idUser'] ?? null);
         if ($accountOwnerId !== null && $requestedUserId !== null && $requestedUserId !== $accountOwnerId) {
             throw new \InvalidArgumentException('Le compte selectionne n\'appartient pas a l\'utilisateur choisi.');
         }
@@ -481,42 +489,30 @@ final class BankingService
             throw new \InvalidArgumentException('Utilisateur requis pour enregistrer un credit.');
         }
 
-        $typeCredit = trim((string) ($data['typeCredit'] ?? ''));
-        if ($typeCredit === '') {
-            throw new \InvalidArgumentException('Type de credit requis.');
-        }
-
-        $amount = (float) ($data['montantDemande'] ?? 0);
-        if ($amount <= 0) {
-            throw new \InvalidArgumentException('Montant demande invalide.');
-        }
-
-        $rate = max(0, (float) ($data['tauxInteret'] ?? 0));
-        $duration = (int) ($data['duree'] ?? 0);
-        if ($duration <= 0) {
-            throw new \InvalidArgumentException('Duree invalide.');
-        }
-
-        $autoFunding = ($data['autofinancement'] ?? '') !== '' ? (float) $data['autofinancement'] : null;
+        $typeCredit = trim((string) ($validatedData['typeCredit'] ?? ''));
+        $amount = (float) ($validatedData['montantDemande'] ?? 0);
+        $rate = max(0, (float) ($validatedData['tauxInteret'] ?? 0));
+        $duration = (int) ($validatedData['duree'] ?? 0);
+        $autoFunding = $validatedData['autofinancement'] !== null ? (float) $validatedData['autofinancement'] : null;
         if ($autoFunding !== null && $autoFunding < 0) {
             throw new \InvalidArgumentException('Autofinancement invalide.');
         }
 
-        $monthlyPayment = ($data['mensualite'] ?? '') !== ''
-            ? (float) $data['mensualite']
+        $monthlyPayment = $validatedData['mensualite'] !== null
+            ? (float) $validatedData['mensualite']
             : $this->calculateMonthlyPayment($amount, $rate, $duration);
         if ($monthlyPayment <= 0) {
             throw new \InvalidArgumentException('Mensualite invalide.');
         }
 
-        $approvedAmount = ($data['montantAccorde'] ?? '') !== ''
-            ? (float) $data['montantAccorde']
+        $approvedAmount = $validatedData['montantAccorde'] !== null
+            ? (float) $validatedData['montantAccorde']
             : $amount;
         if ($approvedAmount < 0) {
             throw new \InvalidArgumentException('Montant accorde invalide.');
         }
 
-        $dateDemande = $this->normalizeIsoDateNotFuture((string) ($data['dateDemande'] ?? ''), 'Date de demande invalide.');
+        $dateDemande = $this->normalizeIsoDateNotFuture((string) ($validatedData['dateDemande'] ?? ''), 'Date de demande invalide.');
 
         $payload = [
             'idCompte' => $accountId,
@@ -530,9 +526,9 @@ final class BankingService
             'dateDemande' => $dateDemande,
             'statut' => $this->resolveStatusForSave('credit', 'idCredit', $data, $id, $forcedUserId),
             'idUser' => $effectiveUserId,
-            'salaire' => ($data['salaire'] ?? '') !== '' ? (float) $data['salaire'] : 0,
-            'typeContrat' => trim((string) ($data['typeContrat'] ?? '')),
-            'ancienneteAnnees' => max(0, (int) ($data['ancienneteAnnees'] ?? 0)),
+            'salaire' => (float) ($validatedData['salaire'] ?? 0),
+            'typeContrat' => trim((string) ($validatedData['typeContrat'] ?? '')),
+            'ancienneteAnnees' => max(0, (int) ($validatedData['ancienneteAnnees'] ?? 0)),
         ];
 
         if ($id === null) {
@@ -643,10 +639,13 @@ final class BankingService
             $id = null;
         }
 
-        $creditId = (int) ($data['idCredit'] ?? 0);
-        if ($creditId <= 0) {
-            throw new \InvalidArgumentException('Credit associe requis.');
-        }
+        $validatedData = $this->validateCrudInput(
+            GarantiecreditType::class,
+            array_replace($data, ['idUser' => $forcedUserId ?? ($data['idUser'] ?? null)]),
+            'Donnees de la garantie invalides.'
+        );
+
+        $creditId = (int) ($validatedData['idCredit'] ?? 0);
 
         $credit = $this->connection->fetchAssociative(
             'SELECT idCredit, idUser, typeCredit FROM credit WHERE idCredit = ? LIMIT 1',
@@ -656,18 +655,10 @@ final class BankingService
             throw new \RuntimeException('Credit associe introuvable.');
         }
 
-        $resolvedUserId = $forcedUserId ?? $this->nullableInt($data['idUser'] ?? null) ?? $this->nullableInt($credit['idUser'] ?? null);
-        $typeGarantie = trim((string) ($data['typeGarantie'] ?? ''));
-        if ($typeGarantie === '') {
-            throw new \InvalidArgumentException('Type de garantie requis.');
-        }
-
-        $estimated = (float) ($data['valeurEstimee'] ?? 0);
-        if ($estimated <= 0) {
-            throw new \InvalidArgumentException('Valeur estimee invalide.');
-        }
-
-        $retained = ($data['valeurRetenue'] ?? '') !== '' ? (float) $data['valeurRetenue'] : round($estimated * 0.8, 2);
+        $resolvedUserId = $forcedUserId ?? $this->nullableInt($validatedData['idUser'] ?? null) ?? $this->nullableInt($credit['idUser'] ?? null);
+        $typeGarantie = trim((string) ($validatedData['typeGarantie'] ?? ''));
+        $estimated = (float) ($validatedData['valeurEstimee'] ?? 0);
+        $retained = $validatedData['valeurRetenue'] !== null ? (float) $validatedData['valeurRetenue'] : round($estimated * 0.8, 2);
         if ($retained <= 0) {
             throw new \InvalidArgumentException('Valeur retenue invalide.');
         }
@@ -675,22 +666,22 @@ final class BankingService
             throw new \InvalidArgumentException('La valeur retenue ne peut pas depasser la valeur estimee.');
         }
 
-        $address = trim((string) ($data['adresseBien'] ?? ''));
+        $address = trim((string) ($validatedData['adresseBien'] ?? ''));
         if ($resolvedUserId !== null && $address !== '' && $this->isGarantieAddressAlreadyUsed($resolvedUserId, $address, $id, $creditId)) {
             throw new \InvalidArgumentException('Cette adresse de garantie est deja utilisee sur un autre credit actif.');
         }
 
-        $dateEvaluation = $this->normalizeIsoDateNotFuture((string) ($data['dateEvaluation'] ?? ''), 'Date d\'evaluation invalide.');
+        $dateEvaluation = $this->normalizeIsoDateNotFuture((string) ($validatedData['dateEvaluation'] ?? ''), 'Date d\'evaluation invalide.');
         $payload = [
             'idCredit' => $creditId,
             'typeGarantie' => $typeGarantie,
-            'description' => trim((string) ($data['description'] ?? '')),
+            'description' => trim((string) ($validatedData['description'] ?? '')),
             'adresseBien' => $address,
             'valeurEstimee' => $estimated,
             'valeurRetenue' => $retained,
-            'documentJustificatif' => trim((string) ($data['documentJustificatif'] ?? '')),
+            'documentJustificatif' => trim((string) ($validatedData['documentJustificatif'] ?? '')),
             'dateEvaluation' => $dateEvaluation,
-            'nomGarant' => trim((string) ($data['nomGarant'] ?? '')),
+            'nomGarant' => trim((string) ($validatedData['nomGarant'] ?? '')),
             'statut' => $this->resolveStatusForSave('garantiecredit', 'idGarantie', $data, $id, $forcedUserId),
             'idUser' => $resolvedUserId ?? 0,
         ];
@@ -707,7 +698,7 @@ final class BankingService
                     'GARANTIE_CREATE',
                     'Garantie enregistree',
                     sprintf(
-                        'Votre garantie #%d (%s) a ete enregistree pour le credit #%d (%s).',
+                        'Votre garantie #%d (%s) a ete enregistree avec le credit associe #%d (%s).',
                         $createdId,
                         $typeGarantie,
                         $creditId,
@@ -730,7 +721,7 @@ final class BankingService
                 'GARANTIE_UPDATE',
                 'Garantie mise a jour',
                 sprintf(
-                    'Votre garantie #%d (%s) a ete mise a jour pour le credit #%d (%s).',
+                    'Votre garantie #%d (%s) a ete mise a jour avec le credit associe #%d (%s).',
                     (int) $id,
                     $typeGarantie,
                     $creditId,
@@ -761,7 +752,7 @@ final class BankingService
                 'GARANTIE_DELETE',
                 'Garantie supprimee',
                 sprintf(
-                    'La garantie #%d (%s) liee au credit #%d (%s) a ete supprimee.',
+                    'La garantie #%d (%s) et son credit associe #%d (%s) ont ete dissocies puis supprimes.',
                     $id,
                     (string) ($existing['typeGarantie'] ?? 'Garantie'),
                     (int) ($existing['idCredit'] ?? 0),
@@ -1153,11 +1144,37 @@ final class BankingService
         }
 
         $today = new \DateTimeImmutable('today');
-        if ($date > $today) {
+        if ($date < $today) {
             throw new \InvalidArgumentException($errorMessage);
         }
 
         return $date->format('Y-m-d');
+    }
+
+    private function validateCrudInput(string $formType, array $data, string $fallbackMessage): array
+    {
+        $form = $this->formFactory->create($formType);
+        $form->submit($data);
+
+        if (!$form->isValid()) {
+            throw new \InvalidArgumentException($this->buildFormErrorMessage($form, $fallbackMessage));
+        }
+
+        return $form->getData();
+    }
+
+    private function buildFormErrorMessage(FormInterface $form, string $fallbackMessage): string
+    {
+        $messages = [];
+
+        foreach ($form->getErrors(true) as $error) {
+            $message = trim((string) $error->getMessage());
+            if ($message !== '' && !in_array($message, $messages, true)) {
+                $messages[] = $message;
+            }
+        }
+
+        return $messages !== [] ? implode(' ', $messages) : $fallbackMessage;
     }
 
     private function isGarantieAddressAlreadyUsed(int $userId, string $adresseBien, ?int $excludeGarantieId = null, ?int $currentCreditId = null): bool
