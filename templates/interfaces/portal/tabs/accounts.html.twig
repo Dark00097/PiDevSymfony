@@ -1,0 +1,1265 @@
+﻿{% set activity_logs = support.activity|default([]) %}
+{% set account_history = support.account_history|default([]) %}
+{% set all_accounts = support.all_accounts|default(items) %}
+{% set account_query = support.account_query|default({ q: '', search_in: 'all', filter: 'all', sort: '', dir: 'asc' }) %}
+{% set filter_counts = support.account_filter_counts|default({ all: all_accounts|length, courant: 0, professionnel: 0, epargne: 0 }) %}
+{% set query_state = {
+    tab: 'accounts',
+    q: account_query.q|default(''),
+    search_in: account_query.search_in|default('all'),
+    filter: account_query.filter|default('all'),
+    sort: account_query.sort|default(''),
+    dir: account_query.dir|default('asc')
+} %}
+{% set total_accounts = all_accounts|length %}
+{% set total_balance = 0 %}
+{% set active_count = 0 %}
+{% set blocked_count = 0 %}
+{% set courant_count = 0 %}
+{% set pro_count = 0 %}
+{% set epargne_count = 0 %}
+{% for account in all_accounts %}
+    {% set balance = account.solde|default(0) + 0 %}
+    {% set total_balance = total_balance + balance %}
+    {% set status_key = account.statutCompte|default('Actif')|lower %}
+    {% set type_key = account.typeCompte|default('Courant')|lower %}
+    {% if 'actif' in status_key %}{% set active_count = active_count + 1 %}{% endif %}
+    {% if 'bloq' in status_key %}{% set blocked_count = blocked_count + 1 %}{% endif %}
+    {% if 'cour' in type_key %}{% set courant_count = courant_count + 1 %}{% endif %}
+    {% if 'prof' in type_key %}{% set pro_count = pro_count + 1 %}{% endif %}
+    {% if 'epa' in type_key or 'épa' in type_key %}{% set epargne_count = epargne_count + 1 %}{% endif %}
+{% endfor %}
+{% set health_label = blocked_count > 0 ? 'A surveiller' : 'Excellent' %}
+{% set selected_id = app.request.query.get('selected_account')|default('') %}
+{% set account_errors = support.form_errors_compte|default({}) %}
+{% set account_data = support.form_data_compte|default({}) %}
+{% set vault_errors = support.form_errors_vault|default({}) %}
+{% set vault_data = support.form_data_vault|default({}) %}
+
+<style>
+.acc-page{display:flex;flex-direction:column;gap:22px}
+.acc-hero{background:linear-gradient(90deg,#123a63 0%,#0f8a86 55%,#1fd1a7 100%);border-radius:20px;padding:18px 22px;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:22px;color:#fff;box-shadow:0 18px 40px rgba(15,40,72,.18)}
+.acc-hero-brand{display:flex;align-items:center;gap:14px}
+.acc-hero-icon{width:54px;height:54px;border-radius:16px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;font-size:22px}
+.acc-hero-title{margin:0;font-size:21px;font-weight:900;color:#fff}
+.acc-hero-sub{margin:4px 0 0;font-size:12px;color:rgba(255,255,255,.78)}
+.acc-hero-metrics{display:flex;align-items:center;justify-content:center;gap:20px}
+.acc-hero-metric{display:flex;flex-direction:column;align-items:center;min-width:86px}
+.acc-hero-metric strong{font-size:17px;font-weight:900;line-height:1}
+.acc-hero-metric span{margin-top:4px;font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.72)}
+.acc-hero-divider{width:1px;height:34px;background:rgba(255,255,255,.25)}
+.acc-hero-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.acc-hero-btn{height:36px;padding:0 14px;border-radius:999px;border:1px solid rgba(255,255,255,.24);background:rgba(255,255,255,.12);color:#fff;text-decoration:none;font:inherit;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:7px;cursor:pointer}
+.acc-hero-btn.ai{background:linear-gradient(120deg,#7c3aed,#4f46e5);border-color:transparent}
+.acc-hero-btn.cta{background:#fff;color:#102a43;border-color:#fff}
+.acc-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
+.acc-stat{background:#fff;border:1px solid #dbe8f4;border-radius:22px;padding:22px 24px;box-shadow:0 12px 30px rgba(15,40,72,.08);display:flex;flex-direction:column;gap:16px;position:relative;overflow:hidden}
+.acc-stat::after{content:'';position:absolute;inset:auto 0 0 0;height:4px;background:linear-gradient(90deg,#18c6bf,#6ea8ff)}
+.acc-stat-head{display:flex;align-items:flex-start;gap:12px}
+.acc-stat-icon{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:18px;color:#14b8a6;background:#e8fffb;flex-shrink:0}
+.acc-stat:nth-child(2) .acc-stat-icon{color:#2563eb;background:#eef4ff}
+.acc-stat:nth-child(3) .acc-stat-icon{color:#7c3aed;background:#f3e8ff}
+.acc-stat:nth-child(4) .acc-stat-icon{color:#0f766e;background:#ecfeff}
+.acc-stat-label{font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#2f6ce5}
+.acc-stat-sub{display:block;margin-top:2px;font-size:13px;color:#7087a0}
+.acc-stat-value{font-size:22px;font-weight:900;color:#102a43;line-height:1}
+.acc-stat-value small{font-size:14px;font-weight:700;color:#7b92a9}
+.acc-stat-health{font-size:18px;font-weight:900;color:#1d4ed8;display:flex;align-items:center;gap:10px}
+.acc-stat-health i{color:#14b8a6}
+.acc-body{display:grid;grid-template-columns:minmax(420px,520px) minmax(0,1fr);gap:20px;align-items:start}
+.acc-form-card,.acc-board{background:#fff;border:1px solid #dbe8f4;border-radius:26px;box-shadow:0 14px 36px rgba(15,40,72,.08);overflow:hidden}
+.acc-panel-head{padding:18px 24px;display:flex;align-items:center;gap:14px;background:linear-gradient(90deg,#0a2540 0%,#0f8a86 60%,#1fd1a7 100%);border-bottom:none}
+.acc-panel-icon{width:48px;height:48px;border-radius:16px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;color:#fff;font-size:19px;border:1px solid rgba(255,255,255,.2)}
+.acc-panel-head h2{margin:0;font-size:20px;font-weight:800;color:#fff}
+.acc-panel-head p{margin:4px 0 0;font-size:13px;color:rgba(255,255,255,.7)}
+.acc-voice{display:flex;align-items:center;gap:14px;padding:16px 24px;background:linear-gradient(90deg,#0d9488,#0891b2);color:#fff}
+.acc-voice i{font-size:18px}
+.acc-voice strong{display:block;font-size:15px}
+.acc-voice span{font-size:13px;color:rgba(255,255,255,.8)}
+.acc-form{padding:24px;display:flex;flex-direction:column;gap:18px;background:linear-gradient(180deg,#ffffff 0%,#f8fcff 100%)}
+.acc-form-block{border:1px solid #d8e7f2;border-radius:20px;background:#fff;box-shadow:0 8px 24px rgba(15,40,72,.06);overflow:hidden}
+.acc-form-block-head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid #e9f1f7;background:linear-gradient(90deg,#f5fbff,#eef8fb)}
+.acc-form-block-head i{color:#0f8a86;font-size:13px}
+.acc-form-block-head span{font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#0f5f7f}
+.acc-form-block-body{padding:16px;display:flex;flex-direction:column;gap:16px}
+.acc-grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.acc-field{display:flex;flex-direction:column;gap:8px}
+.acc-field label{font-size:14px;font-weight:700;color:#102a43;line-height:1.2}
+.acc-field input,.acc-field select{height:52px;border-radius:15px;border:1px solid #cfe0ed;background:#fff;padding:0 16px;font:inherit;color:#102a43;outline:none;transition:border-color .18s,box-shadow .18s,background .18s}
+.acc-field input.acc-invalid,.acc-field select.acc-invalid,.acc-input-group.acc-invalid{border-color:#dc2626 !important;box-shadow:0 0 0 3px rgba(220,38,38,.12) !important;background:#fff5f5 !important}
+.acc-field input.acc-valid,.acc-field select.acc-valid{border-color:#16a34a !important;box-shadow:0 0 0 3px rgba(22,163,74,.1) !important;background:#f0fdf4 !important}
+.acc-field-error{margin-top:4px;font-size:12px;font-weight:600;color:#dc2626;display:flex;align-items:center;gap:4px;line-height:1.35}
+.acc-field-error::before{content:'⚠ '}
+.acc-field-ok{margin-top:4px;font-size:12px;font-weight:600;color:#16a34a;display:flex;align-items:center;gap:4px}
+.acc-field-ok::before{content:'✓ '}
+.acc-input-group{display:flex;align-items:center;border:1px solid #cfe0ed;border-radius:15px;overflow:hidden;background:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}
+.acc-input-prefix{width:54px;height:52px;border-right:1px solid #d7e3ef;display:flex;align-items:center;justify-content:center;color:#6b7f92;font-weight:800;background:#f3f7fb}
+.acc-input-group input{border:0;box-shadow:none;background:transparent;flex:1}
+.acc-form-actions{display:flex;gap:12px;justify-content:flex-end;padding:8px 0 0}
+.acc-vault-panel{padding:22px 24px 24px;border-top:1px solid #e7eef6;background:linear-gradient(180deg,#f7fcff 0%,#ffffff 100%)}
+.acc-vault-panel[hidden]{display:none}
+.acc-vault-title{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.acc-vault-title h3{margin:0;font-size:22px;font-weight:800;color:#102a43}
+.acc-vault-title p{margin:4px 0 0;font-size:13px;color:#6c8298}
+.acc-vault-badge{width:42px;height:42px;border-radius:14px;background:linear-gradient(135deg,#10b981,#14b8a6);display:flex;align-items:center;justify-content:center;color:#fff;font-size:17px;box-shadow:0 10px 20px rgba(16,185,129,.2)}
+.acc-btn{height:50px;padding:0 22px;border-radius:16px;border:0;font:inherit;font-size:14px;font-weight:900;cursor:pointer;display:inline-flex;align-items:center;gap:10px;transition:transform .18s,box-shadow .18s,background .18s}
+.acc-btn:hover{transform:translateY(-1px)}
+.acc-btn-save{background:linear-gradient(135deg,#08a9c7,#11b5a4);color:#fff;box-shadow:0 14px 28px rgba(8,169,199,.25)}
+.acc-btn-cancel{background:#fff;color:#627a91;border:1px solid #d5e3ef;box-shadow:0 8px 20px rgba(15,40,72,.05)}
+.acc-board-head{padding:18px 22px;border-bottom:1px solid #e7eef6;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;background:linear-gradient(135deg,#f0fdf9,#ecfdf5)}
+.acc-board-title{display:flex;align-items:center;gap:14px}
+.acc-board-title h3{margin:0;font-size:28px;font-weight:800;color:#102a43}
+.acc-board-title p{margin:4px 0 0;font-size:14px;color:#6c8298}
+.acc-tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.acc-search{display:flex;align-items:center;gap:10px;height:50px;padding:0 16px;border:1px solid #d7e3ef;border-radius:16px;background:#fbfdff;min-width:280px}
+.acc-search i{color:#90a3b8}
+.acc-search input{border:0;outline:none;background:transparent;font:inherit;color:#102a43;width:100%}
+.acc-sort{height:50px;border:1px solid #d7e3ef;border-radius:16px;background:#fbfdff;padding:0 16px;font:inherit;color:#102a43}
+.acc-type-tabs{padding:18px 22px 0;display:flex;gap:10px;flex-wrap:wrap}
+.acc-type-btn{height:42px;padding:0 16px;border-radius:999px;border:1px solid #d8e4ef;background:#f4f8fc;color:#5a738b;font:inherit;font-size:13px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:all .18s}
+.acc-type-btn span{padding:2px 8px;border-radius:999px;background:#fff;color:#4d6881;font-size:11px}
+.acc-type-btn.active{background:linear-gradient(135deg,#102a43,#2563eb);color:#fff;border-color:transparent;box-shadow:0 12px 24px rgba(37,99,235,.18)}
+.acc-type-btn.active span{background:rgba(255,255,255,.18);color:#fff}
+.acc-cards{padding:18px 22px 22px;display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:18px;min-height:220px}
+.acc-card{border-radius:24px;border:1px solid #dbe8f4;background:#fff;overflow:hidden;box-shadow:0 12px 28px rgba(15,40,72,.08);transition:transform .18s,box-shadow .18s}
+.acc-card.account-link{cursor:pointer}
+.acc-card:hover{transform:translateY(-3px);box-shadow:0 18px 36px rgba(15,40,72,.12)}
+.acc-card.is-selected{border-color:#14b8a6;box-shadow:0 18px 40px rgba(20,184,166,.18)}
+.acc-card-top{padding:16px 18px;color:#fff;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;position:relative;overflow:hidden}
+.acc-card-top::before{content:'';position:absolute;width:120px;height:120px;top:-40px;right:-30px;border-radius:50%;background:rgba(255,255,255,.1);pointer-events:none}
+.acc-card.courant .acc-card-top{background:linear-gradient(135deg,#1d4ed8 0%,#0ea5e9 100%)}
+.acc-card.professionnel .acc-card-top{background:linear-gradient(135deg,#7c3aed 0%,#a855f7 100%)}
+.acc-card.epargne .acc-card-top{background:linear-gradient(135deg,#059669 0%,#14b8a6 100%)}
+.acc-card-top-left{display:flex;gap:12px;align-items:flex-start}
+.acc-card-badge-icon{width:38px;height:38px;border-radius:12px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.acc-card-type{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;display:block}
+.acc-card-sub{display:block;font-size:12px;color:rgba(255,255,255,.82);margin-top:4px}
+.acc-card-menu{background:transparent;border:0;color:#fff;font-size:16px;opacity:.85}
+.acc-card-body{padding:18px}
+.acc-card-number{font-size:24px;font-weight:900;color:#102a43;letter-spacing:.04em}
+.acc-card-caption{margin-top:8px;font-size:12px;color:#8296aa}
+.acc-card-balance-label{margin-top:18px;font-size:13px;color:#6c8298}
+.acc-card-balance{margin-top:4px;font-size:18px;font-weight:900;color:#102a43}
+.acc-card-status{margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.acc-status-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:999px;font-size:11px;font-weight:800}
+.acc-status-pill::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor}
+.acc-status-pill.actif{background:#dcfce7;color:#16a34a}
+.acc-status-pill.bloque{background:#fef3c7;color:#d97706}
+.acc-status-pill.ferme{background:#fee2e2;color:#dc2626}
+.acc-card-meta{margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+.acc-card-meta div{display:flex;flex-direction:column;gap:3px}
+.acc-card-meta span{font-size:11px;color:#7c90a4}
+.acc-card-meta strong{font-size:13px;color:#102a43}
+.acc-card-actions{padding:14px 18px;border-top:1px solid #edf3f8;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.acc-card-edit{background:#eef4ff;color:#2563eb;border:0;border-radius:12px;height:40px;padding:0 14px;font:inherit;font-size:13px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.acc-card-icons{display:flex;align-items:center;gap:10px}
+.acc-icon-btn{width:40px;height:40px;border-radius:12px;border:0;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:14px}
+.acc-icon-btn.history{background:#ecfeff;color:#0f766e}
+.acc-icon-btn.delete{background:#fff1f2;color:#e11d48}
+.acc-empty{grid-column:1/-1;background:#f8fbfd;border:1px dashed #ccdae7;border-radius:22px;min-height:220px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#6f8397;text-align:center;padding:24px}
+.acc-empty i{font-size:40px;color:#b8c7d6}
+.acc-modal-wrap[hidden]{display:none}
+.acc-modal-wrap{position:fixed;inset:0;z-index:50}
+.acc-modal-backdrop{position:absolute;inset:0;background:rgba(10,24,44,.45);border:0;width:100%;height:100%}
+.acc-modal{position:relative;max-width:760px;margin:7vh auto;background:#fff;border-radius:24px;box-shadow:0 22px 60px rgba(15,40,72,.22);overflow:hidden}
+.acc-modal-head{padding:18px 22px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:linear-gradient(135deg,#102a43,#2563eb);color:#fff}
+.acc-modal-head h4{margin:0;font-size:20px;font-weight:800}
+.acc-modal-head p{margin:4px 0 0;font-size:13px;color:rgba(255,255,255,.78)}
+.acc-modal-close{width:40px;height:40px;border-radius:12px;border:0;background:rgba(255,255,255,.16);color:#fff;cursor:pointer}
+.acc-modal-body{padding:20px 22px;max-height:60vh;overflow:auto;display:flex;flex-direction:column;gap:12px}
+.acc-history-row{display:flex;gap:12px;padding:14px 16px;border:1px solid #dbe8f4;border-radius:18px;background:#f8fbff;box-shadow:0 8px 18px rgba(15,40,72,.05)}
+.acc-history-icon{width:38px;height:38px;border-radius:12px;background:#eef4ff;color:#2563eb;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.acc-history-main{flex:1;min-width:0}
+.acc-history-main strong{display:block;font-size:14px;color:#102a43}
+.acc-history-main p{margin:4px 0;font-size:13px;color:#59748f}
+.acc-history-main time{font-size:11px;color:#8aa0b5}
+@media (max-width:1100px){.acc-hero{grid-template-columns:1fr;gap:16px}.acc-hero-metrics{justify-content:flex-start}.acc-hero-actions{justify-content:flex-start}.acc-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.acc-body{grid-template-columns:1fr}.acc-search{min-width:100%}}
+@media (max-width:640px){.acc-stats{grid-template-columns:1fr}.acc-grid-2{grid-template-columns:1fr}.acc-card-meta{grid-template-columns:1fr}.acc-panel-head h2,.acc-board-title h3,.acc-vault-title h3{font-size:22px}}
+</style>
+
+<section class="acc-page">
+    <div class="acc-hero">
+        <div class="acc-hero-brand">
+            <div class="acc-hero-icon"><i class="fa-solid fa-building-columns"></i></div>
+            <div>
+                <h1 class="acc-hero-title">Gestion des comptes bancaires</h1>
+                <p class="acc-hero-sub">Voir, gerer et suivre tous vos comptes bancaires</p>
+            </div>
+        </div>
+        <div class="acc-hero-metrics">
+            <div class="acc-hero-metric"><strong>{{ total_accounts }}</strong><span>Total comptes</span></div>
+            <div class="acc-hero-divider"></div>
+            <div class="acc-hero-metric"><strong>{{ active_count }}</strong><span>Actifs</span></div>
+            <div class="acc-hero-divider"></div>
+            <div class="acc-hero-metric"><strong>{{ blocked_count }}</strong><span>Bloques</span></div>
+        </div>
+        <div class="acc-hero-actions">
+            <a class="acc-hero-btn" href="{{ path(route_name, { tab: 'accounts' }) }}"><i class="fa-solid fa-download"></i><span>PDF</span></a>
+            <button class="acc-hero-btn" type="button" id="acc-open-history"><i class="fa-solid fa-clock-rotate-left"></i><span>Historique</span></button>
+            <a class="acc-hero-btn ai" href="{{ path('portal_features', { section: 'insights' }) }}"><i class="fa-solid fa-brain"></i><span>Tourne Roue</span></a>
+            <a class="acc-hero-btn cta" href="{{ path(route_name, query_state|merge({ show_vault: '1' })) }}">
+                <i class="fa-solid fa-plus"></i><span>Nouvelle</span>
+            </a>
+        </div>
+    </div>
+
+    <div class="acc-stats">
+        <article class="acc-stat">
+            <div class="acc-stat-head">
+                <div class="acc-stat-icon"><i class="fa-solid fa-coins"></i></div>
+                <div>
+                    <span class="acc-stat-label">Solde total</span>
+                    <span class="acc-stat-sub">Sur tous les comptes</span>
+                </div>
+            </div>
+            <div class="acc-stat-value">{{ total_balance|number_format(2, '.', ' ') }} DT <small>+0%</small></div>
+        </article>
+        <article class="acc-stat">
+            <div class="acc-stat-head">
+                <div class="acc-stat-icon"><i class="fa-solid fa-building-columns"></i></div>
+                <div>
+                    <span class="acc-stat-label">Comptes actifs</span>
+                    <span class="acc-stat-sub">Actuellement utilises</span>
+                </div>
+            </div>
+            <div class="acc-stat-value">{{ active_count }} <small>compte{{ active_count > 1 ? 's' : '' }}</small></div>
+        </article>
+        <article class="acc-stat">
+            <div class="acc-stat-head">
+                <div class="acc-stat-icon"><i class="fa-solid fa-layer-group"></i></div>
+                <div>
+                    <span class="acc-stat-label">Types de comptes</span>
+                    <span class="acc-stat-sub">Courant, Pro, Epargne</span>
+                </div>
+            </div>
+            <div class="acc-stat-value">{{ courant_count + pro_count + epargne_count }} <small>cartes visibles</small></div>
+        </article>
+        <article class="acc-stat">
+            <div class="acc-stat-head">
+                <div class="acc-stat-icon"><i class="fa-solid fa-shield-heart"></i></div>
+                <div>
+                    <span class="acc-stat-label">Sante du compte</span>
+                    <span class="acc-stat-sub">Etat de securite</span>
+                </div>
+            </div>
+            <div class="acc-stat-health">{{ health_label }} <i class="fa-solid fa-circle-check"></i></div>
+        </article>
+    </div>
+
+    <div class="acc-body">
+
+    {# ══ COLONNE GAUCHE : formulaires ══ #}
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+    {# ══ FORMULAIRE COMPTE ══ #}
+    <aside class="acc-form-card" id="acc-form-anchor">
+        <div class="acc-panel-head">
+            <div class="acc-panel-icon"><i class="fa-solid fa-credit-card"></i></div>
+            <div>
+                <h2>Compte Bancaire</h2>
+                <p>Créer ou modifier un compte</p>
+            </div>
+        </div>
+
+        {% set edit_account = null %}
+        {% set edit_id = app.request.query.get('edit_id')|default('') %}
+        {% if edit_id %}
+            {% for a in all_accounts %}
+                {% if a.idCompte ~ '' == edit_id ~ '' %}
+                    {% set edit_account = a %}
+            {% endif %}
+        {% endfor %}
+        {% endif %}
+        {% set account_id_value = account_data.idCompte is defined ? account_data.idCompte : (edit_account ? edit_account.idCompte : '') %}
+        {% set numero_value = account_data.numeroCompte is defined ? account_data.numeroCompte : (edit_account ? edit_account.numeroCompte : '') %}
+        {% set type_value = account_data.typeCompte is defined ? account_data.typeCompte : (edit_account ? edit_account.typeCompte : '') %}
+        {% set statut_value = account_data.statutCompte is defined ? account_data.statutCompte : (edit_account ? edit_account.statutCompte : '') %}
+        {% set solde_value = account_data.solde is defined ? account_data.solde : (edit_account ? edit_account.solde : '') %}
+        {% set date_value = account_data.dateOuverture is defined ? account_data.dateOuverture : (edit_account ? edit_account.dateOuverture : 'now'|date('Y-m-d')) %}
+        {% set retrait_value = account_data.plafondRetrait is defined ? account_data.plafondRetrait : (edit_account ? edit_account.plafondRetrait : '') %}
+        {% set virement_value = account_data.plafondVirement is defined ? account_data.plafondVirement : (edit_account ? edit_account.plafondVirement : '') %}
+        <form method="post" class="acc-form" action="{{ path(route_name, query_state) }}" novalidate>
+            <input type="hidden" name="tab"      value="accounts">
+            <input type="hidden" name="action"   value="account_save">
+            <input type="hidden" name="idCompte" value="{{ account_id_value }}">
+            <input type="hidden" name="idUser"   value="{{ current_user.idUser|default('') }}">
+            <input type="hidden" name="selected_account" value="{{ selected_id }}">
+
+            <div class="acc-form-block">
+                <div class="acc-form-block-head">
+                    <i class="fa-solid fa-hashtag"></i>
+                    <span>Identification</span>
+                </div>
+                <div class="acc-form-block-body">
+                    <div class="acc-field">
+                        <label><i class="fa-solid fa-id-card"></i> Numéro de compte <span style="color:#e53935">*</span></label>
+                        <input type="text" name="numeroCompte" required class="{{ account_errors.numeroCompte is defined ? 'acc-invalid' : '' }}"
+                               placeholder="CB-123"
+                               value="{{ numero_value }}">
+                        {% if account_errors.numeroCompte is defined %}<div class="acc-field-error">{{ account_errors.numeroCompte }}</div>{% endif %}
+                    </div>
+                    <div class="acc-grid-2">
+                        <div class="acc-field">
+                            <label><i class="fa-solid fa-tag"></i> Type <span style="color:#e53935">*</span></label>
+                            <select name="typeCompte" required class="{{ account_errors.typeCompte is defined ? 'acc-invalid' : '' }}">
+                                <option value="">— Sélectionner —</option>
+                                {% for v in ['Courant','Professionnel','Épargne'] %}
+                                    <option value="{{ v }}" {{ type_value == v ? 'selected' : '' }}>{{ v }}</option>
+                                {% endfor %}
+                            </select>
+                            {% if account_errors.typeCompte is defined %}<div class="acc-field-error">{{ account_errors.typeCompte }}</div>{% endif %}
+                        </div>
+                        <div class="acc-field">
+                            <label><i class="fa-solid fa-circle-dot"></i> Statut <span style="color:#e53935">*</span></label>
+                            <select name="statutCompte" required class="{{ account_errors.statutCompte is defined ? 'acc-invalid' : '' }}">
+                                <option value="">— Sélectionner —</option>
+                                {% for v in ['Actif','Fermé','Bloqué'] %}
+                                    <option value="{{ v }}" {{ statut_value == v ? 'selected' : '' }}>{{ v }}</option>
+                                {% endfor %}
+                            </select>
+                            {% if account_errors.statutCompte is defined %}<div class="acc-field-error">{{ account_errors.statutCompte }}</div>{% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="acc-form-block">
+                <div class="acc-form-block-head">
+                    <i class="fa-solid fa-coins"></i>
+                    <span>Finances</span>
+                </div>
+                <div class="acc-form-block-body">
+                    <div class="acc-grid-2">
+                        <div class="acc-field">
+                            <label><i class="fa-solid fa-coins"></i> Solde (DT) <span style="color:#e53935">*</span></label>
+                            <input type="number" step="0.01" name="solde" required class="{{ account_errors.solde is defined ? 'acc-invalid' : '' }}"
+                                   placeholder="0.00"
+                                   value="{{ solde_value }}">
+                            {% if account_errors.solde is defined %}<div class="acc-field-error">{{ account_errors.solde }}</div>{% endif %}
+                        </div>
+                        <div class="acc-field">
+                            <label><i class="fa-solid fa-calendar-day"></i> Date d'ouverture</label>
+                            <input type="date" name="dateOuverture" class="{{ account_errors.dateOuverture is defined ? 'acc-invalid' : '' }}"
+                                   value="{{ date_value }}">
+                            {% if account_errors.dateOuverture is defined %}<div class="acc-field-error">{{ account_errors.dateOuverture }}</div>{% endif %}
+                        </div>
+                    </div>
+                    <div class="acc-grid-2">
+                        <div class="acc-field">
+                            <label><i class="fa-solid fa-arrow-down"></i> Plafond retrait (DT)</label>
+                            <input type="number" step="0.01" name="plafondRetrait" class="{{ account_errors.plafondRetrait is defined ? 'acc-invalid' : '' }}"
+                                   placeholder="0.00"
+                                   value="{{ retrait_value }}">
+                            {% if account_errors.plafondRetrait is defined %}<div class="acc-field-error">{{ account_errors.plafondRetrait }}</div>{% endif %}
+                        </div>
+                        <div class="acc-field">
+                            <label><i class="fa-solid fa-paper-plane"></i> Plafond virement (DT)</label>
+                            <input type="number" step="0.01" name="plafondVirement" class="{{ account_errors.plafondVirement is defined ? 'acc-invalid' : '' }}"
+                                   placeholder="0.00"
+                                   value="{{ virement_value }}">
+                            {% if account_errors.plafondVirement is defined %}<div class="acc-field-error">{{ account_errors.plafondVirement }}</div>{% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="acc-form-actions">
+                <button type="submit" class="acc-btn acc-btn-save">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                    {{ edit_account ? 'Mettre à jour' : 'Enregistrer' }}
+                </button>
+                {% if edit_account %}
+                    <a href="{{ path(route_name, query_state) }}" class="acc-btn acc-btn-cancel">
+                        <i class="fa-solid fa-rotate-left"></i> Annuler
+                    </a>
+                {% else %}
+                    <button type="reset" class="acc-btn acc-btn-cancel">
+                        <i class="fa-solid fa-rotate-left"></i> Vider
+                    </button>
+                {% endif %}
+            </div>
+        </form>
+    </aside>
+
+    {# ══ FORMULAIRE COFFRE VIRTUEL (visible si show_vault=1) ══ #}
+    {% if app.request.query.get('show_vault')|default('') == '1' or app.request.query.get('edit_vault')|default('') %}
+    {% set vaults_support = support.vault_data|default([]) %}
+    {% set edit_vault_id = app.request.query.get('edit_vault')|default('') %}
+    {% set edit_vault = null %}
+    {% if edit_vault_id %}
+        {% for v in vaults_support %}
+            {% if v.idCoffre ~ '' == edit_vault_id ~ '' %}
+                {% set edit_vault = v %}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+    {% set preselect_account = selected_id %}
+    {% set vault_id_value = vault_data.idCoffre is defined ? vault_data.idCoffre : (edit_vault ? edit_vault.idCoffre : '') %}
+    {% set vault_nom_value = vault_data.nom is defined ? vault_data.nom : (edit_vault ? edit_vault.nom : '') %}
+    {% set vault_objectif_value = vault_data.objectifMontant is defined ? vault_data.objectifMontant : (edit_vault ? edit_vault.objectifMontant : '') %}
+    {% set vault_actuel_value = vault_data.montantActuel is defined ? vault_data.montantActuel : (edit_vault ? edit_vault.montantActuel : '0') %}
+    {% set vault_date_creation_value = vault_data.dateCreation is defined ? vault_data.dateCreation : (edit_vault ? edit_vault.dateCreation : 'now'|date('Y-m-d')) %}
+    {% set vault_date_objectif_value = vault_data.dateObjectifs is defined ? vault_data.dateObjectifs : (edit_vault ? edit_vault.dateObjectifs : '') %}
+    {% set vault_status_value = vault_data.status is defined ? vault_data.status : (edit_vault ? edit_vault.status : '') %}
+    {% set vault_compte_value = vault_data.idCompte is defined ? vault_data.idCompte : ((edit_vault ? edit_vault.idCompte : preselect_account)|default('')) %}
+    {% set vault_lock_value = vault_data.estVerrouille is defined ? vault_data.estVerrouille : (edit_vault ? (edit_vault.estVerrouille ? '1' : '0') : '0') %}
+    <aside class="acc-form-card" style="margin-top:0">
+        <div class="acc-panel-head">
+            <div class="acc-panel-icon" style="background:linear-gradient(135deg,#10b981,#14b8a6)">
+                <i class="fa-solid fa-vault"></i>
+            </div>
+            <div>
+                <h2>Coffre Virtuel</h2>
+                <p>Créer un nouvel objectif d'épargne</p>
+            </div>
+            <a href="{{ path(route_name, query_state) }}"
+               style="margin-left:auto;width:36px;height:36px;border-radius:10px;background:#fee2e2;color:#dc2626;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:14px;"
+               title="Fermer">
+                <i class="fa-solid fa-xmark"></i>
+            </a>
+        </div>
+
+        <form method="post" class="acc-form" action="{{ path(route_name, query_state|merge({ selected_account: preselect_account })) }}" novalidate>
+            <input type="hidden" name="tab"    value="accounts">
+            <input type="hidden" name="action" value="vault_save">
+            <input type="hidden" name="idUser" value="{{ current_user.idUser|default('') }}">
+            <input type="hidden" name="idCoffre" value="{{ vault_id_value }}">
+            <input type="hidden" name="selected_account" id="vault-selected-account" value="{{ vault_compte_value }}">
+            <input type="hidden" name="edit_vault" value="{{ edit_vault_id }}">
+            <input type="hidden" name="show_vault" value="1">
+
+            <div class="acc-form-block">
+                <div class="acc-form-block-head">
+                    <i class="fa-solid fa-vault"></i>
+                    <span>Informations du coffre</span>
+                </div>
+                <div class="acc-form-block-body">
+                    <div class="acc-field">
+                        <label><i class="fa-solid fa-tag"></i> Nom du coffre <span style="color:#e53935">*</span></label>
+                        <input type="text" name="nom" required placeholder="Ex: Vacances 2025" class="{{ vault_errors.nom is defined ? 'acc-invalid' : '' }}"
+                               value="{{ vault_nom_value }}">
+                        {% if vault_errors.nom is defined %}<div class="acc-field-error">{{ vault_errors.nom }}</div>{% endif %}
+                    </div>
+                    <div class="acc-grid-2">
+                        <div class="acc-field">
+                            <label><i class="fa-solid fa-bullseye"></i> Objectif (DT) <span style="color:#e53935">*</span></label>
+                            <input type="number" step="0.01" name="objectifMontant" required placeholder="0.00" class="{{ vault_errors.objectifMontant is defined ? 'acc-invalid' : '' }}"
+                                   value="{{ vault_objectif_value }}">
+                            {% if vault_errors.objectifMontant is defined %}<div class="acc-field-error">{{ vault_errors.objectifMontant }}</div>{% endif %}
+                        </div>
+                        <div class="acc-field">
+                            <label><i class="fa-solid fa-coins"></i> Montant actuel (DT)</label>
+                            <input type="number" step="0.01" name="montantActuel" placeholder="0.00" class="{{ vault_errors.montantActuel is defined ? 'acc-invalid' : '' }}"
+                                   value="{{ vault_actuel_value }}">
+                            {% if vault_errors.montantActuel is defined %}<div class="acc-field-error">{{ vault_errors.montantActuel }}</div>{% endif %}
+                        </div>
+                    </div>
+                    <div class="acc-grid-2">
+                        <div class="acc-field">
+                            <label><i class="fa-solid fa-calendar-day"></i> Date de création</label>
+                            <input type="date" name="dateCreation" class="{{ vault_errors.dateCreation is defined ? 'acc-invalid' : '' }}"
+                                   value="{{ vault_date_creation_value }}">
+                            {% if vault_errors.dateCreation is defined %}<div class="acc-field-error">{{ vault_errors.dateCreation }}</div>{% endif %}
+                        </div>
+                        <div class="acc-field">
+                            <label><i class="fa-solid fa-flag-checkered"></i> Date objectif</label>
+                            <input type="date" name="dateObjectifs" class="{{ vault_errors.dateObjectifs is defined ? 'acc-invalid' : '' }}"
+                                   value="{{ vault_date_objectif_value }}">
+                            {% if vault_errors.dateObjectifs is defined %}<div class="acc-field-error">{{ vault_errors.dateObjectifs }}</div>{% endif %}
+                        </div>
+                    </div>
+                    <div class="acc-grid-2">
+                        <div class="acc-field">
+                            <label><i class="fa-solid fa-circle-dot"></i> Statut</label>
+                            <select name="status" class="{{ vault_errors.status is defined ? 'acc-invalid' : '' }}">
+                                <option value="">— Sélectionner —</option>
+                                {% for v in ['Actif','Fermé','Bloqué'] %}
+                                    <option value="{{ v }}" {{ vault_status_value == v ? 'selected' : '' }}>{{ v }}</option>
+                                {% endfor %}
+                            </select>
+                            {% if vault_errors.status is defined %}<div class="acc-field-error">{{ vault_errors.status }}</div>{% endif %}
+                        </div>
+                        <div class="acc-field">
+                            <label><i class="fa-solid fa-building-columns"></i> Compte lié <span style="color:#e53935">*</span></label>
+                            <select name="idCompte" id="vault-account-select" required class="{{ vault_errors.idCompte is defined ? 'acc-invalid' : '' }}"
+                                    onchange="document.getElementById('vault-selected-account').value = this.value">
+                                <option value="">— Choisir un compte —</option>
+                                {% for account in all_accounts %}
+                                    <option value="{{ account.idCompte }}"
+                                        {{ vault_compte_value ~ '' == account.idCompte ~ '' ? 'selected' : '' }}>
+                                        {{ account.numeroCompte }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            {% if vault_errors.idCompte is defined %}<div class="acc-field-error">{{ vault_errors.idCompte }}</div>{% endif %}
+                        </div>
+                    </div>
+                    <div class="acc-field">
+                        <label><i class="fa-solid fa-lock"></i> Verrouillé</label>
+                        <select name="estVerrouille" class="{{ vault_errors.estVerrouille is defined ? 'acc-invalid' : '' }}">
+                            <option value="0" {{ vault_lock_value ~ '' == '0' ? 'selected' : '' }}>Non</option>
+                            <option value="1" {{ vault_lock_value ~ '' == '1' ? 'selected' : '' }}>Oui</option>
+                        </select>
+                        {% if vault_errors.estVerrouille is defined %}<div class="acc-field-error">{{ vault_errors.estVerrouille }}</div>{% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="acc-form-actions">
+                <button type="submit" class="acc-btn acc-btn-save">
+                    <i class="fa-solid fa-floppy-disk"></i> Enregistrer le coffre
+                </button>
+                <a href="{{ path(route_name, query_state) }}" class="acc-btn acc-btn-cancel">
+                    <i class="fa-solid fa-rotate-left"></i> Annuler
+                </a>
+            </div>
+        </form>
+    </aside>
+    {% endif %}
+
+    </div>{# fin colonne gauche #}
+
+    <div class="acc-board">
+        <div class="acc-board-head">
+            <div class="acc-board-title">
+                <div class="acc-panel-icon" style="width:42px;height:42px;font-size:16px;">
+                    <i class="fa-solid fa-university"></i>
+                </div>
+                <div>
+                    <h3>Mes Comptes</h3>
+                    <p>{{ items|length }} compte{{ items|length != 1 ? 's' : '' }} affiché{{ items|length != 1 ? 's' : '' }}</p>
+                </div>
+            </div>
+            <div class="acc-tools">
+                <form method="get" action="{{ path(route_name, { tab: 'accounts' }) }}" style="display:contents">
+                    <input type="hidden" name="tab" value="accounts">
+                    {% if selected_id %}
+                        <input type="hidden" name="selected_account" value="{{ selected_id }}">
+                    {% endif %}
+                    {% if app.request.query.get('show_vault')|default('') %}
+                        <input type="hidden" name="show_vault" value="{{ app.request.query.get('show_vault') }}">
+                    {% endif %}
+                    {% if app.request.query.get('edit_id')|default('') %}
+                        <input type="hidden" name="edit_id" value="{{ app.request.query.get('edit_id') }}">
+                    {% endif %}
+                    {% if app.request.query.get('edit_vault')|default('') %}
+                        <input type="hidden" name="edit_vault" value="{{ app.request.query.get('edit_vault') }}">
+                    {% endif %}
+                    <div class="acc-search">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" name="q" placeholder="Rechercher…"
+                               value="{{ account_query.q|default('') }}">
+                    </div>
+                    <select class="acc-sort" name="search_in" onchange="this.form.submit()">
+                        <option value="all"      {{ account_query.search_in|default('all') == 'all' ? 'selected' : '' }}>Tous les critères</option>
+                        <option value="id"       {{ account_query.search_in|default('all') == 'id' ? 'selected' : '' }}>ID</option>
+                        <option value="numero"   {{ account_query.search_in|default('all') == 'numero' ? 'selected' : '' }}>N° Compte</option>
+                        <option value="solde"    {{ account_query.search_in|default('all') == 'solde' ? 'selected' : '' }}>Solde</option>
+                        <option value="date"     {{ account_query.search_in|default('all') == 'date' ? 'selected' : '' }}>Date ouverture</option>
+                        <option value="statut"   {{ account_query.search_in|default('all') == 'statut' ? 'selected' : '' }}>Statut</option>
+                        <option value="retrait"  {{ account_query.search_in|default('all') == 'retrait' ? 'selected' : '' }}>Plafond retrait</option>
+                        <option value="virement" {{ account_query.search_in|default('all') == 'virement' ? 'selected' : '' }}>Plafond virement</option>
+                        <option value="type"     {{ account_query.search_in|default('all') == 'type' ? 'selected' : '' }}>Type</option>
+                    </select>
+                    <select class="acc-sort" name="sort" onchange="this.form.submit()">
+                        <option value="">Trier par…</option>
+                        <option value="id"       {{ account_query.sort|default('') == 'id' ? 'selected' : '' }}>ID</option>
+                        <option value="numero"   {{ account_query.sort|default('') == 'numero' ? 'selected' : '' }}>N° Compte</option>
+                        <option value="solde"    {{ account_query.sort|default('') == 'solde' ? 'selected' : '' }}>Solde</option>
+                        <option value="date"     {{ account_query.sort|default('') == 'date' ? 'selected' : '' }}>Date ouverture</option>
+                        <option value="statut"   {{ account_query.sort|default('') == 'statut' ? 'selected' : '' }}>Statut</option>
+                        <option value="retrait"  {{ account_query.sort|default('') == 'retrait' ? 'selected' : '' }}>Plafond retrait</option>
+                        <option value="virement" {{ account_query.sort|default('') == 'virement' ? 'selected' : '' }}>Plafond virement</option>
+                        <option value="type"     {{ account_query.sort|default('') == 'type' ? 'selected' : '' }}>Type</option>
+                    </select>
+                    <select class="acc-sort" name="dir" onchange="this.form.submit()">
+                        <option value="asc" {{ account_query.dir|default('asc') == 'asc' ? 'selected' : '' }}>Croissant</option>
+                        <option value="desc" {{ account_query.dir|default('asc') == 'desc' ? 'selected' : '' }}>Décroissant</option>
+                    </select>
+                </form>
+            </div>
+        </div>
+
+        <div class="acc-type-tabs">
+            {% set filter = account_query.filter|default('all') %}
+            {% for f, label in { all: 'Tous', courant: 'Courant', professionnel: 'Professionnel', epargne: 'Épargne' } %}
+                <a href="{{ path(route_name, query_state|merge({ filter: f })) }}"
+                   class="acc-type-btn {{ filter == f ? 'active' : '' }}">
+                    {{ label }}
+                    <span>
+                        {% if f == 'all' %}{{ filter_counts.all|default(all_accounts|length) }}
+                        {% elseif f == 'courant' %}{{ filter_counts.courant|default(0) }}
+                        {% elseif f == 'professionnel' %}{{ filter_counts.professionnel|default(0) }}
+                        {% else %}{{ filter_counts.epargne|default(0) }}{% endif %}
+                    </span>
+                </a>
+            {% endfor %}
+        </div>
+
+        <div class="acc-cards">
+            {% if items is empty %}
+                <div class="acc-empty">
+                    <i class="fa-solid fa-building-columns"></i>
+                    <strong>Aucun compte trouvé</strong>
+                    <span>Ajustez vos critères de recherche ou ajoutez un compte avec le formulaire de gauche.</span>
+                </div>
+            {% else %}
+                {% for account in items %}
+                    {% set type_key = account.typeCompte|default('Courant')|lower|replace({'é':'e','è':'e','ê':'e'}) %}
+                    {% set stat_key = account.statutCompte|default('Actif')|lower|replace({'é':'e','è':'e'}) %}
+                    <div class="acc-card account-link {{ type_key }} {{ selected_id ~ '' == account.idCompte ~ '' ? 'is-selected' : '' }}"
+                         data-account-select
+                         data-account-url="{{ path(route_name, query_state|merge({ selected_account: account.idCompte })) }}">
+                        <div class="acc-card-top">
+                            <div class="acc-card-top-left">
+                                <div class="acc-card-badge-icon">
+                                    <i class="fa-solid fa-credit-card"></i>
+                                </div>
+                                <div>
+                                    <span class="acc-card-type">{{ account.typeCompte|default('Courant') }}</span>
+                                    <span class="acc-card-sub">Ouvert le {{ account.dateOuverture|default('—') }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="acc-card-body">
+                            <div class="acc-card-number">{{ account.numeroCompte }}</div>
+                            <div class="acc-card-balance-label">Solde disponible</div>
+                            <div class="acc-card-balance">{{ account.solde|number_format(2, '.', ' ') }} DT</div>
+                            <div class="acc-card-status">
+                                <span class="acc-status-pill {{ stat_key }}">{{ account.statutCompte|default('Actif') }}</span>
+                            </div>
+                            <div class="acc-card-meta">
+                                <div>
+                                    <span>Plafond retrait</span>
+                                    <strong>{{ account.plafondRetrait|default('—') }} DT</strong>
+                                </div>
+                                <div>
+                                    <span>Plafond virement</span>
+                                    <strong>{{ account.plafondVirement|default('—') }} DT</strong>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="acc-card-actions">
+                            <a href="{{ path(route_name, query_state|merge({ edit_id: account.idCompte, selected_account: selected_id })) }}"
+                               class="acc-card-edit">
+                                <i class="fa-solid fa-pen"></i> Modifier
+                            </a>
+                            <div class="acc-card-icons">
+                                <a href="{{ path(route_name, query_state|merge({ selected_account: account.idCompte })) }}"
+                                   class="acc-icon-btn history" title="Voir les coffres"
+                                   style="background:#ecfeff;color:#0f766e;text-decoration:none;">
+                                    <i class="fa-solid fa-vault"></i>
+                                </a>
+                                <form method="post" style="display:inline"
+                                      onsubmit="return confirm('Supprimer ce compte ?')">
+                                    <input type="hidden" name="tab"      value="accounts">
+                                    <input type="hidden" name="action"   value="account_delete">
+                                    <input type="hidden" name="idCompte" value="{{ account.idCompte }}">
+                                    <input type="hidden" name="selected_account" value="{{ selected_id }}">
+                                    <button class="acc-icon-btn delete" type="submit" title="Supprimer">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+
+        {# ══ PANNEAU COFFRES DU COMPTE SÉLECTIONNÉ ══ #}
+        {% if selected_id %}
+            {% set selected_account = null %}
+            {% for a in all_accounts %}
+                {% if a.idCompte ~ '' == selected_id ~ '' %}
+                    {% set selected_account = a %}
+                {% endif %}
+            {% endfor %}
+
+            {% set all_vaults = support.vault_data|default([]) %}
+            {% set account_vaults = [] %}
+            {% for v in all_vaults %}
+                {% if v.idCompte ~ '' == selected_id ~ '' %}
+                    {% set account_vaults = account_vaults|merge([v]) %}
+                {% endif %}
+            {% endfor %}
+
+            <div style="margin-top:24px;background:#fff;border:1px solid #dbe8f4;border-radius:20px;overflow:hidden;box-shadow:0 8px 24px rgba(15,40,72,.08);">
+                <div style="padding:16px 20px;background:linear-gradient(135deg,#0f8a86,#14b8a6);display:flex;align-items:center;gap:14px;">
+                    <div style="width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;">
+                        <i class="fa-solid fa-vault"></i>
+                    </div>
+                    <div style="flex:1;">
+                        <div style="font-size:15px;font-weight:800;color:#fff;">
+                            Coffres de {{ selected_account ? selected_account.numeroCompte : '#'~selected_id }}
+                        </div>
+                        <div style="font-size:12px;color:rgba(255,255,255,.75);">
+                            {{ account_vaults|length }} coffre{{ account_vaults|length != 1 ? 's' : '' }} associé{{ account_vaults|length != 1 ? 's' : '' }}
+                        </div>
+                    </div>
+                    <a href="{{ path(route_name, query_state) }}"
+                       style="width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:14px;"
+                       title="Fermer">
+                        <i class="fa-solid fa-xmark"></i>
+                    </a>
+                </div>
+
+                {% if account_vaults is empty %}
+                    <div style="padding:40px 20px;text-align:center;color:#7c90a4;">
+                        <i class="fa-solid fa-vault" style="font-size:2.5rem;opacity:.2;display:block;margin-bottom:12px;"></i>
+                        <strong style="display:block;font-size:14px;color:#102a43;">Aucun coffre lié</strong>
+                        <span style="font-size:13px;">Cliquez sur "Nouvelle" pour créer un coffre pour ce compte.</span>
+                    </div>
+                {% else %}
+                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;padding:20px;">
+                        {% for vault in account_vaults %}
+                            {% set pct      = vault.progression|default(0) %}
+                            {% set barColor = vault.bar_color|default('#ef4444') %}
+                            {% set lockIcon = vault.lock_icon|default('fa-lock-open') %}
+                            {% set lockClr  = vault.lock_color|default('#22c55e') %}
+                            {% set stat_key = vault.status|default('Actif')|lower|replace({'é':'e','è':'e'}) %}
+                            <div style="background:#f8fbff;border:1px solid #dbe8f4;border-radius:16px;overflow:hidden;box-shadow:0 4px 14px rgba(15,40,72,.06);">
+                                <div style="padding:14px 16px;background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff;">
+                                    <div style="display:flex;align-items:center;gap:10px;">
+                                        <i class="fa-solid {{ lockIcon }}" style="color:{{ lockClr }};font-size:1.1rem;"></i>
+                                        <strong style="font-size:14px;font-weight:800;">{{ vault.nom }}</strong>
+                                    </div>
+                                    <div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:4px;">
+                                        Ouvert le {{ vault.dateCreation|default('—') }}
+                                    </div>
+                                </div>
+                                <div style="padding:14px 16px;">
+                                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                                        <span style="font-size:12px;color:#7c90a4;">Progression</span>
+                                        <strong style="font-size:13px;color:#102a43;">{{ pct }}%</strong>
+                                    </div>
+                                    <div style="height:8px;background:#e8f0f8;border-radius:6px;overflow:hidden;margin-bottom:12px;">
+                                        <div style="height:100%;border-radius:6px;background:{{ barColor }};width:{{ min(pct,100) }}%;transition:width .4s;"></div>
+                                    </div>
+                                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
+                                        <div>
+                                            <span style="color:#7c90a4;">Actuel</span>
+                                            <strong style="display:block;color:#102a43;">{{ vault.montantActuel|number_format(2,'.', ' ') }} DT</strong>
+                                        </div>
+                                        <div>
+                                            <span style="color:#7c90a4;">Objectif</span>
+                                            <strong style="display:block;color:#102a43;">{{ vault.objectifMontant|number_format(2,'.', ' ') }} DT</strong>
+                                        </div>
+                                        <div>
+                                            <span style="color:#7c90a4;">Statut</span>
+                                            <strong style="display:block;color:{{ stat_key == 'actif' ? '#16a34a' : (stat_key == 'ferme' ? '#dc2626' : '#d97706') }};">{{ vault.status|default('—') }}</strong>
+                                        </div>
+                                        <div>
+                                            <span style="color:#7c90a4;">Date objectif</span>
+                                            <strong style="display:block;color:#102a43;">{{ vault.dateObjectifs|default('—') }}</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="padding:10px 16px;border-top:1px solid #e8f0f8;display:flex;align-items:center;justify-content:space-between;gap:10px;">
+                                    <a href="{{ path(route_name, query_state|merge({ show_vault: '1', edit_vault: vault.idCoffre, selected_account: selected_id })) }}"
+                                       style="background:#eef4ff;color:#2563eb;border:0;border-radius:10px;height:36px;padding:0 12px;font-size:12px;font-weight:800;display:inline-flex;align-items:center;gap:6px;text-decoration:none;">
+                                        <i class="fa-solid fa-pen"></i> Modifier
+                                    </a>
+                                    <form method="post" style="display:inline"
+                                          onsubmit="return confirm('Supprimer ce coffre ?')">
+                                        <input type="hidden" name="tab"      value="accounts">
+                                        <input type="hidden" name="action"   value="vault_delete">
+                                        <input type="hidden" name="idCoffre" value="{{ vault.idCoffre }}">
+                                        <input type="hidden" name="selected_account" value="{{ selected_id }}">
+                                        <input type="hidden" name="show_vault" value="1">
+                                        <button type="submit"
+                                                style="width:36px;height:36px;border-radius:10px;border:0;background:#fff1f2;color:#e11d48;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:13px;"
+                                                title="Supprimer">
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+
+</div>
+<div class="acc-modal-wrap" id="acc-history-modal" hidden>
+    <button class="acc-modal-backdrop" type="button" data-acc-history-close aria-label="Fermer"></button>
+    <div class="acc-modal">
+        <div class="acc-modal-head">
+            <div>
+                <h4 id="acc-history-title">Historique des opérations</h4>
+                <p id="acc-history-subtitle">Toutes les actions enregistrées automatiquement</p>
+            </div>
+            <button class="acc-modal-close" type="button" data-acc-history-close>
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="acc-modal-body" id="acc-history-body">
+            {% for row in account_history %}
+                <article class="acc-history-row"
+                         data-history-row
+                         data-history-text="{{ (row.action|default('') ~ ' ' ~ row.detail|default('') ~ ' ' ~ row.idCompte|default('') ~ ' ' ~ row.idCoffre|default('') ~ ' ' ~ row.timestamp|default(''))|lower|e('html_attr') }}">
+                    <div class="acc-history-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
+                    <div class="acc-history-main">
+                        <strong>{{ row.action|default('Action') }}</strong>
+                        <p>{{ row.detail|default('Aucun détail disponible.') }}</p>
+                        <time>{{ row.timestamp|default('-') }}</time>
+                    </div>
+                </article>
+            {% else %}
+                <div class="acc-empty" style="min-height:180px;">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <strong>Aucun historique disponible</strong>
+                    <span>Les ajouts, modifications et suppressions apparaîtront ici.</span>
+                </div>
+            {% endfor %}
+            <div class="acc-empty" id="acc-history-empty" hidden>
+                <i class="fa-solid fa-clock-rotate-left"></i>
+                <strong>Aucun historique trouvé</strong>
+                <span>Effectuez une action sur les comptes ou les coffres pour alimenter cet historique.</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const $ = (s, c = document) => c.querySelector(s);
+    const $$ = (s, c = document) => Array.from(c.querySelectorAll(s));
+
+    const historyModal = $('#acc-history-modal');
+    const openHistoryBtn = $('#acc-open-history');
+    const historyTitle = $('#acc-history-title');
+    const historySubtitle = $('#acc-history-subtitle');
+    const historyRows = $$('[data-history-row]');
+    const historyEmpty = $('#acc-history-empty');
+
+    function normalize(value) {
+        return (value || '')
+            .toString()
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+    }
+
+    function openHistory(accountId, accountNumber) {
+        if (!historyModal) return;
+        if (!accountId) {
+            historyRows.forEach((row) => {
+                row.hidden = false;
+            });
+            if (historyTitle) historyTitle.textContent = 'Historique des opérations';
+            if (historySubtitle) historySubtitle.textContent = 'Toutes les actions enregistrées automatiquement';
+            if (historyEmpty) historyEmpty.hidden = historyRows.length === 0;
+            historyModal.hidden = false;
+            document.body.style.overflow = 'hidden';
+            return;
+        }
+
+        const idNeedle = normalize('#' + accountId);
+        const numNeedle = normalize(accountNumber);
+        let visible = 0;
+
+        historyRows.forEach((row) => {
+            const hay = normalize(row.dataset.historyText);
+            const match = hay.includes(idNeedle) || hay.includes(numNeedle);
+            row.hidden = !match;
+            if (match) visible++;
+        });
+
+        if (historyTitle) historyTitle.textContent = 'Historique - ' + accountNumber;
+        if (historySubtitle) historySubtitle.textContent = 'Actions recentes liees au compte #' + accountId;
+        if (historyEmpty) historyEmpty.hidden = visible !== 0;
+        historyModal.hidden = false;
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeHistory() {
+        if (!historyModal) return;
+        historyModal.hidden = true;
+        document.body.style.overflow = '';
+    }
+
+    $$('[data-acc-history-open]').forEach((button) => {
+        button.addEventListener('click', () => openHistory(button.dataset.accountId || '', button.dataset.accountNumber || 'Compte'));
+    });
+
+    openHistoryBtn?.addEventListener('click', () => openHistory('', ''));
+
+    $$('[data-acc-history-close]').forEach((button) => {
+        button.addEventListener('click', closeHistory);
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') closeHistory();
+    });
+
+    const form = $('#acc-account-form');
+    const cardsRoot = $('#acc-cards');
+    if (!form || !cardsRoot) return;
+
+    const fields = {
+        id: $('#acc-idCompte'),
+        numero: $('#acc-numero'),
+        solde: $('#acc-solde'),
+        date: $('#acc-date'),
+        statut: $('#acc-statut'),
+        type: $('#acc-type'),
+        retrait: $('#acc-retrait'),
+        virement: $('#acc-virement')
+    };
+    const vaultFields = {
+        id: $('#vault-idCoffre'),
+        nom: $('#vault-nom'),
+        objectif: $('#vault-objectif'),
+        actuel: $('#vault-actuel'),
+        dateCreation: $('#vault-dateCreation'),
+        dateObjectifs: $('#vault-dateObjectifs'),
+        status: $('#vault-status'),
+        verrouille: $('#vault-verrouille'),
+        compte: $('#vault-compte')
+    };
+
+    const searchInput = $('#acc-search');
+    const sortSelect = $('#acc-sort');
+    const typeButtons = $$('#acc-type-tabs [data-type-filter]');
+    const vaultPanel = $('#acc-vault-panel');
+    const toggleVaultBtn = $('#acc-toggle-vault');
+    let currentType = 'all';
+
+    function getCards() {
+        return $$('[data-account-card]', cardsRoot);
+    }
+
+    function resetFormState() {
+        window.setTimeout(() => {
+            fields.id.value = '';
+            fields.date.value = '{{ 'now'|date('Y-m-d') }}';
+            fields.statut.value = 'Actif';
+            fields.type.value = '';
+        }, 0);
+    }
+
+    function resetVaultFormState() {
+        window.setTimeout(() => {
+            if (vaultFields.id) vaultFields.id.value = '';
+            if (vaultFields.dateCreation) vaultFields.dateCreation.value = '{{ 'now'|date('Y-m-d') }}';
+            if (vaultFields.dateObjectifs) vaultFields.dateObjectifs.value = '';
+            if (vaultFields.status) vaultFields.status.value = 'Actif';
+            if (vaultFields.verrouille) vaultFields.verrouille.value = '0';
+            if (vaultFields.compte) vaultFields.compte.value = '';
+        }, 0);
+    }
+
+    function showVaultForm() {
+        if (!vaultPanel) return;
+        vaultPanel.hidden = false;
+        vaultPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function loadCard(button) {
+        const rawStatus = button.dataset.statut || '';
+        const rawType = button.dataset.type || '';
+        const normalizedStatus = normalize(rawStatus);
+        const normalizedType = normalize(rawType);
+        fields.id.value = button.dataset.id || '';
+        fields.numero.value = button.dataset.numero || '';
+        fields.solde.value = button.dataset.solde || '';
+        fields.date.value = button.dataset.date || '';
+        fields.statut.value = normalizedStatus.includes('bloq') ? 'Bloque' : (normalizedStatus.includes('ferm') ? 'Ferme' : 'Actif');
+        fields.type.value = normalizedType.includes('prof') ? 'Professionnel' : (normalizedType.includes('epar') ? 'Epargne' : 'Courant');
+        fields.retrait.value = button.dataset.retrait || '';
+        fields.virement.value = button.dataset.virement || '';
+        if (vaultFields.compte) vaultFields.compte.value = button.dataset.id || '';
+        document.getElementById('acc-form-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function applyFilters() {
+        const keyword = normalize(searchInput?.value || '');
+        getCards().forEach((card) => {
+            const typeOk = currentType === 'all' || normalize(card.dataset.accountType).includes(currentType);
+            const textOk = keyword === '' || normalize(card.dataset.accountSearch).includes(keyword);
+            card.hidden = !(typeOk && textOk);
+        });
+    }
+
+    function sortCards() {
+        const value = sortSelect?.value || 'solde-desc';
+        const [key, direction] = value.split('-');
+        const factor = direction === 'asc' ? 1 : -1;
+        getCards()
+            .sort((a, b) => {
+                let va = '';
+                let vb = '';
+                if (key === 'solde') {
+                    va = parseFloat(a.dataset.accountBalance || '0');
+                    vb = parseFloat(b.dataset.accountBalance || '0');
+                } else if (key === 'date') {
+                    va = a.dataset.accountDate || '';
+                    vb = b.dataset.accountDate || '';
+                } else if (key === 'statut') {
+                    va = normalize(a.dataset.accountStatus);
+                    vb = normalize(b.dataset.accountStatus);
+                } else {
+                    va = normalize(a.dataset.accountNumber);
+                    vb = normalize(b.dataset.accountNumber);
+                }
+                return va < vb ? -1 * factor : va > vb ? 1 * factor : 0;
+            })
+            .forEach((card) => cardsRoot.appendChild(card));
+    }
+
+    $$('[data-acc-edit]').forEach((button) => {
+        button.addEventListener('click', () => loadCard(button));
+    });
+
+    $$('[data-account-select]').forEach((card) => {
+        card.addEventListener('click', (event) => {
+            if (event.target.closest('a, button, form, input, select, textarea, label')) {
+                return;
+            }
+            const url = card.dataset.accountUrl;
+            if (url) {
+                window.location.href = url;
+            }
+        });
+    });
+
+    typeButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            currentType = normalize(button.dataset.typeFilter || 'all');
+            typeButtons.forEach((item) => item.classList.remove('active'));
+            button.classList.add('active');
+            applyFilters();
+        });
+    });
+
+    searchInput?.addEventListener('input', applyFilters);
+    sortSelect?.addEventListener('change', () => {
+        sortCards();
+        applyFilters();
+    });
+    $('#acc-reset-btn')?.addEventListener('click', resetFormState);
+    $('#vault-reset-btn')?.addEventListener('click', resetVaultFormState);
+    toggleVaultBtn?.addEventListener('click', () => {
+        showVaultForm();
+        resetVaultFormState();
+    });
+
+    resetFormState();
+    resetVaultFormState();
+    sortCards();
+    applyFilters();
+})();
+</script>
+
+<script>
+/* ── Validation live formulaire Compte Bancaire ── */
+(function() {
+    var today = new Date(); today.setHours(0,0,0,0);
+
+    function setValid(el, msgEl) {
+        el.classList.remove('acc-invalid');
+        el.classList.add('acc-valid');
+        if (msgEl) { msgEl.className = 'acc-field-ok'; msgEl.textContent = 'Valide'; }
+    }
+    function setError(el, msgEl, msg) {
+        el.classList.remove('acc-valid');
+        el.classList.add('acc-invalid');
+        if (msgEl) { msgEl.className = 'acc-field-error'; msgEl.textContent = msg; }
+    }
+    function clearState(el, msgEl) {
+        el.classList.remove('acc-valid','acc-invalid');
+        if (msgEl) { msgEl.className = ''; msgEl.textContent = ''; }
+    }
+
+    function getOrCreateMsg(el) {
+        var next = el.nextElementSibling;
+        if (next && (next.classList.contains('acc-field-error') || next.classList.contains('acc-field-ok'))) return next;
+        var span = document.createElement('span');
+        el.parentNode.insertBefore(span, el.nextSibling);
+        return span;
+    }
+
+    function validateField(el) {
+        var name = el.name;
+        var val  = el.value.trim();
+        var msg  = getOrCreateMsg(el);
+
+        if (name === 'numeroCompte') {
+            if (val === '') return setError(el, msg, 'Le numéro de compte est obligatoire.');
+            if (!/^CB-\d{3}$/.test(val)) return setError(el, msg, 'Format requis : CB-XXX (ex: CB-123).');
+            return setValid(el, msg);
+        }
+        if (name === 'typeCompte') {
+            if (!val) return setError(el, msg, 'Veuillez sélectionner un type.');
+            return setValid(el, msg);
+        }
+        if (name === 'statutCompte') {
+            if (!val) return setError(el, msg, 'Veuillez sélectionner un statut.');
+            return setValid(el, msg);
+        }
+        if (name === 'solde') {
+            if (val === '') return setError(el, msg, 'Le solde est obligatoire.');
+            if (parseFloat(val) < 0) return setError(el, msg, 'Le solde doit être ≥ 0.');
+            return setValid(el, msg);
+        }
+        if (name === 'dateOuverture') {
+            if (!val) return clearState(el, msg);
+            var d = new Date(val); d.setHours(0,0,0,0);
+            if (d > today) return setError(el, msg, "La date ne doit pas dépasser aujourd'hui.");
+            return setValid(el, msg);
+        }
+        if (name === 'plafondRetrait') {
+            if (val === '') return clearState(el, msg);
+            if (parseFloat(val) <= 0) return setError(el, msg, 'Doit être > 0.');
+            return setValid(el, msg);
+        }
+        if (name === 'plafondVirement') {
+            if (val === '') return clearState(el, msg);
+            if (parseFloat(val) <= 0) return setError(el, msg, 'Doit être > 0.');
+            return setValid(el, msg);
+        }
+    }
+
+    var form = document.querySelector('form[action*="accounts"] input[name="action"][value="account_save"]');
+    if (form) form = form.closest('form');
+    if (!form) return;
+
+    var fields = ['numeroCompte','typeCompte','statutCompte','solde','dateOuverture','plafondRetrait','plafondVirement'];
+    fields.forEach(function(name) {
+        var el = form.querySelector('[name="' + name + '"]');
+        if (!el) return;
+        el.addEventListener('input', function() { validateField(el); });
+        el.addEventListener('change', function() { validateField(el); });
+        el.addEventListener('blur', function() { validateField(el); });
+    });
+
+    form.addEventListener('submit', function(e) {
+        var ok = true;
+        fields.forEach(function(name) {
+            var el = form.querySelector('[name="' + name + '"]');
+            if (!el) return;
+            validateField(el);
+            if (el.classList.contains('acc-invalid')) ok = false;
+        });
+        if (!ok) e.preventDefault();
+    });
+})();
+</script>
+
+<script>
+/* ── Validation live formulaire Coffre Virtuel ── */
+(function() {
+    var today = new Date(); today.setHours(0,0,0,0);
+
+    function setValid(el, msgEl) {
+        el.classList.remove('acc-invalid');
+        el.classList.add('acc-valid');
+        if (msgEl) { msgEl.className = 'acc-field-ok'; msgEl.textContent = 'Valide'; }
+    }
+    function setError(el, msgEl, msg) {
+        el.classList.remove('acc-valid');
+        el.classList.add('acc-invalid');
+        if (msgEl) { msgEl.className = 'acc-field-error'; msgEl.textContent = msg; }
+    }
+    function clearState(el, msgEl) {
+        el.classList.remove('acc-valid','acc-invalid');
+        if (msgEl) { msgEl.className = ''; msgEl.textContent = ''; }
+    }
+    function getOrCreateMsg(el) {
+        var next = el.nextElementSibling;
+        if (next && (next.classList.contains('acc-field-error') || next.classList.contains('acc-field-ok'))) return next;
+        var span = document.createElement('span');
+        el.parentNode.insertBefore(span, el.nextSibling);
+        return span;
+    }
+
+    function validateVaultField(el, form) {
+        var name = el.name;
+        var val  = el.value.trim();
+        var msg  = getOrCreateMsg(el);
+
+        if (name === 'nom') {
+            if (val.length < 3) return setError(el, msg, 'Le nom doit contenir au moins 3 caractères.');
+            return setValid(el, msg);
+        }
+        if (name === 'objectifMontant') {
+            if (val === '') return setError(el, msg, "L'objectif est obligatoire.");
+            if (parseFloat(val) <= 0) return setError(el, msg, "L'objectif doit être > 0.");
+            return setValid(el, msg);
+        }
+        if (name === 'montantActuel') {
+            if (val === '') return clearState(el, msg);
+            if (parseFloat(val) < 0) return setError(el, msg, 'Le montant actuel doit être ≥ 0.');
+            var objEl = form.querySelector('[name="objectifMontant"]');
+            if (objEl && objEl.value && parseFloat(val) > parseFloat(objEl.value)) {
+                return setError(el, msg, "Ne doit pas dépasser l'objectif.");
+            }
+            return setValid(el, msg);
+        }
+        if (name === 'dateCreation') {
+            if (!val) return clearState(el, msg);
+            var d = new Date(val); d.setHours(0,0,0,0);
+            if (d > today) return setError(el, msg, "La date de création ne doit pas dépasser aujourd'hui.");
+            return setValid(el, msg);
+        }
+        if (name === 'dateObjectifs') {
+            if (!val) return clearState(el, msg);
+            var dcEl = form.querySelector('[name="dateCreation"]');
+            if (dcEl && dcEl.value) {
+                var dc = new Date(dcEl.value); dc.setHours(0,0,0,0);
+                var do_ = new Date(val); do_.setHours(0,0,0,0);
+                if (do_ < dc) return setError(el, msg, 'Doit être ≥ à la date de création.');
+            }
+            return setValid(el, msg);
+        }
+        if (name === 'status') {
+            if (!val) return setError(el, msg, 'Veuillez sélectionner un statut.');
+            return setValid(el, msg);
+        }
+        if (name === 'idCompte') {
+            if (!val || val === '0') return setError(el, msg, 'Veuillez sélectionner un compte.');
+            return setValid(el, msg);
+        }
+        if (name === 'estVerrouille') {
+            var objEl2 = form.querySelector('[name="objectifMontant"]');
+            var actEl  = form.querySelector('[name="montantActuel"]');
+            if (objEl2 && actEl && objEl2.value && actEl.value) {
+                var pct = (parseFloat(actEl.value) / parseFloat(objEl2.value)) * 100;
+                if (pct >= 100 && val === '0') {
+                    return setError(el, msg, "Le coffre doit être verrouillé à 100%.");
+                }
+            }
+            return setValid(el, msg);
+        }
+    }
+
+    /* Find the vault form by looking for action=vault_save */
+    var vaultFormInput = document.querySelector('input[name="action"][value="vault_save"]');
+    if (!vaultFormInput) return;
+    var vaultForm = vaultFormInput.closest('form');
+    if (!vaultForm) return;
+
+    var vaultFields = ['nom','objectifMontant','montantActuel','dateCreation','dateObjectifs','status','idCompte','estVerrouille'];
+    vaultFields.forEach(function(name) {
+        var el = vaultForm.querySelector('[name="' + name + '"]');
+        if (!el) return;
+        el.addEventListener('input',  function() { validateVaultField(el, vaultForm); });
+        el.addEventListener('change', function() { validateVaultField(el, vaultForm); });
+        el.addEventListener('blur',   function() { validateVaultField(el, vaultForm); });
+    });
+
+    vaultForm.addEventListener('submit', function(e) {
+        var ok = true;
+        vaultFields.forEach(function(name) {
+            var el = vaultForm.querySelector('[name="' + name + '"]');
+            if (!el) return;
+            validateVaultField(el, vaultForm);
+            if (el.classList.contains('acc-invalid')) ok = false;
+        });
+        if (!ok) e.preventDefault();
+    });
+})();
+</script>

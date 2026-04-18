@@ -1,0 +1,166 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Portal Features - {{ section|title }}{% endblock %}
+{% block body_class %}portal-main-body{% endblock %}
+{% block stylesheets %}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="stylesheet" href="{{ asset('styles/interfaces/portal-features.css') }}">
+{% endblock %}
+
+{% block body %}
+    {% set tabs = [
+        {key: 'dashboard', label: 'Dashboard'},
+        {key: 'accounts', label: 'Comptes'},
+        {key: 'transactions', label: 'Transactions'},
+        {key: 'credits', label: 'Credits'},
+        {key: 'cashback', label: 'Recompenses'},
+        {key: 'garanties', label: 'Garanties'},
+        {key: 'complaints', label: 'Reclamations'},
+        {key: 'vaults', label: 'Coffres'},
+        {key: 'profile', label: 'Profil'},
+        {key: 'notifications', label: 'Notifications'}
+    ] %}
+    {% set primary_keys = ['dashboard', 'accounts', 'transactions', 'credits', 'cashback'] %}
+    {% set nav_icons = {
+        dashboard: 'fa-chart-line',
+        accounts: 'fa-wallet',
+        transactions: 'fa-exchange-alt',
+        credits: 'fa-credit-card',
+        cashback: 'fa-gift',
+        garanties: 'fa-shield-halved',
+        complaints: 'fa-comment-dots',
+        vaults: 'fa-lock',
+        profile: 'fa-user',
+        notifications: 'fa-bell'
+    } %}
+
+    <div class="nx-portal-screen">
+        <div class="top-navbar-wrapper">
+            <div class="top-navbar">
+                <div class="navbar-brand">
+                    <span class="brand-logo-container">
+                        <img src="{{ asset('images/logo.png') }}" alt="Nexora logo" class="brand-logo-image">
+                    </span>
+                    <div>
+                        <div class="brand-name">NEXORA</div>
+                        <div class="brand-subtitle">Banque privee</div>
+                    </div>
+                </div>
+
+                <div class="navbar-separator"></div>
+
+                <div class="nav-menu-horizontal">
+                    {% for item in tabs %}
+                        {% if item.key in primary_keys %}
+                            <a class="nav-button-horizontal" href="{{ path(dashboard_route, { tab: item.key }) }}">
+                                <span class="nav-icon-box-horizontal">
+                                    <i class="fa-solid {{ nav_icons[item.key]|default('fa-circle') }} nav-icon"></i>
+                                </span>
+                                <span class="nav-button-text-horizontal">{{ item.label }}</span>
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+
+                <span class="nav-spacer"></span>
+
+                <div class="status-chips-container">
+                    <span class="status-chip status-chip-secure">
+                        <i class="fa-solid fa-shield-halved status-chip-icon"></i>
+                        <span class="status-chip-text">Securise</span>
+                    </span>
+                    <span class="status-chip status-chip-live">
+                        <span class="pulse-dot"></span>
+                        <span class="status-chip-text">En ligne</span>
+                    </span>
+                </div>
+
+                <div class="navbar-separator"></div>
+
+                <div class="navbar-actions">
+                    <a class="navbar-action-button" href="{{ path(dashboard_route, { tab: 'notifications' }) }}" title="Notifications">
+                        <i class="fa-solid fa-bell navbar-action-icon"></i>
+                        {% if notifications_count > 0 %}
+                            <span class="notification-dot"><span class="notification-dot-text">{{ notifications_count > 99 ? '99+' : notifications_count }}</span></span>
+                        {% endif %}
+                    </a>
+                    <a class="navbar-action-button" href="{{ path(dashboard_route, { tab: 'profile' }) }}" title="Parametres">
+                        <i class="fa-solid fa-cog navbar-action-icon"></i>
+                    </a>
+                </div>
+
+                <div class="navbar-separator"></div>
+
+                <div class="navbar-user-profile">
+                    <div>
+                        <div class="navbar-user-name">{{ current_user.prenom }} {{ current_user.nom }}</div>
+                        <div class="navbar-user-type">Compte premium</div>
+                    </div>
+                    <span class="navbar-user-avatar">
+                        <i class="fa-solid fa-user navbar-user-avatar-icon"></i>
+                    </span>
+                    <a class="signout-button-compact" href="{{ path('logout') }}" title="Deconnexion">
+                        <i class="fa-solid fa-sign-out-alt signout-icon-compact"></i>
+                    </a>
+                </div>
+            </div>
+
+            <div class="page-header-bar">
+                <div>
+                    <div class="page-title">Fonctionnalites avancees client</div>
+                    <div class="page-subtitle">Module: {{ section|replace({'_': ' '})|title }}</div>
+                </div>
+                <div class="page-header-actions">
+                    <span class="breadcrumb-text">Tableau de bord</span>
+                    <i class="fa-solid fa-chevron-right breadcrumb-icon"></i>
+                    <span class="breadcrumb-text-active">{{ section|replace({'_': ' '})|title }}</span>
+                </div>
+            </div>
+        </div>
+
+        <main class="portal-main-content">
+            {% include '_flashes.html.twig' %}
+            {% if section == 'games' %}
+                {% include 'interfaces/portal/features/games.html.twig' %}
+            {% elseif section == 'payments' %}
+                {% include 'interfaces/portal/features/payments.html.twig' %}
+            {% elseif section == 'exports' %}
+                {% include 'interfaces/portal/features/exports.html.twig' %}
+            {% else %}
+                {% include 'interfaces/portal/features/insights.html.twig' %}
+            {% endif %}
+        </main>
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        document.addEventListener('click', function (event) {
+            const button = event.target.closest('[data-speech-fill]');
+            if (!button) {
+                return;
+            }
+
+            const field = document.querySelector('[name="' + button.getAttribute('data-speech-fill') + '"]');
+            if (!field) {
+                return;
+            }
+
+            const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!Recognition) {
+                window.alert('Browser speech recognition is not available on this device.');
+                return;
+            }
+
+            const recognition = new Recognition();
+            recognition.lang = 'en-US';
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+            recognition.onresult = function (speechEvent) {
+                field.value = speechEvent.results[0][0].transcript;
+            };
+            recognition.start();
+        });
+    </script>
+{% endblock %}

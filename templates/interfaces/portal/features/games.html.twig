@@ -1,0 +1,210 @@
+{% set cond_solde_ok = wheel.eligibility.condition_solde %}
+{% set cond_budget_ok = wheel.eligibility.condition_budget %}
+{% set cond_epargne_ok = wheel.eligibility.condition_epargne %}
+{% set wheel_progress = wheel.total_points > 100 ? 100 : wheel.total_points %}
+{% set dragon_level_map = {
+    'heureux': 'Bebe Heros',
+    'triste': 'Dragon Triste',
+    'fache': 'Dragon Alerte',
+    'peutContent': 'Dragon Vigilant',
+    'neutre': 'Dragon Neutre'
+} %}
+
+<section class="games-shell">
+    <article class="wheel-card">
+        <header class="wheel-header">
+            <div class="wheel-title-wrap">
+                <span class="wheel-title-icon"><i class="fa-solid fa-dharmachakra"></i></span>
+                <div>
+                    <h2>Wheel of Fortune</h2>
+                    <p>NEXORA BANK - Analyse comportement financier mensuel</p>
+                </div>
+            </div>
+            <div class="wheel-head-right">
+                <span class="wheel-badge {{ wheel.can_spin ? 'ok' : 'warn' }}">
+                    {{ wheel.can_spin ? 'Eligible' : 'Verification' }}
+                </span>
+                <a class="wheel-close" href="{{ path(dashboard_route, {tab: 'accounts'}) }}">
+                    <i class="fa-solid fa-times"></i> Fermer
+                </a>
+            </div>
+        </header>
+
+        <div class="wheel-body">
+            <div class="wheel-left">
+                <div class="wheel-canvas-wrap">
+                    <div class="wheel-ring">
+                        <div class="wheel-core">
+                            <i class="fa-solid fa-star"></i>
+                            <span>Roue</span>
+                        </div>
+                    </div>
+                </div>
+
+                <p class="wheel-status">{{ wheel.eligibility.message }}</p>
+
+                <form method="post" class="wheel-spin-form">
+                    <input type="hidden" name="action" value="wheel_spin">
+                    <button class="btn btn-primary wheel-spin-btn" type="submit" {{ not wheel.can_spin ? 'disabled' : '' }}>
+                        Lancer la roue
+                    </button>
+                </form>
+
+                {% if view_state.wheel_result %}
+                    <div class="notification-item">
+                        <strong>Dernier resultat</strong>
+                        <p>{{ view_state.wheel_result.spin_result.message|default('Bonus credited successfully.') }}</p>
+                    </div>
+                {% endif %}
+
+                {% if wheel.bonus_ready %}
+                    <div class="wheel-bonus-panel">
+                        <strong>100 POINTS ATTEINTS</strong>
+                        <p>Choisir le compte sur lequel recevoir les +50 DT.</p>
+                        <form method="post" class="mini-form">
+                            <input type="hidden" name="action" value="wheel_bonus">
+                            <select name="idCompte">
+                                {% for account in payments.accounts %}
+                                    <option value="{{ account.idCompte }}">{{ account.numeroCompte }} | {{ account.solde }} DT</option>
+                                {% endfor %}
+                            </select>
+                            <button class="btn btn-secondary" type="submit">Crediter +50 DT</button>
+                        </form>
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="wheel-right">
+                <div class="wheel-conditions">
+                    <h3><i class="fa-solid fa-clipboard-check"></i> Conditions d'eligibilite</h3>
+                    <div class="condition-row {{ cond_solde_ok ? 'ok' : 'ko' }}">
+                        <span class="condition-icon"><i class="fa-solid fa-wallet"></i></span>
+                        <div>
+                            <strong>Solde toujours positif</strong>
+                            <small>Aucun solde apres negatif ce mois</small>
+                        </div>
+                        <b>{{ cond_solde_ok ? 'OK' : 'KO' }}</b>
+                    </div>
+                    <div class="condition-row {{ cond_budget_ok ? 'ok' : 'ko' }}">
+                        <span class="condition-icon"><i class="fa-solid fa-chart-pie"></i></span>
+                        <div>
+                            <strong>Budget mensuel respecte</strong>
+                            <small>Depenses totales <= 80% du revenu mensuel</small>
+                        </div>
+                        <b>{{ cond_budget_ok ? 'OK' : 'KO' }}</b>
+                    </div>
+                    <div class="condition-row {{ cond_epargne_ok ? 'ok' : 'ko' }}">
+                        <span class="condition-icon"><i class="fa-solid fa-piggy-bank"></i></span>
+                        <div>
+                            <strong>Epargne mensuelle active</strong>
+                            <small>Au moins 1 virement vers coffre virtuel</small>
+                        </div>
+                        <b>{{ cond_epargne_ok ? 'OK' : 'KO' }}</b>
+                    </div>
+                </div>
+
+                <div class="wheel-points-card">
+                    <div class="wheel-points-head">
+                        <strong><i class="fa-solid fa-star"></i> Tes points NEXORA</strong>
+                        <span>{{ wheel.total_points }} / 100 pts - {{ wheel_progress }}%</span>
+                    </div>
+                    <div class="wheel-progress"><span style="width: {{ wheel_progress }}%;"></span></div>
+                    <small>{{ wheel.eligibility.suggestion }}</small>
+                </div>
+
+                {% if not wheel.can_spin %}
+                    <div class="wheel-refusal">
+                        <h4><i class="fa-solid fa-lock"></i> Acces refuse</h4>
+                        <p>{{ wheel.eligibility.suggestion }}</p>
+                        <a class="btn btn-secondary" href="{{ path(feature_route, {section: 'games'}) }}">Re-verifier mon eligibilite</a>
+                    </div>
+                {% endif %}
+
+                <div class="wheel-rules">
+                    <h4><i class="fa-solid fa-info-circle"></i> Regles du jeu</h4>
+                    <p>- 1 tour par mois. Points cumules mois apres mois.</p>
+                    <p>- 25 pts -> Cashback. 50 pts -> Reduction frais bancaires.</p>
+                    <p class="rules-highlight">- 100 pts -> +50 DT credites automatiquement.</p>
+                </div>
+            </div>
+        </div>
+    </article>
+
+    <article class="dragon-card">
+        <header class="dragon-header">
+            <span class="dragon-head-icon"><i class="fa-solid fa-dragon"></i></span>
+            <div>
+                <h2>Draco - Ton Compagnon Financier</h2>
+                <p>Il reflete l'etat de ton epargne en temps reel</p>
+            </div>
+        </header>
+
+        <div class="dragon-body">
+            <div class="dragon-avatar-col">
+                <div class="dragon-avatar-wrap">
+                    <img src="{{ asset(dragon.image) }}" alt="Dragon mood">
+                </div>
+                <strong class="dragon-level">{{ dragon_level_map[dragon.mood]|default('Dragon Neutre') }}</strong>
+                <p class="dragon-mood">{{ dragon.message }}</p>
+                <button type="button" class="dragon-talk-btn"><i class="fa-solid fa-comment-dots"></i> Parler</button>
+            </div>
+
+            <div class="dragon-info-col">
+                <div class="dragon-progress-card">
+                    <div class="dragon-progress-head">
+                        <strong><i class="fa-solid fa-piggy-bank"></i> Mon coffre</strong>
+                        <span>{{ dragon.savings_progress }}%</span>
+                    </div>
+                    <div class="wheel-progress"><span style="width: {{ dragon.savings_progress > 100 ? 100 : dragon.savings_progress }}%;"></span></div>
+                    <small>{{ dragon.vault_count }} coffre(s) actif(s)</small>
+                </div>
+
+                <div class="dragon-kpis">
+                    <div>
+                        <small>Solde</small>
+                        <strong>{{ dragon.total_balance|number_format(2, '.', ' ') }} DT</strong>
+                    </div>
+                    <div>
+                        <small>Depenses (mois)</small>
+                        <strong>{{ wheel.eligibility.total_debits|number_format(2, '.', ' ') }} DT</strong>
+                    </div>
+                </div>
+
+                <div class="dragon-message-box">
+                    <strong>Draco dit :</strong>
+                    <p>{{ dragon.advice }}</p>
+                </div>
+
+                <div class="dragon-advice-box">
+                    <span><i class="fa-solid fa-lightbulb"></i></span>
+                    <p>{{ dragon.message }}</p>
+                </div>
+
+                <form method="post" class="dragon-feed-form">
+                    <input type="hidden" name="action" value="dragon_feed">
+                    <label>
+                        <span>Compte</span>
+                        <select name="idCompte">
+                            {% for account in payments.accounts %}
+                                <option value="{{ account.idCompte }}">{{ account.numeroCompte }} | {{ account.solde }} DT</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label>
+                        <span>Coffre</span>
+                        <select name="idCoffre">
+                            {% for vault in vaults %}
+                                <option value="{{ vault.idCoffre }}">{{ vault.nom }} | {{ vault.montantActuel }} / {{ vault.objectifMontant }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label>
+                        <span>Montant a transferer</span>
+                        <input type="number" step="0.01" name="amount" required>
+                    </label>
+                    <button class="btn btn-primary" type="submit"><i class="fa-solid fa-coins"></i> Nourrir</button>
+                </form>
+            </div>
+        </div>
+    </article>
+</section>

@@ -1,0 +1,901 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Dashboard Credit Analysis — Scoring IA{% endblock %}
+
+{% block stylesheets %}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* ═══════════════════════════════════════════════════════════════════
+           DESIGN SYSTEM — NEXORA Credit Analysis
+           ═══════════════════════════════════════════════════════════════════ */
+        :root {
+            --ca-ink: #0f172a;
+            --ca-muted: #64748b;
+            --ca-line: rgba(217, 226, 236, .7);
+            --ca-surface: rgba(255, 255, 255, 0.82);
+            --ca-glass: rgba(255, 255, 255, 0.58);
+            --ca-shadow: 0 18px 45px rgba(15, 23, 42, 0.10);
+            --ca-shadow-lg: 0 28px 60px rgba(15, 23, 42, 0.13);
+            --ca-radius: 1.5rem;
+            --ca-green: #28a745;
+            --ca-orange: #ffc107;
+            --ca-red: #dc3545;
+            --ca-blue: #0d6efd;
+            --ca-purple: #7c3aed;
+        }
+
+        * { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+
+        body {
+            background:
+                radial-gradient(ellipse at 10% 0%, rgba(124, 58, 237, 0.08), transparent 40%),
+                radial-gradient(ellipse at 90% 10%, rgba(40, 167, 69, 0.09), transparent 35%),
+                radial-gradient(ellipse at 50% 100%, rgba(13, 110, 253, 0.06), transparent 45%),
+                linear-gradient(180deg, #edf4ff 0%, #f6f9ff 50%, #f0f4ff 100%);
+            color: var(--ca-ink);
+            min-height: 100vh;
+        }
+
+        .ca-shell { padding: 2rem 0 4rem; }
+
+        /* ── Cards & Glass ───────────────────────────────────────────────── */
+        .ca-hero,
+        .ca-card {
+            background: var(--ca-surface);
+            border: 1px solid var(--ca-line);
+            border-radius: var(--ca-radius);
+            box-shadow: var(--ca-shadow);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            transition: box-shadow .3s ease, transform .25s ease;
+        }
+
+        .ca-card:hover {
+            box-shadow: var(--ca-shadow-lg);
+            transform: translateY(-2px);
+        }
+
+        .ca-hero {
+            overflow: hidden;
+            position: relative;
+        }
+
+        .ca-hero::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.06), transparent 40%, rgba(40, 167, 69, 0.06));
+            pointer-events: none;
+        }
+
+        /* ── Chips ───────────────────────────────────────────────────────── */
+        .ca-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: .45rem;
+            padding: .4rem .85rem;
+            border-radius: 999px;
+            background: rgba(15, 23, 42, 0.05);
+            color: var(--ca-muted);
+            font-size: .82rem;
+            font-weight: 600;
+            letter-spacing: .01em;
+        }
+
+        /* ── Score Ring (animated conic) ──────────────────────────────────── */
+        .ca-score-ring {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            margin-left: auto;
+            background:
+                radial-gradient(circle, #fff 56%, transparent 57%),
+                conic-gradient({{ score.color }} calc(var(--ring-pct) * 1%), rgba(15, 23, 42, 0.07) 0);
+            box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.07), 0 8px 25px rgba(15, 23, 42, 0.06);
+            --ring-pct: 0;
+            animation: fillRing 1.2s ease-out forwards;
+        }
+
+        @keyframes fillRing {
+            to { --ring-pct: {{ score.score }}; }
+        }
+
+        @property --ring-pct {
+            syntax: '<number>';
+            initial-value: 0;
+            inherits: false;
+        }
+
+        .ca-score-ring strong {
+            font-size: 2.2rem;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        /* ── AI Score Gauge ───────────────────────────────────────────────── */
+        .ca-ai-gauge {
+            width: 110px;
+            height: 110px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            background:
+                radial-gradient(circle, #fff 56%, transparent 57%),
+                conic-gradient({{ ai_score.ai_color|default('#6c757d') }} calc(var(--ai-pct) * 1%), rgba(15, 23, 42, 0.07) 0);
+            box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.07);
+            --ai-pct: 0;
+            animation: fillAiGauge 1.4s ease-out .3s forwards;
+        }
+
+        @keyframes fillAiGauge {
+            to { --ai-pct: {{ ai_score.ai_score|default(0) }}; }
+        }
+
+        @property --ai-pct {
+            syntax: '<number>';
+            initial-value: 0;
+            inherits: false;
+        }
+
+        .ca-ai-gauge strong {
+            font-size: 1.6rem;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        /* ── Stats ───────────────────────────────────────────────────────── */
+        .ca-stat {
+            border: 1px solid var(--ca-line);
+            border-radius: 1.25rem;
+            padding: 1.1rem 1.15rem;
+            height: 100%;
+            background: #fff;
+            transition: border-color .2s;
+        }
+        .ca-stat:hover { border-color: rgba(13, 110, 253, .25); }
+
+        .ca-stat small,
+        .ca-label {
+            color: var(--ca-muted);
+            font-weight: 600;
+            font-size: .82rem;
+            letter-spacing: .03em;
+            text-transform: uppercase;
+        }
+
+        .ca-stat strong {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: block;
+            margin-top: .3rem;
+        }
+
+        /* ── Cards ───────────────────────────────────────────────────────── */
+        .ca-card { padding: 1.4rem; }
+
+        .ca-card h2 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: .25rem;
+        }
+
+        .ca-subtle {
+            color: var(--ca-muted);
+            font-size: .92rem;
+        }
+
+        /* ── AI Card special styling ──────────────────────────────────────── */
+        .ca-ai-card {
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.04), rgba(13, 110, 253, 0.04));
+            border: 1px solid rgba(124, 58, 237, 0.15);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ca-ai-card::before {
+            content: '';
+            position: absolute;
+            top: -60px;
+            right: -60px;
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(124, 58, 237, 0.08), transparent 70%);
+            pointer-events: none;
+        }
+
+        .ca-ai-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            padding: .3rem .7rem;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #7c3aed, #6366f1);
+            color: #fff;
+            font-size: .75rem;
+            font-weight: 700;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
+
+        /* ── Table wrap ──────────────────────────────────────────────────── */
+        .ca-table-wrap {
+            max-height: 520px;
+            overflow: auto;
+        }
+
+        /* ── Form grid ───────────────────────────────────────────────────── */
+        .ca-form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1rem;
+        }
+
+        .ca-form-grid .ca-span-2 { grid-column: span 2; }
+
+        /* ── Breakdown ───────────────────────────────────────────────────── */
+        .ca-breakdown { display: flex; flex-direction: column; gap: .85rem; }
+
+        .ca-breakdown-item {
+            border: 1px solid var(--ca-line);
+            border-radius: 1rem;
+            padding: .85rem 1rem;
+            background: #fff;
+            transition: border-color .2s, box-shadow .2s;
+        }
+
+        .ca-breakdown-item:hover {
+            border-color: rgba(13, 110, 253, 0.2);
+            box-shadow: 0 4px 12px rgba(13, 110, 253, 0.06);
+        }
+
+        .ca-breakdown-item strong { font-size: 1.05rem; }
+
+        /* ── Solutions ───────────────────────────────────────────────────── */
+        .ca-solution {
+            border: 1px solid var(--ca-line);
+            border-radius: 1rem;
+            padding: 1rem;
+            background: #fff;
+            height: 100%;
+            transition: transform .25s, box-shadow .25s;
+        }
+        .ca-solution:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+        }
+
+        .ca-solution h3 { font-size: 1rem; font-weight: 700; }
+
+        /* ── Insight list ─────────────────────────────────────────────────── */
+        .ca-insight-list {
+            margin: 0;
+            padding-left: 1.1rem;
+            color: var(--ca-muted);
+        }
+
+        .ca-insight-list li {
+            padding: .35rem 0;
+            line-height: 1.5;
+        }
+
+        /* ── Progress bars with animation ─────────────────────────────────── */
+        .ca-progress-animated .progress-bar {
+            animation: growBar .8s ease-out forwards;
+            width: 0 !important;
+        }
+
+        @keyframes growBar {
+            to { width: var(--target-width) !important; }
+        }
+
+        /* ── Comparison bar ───────────────────────────────────────────────── */
+        .ca-compare-bar {
+            display: flex;
+            align-items: center;
+            gap: .8rem;
+            padding: .7rem .9rem;
+            border-radius: .8rem;
+            background: rgba(15, 23, 42, 0.025);
+            border: 1px solid var(--ca-line);
+        }
+
+        .ca-compare-label { font-weight: 600; font-size: .82rem; min-width: 80px; }
+        .ca-compare-value { font-weight: 700; font-size: 1.15rem; min-width: 50px; text-align: right; }
+
+        /* ── Responsive ──────────────────────────────────────────────────── */
+        @media (max-width: 991px) {
+            .ca-score-ring, .ca-ai-gauge { margin: 1rem auto 0; }
+        }
+
+        @media (max-width: 767px) {
+            .ca-form-grid { grid-template-columns: 1fr; }
+            .ca-form-grid .ca-span-2 { grid-column: span 1; }
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+    <div class="container ca-shell">
+
+        {# ════════════════════════════════════════════════════════════════════
+           HERO SECTION — Score + Decision + Chips
+           ════════════════════════════════════════════════════════════════════ #}
+        <div class="ca-hero p-4 p-lg-5 mb-4">
+            <div class="row align-items-center g-4 position-relative" style="z-index:1;">
+                <div class="col-lg-8">
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <span class="ca-chip">Niveau de risque: {{ risk.label }}</span>
+                        <span class="ca-chip">Couverture garanties: {{ (coverage.coverage_ratio * 100)|number_format(1, '.', ' ') }}%</span>
+                        <span class="ca-chip">Utilisateur: {{ current_user.prenom|default('') }} {{ current_user.nom|default('') }}</span>
+                    </div>
+                    <h1 class="display-6 fw-bold mb-3">Dashboard credit, scoring &amp; simulation</h1>
+                    <p class="lead text-secondary mb-4">
+                        Analyse complete d'un dossier de credit avec score deterministe, scoring IA,
+                        risque, capacite de couverture et plan d'amortissement detaille.
+                    </p>
+                    <div class="d-flex flex-wrap gap-3 align-items-center">
+                        <span class="badge {{ score.badge_class }} px-3 py-2 fs-6">{{ score.decision }}</span>
+                        {% if ai_score.ai_available and ai_score.ai_score is not null %}
+                            <span class="ca-ai-badge">
+                                <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M12 2a2 2 0 012 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 017 7v1h1.27A2 2 0 0124 17a2 2 0 01-2.73 1.86V20a2 2 0 01-2 2H4.73A2 2 0 012 24a2 2 0 011.73-3.86V19a2 2 0 01-2-2v-1H.73A2 2 0 01-1 14a2 2 0 012.73-1.86V11a7 7 0 017-7h1V5.73A2 2 0 0110 4a2 2 0 012-2z" fill="currentColor"/></svg>
+                                IA: {{ ai_score.ai_decision }}
+                            </span>
+                        {% endif %}
+                        <span class="ca-subtle">Mensualite estimee: {{ simulation.monthly_payment|number_format(2, '.', ' ') }} DT</span>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="ca-score-ring">
+                        <div class="text-center">
+                            <strong>{{ score.score }}</strong>
+                            <div class="ca-label mt-1">/ 100</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# ════════════════════════════════════════════════════════════════════
+           KPI STRIP — Decision, Risk, Guarantees
+           ════════════════════════════════════════════════════════════════════ #}
+        <div class="row g-4 mb-4">
+            <div class="col-xl-4">
+                <div class="ca-stat">
+                    <small>Decision scoring</small>
+                    <strong style="color: {{ score.color }};">{{ score.decision }}</strong>
+                    <div class="progress mt-3 ca-progress-animated" role="progressbar"
+                         aria-valuenow="{{ score.score }}" aria-valuemin="0" aria-valuemax="100"
+                         style="height: 12px; border-radius: 6px;">
+                        <div class="progress-bar {{ score.progress_class }}"
+                             style="--target-width: {{ score.score }}%; border-radius: 6px;"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-4">
+                <div class="ca-stat">
+                    <small>Risque global</small>
+                    <strong style="color: {{ risk.color }};">{{ risk.label }}</strong>
+                    <div class="ca-subtle mt-2">Ratio dette / revenu: {{ (risk.debt_ratio * 100)|number_format(1, '.', ' ') }}%</div>
+                </div>
+            </div>
+            <div class="col-xl-4">
+                <div class="ca-stat">
+                    <small>Garanties retenues</small>
+                    <strong style="color: {{ coverage.color }};">{{ coverage.retained_total|number_format(2, '.', ' ') }} DT</strong>
+                    <div class="ca-subtle mt-2">{{ coverage.label }} — manque: {{ coverage.shortfall|number_format(2, '.', ' ') }} DT</div>
+                </div>
+            </div>
+        </div>
+
+        {# ════════════════════════════════════════════════════════════════════
+           AI SCORING CARD
+           ════════════════════════════════════════════════════════════════════ #}
+        <div class="ca-card ca-ai-card p-4 mb-4">
+            <div class="row align-items-center g-4">
+                <div class="col-lg-8">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span class="ca-ai-badge">
+                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M6 12.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5M3 8.062C3 6.76 4.235 5.765 5.53 5.886a26.6 26.6 0 0 0 4.94 0C11.765 5.765 13 6.76 13 8.062v1.157a.93.93 0 0 1-.765.935c-.845.147-2.34.346-4.235.346s-3.39-.2-4.235-.346A.93.93 0 0 1 3 9.219zm4.542-.827a.25.25 0 0 0-.217.068l-.92.9a25 25 0 0 1-1.871-.183.25.25 0 0 0-.068.495c.55.076 1.232.149 2.02.193a.25.25 0 0 0 .189-.071l.754-.736.847 1.71a.25.25 0 0 0 .404.062l.932-.97a25 25 0 0 0 1.922-.188.25.25 0 0 0-.068-.495c-.538.074-1.207.145-1.98.189a.25.25 0 0 0-.166.076l-.754.785-.842-1.7a.25.25 0 0 0-.182-.135"/><path d="M8 1a2.5 2.5 0 0 0-2.5 2.5V4h5v-.5A2.5 2.5 0 0 0 8 1m3.5 3v-.5a3.5 3.5 0 1 0-7 0V4H3.063a2 2 0 0 0-1.993 1.833L.702 10.65a4 4 0 0 0-.007.467c.056.783.306 1.502.683 2.1C1.993 14.157 2.918 15 4 15h8c1.082 0 2.007-.843 2.622-1.783.377-.598.627-1.317.683-2.1a4 4 0 0 0-.007-.467l-.368-4.817A2 2 0 0 0 12.937 4z"/></svg>
+                            Scoring Intelligence Artificielle
+                        </span>
+                        {% if ai_score.ai_available and ai_score.ai_score is not null %}
+                            <span class="badge {{ ai_score.ai_badge_class }} px-2 py-1 ms-1">{{ ai_score.ai_decision }}</span>
+                        {% endif %}
+                    </div>
+
+                    {% if ai_score.ai_available and ai_score.ai_score is not null %}
+                        <h2 class="fw-bold mb-2">Analyse IA du dossier de credit</h2>
+                        <p class="ca-subtle mb-3">{{ ai_score.ai_justification }}</p>
+
+                        <div class="d-flex flex-wrap gap-3 mb-3">
+                            <div class="ca-compare-bar">
+                                <span class="ca-compare-label">Règles</span>
+                                <div class="flex-grow-1">
+                                    <div class="progress" style="height: 8px; border-radius: 4px;">
+                                        <div class="progress-bar {{ score.progress_class }}" style="width: {{ score.score }}%; border-radius: 4px;"></div>
+                                    </div>
+                                </div>
+                                <span class="ca-compare-value" style="color: {{ score.color }};">{{ score.score }}</span>
+                            </div>
+                            <div class="ca-compare-bar">
+                                <span class="ca-compare-label">IA</span>
+                                <div class="flex-grow-1">
+                                    <div class="progress" style="height: 8px; border-radius: 4px;">
+                                        <div class="progress-bar" style="width: {{ ai_score.ai_score }}%; background: {{ ai_score.ai_color }}; border-radius: 4px;"></div>
+                                    </div>
+                                </div>
+                                <span class="ca-compare-value" style="color: {{ ai_score.ai_color }};">{{ ai_score.ai_score }}</span>
+                            </div>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-2">
+                            <span class="ca-chip">Confiance IA: {{ ai_score.ai_confidence }}%</span>
+                            <span class="ca-chip">Fournisseur: {{ ai_score.ai_provider }}</span>
+                        </div>
+                    {% else %}
+                        <h2 class="fw-bold mb-2">Scoring IA non disponible</h2>
+                        <p class="ca-subtle mb-0">
+                            {{ ai_score.ai_justification|default('Configurez GEMINI_API_KEY dans votre fichier .env pour activer le scoring par intelligence artificielle.') }}
+                        </p>
+                    {% endif %}
+                </div>
+                <div class="col-lg-4 text-center">
+                    {% if ai_score.ai_available and ai_score.ai_score is not null %}
+                        <div class="ca-ai-gauge mx-auto">
+                            <div class="text-center">
+                                <strong style="color: {{ ai_score.ai_color }};">{{ ai_score.ai_score }}</strong>
+                                <div class="ca-label mt-1" style="font-size: .7rem;">SCORE IA</div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="p-4">
+                            <svg width="64" height="64" fill="var(--ca-muted)" viewBox="0 0 16 16" style="opacity:.3;">
+                                <path d="M6 12.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5M3 8.062C3 6.76 4.235 5.765 5.53 5.886a26.6 26.6 0 0 0 4.94 0C11.765 5.765 13 6.76 13 8.062v1.157a.93.93 0 0 1-.765.935c-.845.147-2.34.346-4.235.346s-3.39-.2-4.235-.346A.93.93 0 0 1 3 9.219z"/>
+                                <path d="M8 1a2.5 2.5 0 0 0-2.5 2.5V4h5v-.5A2.5 2.5 0 0 0 8 1m3.5 3v-.5a3.5 3.5 0 1 0-7 0V4H3.063a2 2 0 0 0-1.993 1.833L.702 10.65a4 4 0 0 0-.007.467c.056.783.306 1.502.683 2.1C1.993 14.157 2.918 15 4 15h8c1.082 0 2.007-.843 2.622-1.783.377-.598.627-1.317.683-2.1a4 4 0 0 0-.007-.467l-.368-4.817A2 2 0 0 0 12.937 4z"/>
+                            </svg>
+                            <div class="ca-label mt-2">IA Désactivée</div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {# ════════════════════════════════════════════════════════════════════
+           MAIN CONTENT — Simulator + Analysis
+           ════════════════════════════════════════════════════════════════════ #}
+        <div class="row g-4">
+
+            {# ── LEFT COLUMN: Loader + Form ──────────────────────────────── #}
+            <div class="col-xl-4">
+                <div class="ca-card h-100">
+                    <h2 class="fw-bold">Charger un dossier existant</h2>
+                    <p class="ca-subtle mb-4">Prefill depuis les credits visibles pour l'utilisateur connecte.</p>
+
+                    <form method="get" class="mb-4">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Dossier credit</label>
+                            <select class="form-select" name="creditId">
+                                <option value="">Mode simulation libre</option>
+                                {% for option in credit_options %}
+                                    <option value="{{ option.id }}"{{ selected_credit_id == option.id ? ' selected' : '' }}>{{ option.label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button class="btn btn-outline-dark w-100" type="submit">Charger le dossier</button>
+                    </form>
+
+                    <h2 class="fw-bold">Simulateur de credit</h2>
+                    <p class="ca-subtle mb-4">Vous pouvez ajuster les valeurs avant recalcul.</p>
+
+                    <form method="post" class="ca-form-grid">
+                        <div class="ca-span-2">
+                            <label class="form-label fw-semibold">Type de credit</label>
+                            <input class="form-control" type="text" name="typeCredit" value="{{ form.typeCredit }}">
+                        </div>
+
+                        <div>
+                            <label class="form-label fw-semibold">Montant demande (DT)</label>
+                            <input class="form-control" type="number" step="0.01" min="0" name="montantDemande" value="{{ form.montantDemande }}">
+                        </div>
+
+                        <div>
+                            <label class="form-label fw-semibold">Montant accorde (DT)</label>
+                            <input class="form-control" type="number" step="0.01" min="0" name="montantAccorde" value="{{ form.montantAccorde }}">
+                        </div>
+
+                        <div>
+                            <label class="form-label fw-semibold">Autofinancement (DT)</label>
+                            <input class="form-control" type="number" step="0.01" min="0" name="autofinancement" value="{{ form.autofinancement }}">
+                        </div>
+
+                        <div>
+                            <label class="form-label fw-semibold">Duree (mois)</label>
+                            <input class="form-control" type="number" min="1" name="duree" value="{{ form.duree }}">
+                        </div>
+
+                        <div>
+                            <label class="form-label fw-semibold">Taux annuel (%)</label>
+                            <input class="form-control" type="number" step="0.01" min="0" name="tauxInteret" value="{{ form.tauxInteret }}">
+                        </div>
+
+                        <div>
+                            <label class="form-label fw-semibold">Mensualite forcee (DT)</label>
+                            <input class="form-control" type="number" step="0.01" min="0" name="mensualite" value="{{ form.mensualite }}">
+                        </div>
+
+                        <div>
+                            <label class="form-label fw-semibold">Salaire mensuel (DT)</label>
+                            <input class="form-control" type="number" step="0.01" min="0" name="salaire" value="{{ form.salaire }}">
+                        </div>
+
+                        <div>
+                            <label class="form-label fw-semibold">Anciennete (ans)</label>
+                            <input class="form-control" type="number" min="0" name="ancienneteAnnees" value="{{ form.ancienneteAnnees }}">
+                        </div>
+
+                        <div>
+                            <label class="form-label fw-semibold">Type de contrat</label>
+                            <select class="form-select" name="typeContrat">
+                                {% for contract in ['CDI', 'CDD', 'Fonctionnaire', 'Profession liberale', 'Autre'] %}
+                                    <option value="{{ contract }}"{{ form.typeContrat == contract ? ' selected' : '' }}>{{ contract }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="form-label fw-semibold">Date demande</label>
+                            <input class="form-control" type="date" name="dateDemande" value="{{ form.dateDemande }}">
+                        </div>
+
+                        <div>
+                            <label class="form-label fw-semibold">Garantie estimee (DT)</label>
+                            <input class="form-control" type="number" step="0.01" min="0" name="garantieEstimee" value="{{ form.garantieEstimee }}">
+                        </div>
+
+                        <div>
+                            <label class="form-label fw-semibold">Garantie retenue (DT)</label>
+                            <input class="form-control" type="number" step="0.01" min="0" name="garantieRetenue" value="{{ form.garantieRetenue }}">
+                        </div>
+
+                        <div class="ca-span-2 d-grid">
+                            <button class="btn btn-dark btn-lg" type="submit">
+                                Recalculer score et simulation
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            {# ── RIGHT COLUMN: Analysis Panels ───────────────────────────── #}
+            <div class="col-xl-8">
+                <div class="row g-4">
+
+                    {# ── Decision Summary ─────────────────────────────────── #}
+                    <div class="col-12">
+                        <div class="ca-card">
+                            <div class="d-flex flex-wrap justify-content-between gap-3 mb-3">
+                                <div>
+                                    <h2 class="fw-bold">Synthese de la decision</h2>
+                                    <p class="ca-subtle mb-0">Lecture rapide du score, du risque et de la couverture.</p>
+                                </div>
+                                <span class="badge {{ risk.badge_class }} px-3 py-2 align-self-start">Risque {{ risk.label }}</span>
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <div class="border rounded-4 p-3 h-100 bg-white">
+                                        <div class="ca-label">Score credit</div>
+                                        <div class="fs-2 fw-bold" style="color: {{ score.color }};">{{ score.score }}/100</div>
+                                        <div class="ca-subtle">{{ score.decision }}</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="border rounded-4 p-3 h-100 bg-white">
+                                        <div class="ca-label">Mensualite</div>
+                                        <div class="fs-2 fw-bold">{{ simulation.monthly_payment|number_format(2, '.', ' ') }} DT</div>
+                                        <div class="ca-subtle">Cout total: {{ simulation.total_cost|number_format(2, '.', ' ') }} DT</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="border rounded-4 p-3 h-100 bg-white">
+                                        <div class="ca-label">Garanties retenues</div>
+                                        <div class="fs-2 fw-bold" style="color: {{ coverage.color }};">{{ coverage.retained_total|number_format(2, '.', ' ') }} DT</div>
+                                        <div class="ca-subtle">{{ coverage.label }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# ── Scoring Breakdown (left) + Donut Chart (right) ──── #}
+                    <div class="col-lg-5">
+                        <div class="ca-card h-100">
+                            <h2 class="fw-bold">Detail du scoring</h2>
+                            <p class="ca-subtle mb-3">Repartition des points attribues par critere.</p>
+                            <div class="ca-breakdown">
+                                {% for component in score.components %}
+                                    <div class="ca-breakdown-item">
+                                        <div class="d-flex justify-content-between gap-3">
+                                            <div>
+                                                <div class="ca-label">{{ component.label }}</div>
+                                                <strong>{{ component.points }}/{{ component.max }}</strong>
+                                            </div>
+                                            <div class="text-end ca-subtle">{{ component.value }}</div>
+                                        </div>
+                                        <div class="progress mt-3 ca-progress-animated" style="height: 9px; border-radius: 5px;">
+                                            <div class="progress-bar" style="--target-width: {{ (component.points / component.max * 100)|number_format(0, '.', '') }}%; background-color: {{ score.color }}; border-radius: 5px;"></div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    {# ── Charts Column ─────────────────────────────────────── #}
+                    <div class="col-lg-7">
+                        <div class="row g-4">
+                            <div class="col-12">
+                                <div class="ca-card">
+                                    <h2 class="fw-bold">Repartition du scoring</h2>
+                                    <p class="ca-subtle mb-3">Ventilation des points par critere (donut).</p>
+                                    <div style="max-width: 280px; margin: 0 auto;">
+                                        <canvas id="scoringDonutChart" height="280"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="ca-card">
+                                    <h2 class="fw-bold">Graphique d'amortissement</h2>
+                                    <p class="ca-subtle mb-3">Projection des 12 premiers mois entre capital, interets et solde restant.</p>
+                                    <canvas id="creditAnalysisChart" height="220"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# ── Risk Observations ─────────────────────────────────── #}
+                    <div class="col-12">
+                        <div class="ca-card">
+                            <div class="d-flex flex-wrap justify-content-between gap-3 mb-3">
+                                <div>
+                                    <h2 class="fw-bold">Observations risque</h2>
+                                    <p class="ca-subtle mb-0">Motifs qui influencent le niveau de risque detecte.</p>
+                                </div>
+                                <span class="badge {{ risk.badge_class }} px-3 py-2 align-self-start">{{ risk.label }}</span>
+                            </div>
+                            <ul class="ca-insight-list">
+                                {% for reason in risk.reasons %}
+                                    <li>{{ reason }}</li>
+                                {% else %}
+                                    <li class="text-secondary">Aucune observation de risque particuliere.</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+
+                    {# ── Amortization Table ────────────────────────────────── #}
+                    <div class="col-12">
+                        <div class="ca-card">
+                            <div class="d-flex flex-wrap justify-content-between gap-3 mb-3">
+                                <div>
+                                    <h2 class="fw-bold">Tableau d'amortissement</h2>
+                                    <p class="ca-subtle mb-0">Apercu des 24 premieres echeances.</p>
+                                </div>
+                                <span class="ca-chip">Interets totaux: {{ simulation.interest_cost|number_format(2, '.', ' ') }} DT</span>
+                            </div>
+                            <div class="table-responsive ca-table-wrap">
+                                <table class="table table-hover align-middle">
+                                    <thead class="table-light sticky-top">
+                                        <tr>
+                                            <th>Mois</th>
+                                            <th>Capital debut</th>
+                                            <th>Mensualite</th>
+                                            <th>Interets</th>
+                                            <th>Capital rembourse</th>
+                                            <th>Capital restant</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for row in amortization_preview %}
+                                            <tr>
+                                                <td>{{ row.month }}</td>
+                                                <td>{{ row.opening_balance|number_format(2, '.', ' ') }} DT</td>
+                                                <td>{{ row.payment|number_format(2, '.', ' ') }} DT</td>
+                                                <td>{{ row.interest|number_format(2, '.', ' ') }} DT</td>
+                                                <td>{{ row.principal|number_format(2, '.', ' ') }} DT</td>
+                                                <td>{{ row.remaining_balance|number_format(2, '.', ' ') }} DT</td>
+                                            </tr>
+                                        {% else %}
+                                            <tr>
+                                                <td colspan="6" class="text-center text-secondary py-4">Aucune echeance disponible.</td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# ── Restructuration Proposals ─────────────────────────── #}
+                    <div class="col-12">
+                        <div class="ca-card">
+                            <h2 class="fw-bold">Restructuration proposee</h2>
+                            <p class="ca-subtle mb-4">{{ restructuration.message }}</p>
+                            <div class="row g-3">
+                                {% for solution in restructuration.solutions %}
+                                    <div class="col-md-4">
+                                        <div class="ca-solution">
+                                            <h3 class="fw-bold mb-2">{{ solution.title }}</h3>
+                                            <p class="ca-subtle">{{ solution.description }}</p>
+                                            <div class="ca-label mt-3">Nouvelle mensualite</div>
+                                            <div class="fs-4 fw-bold">{{ solution.monthly_payment|number_format(2, '.', ' ') }} DT</div>
+                                            <div class="ca-subtle">Gain mensuel: {{ solution.monthly_delta|number_format(2, '.', ' ') }} DT</div>
+                                            <hr>
+                                            <div class="small text-secondary">Duree: {{ solution.duration_months }} mois</div>
+                                            <div class="small text-secondary">Taux: {{ solution.annual_rate|number_format(2, '.', ' ') }}%</div>
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <div class="col-12">
+                                        <div class="border rounded-4 p-4 text-secondary bg-white">
+                                            Aucune proposition de restructuration n'est necessaire pour ce niveau de risque.
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <script>
+        // ═══════════════════════════════════════════════════════════════════
+        // Scoring Donut Chart — breakdown by component
+        // ═══════════════════════════════════════════════════════════════════
+        (function () {
+            const donutCanvas = document.getElementById('scoringDonutChart');
+            if (!donutCanvas || !window.Chart) return;
+
+            const components = {{ score.components|json_encode|raw }};
+            const labels = [];
+            const data = [];
+            const colors = ['#7c3aed', '#0d6efd', '#28a745', '#ffc107', '#dc3545'];
+
+            let i = 0;
+            for (const key in components) {
+                if (!components.hasOwnProperty(key)) continue;
+                labels.push(components[key].label);
+                data.push(components[key].points);
+                i++;
+            }
+
+            new Chart(donutCanvas, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: colors.slice(0, data.length),
+                        borderWidth: 2,
+                        borderColor: '#fff',
+                        hoverOffset: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    cutout: '62%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 14,
+                                usePointStyle: true,
+                                pointStyleWidth: 10,
+                                font: { family: 'Inter', size: 12, weight: '500' }
+                            }
+                        }
+                    },
+                    animation: {
+                        animateRotate: true,
+                        duration: 1200
+                    }
+                }
+            });
+        })();
+
+        // ═══════════════════════════════════════════════════════════════════
+        // Amortization Bar + Line Chart
+        // ═══════════════════════════════════════════════════════════════════
+        (function () {
+            const chartPayload = {{ chart_data|json_encode|raw }};
+            const chartCanvas = document.getElementById('creditAnalysisChart');
+            if (!chartCanvas || !window.Chart) return;
+
+            new Chart(chartCanvas, {
+                type: 'bar',
+                data: {
+                    labels: chartPayload.labels,
+                    datasets: [
+                        {
+                            label: 'Capital rembourse',
+                            data: chartPayload.principal,
+                            backgroundColor: '#28a745',
+                            borderRadius: 8
+                        },
+                        {
+                            label: 'Interets',
+                            data: chartPayload.interest,
+                            backgroundColor: '#ffc107',
+                            borderRadius: 8
+                        },
+                        {
+                            label: 'Solde restant',
+                            data: chartPayload.balance,
+                            type: 'line',
+                            borderColor: '#7c3aed',
+                            backgroundColor: 'rgba(124, 58, 237, 0.08)',
+                            tension: 0.35,
+                            yAxisID: 'y1',
+                            pointRadius: 3,
+                            pointBackgroundColor: '#7c3aed',
+                            borderWidth: 2.5
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Flux mensuels (DT)', font: { family: 'Inter' } },
+                            grid: { color: 'rgba(15, 23, 42, 0.04)' }
+                        },
+                        y1: {
+                            beginAtZero: true,
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                            title: { display: true, text: 'Capital restant (DT)', font: { family: 'Inter' } }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 14,
+                                usePointStyle: true,
+                                font: { family: 'Inter', size: 12, weight: '500' }
+                            }
+                        }
+                    },
+                    animation: { duration: 1000 }
+                }
+            });
+        })();
+
+        // ═══════════════════════════════════════════════════════════════════
+        // Animated progress bars — trigger on load
+        // ═══════════════════════════════════════════════════════════════════
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('.ca-progress-animated .progress-bar').forEach(function (bar) {
+                const targetWidth = bar.style.getPropertyValue('--target-width');
+                if (targetWidth) {
+                    requestAnimationFrame(function () {
+                        bar.style.width = targetWidth;
+                        bar.style.transition = 'width 1s ease-out';
+                    });
+                }
+            });
+        });
+    </script>
+{% endblock %}

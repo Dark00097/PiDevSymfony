@@ -1,0 +1,1041 @@
+<style>
+/* ═══════════════════════════════════════════
+   NEXORA · Admin Profile & Security (nx-prof)
+═══════════════════════════════════════════ */
+
+/* ── Tokens ── */
+:root {
+  --np-bg:        #f0f4f9;
+  --np-surface:   #ffffff;
+  --np-border:    #e4ecf4;
+  --np-txt:       #1a2b3c;
+  --np-muted:     #6b85a0;
+  --np-radius:    14px;
+  --np-shadow:    0 2px 16px rgba(0,0,0,.07);
+  --np-shadow-lg: 0 6px 32px rgba(0,0,0,.10);
+
+  --np-teal:      #11b7aa;
+  --np-teal-dk:   #0d9e93;
+  --np-blue:      #2b7de9;
+  --np-purple:    #7c4dff;
+  --np-purple-dk: #6a3de0;
+  --np-indigo:    #3f51b5;
+  --np-indigo-dk: #303f9f;
+  --np-amber:     #f59e0b;
+  --np-amber-dk:  #d97706;
+  --np-red:       #e53935;
+  --np-green:     #43a047;
+}
+
+/* ── Shell ── */
+.nx-prof {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.75rem 2rem;
+  background: var(--np-bg);
+  min-height: 100%;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--np-txt);
+}
+
+/* ══════════════════════════════
+   HERO HEADER
+══════════════════════════════ */
+.nx-prof__hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  background: linear-gradient(135deg, #1a2b3c 0%, #243447 60%, #1d3a52 100%);
+  border-radius: var(--np-radius);
+  padding: 1.6rem 1.8rem;
+  box-shadow: var(--np-shadow-lg);
+  flex-wrap: wrap;
+  position: relative;
+  overflow: hidden;
+}
+
+/* decorative glow blobs */
+.nx-prof__hero::before,
+.nx-prof__hero::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.nx-prof__hero::before {
+  width: 280px; height: 280px;
+  top: -80px; right: -60px;
+  background: radial-gradient(circle, rgba(124,77,255,.25) 0%, transparent 70%);
+}
+.nx-prof__hero::after {
+  width: 180px; height: 180px;
+  bottom: -60px; left: 20%;
+  background: radial-gradient(circle, rgba(17,183,170,.18) 0%, transparent 70%);
+}
+
+.nx-prof__hero-main {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  flex: 1;
+  position: relative;
+  z-index: 1;
+}
+
+.nx-prof__hero-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--np-purple), var(--np-purple-dk));
+  display: grid;
+  place-items: center;
+  font-size: 1.4rem;
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(124,77,255,.4);
+  flex-shrink: 0;
+}
+
+.nx-prof__hero-text h2 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0 0 .3rem;
+}
+.nx-prof__hero-text p {
+  font-size: .78rem;
+  color: rgba(255,255,255,.55);
+  margin: 0;
+  max-width: 420px;
+  line-height: 1.5;
+}
+
+.nx-prof__hero-badge {
+  background: linear-gradient(135deg, var(--np-purple), var(--np-indigo));
+  color: #fff;
+  font-size: .67rem;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  padding: .3rem .8rem;
+  border-radius: 20px;
+  text-transform: uppercase;
+  box-shadow: 0 2px 10px rgba(124,77,255,.35);
+  white-space: nowrap;
+  position: relative;
+  z-index: 1;
+}
+
+.nx-prof__hero-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: .3rem;
+  position: relative;
+  z-index: 1;
+}
+
+.nx-prof__hero-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  background: rgba(67,160,71,.15);
+  border: 1px solid rgba(67,160,71,.3);
+  color: #6ee27a;
+  font-size: .75rem;
+  font-weight: 700;
+  padding: .3rem .75rem;
+  border-radius: 20px;
+}
+.nx-prof__hero-status-pill i {
+  font-size: .5rem;
+  animation: np-blink 2s ease-in-out infinite;
+}
+@keyframes np-blink {
+  0%,100% { opacity: 1; }
+  50%      { opacity: .3; }
+}
+
+.nx-prof__hero-status small {
+  font-size: .72rem;
+  color: rgba(255,255,255,.35);
+}
+
+/* ══════════════════════════════
+   LAYOUT GRID
+══════════════════════════════ */
+.nx-prof__grid {
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.nx-prof__col {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* ══════════════════════════════
+   CARD
+══════════════════════════════ */
+.nx-prof__card {
+  background: var(--np-surface);
+  border: 1px solid var(--np-border);
+  border-radius: var(--np-radius);
+  box-shadow: var(--np-shadow);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow .25s ease;
+}
+.nx-prof__card:hover { box-shadow: var(--np-shadow-lg); }
+
+/* card header */
+.nx-prof__card-head {
+  display: flex;
+  align-items: center;
+  gap: .9rem;
+  padding: 1.2rem 1.4rem;
+  border-bottom: 1px solid var(--np-border);
+  background: linear-gradient(to right, #fafcff, #f6f9fd);
+  flex-wrap: wrap;
+}
+
+.nx-prof__card-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+  color: #fff;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, var(--np-teal), var(--np-teal-dk));
+  box-shadow: 0 3px 10px rgba(17,183,170,.3);
+}
+.nx-prof__card-icon.is-purple {
+  background: linear-gradient(135deg, var(--np-purple), var(--np-purple-dk));
+  box-shadow: 0 3px 10px rgba(124,77,255,.3);
+}
+.nx-prof__card-icon.is-indigo {
+  background: linear-gradient(135deg, var(--np-indigo), var(--np-indigo-dk));
+  box-shadow: 0 3px 10px rgba(63,81,181,.3);
+}
+.nx-prof__card-icon.is-amber {
+  background: linear-gradient(135deg, var(--np-amber), var(--np-amber-dk));
+  box-shadow: 0 3px 10px rgba(245,158,11,.3);
+}
+
+.nx-prof__card-title { flex: 1; }
+.nx-prof__card-title h3 {
+  font-size: .92rem;
+  font-weight: 700;
+  color: var(--np-txt);
+  margin: 0 0 .15rem;
+}
+.nx-prof__card-title p {
+  font-size: .74rem;
+  color: var(--np-muted);
+  margin: 0;
+}
+
+/* role / status tags */
+.nx-prof__card-tags {
+  display: flex;
+  gap: .4rem;
+  flex-wrap: wrap;
+}
+.nx-prof__card-tags span {
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  padding: .22rem .65rem;
+  border-radius: 20px;
+  background: rgba(17,183,170,.1);
+  color: var(--np-teal);
+  border: 1px solid rgba(17,183,170,.2);
+}
+.nx-prof__card-tags span:nth-child(2) {
+  background: rgba(67,160,71,.1);
+  color: var(--np-green);
+  border-color: rgba(67,160,71,.2);
+}
+
+/* security level badge */
+.nx-prof__level-badge {
+  font-size: .65rem;
+  font-weight: 800;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  padding: .25rem .7rem;
+  border-radius: 20px;
+  background: rgba(229,57,53,.1);
+  color: var(--np-red);
+  border: 1px solid rgba(229,57,53,.2);
+  white-space: nowrap;
+}
+
+/* ══════════════════════════════
+   FORM
+══════════════════════════════ */
+.nx-prof__form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .9rem 1.1rem;
+  padding: 1.4rem;
+}
+
+.nx-prof__form label {
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+}
+.nx-prof__form label span {
+  font-size: .74rem;
+  font-weight: 600;
+  color: var(--np-muted);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+
+.nx-prof__form input[type="text"],
+.nx-prof__form input[type="email"],
+.nx-prof__form input[type="password"],
+.nx-prof__form select {
+  height: 40px;
+  padding: 0 .85rem;
+  border: 1px solid var(--np-border);
+  border-radius: 9px;
+  font-size: .83rem;
+  color: var(--np-txt);
+  background: var(--np-bg);
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+  font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+.nx-prof__form input:focus,
+.nx-prof__form select:focus {
+  border-color: var(--np-teal);
+  box-shadow: 0 0 0 3px rgba(17,183,170,.12);
+  background: #fff;
+}
+
+.nx-prof__col-full { grid-column: 1 / -1; }
+
+/* profile picture field */
+.nx-prof__picture-field {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.nx-prof__picture-preview {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--np-teal), var(--np-blue));
+  display: grid;
+  place-items: center;
+  font-size: 1.5rem;
+  color: #fff;
+  flex-shrink: 0;
+  overflow: hidden;
+  box-shadow: 0 3px 12px rgba(17,183,170,.3);
+}
+.nx-prof__picture-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.nx-prof__picture-upload {
+  flex: 1;
+}
+.nx-prof__picture-upload input[type="file"] {
+  display: none;
+}
+.nx-prof__picture-upload-label {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .45rem 1rem;
+  border-radius: 8px;
+  background: var(--np-bg);
+  border: 1px dashed var(--np-border);
+  font-size: .78rem;
+  color: var(--np-muted);
+  cursor: pointer;
+  transition: all .2s;
+}
+.nx-prof__picture-upload-label:hover {
+  border-color: var(--np-teal);
+  color: var(--np-teal);
+  background: rgba(17,183,170,.05);
+}
+.nx-prof__picture-upload small {
+  display: block;
+  margin-top: .3rem;
+  font-size: .68rem;
+  color: #afc0d0;
+}
+
+/* note / hint */
+.nx-prof__note {
+  grid-column: 1 / -1;
+  font-size: .74rem;
+  color: var(--np-muted);
+  background: rgba(43,125,233,.07);
+  border: 1px solid rgba(43,125,233,.15);
+  border-left: 3px solid var(--np-blue);
+  border-radius: 8px;
+  padding: .6rem .9rem;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* form actions */
+.nx-prof__form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: .6rem;
+  padding-top: .4rem;
+  border-top: 1px solid var(--np-border);
+}
+
+/* ── Shared buttons ── */
+.np-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .52rem 1.1rem;
+  border-radius: 9px;
+  font-size: .82rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all .2s ease;
+  font-family: inherit;
+}
+.np-btn--primary {
+  background: linear-gradient(135deg, var(--np-teal), var(--np-teal-dk));
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(17,183,170,.3);
+}
+.np-btn--primary:hover {
+  box-shadow: 0 5px 16px rgba(17,183,170,.45);
+  transform: translateY(-1px);
+}
+.np-btn--ghost {
+  background: var(--np-bg);
+  color: var(--np-muted);
+  border: 1px solid var(--np-border);
+}
+.np-btn--ghost:hover { background: var(--np-border); color: var(--np-txt); }
+.np-btn--danger {
+  background: rgba(229,57,53,.08);
+  color: var(--np-red);
+  border: 1px solid rgba(229,57,53,.2);
+}
+.np-btn--danger:hover { background: rgba(229,57,53,.15); }
+
+/* ══════════════════════════════
+   BIOMETRIC CARD
+══════════════════════════════ */
+.nx-prof__bio-form {
+  padding: 1.2rem 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* info list */
+.nx-prof__bio-list {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+.nx-prof__bio-list-item {
+  display: flex;
+  gap: .75rem;
+  padding: .7rem .85rem;
+  background: var(--np-bg);
+  border: 1px solid var(--np-border);
+  border-radius: 10px;
+  align-items: flex-start;
+}
+.nx-prof__bio-list-item i {
+  margin-top: .15rem;
+  color: var(--np-indigo);
+  font-size: .85rem;
+  flex-shrink: 0;
+}
+.nx-prof__bio-list-item h4 {
+  font-size: .8rem;
+  font-weight: 700;
+  color: var(--np-txt);
+  margin: 0 0 .18rem;
+}
+.nx-prof__bio-list-item p {
+  font-size: .73rem;
+  color: var(--np-muted);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* select inside bio form */
+.nx-prof__bio-form select {
+  height: 40px;
+  padding: 0 .85rem;
+  border: 1px solid var(--np-border);
+  border-radius: 9px;
+  font-size: .83rem;
+  color: var(--np-txt);
+  background: var(--np-bg);
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: border-color .2s, box-shadow .2s;
+}
+.nx-prof__bio-form select:focus {
+  border-color: var(--np-indigo);
+  box-shadow: 0 0 0 3px rgba(63,81,181,.12);
+  background: #fff;
+}
+
+.nx-prof__bio-select-wrap label span {
+  display: block;
+  font-size: .72rem;
+  font-weight: 600;
+  color: var(--np-muted);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  margin-bottom: .35rem;
+}
+
+/* camera block */
+.nx-prof__bio-camera {
+  display: flex;
+  flex-direction: column;
+  gap: .65rem;
+}
+
+.nx-prof__bio-video-wrap {
+  position: relative;
+  background: #0e1822;
+  border-radius: 11px;
+  overflow: hidden;
+  aspect-ratio: 4/3;
+  border: 2px solid var(--np-border);
+}
+
+.nx-prof__bio-video-wrap video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.nx-prof__bio-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.nx-prof__bio-face-ring {
+  width: 120px;
+  height: 120px;
+  border: 2px dashed rgba(63,81,181,.5);
+  border-radius: 50%;
+  animation: np-spin 8s linear infinite;
+}
+@keyframes np-spin {
+  to { transform: rotate(360deg); }
+}
+
+.nx-prof__bio-cam-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .5rem;
+}
+
+.nx-prof__bio-status {
+  font-size: .74rem;
+  color: var(--np-muted);
+  background: var(--np-bg);
+  border: 1px solid var(--np-border);
+  border-radius: 8px;
+  padding: .5rem .8rem;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+}
+.nx-prof__bio-status i { color: var(--np-indigo); }
+
+.nx-prof__bio-divider {
+  height: 1px;
+  background: var(--np-border);
+  margin: .25rem 0;
+}
+
+.nx-prof__bio-remove-form {
+  padding: 0 1.4rem 1.2rem;
+}
+
+/* ══════════════════════════════
+   QUICK ACTIONS
+══════════════════════════════ */
+.nx-prof__quick-body { padding: 1.2rem 1.4rem; }
+
+.nx-prof__quick-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .75rem;
+}
+
+.nx-prof__quick-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  padding: 1rem .75rem;
+  background: var(--np-bg);
+  border: 1px solid var(--np-border);
+  border-radius: 11px;
+  text-decoration: none;
+  color: var(--np-txt);
+  font-size: .76rem;
+  font-weight: 600;
+  transition: all .2s ease;
+  text-align: center;
+}
+.nx-prof__quick-item:hover {
+  background: var(--np-surface);
+  border-color: var(--np-teal);
+  color: var(--np-teal);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(17,183,170,.15);
+}
+.nx-prof__quick-item i {
+  font-size: 1.2rem;
+  color: var(--np-indigo);
+  transition: color .2s;
+}
+.nx-prof__quick-item:hover i { color: var(--np-teal); }
+
+/* ══════════════════════════════
+   RESPONSIVE
+══════════════════════════════ */
+@media (max-width: 1100px) {
+  .nx-prof__grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  .nx-prof             { padding: 1rem; gap: 1rem; }
+  .nx-prof__hero       { flex-direction: column; align-items: flex-start; }
+  .nx-prof__hero-status{ align-items: flex-start; }
+  .nx-prof__form       { grid-template-columns: 1fr; }
+  .nx-prof__col-full   { grid-column: 1; }
+  .nx-prof__quick-grid { grid-template-columns: repeat(3, 1fr); }
+  .nx-prof__bio-cam-actions { grid-template-columns: 1fr; }
+}
+</style>
+
+{# ═══════════════════════════════════════════
+   MARKUP
+═══════════════════════════════════════════ #}
+<section class="nx-prof">
+
+  {# ── HERO ── #}
+  <header class="nx-prof__hero">
+    <div class="nx-prof__hero-main">
+      <span class="nx-prof__hero-icon">
+        <i class="fa-solid fa-shield-halved"></i>
+      </span>
+      <div class="nx-prof__hero-text">
+        <h2>Paramètres de Sécurité</h2>
+        <p>Gérez votre profil administrateur, l'authentification biométrique et les politiques de sécurité avancées</p>
+      </div>
+      <span class="nx-prof__hero-badge">Administrateur</span>
+    </div>
+    <div class="nx-prof__hero-status">
+      <span class="nx-prof__hero-status-pill">
+        <i class="fa-solid fa-circle"></i> Connecté
+      </span>
+      <small>{{ "now"|date("Y-m-d H:i") }}</small>
+    </div>
+  </header>
+
+  {# ── MAIN GRID ── #}
+  <div class="nx-prof__grid">
+
+    {# ── LEFT COLUMN ── #}
+    <div class="nx-prof__col">
+
+      {# Profile card #}
+      <article class="nx-prof__card">
+        <header class="nx-prof__card-head">
+          <span class="nx-prof__card-icon is-purple">
+            <i class="fa-solid fa-user-shield"></i>
+          </span>
+          <div class="nx-prof__card-title">
+            <h3>Mon Profil Administrateur</h3>
+            <p>Informations personnelles et coordonnées</p>
+          </div>
+          <div class="nx-prof__card-tags">
+            <span>{{ current_user.role }}</span>
+            <span>{{ current_user.status|default('ACTIVE') }}</span>
+          </div>
+        </header>
+
+        <form method="post" class="nx-prof__form" enctype="multipart/form-data">
+          <input type="hidden" name="tab"    value="admin_account">
+          <input type="hidden" name="action" value="admin_profile_save">
+
+          {# Photo de profil #}
+          <label class="nx-prof__col-full">
+            <span>Photo de profil</span>
+            <div class="nx-prof__picture-field">
+              <span class="nx-prof__picture-preview">
+                {% if current_user.profile_image_path|default('') %}
+                  <img src="{{ asset(current_user.profile_image_path) }}" alt="Photo admin">
+                {% else %}
+                  <i class="fa-solid fa-user"></i>
+                {% endif %}
+              </span>
+              <div class="nx-prof__picture-upload">
+                <label class="nx-prof__picture-upload-label" for="np-profile-img">
+                  <i class="fa-solid fa-cloud-arrow-up"></i>
+                  Choisir une image
+                </label>
+                <input type="file" id="np-profile-img" name="profile_image"
+                       accept="image/png,image/jpeg,image/webp,image/gif">
+                <small>PNG, JPG, WEBP — max 5 Mo</small>
+              </div>
+            </div>
+          </label>
+
+          <label>
+            <span>Nom *</span>
+            <input type="text" name="nom" value="{{ current_user.nom }}" required>
+          </label>
+          <label>
+            <span>Prénom *</span>
+            <input type="text" name="prenom" value="{{ current_user.prenom }}" required>
+          </label>
+          <label class="nx-prof__col-full">
+            <span>Adresse Email *</span>
+            <input type="email" name="email" value="{{ current_user.email }}" required>
+          </label>
+          <label class="nx-prof__col-full">
+            <span>Téléphone *</span>
+            <input type="text" name="telephone"
+                   value="{{ current_user.telephone|default('') }}" required>
+          </label>
+
+          <div class="nx-prof__form-actions">
+            <button class="np-btn np-btn--ghost" type="reset">
+              <i class="fa-solid fa-rotate-left"></i> Réinitialiser
+            </button>
+            <button class="np-btn np-btn--primary" type="submit">
+              <i class="fa-solid fa-floppy-disk"></i> Enregistrer
+            </button>
+          </div>
+        </form>
+      </article>
+
+      {# Password card #}
+      <article class="nx-prof__card">
+        <header class="nx-prof__card-head">
+          <span class="nx-prof__card-icon">
+            <i class="fa-solid fa-lock"></i>
+          </span>
+          <div class="nx-prof__card-title">
+            <h3>Changement de Mot de Passe</h3>
+            <p>Vérification renforcée pour opérations sensibles</p>
+          </div>
+          <span class="nx-prof__level-badge">
+            <i class="fa-solid fa-shield"></i> Élevé
+          </span>
+        </header>
+
+        <form method="post" class="nx-prof__form">
+          <input type="hidden" name="tab"    value="admin_account">
+          <input type="hidden" name="action" value="admin_password_change">
+
+          <label class="nx-prof__col-full">
+            <span>Mot de passe actuel *</span>
+            <input type="password" name="current_password" required>
+          </label>
+          <label>
+            <span>Nouveau mot de passe *</span>
+            <input type="password" name="new_password" required>
+          </label>
+          <label>
+            <span>Confirmer le mot de passe *</span>
+            <input type="password" name="confirm_password" required>
+          </label>
+
+          <p class="nx-prof__note">
+            <i class="fa-solid fa-circle-info"></i>
+            Exigences : 8+ caractères, majuscule, minuscule, chiffre et symbole.
+          </p>
+
+          <div class="nx-prof__form-actions">
+            <button class="np-btn np-btn--primary" type="submit">
+              <i class="fa-solid fa-key"></i> Changer le Mot de Passe
+            </button>
+          </div>
+        </form>
+      </article>
+
+    </div>{# /left col #}
+
+    {# ── RIGHT COLUMN ── #}
+    <div class="nx-prof__col">
+
+      {# Biometric card #}
+      <article class="nx-prof__card">
+        <header class="nx-prof__card-head">
+          <span class="nx-prof__card-icon is-indigo">
+            <i class="fa-solid fa-fingerprint"></i>
+          </span>
+          <div class="nx-prof__card-title">
+            <h3>Authentification Biométrique</h3>
+            <p>Face ID / Empreinte digitale</p>
+          </div>
+        </header>
+
+        <div class="nx-prof__bio-form">
+
+          {# Info list #}
+          <div class="nx-prof__bio-list">
+            <div class="nx-prof__bio-list-item">
+              <i class="fa-solid fa-shield-halved"></i>
+              <div>
+                <h4>Connexion Administrateur</h4>
+                <p>Si activée, la connexion admin se fait uniquement avec Face ID.</p>
+              </div>
+            </div>
+            <div class="nx-prof__bio-list-item">
+              <i class="fa-solid fa-camera"></i>
+              <div>
+                <h4>Enrôlement Visage</h4>
+                <p>Capturez votre visage depuis cette page pour lier votre compte.</p>
+              </div>
+            </div>
+            <div class="nx-prof__bio-list-item">
+              <i class="fa-solid fa-server"></i>
+              <div>
+                <h4>Sécurité locale</h4>
+                <p>Le template facial est comparé côté serveur à chaque login.</p>
+              </div>
+            </div>
+          </div>
+
+          <form method="post" id="nx-prof-bio-form">
+            <input type="hidden" name="tab"             value="admin_account">
+            <input type="hidden" name="action"          value="admin_biometric_save">
+            <input type="hidden" name="face_descriptor" id="nx-admin-bio-face-descriptor">
+
+            {# Select #}
+            <div class="nx-prof__bio-select-wrap">
+              <label>
+                <span>État de la biométrie</span>
+                <select name="biometric_enabled">
+                  <option value="1" {{ current_user.biometric_enabled ? 'selected' : '' }}>
+                    ✓ Activée
+                  </option>
+                  <option value="0" {{ not current_user.biometric_enabled ? 'selected' : '' }}>
+                    ✗ Désactivée
+                  </option>
+                </select>
+              </label>
+            </div>
+
+            {# Camera #}
+            <div class="nx-prof__bio-camera">
+              <div class="nx-prof__bio-video-wrap">
+                <video id="nx-admin-bio-video" autoplay muted playsinline></video>
+                <div class="nx-prof__bio-overlay">
+                  <div class="nx-prof__bio-face-ring"></div>
+                </div>
+              </div>
+
+              <div class="nx-prof__bio-cam-actions">
+                <button class="np-btn np-btn--ghost" type="button" id="nx-admin-bio-start">
+                  <i class="fa-solid fa-video"></i> Démarrer
+                </button>
+                <button class="np-btn np-btn--ghost" type="button" id="nx-admin-bio-capture">
+                  <i class="fa-solid fa-crosshairs"></i> Capturer
+                </button>
+              </div>
+
+              <div class="nx-prof__bio-status" id="nx-admin-bio-status">
+                <i class="fa-solid fa-circle-info"></i>
+                {% if current_user.biometric_face_descriptor|default('') %}
+                  Face ID administrateur enregistré.
+                {% else %}
+                  Aucun Face ID administrateur enregistré.
+                {% endif %}
+              </div>
+            </div>
+
+            <button class="np-btn np-btn--primary" type="submit" style="width:100%">
+              <i class="fa-solid fa-floppy-disk"></i> Enregistrer le Face ID
+            </button>
+          </form>
+
+          <div class="nx-prof__bio-divider"></div>
+
+        </div>{# /bio-form #}
+
+        <div class="nx-prof__bio-remove-form">
+          <form method="post">
+            <input type="hidden" name="tab"    value="admin_account">
+            <input type="hidden" name="action" value="admin_biometric_clear">
+            <button class="np-btn np-btn--danger" type="submit" style="width:100%">
+              <i class="fa-solid fa-trash-can"></i> Supprimer le Face ID
+            </button>
+          </form>
+        </div>
+      </article>
+
+      {# Quick actions card #}
+      <article class="nx-prof__card">
+        <header class="nx-prof__card-head">
+          <span class="nx-prof__card-icon is-amber">
+            <i class="fa-solid fa-bolt"></i>
+          </span>
+          <div class="nx-prof__card-title">
+            <h3>Actions Rapides</h3>
+            <p>Raccourcis de gestion</p>
+          </div>
+        </header>
+        <div class="nx-prof__quick-body">
+          <div class="nx-prof__quick-grid">
+            <a class="nx-prof__quick-item"
+               href="{{ path(route_name, { tab: 'admin_account' }) }}">
+              <i class="fa-solid fa-rotate-right"></i>
+              <span>Actualiser</span>
+            </a>
+            <a class="nx-prof__quick-item"
+               href="{{ path('admin_features', { section: 'security' }) }}">
+              <i class="fa-solid fa-fingerprint"></i>
+              <span>Test Bio</span>
+            </a>
+            <a class="nx-prof__quick-item"
+               href="{{ path('admin_features', { section: 'security' }) }}">
+              <i class="fa-solid fa-sliders"></i>
+              <span>Paramètres</span>
+            </a>
+          </div>
+        </div>
+      </article>
+
+    </div>{# /right col #}
+  </div>{# /grid #}
+
+</section>
+
+{# ── Scripts ── #}
+<script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<script>
+(() => {
+  const descriptorInput = document.getElementById('nx-admin-bio-face-descriptor');
+  const videoEl         = document.getElementById('nx-admin-bio-video');
+  const statusEl        = document.getElementById('nx-admin-bio-status');
+  const startBtn        = document.getElementById('nx-admin-bio-start');
+  const captureBtn      = document.getElementById('nx-admin-bio-capture');
+
+  if (!descriptorInput || !videoEl || !statusEl || !startBtn || !captureBtn) return;
+
+  const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
+  let stream      = null;
+  let modelsReady = false;
+
+  const setStatus = (msg, icon = 'fa-circle-info') => {
+    statusEl.innerHTML = `<i class="fa-solid ${icon}"></i> ${msg}`;
+  };
+
+  const ensureModels = async () => {
+    if (modelsReady) return true;
+    if (typeof window.faceapi === 'undefined') {
+      setStatus('Chargement de la bibliothèque Face ID…', 'fa-spinner fa-spin');
+      return false;
+    }
+    setStatus('Chargement des modèles IA…', 'fa-spinner fa-spin');
+    await Promise.all([
+      window.faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+      window.faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+      window.faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+    ]);
+    modelsReady = true;
+    setStatus('Modèles chargés — caméra prête.', 'fa-check-circle');
+    return true;
+  };
+
+  const startCamera = async () => {
+    try {
+      const ready = await ensureModels();
+      if (!ready) return;
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: false
+      });
+      videoEl.srcObject = stream;
+      await videoEl.play();
+      setStatus('Caméra active — placez votre visage dans le cadre.', 'fa-video');
+    } catch {
+      setStatus('Impossible d\'accéder à la caméra.', 'fa-triangle-exclamation');
+    }
+  };
+
+  const capture = async () => {
+    try {
+      const ready = await ensureModels();
+      if (!ready) return;
+      if (!videoEl.srcObject) await startCamera();
+
+      setStatus('Analyse du visage…', 'fa-spinner fa-spin');
+
+      const detection = await window.faceapi
+        .detectSingleFace(videoEl, new window.faceapi.TinyFaceDetectorOptions({
+          inputSize: 320, scoreThreshold: 0.45
+        }))
+        .withFaceLandmarks()
+        .withFaceDescriptor();
+
+      if (!detection) {
+        descriptorInput.value = '';
+        setStatus('Aucun visage détecté — réessayez.', 'fa-triangle-exclamation');
+        return;
+      }
+
+      descriptorInput.value = JSON.stringify(Array.from(detection.descriptor));
+      setStatus('Visage capturé — cliquez sur Enregistrer.', 'fa-check-circle');
+    } catch {
+      descriptorInput.value = '';
+      setStatus('Capture biométrique échouée.', 'fa-circle-xmark');
+    }
+  };
+
+  startBtn.addEventListener('click',   () => void startCamera());
+  captureBtn.addEventListener('click', () => void capture());
+
+  window.addEventListener('beforeunload', () => {
+    if (stream) stream.getTracks().forEach(t => t.stop());
+  });
+})();
+</script>

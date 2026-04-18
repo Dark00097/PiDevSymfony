@@ -1,0 +1,793 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Nexora Bank — Plateforme Bancaire{% endblock %}
+{% block body_class %}home-body{% endblock %}
+
+{% block stylesheets %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ asset('styles/interfaces/home.css?v=20260410-1') }}">
+{% endblock %}
+
+{% block body %}
+
+{# ── Background layers ── #}
+<div class="bg-canvas" aria-hidden="true">
+  <div class="bg-orb bg-orb--1"></div>
+  <div class="bg-orb bg-orb--2"></div>
+  <div class="bg-orb bg-orb--3"></div>
+  <div class="bg-grid"></div>
+</div>
+
+{# ════════════════════════════════════════
+   NAVBAR
+════════════════════════════════════════ #}
+<nav class="nx-nav" id="mainNav">
+  <div class="nx-nav__inner">
+
+    <a href="#" class="nx-nav__brand">
+      <div class="nav-logo-ring">
+        <img src="{{ asset('images/logo.png') }}" alt="Nexora">
+      </div>
+      <div>
+        <span class="nav-eyebrow">PLATEFORME BANCAIRE</span>
+        <strong class="nav-name">NEXORA</strong>
+      </div>
+      <div class="nav-live">
+        <span class="live-dot"></span>LIVE
+      </div>
+    </a>
+
+    <ul class="nx-nav__links">
+      <li><a href="#features">Fonctionnalités</a></li>
+      <li><a href="#security">Sécurité</a></li>
+      <li><a href="#stats">Statistiques</a></li>
+      <li><a href="#tech">Technologie</a></li>
+    </ul>
+
+    <div class="nx-nav__actions">
+      <a href="{{ path('login') }}" class="nav-btn nav-btn--outline">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+        Connexion
+      </a>
+      <a href="{{ path('signup') }}" class="nav-btn nav-btn--solid">
+        Ouvrir un compte
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </a>
+    </div>
+
+    <button class="nav-hamburger" id="navHamburger" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+
+{# ════════════════════════════════════════
+   HERO SECTION
+════════════════════════════════════════ #}
+<section class="hero-section">
+  <div class="hero-inner">
+
+    {# Left column — copy #}
+    <div class="hero-copy" data-reveal>
+      <div class="hero-badge">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        Nouvelle génération bancaire
+      </div>
+
+      <h1 class="hero-headline">
+        Gérez votre<br>
+        argent avec<br>
+        <em class="gradient-text">confiance.</em>
+      </h1>
+
+      <p class="hero-sub">
+        Nexora est une plateforme bancaire complète construite sur Symfony —
+        sécurisée, intelligente et conçue pour les entreprises modernes.
+        Gérez comptes, crédits, cashback et bien plus.
+      </p>
+
+      <div class="hero-actions">
+        <a href="{{ path('signup') }}" class="btn-hero-primary">
+          Commencer gratuitement
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </a>
+        <a href="{{ path('login') }}" class="btn-hero-secondary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+          Voir la démo
+        </a>
+      </div>
+
+      <div class="hero-trust">
+        <div class="trust-avatars">
+          <span class="ta ta--1">JD</span>
+          <span class="ta ta--2">ML</span>
+          <span class="ta ta--3">AS</span>
+          <span class="ta ta--4">RK</span>
+        </div>
+        <p><strong>+2 400</strong> utilisateurs actifs ce mois</p>
+      </div>
+    </div>
+
+    {# Right column — card stack + widgets #}
+    <div class="hero-visual" data-reveal data-reveal-delay="200">
+
+      {# Card stack #}
+      <div class="card-scene" id="cardScene">
+
+        <div class="cc cc--back">
+          <div class="cc-noise"></div>
+        </div>
+        <div class="cc cc--mid">
+          <div class="cc-noise"></div>
+        </div>
+
+        <div class="cc cc--front" id="tiltCard">
+          <div class="cc-shimmer"></div>
+          <div class="cc-noise"></div>
+
+          <div class="cc-row cc-row--top">
+            <span class="cc-brand-name">NEXORA</span>
+            <svg class="cc-nfc" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.75)" stroke-width="1.5">
+              <path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/>
+              <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="white"/>
+            </svg>
+          </div>
+
+          <div class="cc-chip">
+            <div class="chip-body">
+              <div class="chip-grid">
+                <span></span><span></span><span></span>
+                <span></span><span></span><span></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="cc-number">
+            <span>4821</span><span>••••</span><span>••••</span><span>7293</span>
+          </div>
+
+          <div class="cc-row cc-row--bottom">
+            <div class="cc-field">
+              <label>Titulaire</label>
+              <span>KARIM NADDARI</span> 
+            </div>
+            <div class="cc-field">
+              <label>Expire</label>
+              <span>‎ 09/28</span>
+              <span> </span>
+            </div>
+            <div class="cc-mc">
+              <div class="mc-l"></div>
+              <div class="mc-r"></div>
+            </div>
+          </div>
+        </div>{# /front #}
+
+        {# Floating widgets #}
+        <div class="widget widget--balance">
+          <div class="widget-icon widget-icon--green">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
+          <div>
+            <p>Solde total</p>
+            <strong>24 850,00 €</strong>
+          </div>
+          <div class="widget-trend widget-trend--up">↑ 3.2%</div>
+        </div>
+
+        <div class="widget widget--payment">
+          <div class="widget-icon widget-icon--blue">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          </div>
+          <div>
+            <p>Virement reçu</p>
+            <strong>+ 2 450 €</strong>
+          </div>
+          <span class="widget-time">Il y a 2 min</span>
+        </div>
+
+        <div class="widget widget--cashback">
+          <div class="widget-icon widget-icon--gold">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          </div>
+          <div>
+            <p>Cashback gagné</p>
+            <strong>+ 48,20 €</strong>
+          </div>
+          <span class="widget-badge">Ce mois</span>
+        </div>
+
+        <div class="widget widget--security">
+          <div class="widget-icon widget-icon--teal">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <div>
+            <p>Sécurité</p>
+            <strong>AES-256</strong>
+          </div>
+          <div class="security-dots">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+
+      </div>{# /card-scene #}
+    </div>
+
+  </div>{# /hero-inner #}
+
+  {# Scroll hint #}
+  <div class="scroll-hint">
+    <div class="scroll-mouse"><div class="scroll-wheel"></div></div>
+    <span>Découvrir</span>
+  </div>
+</section>
+
+{# ════════════════════════════════════════
+   STATS BAND
+════════════════════════════════════════ #}
+<section class="stats-band" id="stats">
+  <div class="container">
+    <div class="stats-grid">
+
+      <article class="stat-pill" data-reveal>
+        <div class="sp-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        </div>
+        <div>
+          <strong class="count-up" data-target="{{ stats.transactions }}">0</strong>
+          <span>Transactions traitées</span>
+        </div>
+        <div class="sp-ring"></div>
+      </article>
+
+      <article class="stat-pill" data-reveal data-reveal-delay="80">
+        <div class="sp-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <div>
+          <strong class="count-up" data-target="{{ stats.users }}">0</strong>
+          <span>Utilisateurs actifs</span>
+        </div>
+        <div class="sp-ring"></div>
+      </article>
+
+      <article class="stat-pill" data-reveal data-reveal-delay="160">
+        <div class="sp-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
+        <div>
+          <strong class="count-up" data-target="{{ stats.availability }}" data-suffix="%">0</strong>
+          <span>Disponibilité SLA</span>
+        </div>
+        <div class="sp-ring"></div>
+      </article>
+
+      <article class="stat-pill" data-reveal data-reveal-delay="240">
+        <div class="sp-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+        </div>
+        <div>
+          <strong class="count-up" data-target="5" data-prefix="< " data-suffix="s">0</strong>
+          <span>Temps de réponse API</span>
+        </div>
+        <div class="sp-ring"></div>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+{# ════════════════════════════════════════
+   FEATURES GRID
+════════════════════════════════════════ #}
+<section class="features-section" id="features">
+  <div class="container">
+
+    <div class="section-header" data-reveal>
+      <span class="section-tag">Fonctionnalités</span>
+      <h2>Tout ce dont votre entreprise a besoin</h2>
+      <p>Une suite complète d'outils bancaires intégrés dans une seule interface élégante.</p>
+    </div>
+
+    <div class="features-bento">
+
+      {# Big feature — Accounts #}
+      <div class="bento-card bento-card--wide bento-card--dark" data-reveal>
+        <div class="bento-content">
+          <div class="bento-icon bento-icon--teal">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+          </div>
+          <h3>Gestion des comptes</h3>
+          <p>Créez et gérez plusieurs types de comptes bancaires avec un historique complet des mouvements, des relevés automatisés et des alertes en temps réel.</p>
+          <div class="bento-tags">
+            <span>Courant</span><span>Épargne</span><span>Professionnel</span><span>Devises</span>
+          </div>
+        </div>
+        <div class="bento-visual">
+          <div class="mini-account-list">
+            <div class="mal-item">
+              <div class="mal-dot mal-dot--teal"></div>
+              <div class="mal-info">
+                <span>Compte courant</span>
+                <strong>12 450,00 €</strong>
+              </div>
+              <span class="mal-badge up">+2.1%</span>
+            </div>
+            <div class="mal-item">
+              <div class="mal-dot mal-dot--blue"></div>
+              <div class="mal-info">
+                <span>Compte épargne</span>
+                <strong>8 200,00 €</strong>
+              </div>
+              <span class="mal-badge up">+0.8%</span>
+            </div>
+            <div class="mal-item">
+              <div class="mal-dot mal-dot--purple"></div>
+              <div class="mal-info">
+                <span>Portefeuille USD</span>
+                <strong>4 200,00 $</strong>
+              </div>
+              <span class="mal-badge down">-0.3%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {# Credit #}
+      <div class="bento-card" data-reveal data-reveal-delay="80">
+        <div class="bento-icon bento-icon--blue">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
+        <h3>Crédits & Prêts</h3>
+        <p>Simulez et soumettez des demandes de crédit directement depuis votre espace. Suivi des remboursements en temps réel.</p>
+        <div class="credit-meter">
+          <div class="cm-header">
+            <span>Score crédit</span>
+            <strong>742 / 850</strong>
+          </div>
+          <div class="cm-bar">
+            <div class="cm-fill" style="width:87%"></div>
+          </div>
+          <div class="cm-labels">
+            <span>Faible</span><span>Excellent</span>
+          </div>
+        </div>
+      </div>
+
+      {# Cashback #}
+      <div class="bento-card bento-card--accent" data-reveal data-reveal-delay="160">
+        <div class="bento-icon bento-icon--gold">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        </div>
+        <h3>Programme Cashback</h3>
+        <p>Gagnez des récompenses sur chaque transaction. Débloquez des niveaux et multipliez vos avantages.</p>
+        <div class="cashback-levels">
+          <div class="cb-level cb-level--active">
+            <span class="cb-star">★</span> Bronze
+            <em>1%</em>
+          </div>
+          <div class="cb-level">
+            <span class="cb-star">★</span> Silver
+            <em>1.5%</em>
+          </div>
+          <div class="cb-level">
+            <span class="cb-star">★★</span> Gold
+            <em>2%</em>
+          </div>
+          <div class="cb-level">
+            <span class="cb-star">★★★</span> Platinum
+            <em>3%</em>
+          </div>
+        </div>
+      </div>
+
+      {# Transactions mini chart #}
+      <div class="bento-card bento-card--dark" data-reveal data-reveal-delay="80">
+        <div class="bento-icon bento-icon--purple">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <h3>Activité en temps réel</h3>
+        <p>Visualisez vos flux financiers avec des graphiques dynamiques.</p>
+        <div class="mini-chart" aria-hidden="true">
+          <div class="mc-bars">
+            <div class="mc-bar" style="--h:45%"></div>
+            <div class="mc-bar" style="--h:70%"></div>
+            <div class="mc-bar" style="--h:55%"></div>
+            <div class="mc-bar" style="--h:90%"></div>
+            <div class="mc-bar" style="--h:65%"></div>
+            <div class="mc-bar" style="--h:80%"></div>
+            <div class="mc-bar mc-bar--active" style="--h:95%"></div>
+          </div>
+          <div class="mc-labels">
+            <span>Lun</span><span>Mar</span><span>Mer</span>
+            <span>Jeu</span><span>Ven</span><span>Sam</span><span>Dim</span>
+          </div>
+        </div>
+      </div>
+
+      {# Reclamations #}
+      <div class="bento-card" data-reveal data-reveal-delay="160">
+        <div class="bento-icon bento-icon--orange">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <h3>Réclamations</h3>
+        <p>Soumettez et suivez vos réclamations avec un système de tickets transparent et efficace.</p>
+        <div class="reclaim-status">
+          <div class="rs-item">
+            <span class="rs-dot rs-dot--green"></span>
+            <span>Résolues</span>
+            <strong>94%</strong>
+          </div>
+          <div class="rs-item">
+            <span class="rs-dot rs-dot--yellow"></span>
+            <span>En cours</span>
+            <strong>5%</strong>
+          </div>
+          <div class="rs-item">
+            <span class="rs-dot rs-dot--red"></span>
+            <span>Escaladées</span>
+            <strong>1%</strong>
+          </div>
+        </div>
+      </div>
+
+      {# Notifications big #}
+      <div class="bento-card bento-card--wide" data-reveal data-reveal-delay="240">
+        <div class="bento-content">
+          <div class="bento-icon bento-icon--teal">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          </div>
+          <h3>Notifications intelligentes</h3>
+          <p>Restez informé de chaque mouvement sur vos comptes avec des alertes personnalisables par canal — email, SMS ou push.</p>
+        </div>
+        <div class="notif-stream">
+          <div class="ns-item ns-item--new">
+            <div class="ns-dot ns-dot--green"></div>
+            <div class="ns-body">
+              <span>Virement reçu de Pierre Martin</span>
+              <p>+ 1 200,00 € → Compte courant</p>
+            </div>
+            <span class="ns-time">2 min</span>
+          </div>
+          <div class="ns-item">
+            <div class="ns-dot ns-dot--blue"></div>
+            <div class="ns-body">
+              <span>Paiement en ligne effectué</span>
+              <p>- 89,99 € → Amazon.fr</p>
+            </div>
+            <span class="ns-time">1 h</span>
+          </div>
+          <div class="ns-item">
+            <div class="ns-dot ns-dot--gold"></div>
+            <div class="ns-body">
+              <span>Cashback crédité</span>
+              <p>+ 12,50 € → Programme Bronze</p>
+            </div>
+            <span class="ns-time">3 h</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+{# ════════════════════════════════════════
+   SECURITY SECTION
+════════════════════════════════════════ #}
+<section class="security-section" id="security">
+  <div class="container">
+    <div class="security-grid">
+
+      <div class="security-copy" data-reveal>
+        <span class="section-tag">Sécurité</span>
+        <h2>Votre argent, protégé à chaque niveau.</h2>
+        <p>
+          Nexora utilise les standards de sécurité les plus élevés de l'industrie bancaire,
+          du chiffrement des données à l'authentification multi-facteurs.
+        </p>
+
+        <div class="security-pillars">
+          <div class="sp-item" data-reveal data-reveal-delay="80">
+            <div class="sp-icon-wrap">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <div>
+              <strong>Chiffrement AES-256</strong>
+              <span>Toutes les données chiffrées au repos et en transit. Compatible Java PBKDF2.</span>
+            </div>
+          </div>
+          <div class="sp-item" data-reveal data-reveal-delay="160">
+            <div class="sp-icon-wrap">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <div>
+              <strong>Authentification 2FA</strong>
+              <span>Double vérification par email et TOTP pour sécuriser chaque connexion.</span>
+            </div>
+          </div>
+          <div class="sp-item" data-reveal data-reveal-delay="240">
+            <div class="sp-icon-wrap">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            </div>
+            <div>
+              <strong>Audit & Traçabilité</strong>
+              <span>Chaque action est journalisée et tracée. Zéro opacité dans vos transactions.</span>
+            </div>
+          </div>
+          <div class="sp-item" data-reveal data-reveal-delay="320">
+            <div class="sp-icon-wrap">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </div>
+            <div>
+              <strong>Détection de fraude</strong>
+              <span>Surveillance en temps réel avec alertes instantanées sur toute activité suspecte.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="security-visual" data-reveal data-reveal-delay="100">
+        <div class="shield-card">
+          <div class="shield-glow"></div>
+          <svg class="shield-svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="url(#shieldGrad)" stroke-width="1.5">
+            <defs>
+              <linearGradient id="shieldGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#00B4A0"/>
+                <stop offset="100%" stop-color="#5ff5e1"/>
+              </linearGradient>
+            </defs>
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <h4>Niveau de sécurité</h4>
+          <div class="shield-score">
+            <span class="count-up" data-target="99" data-suffix=".9%">0</span>
+            <p>Uptime garanti</p>
+          </div>
+          <div class="shield-checks">
+            <div class="shc"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00B4A0" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> OWASP Top 10 couvert</div>
+            <div class="shc"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00B4A0" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> ISO 27001 conforme</div>
+            <div class="shc"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00B4A0" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> RGPD compliant</div>
+            <div class="shc"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00B4A0" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> PCI DSS niveau 1</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+{# ════════════════════════════════════════
+   TECH STACK SECTION
+════════════════════════════════════════ #}
+<section class="tech-section" id="tech">
+  <div class="container">
+
+    <div class="section-header" data-reveal>
+      <span class="section-tag">Technologie</span>
+      <h2>Construit sur des fondations solides</h2>
+      <p>Même base de données, même logique métier — une nouvelle interface de référence.</p>
+    </div>
+
+    <div class="tech-grid">
+
+      <div class="tech-card" data-reveal>
+        <div class="tech-logo tech-logo--sf">SF</div>
+        <strong>Symfony 7</strong>
+        <span>Framework PHP de référence pour applications critiques</span>
+      </div>
+
+      <div class="tech-card" data-reveal data-reveal-delay="80">
+        <div class="tech-logo tech-logo--db">DB</div>
+        <strong>MySQL / projetpidev</strong>
+        <span>Schéma partagé avec le projet JavaFX — zéro migration</span>
+      </div>
+
+      <div class="tech-card" data-reveal data-reveal-delay="160">
+        <div class="tech-logo tech-logo--sec">🔐</div>
+        <strong>Sécurité Java-compat</strong>
+        <span>AES-256 + PBKDF2 — interopérable avec le backend Java</span>
+      </div>
+
+      <div class="tech-card" data-reveal data-reveal-delay="240">
+        <div class="tech-logo tech-logo--api">API</div>
+        <strong>REST API ready</strong>
+        <span>Endpoints JSON pour intégrations tierces et mobile</span>
+      </div>
+
+      <div class="tech-card" data-reveal data-reveal-delay="320">
+        <div class="tech-logo tech-logo--tw">TW</div>
+        <strong>Twig Templates</strong>
+        <span>Rendu serveur ultra-rapide avec composants réutilisables</span>
+      </div>
+
+      <div class="tech-card" data-reveal data-reveal-delay="400">
+        <div class="tech-logo tech-logo--dh">DH</div>
+        <strong>Docker Ready</strong>
+        <span>Déploiement conteneurisé en une commande sur n'importe quel serveur</span>
+      </div>
+
+    </div>
+
+    {# DB schema strip #}
+    <div class="schema-strip" data-reveal>
+      <div class="schema-label">Tables du schéma <code>projetpidev</code></div>
+      <div class="schema-tables">
+        <span>users</span><span>accounts</span><span>transactions</span>
+        <span>credits</span><span>cashback</span><span>reclamations</span>
+        <span>notifications</span><span>audit_log</span>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+{# ════════════════════════════════════════
+   CTA BANNER
+════════════════════════════════════════ #}
+<section class="cta-section">
+  <div class="container">
+    <div class="cta-card" data-reveal>
+      <div class="cta-glow"></div>
+      <div class="cta-content">
+        <h2>Prêt à rejoindre Nexora ?</h2>
+        <p>Ouvrez votre compte en moins de 3 minutes et accédez à toutes les fonctionnalités bancaires dès aujourd'hui.</p>
+        <div class="cta-actions">
+          <a href="{{ path('signup') }}" class="btn-hero-primary">
+            Créer mon compte
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </a>
+          <a href="{{ path('login') }}" class="btn-hero-secondary btn-hero-secondary--light">
+            J'ai déjà un compte
+          </a>
+        </div>
+      </div>
+      <div class="cta-visual" aria-hidden="true">
+        <div class="cta-ring cta-ring--1"></div>
+        <div class="cta-ring cta-ring--2"></div>
+        <div class="cta-ring cta-ring--3"></div>
+        <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+{# ════════════════════════════════════════
+   FOOTER
+════════════════════════════════════════ #}
+<footer class="nx-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="footer-logo">
+          <img src="{{ asset('images/logo.png') }}" alt="Nexora" width="36">
+          <strong>NEXORA</strong>
+        </div>
+        <p>Plateforme bancaire de nouvelle génération. Sécurisée, fiable, et construite pour l'avenir.</p>
+        <div class="footer-badges">
+          <span>🔒 SSL</span><span>🛡 AES-256</span><span>✅ RGPD</span>
+        </div>
+      </div>
+      <div class="footer-col">
+        <strong>Produit</strong>
+        <a href="#features">Fonctionnalités</a>
+        <a href="#security">Sécurité</a>
+        <a href="#tech">Technologie</a>
+        <a href="#stats">Statistiques</a>
+      </div>
+      <div class="footer-col">
+        <strong>Compte</strong>
+        <a href="{{ path('login') }}">Se connecter</a>
+        <a href="{{ path('signup') }}">Créer un compte</a>
+      </div>
+      <div class="footer-col">
+        <strong>Légal</strong>
+        <a href="#">Conditions d'utilisation</a>
+        <a href="#">Politique de confidentialité</a>
+        <a href="#">Mentions légales</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2025 Nexora Bank. Tous droits réservés.</span>
+      <span>Construit avec Symfony &amp; ❤</span>
+    </div>
+  </div>
+</footer>
+
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+  /* ── Navbar scroll effect ── */
+  const nav = document.getElementById('mainNav');
+  window.addEventListener('scroll', () => {
+    nav.classList.toggle('nav--scrolled', window.scrollY > 40);
+  }, { passive: true });
+
+  /* ── Hamburger ── */
+  document.getElementById('navHamburger').addEventListener('click', function() {
+    this.classList.toggle('open');
+    document.querySelector('.nx-nav__links').classList.toggle('open');
+  });
+
+  /* ── Reveal on scroll ── */
+  const revealEls = document.querySelectorAll('[data-reveal]');
+  const revealObs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      const delay = e.target.dataset.revealDelay || 0;
+      setTimeout(() => e.target.classList.add('revealed'), +delay);
+      revealObs.unobserve(e.target);
+    });
+  }, { threshold: 0.12 });
+  revealEls.forEach(el => revealObs.observe(el));
+
+  /* ── Count-up ── */
+  const counters = document.querySelectorAll('.count-up');
+  const countObs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      const el = e.target;
+      const target = parseFloat(el.dataset.target);
+      const prefix = el.dataset.prefix || '';
+      const suffix = el.dataset.suffix || '';
+      const isFloat = target % 1 !== 0;
+      let start = null;
+      const dur = 1600;
+      const tick = ts => {
+        if (!start) start = ts;
+        const p = Math.min((ts - start) / dur, 1);
+        const eased = 1 - Math.pow(1 - p, 3);
+        const val = eased * target;
+        el.textContent = prefix + (isFloat ? val.toFixed(1) : Math.floor(val).toLocaleString('fr-FR')) + suffix;
+        if (p < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+      countObs.unobserve(el);
+    });
+  }, { threshold: 0.3 });
+  counters.forEach(c => countObs.observe(c));
+
+  /* ── 3D Tilt card ── */
+  const tiltCard = document.getElementById('tiltCard');
+  const cardScene = document.getElementById('cardScene');
+  if (tiltCard && cardScene) {
+    cardScene.addEventListener('mousemove', e => {
+      const r = cardScene.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width - 0.5;
+      const y = (e.clientY - r.top)  / r.height - 0.5;
+      tiltCard.style.transform = `rotateY(${x * 20}deg) rotateX(${-y * 14}deg) translateZ(16px) rotate(-2deg)`;
+    });
+    cardScene.addEventListener('mouseleave', () => {
+      tiltCard.style.transform = '';
+    });
+  }
+
+  /* ── Smooth scroll nav links ── */
+  document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+      const target = document.querySelector(a.getAttribute('href'));
+      if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    });
+  });
+
+  /* ── Stat bar animation ── */
+  document.querySelectorAll('.cm-fill, .stat-bar-fill').forEach(el => {
+    const obs = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) {
+        el.style.transform = 'scaleX(1)';
+        obs.disconnect();
+      }
+    }, { threshold: 0.5 });
+    obs.observe(el);
+  });
+
+});
+</script>
+{% endblock %}

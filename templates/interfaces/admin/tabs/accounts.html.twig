@@ -1,0 +1,2488 @@
+﻿{% set active_panel  = panel|default(support.active_panel|default('compte')) %}
+{% set account_items = support.accounts|default(items) %}
+{% set vault_items   = support.vaults|default([]) %}
+{% set users         = support.users|default([]) %}
+{% set all_accounts  = support.accounts|default([]) %}
+
+<style>
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   NEXORA Â· Accounts Module  (nx-acc)
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+
+:root {
+  --na-bg:        #f0f4f9;
+  --na-surface:   #ffffff;
+  --na-border:    #e4ecf4;
+  --na-txt:       #1a2b3c;
+  --na-muted:     #6b85a0;
+  --na-radius:    14px;
+  --na-shadow:    0 2px 16px rgba(0,0,0,.07);
+  --na-shadow-lg: 0 6px 32px rgba(0,0,0,.10);
+  --na-teal:      #11b7aa;
+  --na-teal-dk:   #0d9e93;
+  --na-blue:      #2b7de9;
+  --na-blue-dk:   #1f6cd6;
+  --na-gold:      #e8a202;
+  --na-purple:    #7c4dff;
+  --na-red:       #e53935;
+  --na-green:     #43a047;
+}
+
+/* â”€â”€ Shell â”€â”€ */
+.nx-acc {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.75rem 2rem;
+  background: var(--na-bg);
+  min-height: 100%;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--na-txt);
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   HERO HEADER
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.nx-acc__hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  background: linear-gradient(135deg, #1a2b3c 0%, #1e3448 60%, #1a3050 100%);
+  border-radius: var(--na-radius);
+  padding: 1.5rem 1.8rem;
+  box-shadow: var(--na-shadow-lg);
+  flex-wrap: wrap;
+  position: relative;
+  overflow: hidden;
+}
+.nx-acc__hero::before {
+  content: '';
+  position: absolute;
+  width: 260px; height: 260px;
+  top: -80px; right: -50px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(17,183,170,.22) 0%, transparent 70%);
+  pointer-events: none;
+}
+.nx-acc__hero::after {
+  content: '';
+  position: absolute;
+  width: 160px; height: 160px;
+  bottom: -60px; left: 30%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(43,125,233,.18) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.nx-acc__hero-left {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  position: relative;
+  z-index: 1;
+}
+
+.nx-acc__hero-icon {
+  width: 50px; height: 50px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, var(--na-teal), var(--na-teal-dk));
+  display: grid;
+  place-items: center;
+  font-size: 1.3rem;
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(17,183,170,.4);
+  flex-shrink: 0;
+}
+
+.nx-acc__hero-text h2 {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0 0 .25rem;
+}
+.nx-acc__hero-text p {
+  font-size: .76rem;
+  color: rgba(255,255,255,.5);
+  margin: 0;
+}
+
+.nx-acc__hero-actions {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  position: relative;
+  z-index: 1;
+  flex-wrap: wrap;
+}
+
+/* â”€â”€ Shared buttons â”€â”€ */
+.na-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .52rem 1.1rem;
+  border-radius: 9px;
+  font-size: .82rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all .2s ease;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.na-btn--primary {
+  background: linear-gradient(135deg, var(--na-teal), var(--na-teal-dk));
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(17,183,170,.35);
+}
+.na-btn--primary:hover {
+  box-shadow: 0 5px 18px rgba(17,183,170,.5);
+  transform: translateY(-1px);
+}
+.na-btn--ghost {
+  background: rgba(255,255,255,.1);
+  color: rgba(255,255,255,.85);
+  border: 1px solid rgba(255,255,255,.18);
+  backdrop-filter: blur(4px);
+}
+.na-btn--ghost:hover {
+  background: rgba(255,255,255,.18);
+  color: #fff;
+}
+.na-btn--ghost-dark {
+  background: transparent;
+  color: var(--na-teal);
+  border: 1px solid rgba(17,183,170,.3);
+  font-size: .78rem;
+}
+.na-btn--ghost-dark:hover { background: rgba(17,183,170,.06); }
+.na-btn--danger {
+  background: rgba(229,57,53,.09);
+  color: var(--na-red);
+  border: 1px solid rgba(229,57,53,.22);
+  font-size: .76rem;
+  padding: .38rem .8rem;
+}
+.na-btn--danger:hover { background: rgba(229,57,53,.18); }
+.na-btn--save {
+  background: linear-gradient(135deg, var(--na-teal), var(--na-teal-dk));
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(17,183,170,.3);
+}
+.na-btn--save:hover {
+  box-shadow: 0 5px 16px rgba(17,183,170,.45);
+  transform: translateY(-1px);
+}
+.na-btn--reset {
+  background: var(--na-bg);
+  color: var(--na-muted);
+  border: 1px solid var(--na-border);
+}
+.na-btn--reset:hover { background: var(--na-border); color: var(--na-txt); }
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   SUBTABS
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.nx-acc__tabs {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  background: var(--na-surface);
+  border: 1px solid var(--na-border);
+  border-radius: var(--na-radius);
+  padding: .55rem .65rem;
+  box-shadow: var(--na-shadow);
+  flex-wrap: wrap;
+}
+
+.nx-acc__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  padding: .5rem 1.1rem;
+  border-radius: 9px;
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--na-muted);
+  text-decoration: none;
+  transition: all .2s ease;
+  border: 1px solid transparent;
+}
+.nx-acc__tab i { font-size: .85rem; }
+.nx-acc__tab:hover {
+  background: var(--na-bg);
+  color: var(--na-txt);
+}
+.nx-acc__tab.is-active {
+  background: linear-gradient(135deg, var(--na-teal), var(--na-teal-dk));
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(17,183,170,.3);
+}
+
+.nx-acc__tabs-spacer { flex: 1; }
+
+.nx-acc__stats-link {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .5rem 1rem;
+  border-radius: 9px;
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--na-blue);
+  text-decoration: none;
+  background: rgba(43,125,233,.07);
+  border: 1px solid rgba(43,125,233,.18);
+  transition: all .2s;
+}
+.nx-acc__stats-link:hover { background: rgba(43,125,233,.14); }
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   KPI ROW
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.nx-acc__kpis {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.nx-acc__kpi {
+  background: var(--na-surface);
+  border: 1px solid var(--na-border);
+  border-radius: var(--na-radius);
+  padding: 1.1rem 1.25rem;
+  box-shadow: var(--na-shadow);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: transform .2s, box-shadow .2s;
+  position: relative;
+  overflow: hidden;
+}
+.nx-acc__kpi:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--na-shadow-lg);
+}
+.nx-acc__kpi::after {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+}
+.nx-acc__kpi:nth-child(1)::after { background: var(--na-teal); }
+.nx-acc__kpi:nth-child(2)::after { background: var(--na-blue); }
+.nx-acc__kpi:nth-child(3)::after { background: var(--na-gold); }
+
+.nx-acc__kpi-icon {
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+.nx-acc__kpi:nth-child(1) .nx-acc__kpi-icon {
+  background: rgba(17,183,170,.1); color: var(--na-teal);
+}
+.nx-acc__kpi:nth-child(2) .nx-acc__kpi-icon {
+  background: rgba(43,125,233,.1); color: var(--na-blue);
+}
+.nx-acc__kpi:nth-child(3) .nx-acc__kpi-icon {
+  background: rgba(232,162,2,.1); color: var(--na-gold);
+}
+
+.nx-acc__kpi-body strong {
+  display: block;
+  font-size: 1.55rem;
+  font-weight: 800;
+  color: var(--na-txt);
+  line-height: 1;
+  margin-bottom: .2rem;
+}
+.nx-acc__kpi-body small {
+  font-size: .74rem;
+  color: var(--na-muted);
+  font-weight: 500;
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   CONTENT GRID
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.nx-acc__grid {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+/* â”€â”€ Panel card shared â”€â”€ */
+.nx-acc__panel {
+  background: var(--na-surface);
+  border: 1px solid var(--na-border);
+  border-radius: var(--na-radius);
+  box-shadow: var(--na-shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.nx-acc__panel-head {
+  padding: 1.1rem 1.3rem;
+  border-bottom: 1px solid var(--na-border);
+  background: linear-gradient(to right, #fafcff, #f5f8fd);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.nx-acc__panel-head-left h3 {
+  font-size: .9rem;
+  font-weight: 700;
+  color: var(--na-txt);
+  margin: 0 0 .15rem;
+}
+.nx-acc__panel-head-left p {
+  font-size: .73rem;
+  color: var(--na-muted);
+  margin: 0;
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   FORM PANEL
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.nx-acc__form {
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+  padding: 1.2rem 1.3rem;
+}
+
+.nx-acc__form label {
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+}
+.nx-acc__form label span {
+  font-size: .71rem;
+  font-weight: 700;
+  color: var(--na-muted);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+
+.nx-acc__form input[type="text"],
+.nx-acc__form input[type="number"],
+.nx-acc__form input[type="date"],
+.nx-acc__form select {
+  height: 38px;
+  padding: 0 .8rem;
+  border: 1px solid var(--na-border);
+  border-radius: 9px;
+  font-size: .82rem;
+  color: var(--na-txt);
+  background: var(--na-bg);
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: border-color .2s, box-shadow .2s;
+}
+.nx-acc__form input:focus,
+.nx-acc__form select:focus {
+  border-color: var(--na-teal);
+  box-shadow: 0 0 0 3px rgba(17,183,170,.12);
+  background: #fff;
+}
+
+.nx-acc__form-divider {
+  height: 1px;
+  background: var(--na-border);
+  margin: .2rem 0;
+}
+
+.nx-acc__form-label-id {
+  font-size: .7rem;
+  color: var(--na-muted);
+  background: rgba(43,125,233,.06);
+  border: 1px solid rgba(43,125,233,.15);
+  border-radius: 7px;
+  padding: .5rem .7rem;
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  margin-bottom: .1rem;
+}
+.nx-acc__form-label-id i { color: var(--na-blue); }
+
+.nx-acc__form-actions {
+  display: flex;
+  gap: .55rem;
+  padding-top: .4rem;
+  border-top: 1px solid var(--na-border);
+}
+.nx-acc__form-actions .na-btn { flex: 1; justify-content: center; }
+
+/* ── Validation errors ── */
+.nx-field-error {
+  display: none;
+  color: #dc2626 !important;
+  font-size: .75rem;
+  font-weight: 500;
+  margin-top: .3rem;
+  padding: 0;
+  background: none !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+}
+.nx-field-error.is-visible { display: block; }
+.nx-acc__form label .nx-field-error {
+  color: #dc2626 !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  font-weight: 500 !important;
+  background: transparent !important;
+}
+.nx-acc__form input.is-invalid,
+.nx-acc__form select.is-invalid {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 2px rgba(220,38,38,.15) !important;
+}
+.nx-acc__form input.is-valid,
+.nx-acc__form select.is-valid {
+  border-color: #16a34a !important;
+  box-shadow: none !important;
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   TABLE PANEL
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.nx-acc__table-wrap { overflow-x: auto; }
+
+.nx-acc__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .81rem;
+}
+
+.nx-acc__table thead th {
+  padding: .65rem 1rem;
+  text-align: left;
+  font-size: .7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--na-muted);
+  background: var(--na-bg);
+  border-bottom: 1px solid var(--na-border);
+  white-space: nowrap;
+}
+.nx-acc__table thead th:first-child { border-radius: 8px 0 0 8px; }
+.nx-acc__table thead th:last-child  { border-radius: 0 8px 8px 0; }
+
+.nx-acc__table tbody td {
+  padding: .75rem 1rem;
+  border-bottom: 1px solid var(--na-border);
+  vertical-align: middle;
+  color: var(--na-txt);
+}
+.nx-acc__table tbody tr:last-child td { border-bottom: none; }
+.nx-acc__table tbody tr:hover td     { background: rgba(17,183,170,.03); }
+
+.nx-acc__tid {
+  font-family: monospace;
+  font-size: .76rem;
+  background: var(--na-bg);
+  padding: .18rem .5rem;
+  border-radius: 5px;
+  color: var(--na-muted);
+  font-weight: 600;
+}
+
+.nx-acc__num {
+  font-family: monospace;
+  font-size: .78rem;
+  color: var(--na-blue);
+  font-weight: 600;
+  letter-spacing: .3px;
+}
+
+.nx-acc__amount {
+  font-weight: 700;
+  color: var(--na-txt);
+}
+.nx-acc__amount em {
+  font-style: normal;
+  font-size: .72rem;
+  color: var(--na-muted);
+  margin-left: .15rem;
+}
+
+.nx-acc__tag {
+  display: inline-block;
+  padding: .2rem .6rem;
+  border-radius: 20px;
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .3px;
+  background: var(--na-bg);
+  color: var(--na-muted);
+  border: 1px solid var(--na-border);
+  text-transform: capitalize;
+}
+/* Statut */
+.nx-acc__tag.is-actif   { background: rgba(67,160,71,.12);  color: #2e7d32; border-color: rgba(67,160,71,.3); }
+.nx-acc__tag.is-fermÃ©,
+.nx-acc__tag.is-ferme   { background: rgba(229,57,53,.12);  color: #c62828; border-color: rgba(229,57,53,.3); }
+.nx-acc__tag.is-bloquÃ©,
+.nx-acc__tag.is-bloque  { background: rgba(245,124,0,.12);  color: #e65100; border-color: rgba(245,124,0,.3); }
+/* Type */
+.nx-acc__tag.is-courant       { background: rgba(43,125,233,.1);  color: #1565c0; border-color: rgba(43,125,233,.25); }
+.nx-acc__tag.is-professionnel { background: rgba(0,150,136,.1);   color: #00695c; border-color: rgba(0,150,136,.25); }
+.nx-acc__tag.is-Ã©pargne,
+.nx-acc__tag.is-epargne       { background: rgba(124,77,255,.1);  color: #6a1b9a; border-color: rgba(124,77,255,.25); }
+
+.nx-acc__owner {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+}
+.nx-acc__owner-dot {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--na-teal), var(--na-blue));
+  color: #fff;
+  font-size: .62rem;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.nx-acc__owner-name {
+  font-size: .8rem;
+  font-weight: 500;
+}
+
+/* vault progress */
+.nx-acc__progress-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  min-width: 120px;
+}
+.nx-acc__progress-bar {
+  height: 6px;
+  background: var(--na-bg);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.nx-acc__progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--na-teal), var(--na-blue));
+  border-radius: 6px;
+  transition: width .4s ease;
+}
+.nx-acc__progress-label {
+  font-size: .68rem;
+  color: var(--na-muted);
+  font-weight: 600;
+}
+
+.nx-acc__empty {
+  text-align: center;
+  color: var(--na-muted);
+  font-size: .82rem;
+  padding: 2.5rem 1rem;
+}
+.nx-acc__empty i {
+  display: block;
+  font-size: 2rem;
+  opacity: .25;
+  margin-bottom: .6rem;
+}
+
+/* search bar */
+.nx-acc__search {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .8rem 1rem;
+  border-bottom: 1px solid var(--na-border);
+}
+.nx-acc__search-wrap {
+  position: relative;
+  flex: 1;
+}
+.nx-acc__search-wrap i {
+  position: absolute;
+  left: .75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--na-muted);
+  font-size: .8rem;
+  pointer-events: none;
+}
+.nx-acc__search-input {
+  width: 100%;
+  height: 36px;
+  padding: 0 .85rem 0 2.1rem;
+  border: 1px solid var(--na-border);
+  border-radius: 8px;
+  font-size: .81rem;
+  color: var(--na-txt);
+  background: var(--na-bg);
+  outline: none;
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: border-color .2s, box-shadow .2s;
+}
+.nx-acc__search-input:focus {
+  border-color: var(--na-teal);
+  box-shadow: 0 0 0 3px rgba(17,183,170,.1);
+  background: #fff;
+}
+.nx-acc__row-count {
+  font-size: .72rem;
+  color: var(--na-muted);
+  background: var(--na-bg);
+  border: 1px solid var(--na-border);
+  border-radius: 20px;
+  padding: .22rem .65rem;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+/* â”€â”€ Sort dropdown â”€â”€ */
+.nx-acc__sort-select {
+  height: 36px;
+  padding: 0 .7rem;
+  border: 1px solid var(--na-border);
+  border-radius: 8px;
+  font-size: .8rem;
+  color: var(--na-txt);
+  background: var(--na-bg);
+  outline: none;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color .2s;
+  flex-shrink: 0;
+}
+.nx-acc__sort-select:focus { border-color: var(--na-teal); }
+
+.nx-acc__sort-dir {
+  width: 36px; height: 36px;
+  border: 1px solid var(--na-border);
+  border-radius: 8px;
+  background: var(--na-bg);
+  color: var(--na-muted);
+  font-size: .85rem;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: all .2s;
+}
+.nx-acc__sort-dir:hover { background: var(--na-teal); color: #fff; border-color: var(--na-teal); }
+
+/* â”€â”€ Action icon buttons â”€â”€ */
+.nx-acc__act-group {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+}
+.nx-acc__act-btn {
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  border: none;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  font-size: .78rem;
+  transition: all .15s;
+  text-decoration: none;
+  background: transparent;
+}
+.nx-acc__act-btn:hover { transform: scale(1.12); }
+.nx-acc__act-btn.edit  { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+.nx-acc__act-btn.edit:hover  { background: #2e7d32; color: #fff; border-color: transparent; }
+.nx-acc__act-btn.del   { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+.nx-acc__act-btn.del:hover   { background: #c62828; color: #fff; border-color: transparent; }
+.nx-acc__act-btn.view  { background: #fff8e1; color: #e65100; border: 1px solid #ffcc80; }
+.nx-acc__act-btn.view:hover  { background: #e65100; color: #fff; border-color: transparent; }
+
+/* â”€â”€ Clickable row â”€â”€ */
+.nx-acc__table tbody tr { cursor: pointer; }
+.nx-acc__table tbody tr.is-selected td { background: rgba(17,183,170,.07); }
+.nx-acc__table tbody tr:hover td { background: rgba(17,183,170,.04); }
+.nx-acc__table thead th.sortable { cursor: pointer; user-select: none; }
+.nx-acc__table thead th.sortable:hover { color: var(--na-teal); }
+.nx-acc__table thead th .sort-icon { margin-left: .3rem; opacity: .4; font-size: .65rem; }
+.nx-acc__table thead th.sort-asc .sort-icon,
+.nx-acc__table thead th.sort-desc .sort-icon { opacity: 1; color: var(--na-teal); }
+
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   RESPONSIVE
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+@media (max-width: 1100px) {
+  .nx-acc__grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .nx-acc__kpis { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 560px) {
+  .nx-acc             { padding: 1rem; gap: 1rem; }
+  .nx-acc__hero       { flex-direction: column; align-items: flex-start; }
+  .nx-acc__kpis       { grid-template-columns: 1fr; }
+  .nx-acc__tabs       { gap: .25rem; }
+}
+</style>
+
+{# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   MARKUP
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• #}
+<section class="nx-acc">
+
+  {# â”€â”€ HERO â”€â”€ #}
+  <header class="nx-acc__hero">
+    <div class="nx-acc__hero-left">
+      <span class="nx-acc__hero-icon">
+        <i class="fa-solid fa-building-columns"></i>
+      </span>
+      <div class="nx-acc__hero-text">
+        <h2>Gestion Comptes Bancaires</h2>
+        <p>GÃ©rer et superviser les donnÃ©es bancaires</p>
+      </div>
+    </div>
+    <div class="nx-acc__hero-actions">
+      <a class="na-btn na-btn--ghost" id="nx-export-btn"
+         href="{{ path('admin_account_export_pdf') }}" target="_blank">
+        <i class="fa-solid fa-file-pdf"></i> Exporter
+      </a>
+      <a class="na-btn na-btn--primary" href="#nx-acc-form">
+        <i class="fa-solid fa-plus"></i> Ajouter
+      </a>
+    </div>
+  </header>
+
+  {# â”€â”€ SUBTABS â”€â”€ #}
+  <div class="nx-acc__tabs">
+    <a class="nx-acc__tab {{ active_panel == 'compte' ? 'is-active' : '' }}"
+       href="{{ path(route_name, { tab: 'accounts', panel: 'compte' }) }}">
+      <i class="fa-solid fa-credit-card"></i> Compte Bancaire
+    </a>
+    <a class="nx-acc__tab {{ active_panel == 'coffre' ? 'is-active' : '' }}"
+       href="{{ path(route_name, { tab: 'accounts', panel: 'coffre' }) }}">
+      <i class="fa-solid fa-vault"></i> Coffre Virtuel
+    </a>
+    <span class="nx-acc__tabs-spacer"></span>
+    <button class="nx-acc__stats-link" type="button" id="nx-stats-toggle"
+            onclick="document.getElementById('nx-stats-panel').classList.toggle('is-open')">
+      <i class="fa-solid fa-chart-pie"></i> Statistiques
+    </button>
+  </div>
+
+  {# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+     STATS PANEL (Chart.js)
+  â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• #}
+  {% set stats  = support.account_stats|default({}) %}
+  {% set total  = stats.total|default(0) %}
+  {% set counts = stats.counts|default({'Actif': 0, 'FermÃ©': 0, 'BloquÃ©': 0}) %}
+  {% set soldes = stats.soldes|default({'Actif': 0, 'FermÃ©': 0, 'BloquÃ©': 0}) %}
+  {% set colors = stats.colors|default({'Actif': '#00B4A0', 'FermÃ©': '#0A2540', 'BloquÃ©': '#B8860B'}) %}
+  {% set vstats = support.vault_stats|default({}) %}
+
+  <div class="nx-stats-panel" id="nx-stats-panel">
+    <div class="nx-stats-inner">
+
+      <div class="nx-stats-header">
+        <span class="nx-stats-header-icon"><i class="fa-solid fa-chart-pie"></i></span>
+        <div>
+          <h3>Statistiques des Comptes &amp; Coffres</h3>
+          <p>{{ total }} compte{{ total != 1 ? 's' : '' }} Â· {{ vstats.total|default(0) }} coffre{{ vstats.total|default(0) != 1 ? 's' : '' }}</p>
+        </div>
+        <button class="nx-stats-close" type="button"
+                onclick="document.getElementById('nx-stats-panel').classList.remove('is-open')">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="nx-stats-charts-row">
+
+        {# â”€â”€ Chart 1 : Comptes par statut â”€â”€ #}
+        <div class="nx-chart-card">
+          <div class="nx-chart-card-head">
+            <span class="nx-chart-dot" style="background:#00B4A0"></span>
+            <strong>Comptes par statut</strong>
+          </div>
+          <div class="nx-chart-wrap">
+            <canvas id="nx-chart-accounts" width="200" height="200"></canvas>
+          </div>
+          <div class="nx-chart-legend">
+            {% for statut, count in counts %}
+              {% set color = colors[statut]|default('#999') %}
+              {% set pct   = total > 0 ? ((count / total) * 100)|round(1) : 0 %}
+              {% set solde = soldes[statut]|default(0) %}
+              <div class="nx-chart-legend-row" style="--lc:{{ color }}">
+                <span class="nx-chart-legend-dot"></span>
+                <span class="nx-chart-legend-label">{{ statut }}</span>
+                <strong>{{ count }}</strong>
+                <span class="nx-chart-legend-pct">{{ pct }}%</span>
+                <span class="nx-chart-legend-val">{{ solde|number_format(2, '.', ' ') }} DT</span>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        {# â”€â”€ Chart 2 : Progression des coffres â”€â”€ #}
+        <div class="nx-chart-card">
+          <div class="nx-chart-card-head">
+            <span class="nx-chart-dot" style="background:#6c63ff"></span>
+            <strong>Progression des coffres</strong>
+          </div>
+          <div class="nx-chart-wrap">
+            <canvas id="nx-chart-vaults" width="200" height="200"></canvas>
+          </div>
+          <div class="nx-chart-legend">
+            <div class="nx-chart-legend-row" style="--lc:#ef4444">
+              <span class="nx-chart-legend-dot"></span>
+              <span class="nx-chart-legend-label">0 â€“ 49%</span>
+              <strong>{{ vstats.rouge|default(0) }}</strong>
+              <span class="nx-chart-legend-pct">Rouge</span>
+            </div>
+            <div class="nx-chart-legend-row" style="--lc:#f97316">
+              <span class="nx-chart-legend-dot"></span>
+              <span class="nx-chart-legend-label">50 â€“ 99%</span>
+              <strong>{{ vstats.orange|default(0) }}</strong>
+              <span class="nx-chart-legend-pct">Orange</span>
+            </div>
+            <div class="nx-chart-legend-row" style="--lc:#22c55e">
+              <span class="nx-chart-legend-dot"></span>
+              <span class="nx-chart-legend-label">100%</span>
+              <strong>{{ vstats.vert|default(0) }}</strong>
+              <span class="nx-chart-legend-pct">Vert</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <style>
+  .nx-stats-panel {
+    display: none;
+    background: var(--na-surface);
+    border: 1px solid var(--na-border);
+    border-radius: var(--na-radius);
+    box-shadow: var(--na-shadow-lg);
+    overflow: hidden;
+    animation: nx-slide-down .25s ease;
+  }
+  .nx-stats-panel.is-open { display: block; }
+  @keyframes nx-slide-down {
+    from { opacity: 0; transform: translateY(-10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .nx-stats-inner { padding: 1.4rem 1.6rem; }
+  .nx-stats-header {
+    display: flex; align-items: center; gap: 1rem;
+    margin-bottom: 1.4rem; padding-bottom: 1rem;
+    border-bottom: 1px solid var(--na-border);
+  }
+  .nx-stats-header-icon {
+    width: 42px; height: 42px; border-radius: 12px;
+    background: linear-gradient(135deg, #00B4A0, #0d9e93);
+    display: grid; place-items: center; color: #fff; font-size: 1.1rem; flex-shrink: 0;
+  }
+  .nx-stats-header h3 { font-size: .95rem; font-weight: 800; color: var(--na-txt); margin: 0 0 .15rem; }
+  .nx-stats-header p  { font-size: .73rem; color: var(--na-muted); margin: 0; }
+  .nx-stats-close {
+    margin-left: auto; background: var(--na-bg); border: 1px solid var(--na-border);
+    border-radius: 8px; width: 32px; height: 32px;
+    display: grid; place-items: center; cursor: pointer; color: var(--na-muted); font-size: .85rem; transition: all .2s;
+  }
+  .nx-stats-close:hover { background: var(--na-red); color: #fff; border-color: transparent; }
+
+  .nx-stats-charts-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;
+  }
+  @media (max-width: 900px) { .nx-stats-charts-row { grid-template-columns: 1fr; } }
+
+  .nx-chart-card {
+    background: var(--na-bg); border: 1px solid var(--na-border);
+    border-radius: 12px; padding: 1.1rem 1.2rem;
+    display: flex; flex-direction: column; gap: .85rem;
+  }
+  .nx-chart-card-head {
+    display: flex; align-items: center; gap: .55rem;
+    font-size: .85rem; font-weight: 700; color: var(--na-txt);
+  }
+  .nx-chart-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .nx-chart-wrap {
+    display: flex; justify-content: center;
+    height: 200px;
+  }
+  .nx-chart-wrap canvas { max-height: 200px; }
+
+  .nx-chart-legend { display: flex; flex-direction: column; gap: .45rem; }
+  .nx-chart-legend-row {
+    display: flex; align-items: center; gap: .55rem;
+    padding: .5rem .75rem; border-radius: 8px;
+    background: var(--na-surface); border: 1px solid var(--na-border);
+    font-size: .78rem; transition: transform .15s;
+  }
+  .nx-chart-legend-row:hover { transform: translateX(4px); border-color: var(--lc); }
+  .nx-chart-legend-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--lc); flex-shrink: 0; }
+  .nx-chart-legend-label { flex: 1; color: var(--na-txt); font-weight: 600; }
+  .nx-chart-legend-row strong { font-size: .9rem; font-weight: 900; color: var(--lc); }
+  .nx-chart-legend-pct { font-size: .72rem; color: var(--na-muted); background: var(--na-bg); border-radius: 20px; padding: .1rem .5rem; }
+  .nx-chart-legend-val { font-size: .72rem; color: var(--na-muted); margin-left: auto; }
+  </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script>
+  (() => {
+    const accountsData = {
+      labels: [{% for s, c in counts %}'{{ s }}'{{ not loop.last ? ',' : '' }}{% endfor %}],
+      data:   [{% for s, c in counts %}{{ c }}{{ not loop.last ? ',' : '' }}{% endfor %}],
+      colors: [{% for s, c in counts %}'{{ colors[s]|default('#999') }}'{{ not loop.last ? ',' : '' }}{% endfor %}],
+    };
+    const vaultsData = {
+      labels: ['0â€“49% (Rouge)', '50â€“99% (Orange)', '100% (Vert)'],
+      data:   [{{ vstats.rouge|default(0) }}, {{ vstats.orange|default(0) }}, {{ vstats.vert|default(0) }}],
+      colors: ['#ef4444', '#f97316', '#22c55e'],
+    };
+
+    const makeChart = (id, labels, data, colors) => {
+      const ctx = document.getElementById(id);
+      if (!ctx) return;
+      new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels,
+          datasets: [{
+            data,
+            backgroundColor: colors,
+            borderColor: '#fff',
+            borderWidth: 3,
+            hoverOffset: 12,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '62%',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => ` ${ctx.label} : ${ctx.parsed} (${((ctx.parsed / ctx.dataset.data.reduce((a,b)=>a+b,0))*100).toFixed(1)}%)`,
+              },
+            },
+          },
+          animation: { animateRotate: true, duration: 700 },
+        },
+      });
+    };
+
+    makeChart('nx-chart-accounts', accountsData.labels, accountsData.data, accountsData.colors);
+    makeChart('nx-chart-vaults',   vaultsData.labels,   vaultsData.data,   vaultsData.colors);
+  })();
+  </script>
+  {% if active_panel == 'coffre' %}
+
+    {# KPIs #}
+    {% set vstats = support.vault_stats|default({}) %}
+    <div class="nx-acc__kpis">
+      <div class="nx-acc__kpi">
+        <span class="nx-acc__kpi-icon" style="background:rgba(17,183,170,.1);color:var(--na-teal)">
+          <i class="fa-solid fa-coins"></i>
+        </span>
+        <div class="nx-acc__kpi-body">
+          <strong>{{ vstats.total_stored|default(0)|number_format(2, '.', ' ') }} DT</strong>
+          <small>Montant total stockÃ©</small>
+        </div>
+      </div>
+      <div class="nx-acc__kpi">
+        <span class="nx-acc__kpi-icon" style="background:rgba(43,125,233,.1);color:var(--na-blue)">
+          <i class="fa-solid fa-vault"></i>
+        </span>
+        <div class="nx-acc__kpi-body">
+          <strong>{{ vstats.total|default(0) }}</strong>
+          <small>Coffres virtuels</small>
+        </div>
+      </div>
+      <div class="nx-acc__kpi">
+        <span class="nx-acc__kpi-icon" style="background:rgba(67,160,71,.1);color:#2e7d32">
+          <i class="fa-solid fa-circle-check"></i>
+        </span>
+        <div class="nx-acc__kpi-body">
+          <strong>{{ vstats.actifs|default(0) }}</strong>
+          <small>Coffres actifs</small>
+        </div>
+      </div>
+    </div>
+
+    {# Content grid #}
+    <div class="nx-acc__grid">
+
+      {# Form #}
+      <article class="nx-acc__panel" id="nx-acc-form">
+        <div class="nx-acc__panel-head">
+          <div class="nx-acc__panel-head-left">
+            <h3><i class="fa-solid fa-vault" style="color:var(--na-teal);margin-right:.4rem"></i>Coffre Virtuel</h3>
+            <p>Ajouter ou modifier un coffre</p>
+          </div>
+        </div>
+
+        <form method="post" class="nx-acc__form" id="nx-vault-form" onsubmit="return nxValidateVault(event)">
+          <input type="hidden" name="tab"     value="accounts">
+          <input type="hidden" name="panel"   value="coffre">
+          <input type="hidden" name="action"  value="vault_save">
+          <input type="hidden" name="idCoffre" id="vf-idCoffre" value="">
+          <input type="hidden" name="idUser" value="{{ current_user.idUser|default('') }}">
+          <div class="nx-acc__form-label-id">
+            <i class="fa-solid fa-pen-to-square"></i>
+            <span id="vf-mode-label">Nouveau coffre</span>
+          </div>
+          <div class="nx-acc__form-divider"></div>
+          <label>
+            <span>Nom du coffre</span>
+            <input type="text" name="nom" id="vf-nom" placeholder="Ex: Vacances 2025">
+          </label>
+          <span class="nx-field-error" id="err-nom"></span>
+          <label>
+            <span>Objectif (DT)</span>
+            <input type="number" step="0.01" name="objectifMontant" id="vf-objectif" placeholder="0.00">
+          </label>
+          <span class="nx-field-error" id="err-objectif"></span>
+          <label>
+            <span>Montant actuel (DT)</span>
+            <input type="number" step="0.01" name="montantActuel" id="vf-actuel" placeholder="0.00" value="0">
+          </label>
+          <span class="nx-field-error" id="err-actuel"></span>
+          <label>
+            <span>Date de cr&#233;ation</span>
+            <input type="date" name="dateCreation" id="vf-dateCreation" value="{{ 'now'|date('Y-m-d') }}">
+          </label>
+          <span class="nx-field-error" id="err-dateCreation"></span>
+          <label>
+            <span>Date objectif</span>
+            <input type="date" name="dateObjectifs" id="vf-dateObjectifs">
+          </label>
+          <span class="nx-field-error" id="err-dateObjectifs"></span>
+          <label>
+            <span>Statut</span>
+            <select name="status" id="vf-status">
+              <option value="">&#8212; S&#233;lectionner &#8212;</option>
+              <option value="Actif">Actif</option>
+              <option value="Ferm&#233;">Ferm&#233;</option>
+              <option value="Bloqu&#233;">Bloqu&#233;</option>
+            </select>
+          </label>
+          <span class="nx-field-error" id="err-status"></span>
+          <label>
+            <span>Verrouill&#233;</span>
+            <select name="estVerrouille" id="vf-verrou">
+              <option value="0">Non</option>
+              <option value="1">Oui</option>
+            </select>
+          </label>
+          <span class="nx-field-error" id="err-verrou"></span>
+          <label>
+            <span>Compte li&#233;</span>
+            <select name="idCompte" id="vf-idCompte">
+              <option value="">&#8212; Choisir un compte &#8212;</option>
+              {% for account in all_accounts %}
+                <option value="{{ account.idCompte }}">{{ account.numeroCompte }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <span class="nx-field-error" id="err-idCompte"></span>
+          <div class="nx-acc__form-actions">
+            <button class="na-btn na-btn--save" type="submit">
+              <i class="fa-solid fa-floppy-disk"></i> Enregistrer
+            </button>
+            <button class="na-btn na-btn--reset" type="button" onclick="nxResetVaultForm()">
+              <i class="fa-solid fa-rotate-left"></i> Annuler
+            </button>
+          </div>
+        </form>
+      </article>
+
+      {# Table #}
+      {% set vault_enriched = support.vault_data|default(vault_items) %}
+      <article class="nx-acc__panel">
+        <div class="nx-acc__panel-head">
+          <div class="nx-acc__panel-head-left">
+            <h3>Liste des Coffres Virtuels</h3>
+            <p>GÃ©rer tous les coffres d'Ã©pargne</p>
+          </div>
+          <span class="nx-acc__row-count" id="nx-vault-count">
+            {{ vault_enriched|length }} coffre{{ vault_enriched|length != 1 ? 's' : '' }}
+          </span>
+        </div>
+
+        <div class="nx-acc__search">
+          <div class="nx-acc__search-wrap">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input class="nx-acc__search-input" type="text"
+                   placeholder="Rechercher un coffreâ€¦" id="nx-acc-vault-search">
+          </div>
+          <select class="nx-acc__sort-select" id="nx-vault-sort-field" title="Trier par">
+            <option value="">Trier parâ€¦</option>
+            <option value="0">Nom</option>
+            <option value="1">Objectif</option>
+            <option value="2">Montant actuel</option>
+            <option value="3">Date crÃ©ation</option>
+            <option value="4">Date objectif</option>
+            <option value="5">Statut</option>
+            <option value="6">Progression</option>
+          </select>
+          <button class="nx-acc__sort-dir" id="nx-vault-sort-dir" title="Ordre" type="button">
+            <i class="fa-solid fa-arrow-up-a-z"></i>
+          </button>
+        </div>
+
+        <div class="nx-acc__table-wrap">
+          <table class="nx-acc__table" id="nx-vault-table">
+            <thead>
+              <tr>
+                <th class="sortable" data-col="0">Nom <i class="fa-solid fa-sort sort-icon"></i></th>
+                <th class="sortable" data-col="1">Objectif <i class="fa-solid fa-sort sort-icon"></i></th>
+                <th class="sortable" data-col="2">Actuel <i class="fa-solid fa-sort sort-icon"></i></th>
+                <th class="sortable" data-col="3">Date CrÃ©a. <i class="fa-solid fa-sort sort-icon"></i></th>
+                <th class="sortable" data-col="4">Date Obj. <i class="fa-solid fa-sort sort-icon"></i></th>
+                <th class="sortable" data-col="5">Statut <i class="fa-solid fa-sort sort-icon"></i></th>
+                <th class="sortable" data-col="6">Verr. <i class="fa-solid fa-sort sort-icon"></i></th>
+                <th class="sortable" data-col="7">NÂ° Compte <i class="fa-solid fa-sort sort-icon"></i></th>
+                <th>Progression</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in vault_enriched %}
+                {% set pct      = item.progression|default(0) %}
+                {% set barColor = item.bar_color|default('#ef4444') %}
+                {% set lockIcon = item.lock_icon|default('fa-lock-open') %}
+                {% set lockClr  = item.lock_color|default('#22c55e') %}
+                <tr
+                  data-id="{{ item.idCoffre }}"
+                  data-nom="{{ item.nom }}"
+                  data-objectif="{{ item.objectifMontant }}"
+                  data-actuel="{{ item.montantActuel }}"
+                  data-date-creation="{{ item.dateCreation|default('') }}"
+                  data-date-objectifs="{{ item.dateObjectifs|default('') }}"
+                  data-status="{{ item.status|default('Actif') }}"
+                  data-verrou="{{ item.estVerrouille|default(0) }}"
+                  data-id-compte="{{ item.idCompte|default('') }}"
+                  data-numero-compte="{{ item.numeroCompte|default('') }}"
+                  style="cursor:pointer"
+                  onclick="nxEditVault(this)"
+                >
+                  <td><strong>{{ item.nom }}</strong></td>
+                  <td class="nx-acc__amount">{{ item.objectifMontant|number_format(2, '.', ' ') }} <em>DT</em></td>
+                  <td class="nx-acc__amount">{{ item.montantActuel|number_format(2, '.', ' ') }} <em>DT</em></td>
+                  <td style="font-size:.78rem;color:var(--na-muted)">{{ item.dateCreation|default('â€”') }}</td>
+                  <td style="font-size:.78rem;color:var(--na-muted)">{{ item.dateObjectifs|default('â€”') }}</td>
+                  <td>
+                    {% set st = item.status|default('')|lower %}
+                    <span class="nx-acc__tag is-{{ st }}">{{ item.status|default('â€”') }}</span>
+                  </td>
+                  <td style="text-align:center">
+                    <i class="fa-solid {{ lockIcon }}" style="color:{{ lockClr }};font-size:1rem" title="{{ item.is_locked ? 'VerrouillÃ©' : 'Ouvert' }}"></i>
+                  </td>
+                  <td style="font-size:.78rem;color:var(--na-blue);font-weight:600">
+                    {{ item.numeroCompte|default('â€”') }}
+                  </td>
+                  <td>
+                    <div class="nx-acc__progress-wrap">
+                      <div class="nx-acc__progress-bar">
+                        <div class="nx-acc__progress-fill"
+                             style="width:{{ min(pct, 100) }}%;background:{{ barColor }}"></div>
+                      </div>
+                      <span class="nx-acc__progress-label">{{ pct }}%</span>
+                    </div>
+                  </td>
+                  <td onclick="event.stopPropagation()">
+                    <div class="nx-acc__act-group">
+                      <button type="button" class="nx-acc__act-btn edit" title="Modifier"
+                              onclick="nxEditVault(this.closest('tr'))">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                      </button>
+                      <form method="post" style="display:inline">
+                        <input type="hidden" name="tab"      value="accounts">
+                        <input type="hidden" name="panel"    value="coffre">
+                        <input type="hidden" name="action"   value="vault_delete">
+                        <input type="hidden" name="idCoffre" value="{{ item.idCoffre }}">
+                        <button type="submit" class="nx-acc__act-btn del" title="Supprimer"
+                                onclick="return confirm('Supprimer ce coffre ?')">
+                          <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                      </form>
+                      <button type="button" class="nx-acc__act-btn view" title="Voir"
+                              onclick="nxViewVault(this.closest('tr'))">
+                        <i class="fa-solid fa-eye"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              {% else %}
+                <tr>
+                  <td colspan="10" class="nx-acc__empty">
+                    <i class="fa-solid fa-vault"></i>
+                    Aucun coffre enregistrÃ©.
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+    </div>
+
+  {# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+     COMPTE PANEL
+  â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• #}
+  {% else %}
+
+    {# KPIs #}
+    <div class="nx-acc__kpis">
+      <div class="nx-acc__kpi">
+        <span class="nx-acc__kpi-icon"><i class="fa-solid fa-users"></i></span>
+        <div class="nx-acc__kpi-body">
+          {% set actifs_count = 0 %}
+          {% for a in account_items %}{% if a.statutCompte|lower == 'actif' %}{% set actifs_count = actifs_count + 1 %}{% endif %}{% endfor %}
+          <strong id="kpi-actifs">{{ actifs_count }}</strong>
+          <small>Comptes actifs</small>
+        </div>
+      </div>
+      <div class="nx-acc__kpi">
+        <span class="nx-acc__kpi-icon"><i class="fa-solid fa-building-columns"></i></span>
+        <div class="nx-acc__kpi-body">
+          <strong>{{ summary.accounts_total|default(account_items|length) }}</strong>
+          <small>Comptes total</small>
+        </div>
+      </div>
+      <div class="nx-acc__kpi">
+        <span class="nx-acc__kpi-icon"><i class="fa-solid fa-layer-group"></i></span>
+        <div class="nx-acc__kpi-body">
+          <strong id="kpi-lignes">{{ account_items|length }}</strong>
+          <small>Lignes affichÃ©es</small>
+        </div>
+      </div>
+    </div>
+
+    {# Content grid #}
+    <div class="nx-acc__grid">
+
+      {# Form #}
+      <article class="nx-acc__panel" id="nx-acc-form">
+        <div class="nx-acc__panel-head">
+          <div class="nx-acc__panel-head-left">
+            <h3><i class="fa-solid fa-credit-card" style="color:var(--na-teal);margin-right:.4rem"></i>Compte Bancaire</h3>
+            <p>Ajouter ou modifier un compte</p>
+          </div>
+        </div>
+
+        <form method="post" class="nx-acc__form" id="nx-compte-form" onsubmit="return nxValidateCompte(event)">
+          <input type="hidden" name="tab"    value="accounts">
+          <input type="hidden" name="panel"  value="compte">
+          <input type="hidden" name="action" value="account_save">
+          <input type="hidden" name="idCompte" id="f-idCompte" value="">
+          <input type="hidden" name="idUser" value="{{ current_user.idUser|default('') }}">
+          <div class="nx-acc__form-label-id">
+            <i class="fa-solid fa-pen-to-square"></i>
+            <span id="f-mode-label">Nouveau compte</span>
+          </div>
+          <div class="nx-acc__form-divider"></div>
+          <label>
+            <span>Num&#233;ro de Compte</span>
+            <input type="text" name="numeroCompte" id="f-numeroCompte" placeholder="CB-123">
+          </label>
+          <span class="nx-field-error" id="err-numeroCompte"></span>
+          <label>
+            <span>Solde (DT)</span>
+            <input type="number" step="0.01" name="solde" id="f-solde" placeholder="0.00">
+          </label>
+          <span class="nx-field-error" id="err-solde"></span>
+          <label>
+            <span>Date d&#39;Ouverture</span>
+            <input type="date" name="dateOuverture" id="f-dateOuverture" value="{{ 'now'|date('Y-m-d') }}">
+          </label>
+          <span class="nx-field-error" id="err-dateOuverture"></span>
+          <label>
+            <span>Statut du Compte</span>
+            <select name="statutCompte" id="f-statutCompte">
+              <option value="">&#8212; S&#233;lectionner &#8212;</option>
+              <option value="Actif">Actif</option>
+              <option value="Ferm&#233;">Ferm&#233;</option>
+              <option value="Bloqu&#233;">Bloqu&#233;</option>
+            </select>
+          </label>
+          <span class="nx-field-error" id="err-statutCompte"></span>
+          <label>
+            <span>Plafond Retrait (DT)</span>
+            <input type="number" step="0.01" name="plafondRetrait" id="f-plafondRetrait" placeholder="0.00">
+          </label>
+          <span class="nx-field-error" id="err-plafondRetrait"></span>
+          <label>
+            <span>Plafond Virement (DT)</span>
+            <input type="number" step="0.01" name="plafondVirement" id="f-plafondVirement" placeholder="0.00">
+          </label>
+          <span class="nx-field-error" id="err-plafondVirement"></span>
+          <label>
+            <span>Type de Compte</span>
+            <select name="typeCompte" id="f-typeCompte">
+              <option value="">&#8212; S&#233;lectionner &#8212;</option>
+              <option value="Courant">Courant</option>
+              <option value="Professionnel">Professionnel</option>
+              <option value="&#201;pargne">&#201;pargne</option>
+            </select>
+          </label>
+          <span class="nx-field-error" id="err-typeCompte"></span>
+          <div class="nx-acc__form-actions">
+            <button class="na-btn na-btn--save" type="submit">
+              <i class="fa-solid fa-floppy-disk"></i> Enregistrer
+            </button>
+            <button class="na-btn na-btn--reset" type="button" onclick="nxResetCompteForm()">
+              <i class="fa-solid fa-rotate-left"></i> Annuler
+            </button>
+          </div>
+        </form>
+      </article>
+
+      {# Table #}
+      <article class="nx-acc__panel">
+        <div class="nx-acc__panel-head">
+          <div class="nx-acc__panel-head-left">
+            <h3>Liste des Comptes</h3>
+            <p>Gestion complÃ¨te des comptes bancaires</p>
+          </div>
+          <span class="nx-acc__row-count">
+            {{ account_items|length }} compte{{ account_items|length != 1 ? 's' : '' }}
+          </span>
+        </div>
+
+        <div class="nx-acc__search">
+          <div class="nx-acc__search-wrap">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input class="nx-acc__search-input"
+                   type="text" placeholder="Rechercher un compteâ€¦"
+                   id="nx-acc-account-search">
+          </div>
+          <select class="nx-acc__sort-select" id="nx-acc-sort-field" title="Trier par">
+            <option value="">Trier parâ€¦</option>
+            <option value="0">NÂ° Compte</option>
+            <option value="1">Solde</option>
+            <option value="2">Date d'ouverture</option>
+            <option value="3">Statut</option>
+            <option value="4">Plafond Retrait</option>
+            <option value="5">Plafond Virement</option>
+            <option value="6">Type</option>
+          </select>
+          <button class="nx-acc__sort-dir" id="nx-acc-sort-dir" title="Ordre" type="button">
+            <i class="fa-solid fa-arrow-up-a-z"></i>
+          </button>
+        </div>
+
+        <div class="nx-acc__table-wrap">
+          <table class="nx-acc__table" id="nx-account-table">
+            <thead>
+              <tr>
+                <th class="sortable" data-col="0">NÂ° Compte <i class="fa-solid fa-sort sort-icon"></i></th>
+                <th class="sortable" data-col="1">Solde (DT) <i class="fa-solid fa-sort sort-icon"></i></th>
+                <th class="sortable" data-col="2">Date Ouv. <i class="fa-solid fa-sort sort-icon"></i></th>
+                <th class="sortable" data-col="3">Statut <i class="fa-solid fa-sort sort-icon"></i></th>
+                <th class="sortable" data-col="4">Plaf. Retrait <i class="fa-solid fa-sort sort-icon"></i></th>
+                <th class="sortable" data-col="5">Plaf. Virement <i class="fa-solid fa-sort sort-icon"></i></th>
+                <th class="sortable" data-col="6">Type <i class="fa-solid fa-sort sort-icon"></i></th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in account_items %}
+                <tr
+                  data-id="{{ item.idCompte }}"
+                  data-numero="{{ item.numeroCompte }}"
+                  data-solde="{{ item.solde }}"
+                  data-date="{{ item.dateOuverture|default('') }}"
+                  data-statut="{{ item.statutCompte|default('Actif') }}"
+                  data-plafond-retrait="{{ item.plafondRetrait|default('') }}"
+                  data-plafond-virement="{{ item.plafondVirement|default('') }}"
+                  data-type="{{ item.typeCompte|default('Courant') }}"
+                  data-owner="{{ item.owner_name|default('') }}"
+                >
+                  <td><span class="nx-acc__num">{{ item.numeroCompte }}</span></td>
+                  <td class="nx-acc__amount">
+                    {{ item.solde|number_format(2, '.', ' ') }} <em>DT</em>
+                  </td>
+                  <td style="font-size:.78rem;color:var(--na-muted)">
+                    {{ item.dateOuverture|default('â€”') }}
+                  </td>
+                  <td>
+                    {% set st = item.statutCompte|default('')|lower %}
+                    <span class="nx-acc__tag is-{{ st }}">
+                      {{ item.statutCompte|default('â€”') }}
+                    </span>
+                  </td>
+                  <td style="font-size:.78rem;color:var(--na-txt);font-weight:600">
+                    {{ item.plafondRetrait|default('â€”') }}{% if item.plafondRetrait is defined and item.plafondRetrait %} <em style="font-style:normal;color:var(--na-muted);font-size:.7rem">DT</em>{% endif %}
+                  </td>
+                  <td style="font-size:.78rem;color:var(--na-txt);font-weight:600">
+                    {{ item.plafondVirement|default('â€”') }}{% if item.plafondVirement is defined and item.plafondVirement %} <em style="font-style:normal;color:var(--na-muted);font-size:.7rem">DT</em>{% endif %}
+                  </td>
+                  <td>
+                    {% set tp = item.typeCompte|default('')|lower %}
+                    <span class="nx-acc__tag is-{{ tp }}">
+                      {{ item.typeCompte|default('â€”') }}
+                    </span>
+                  </td>
+                  <td>
+                    <div class="nx-acc__act-group">
+                      {# Modifier #}
+                      <button type="button"
+                              class="nx-acc__act-btn edit"
+                              title="Modifier"
+                              onclick="nxEditCompte(this.closest('tr'))">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                      </button>
+                      {# Supprimer #}
+                      <form method="post" style="display:inline">
+                        <input type="hidden" name="tab"      value="accounts">
+                        <input type="hidden" name="panel"    value="compte">
+                        <input type="hidden" name="action"   value="account_delete">
+                        <input type="hidden" name="idCompte" value="{{ item.idCompte }}">
+                        <button type="submit"
+                                class="nx-acc__act-btn del"
+                                title="Supprimer"
+                                onclick="return confirm('Supprimer ce compte ?')">
+                          <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                      </form>
+                      {# Voir #}
+                      <button type="button"
+                              class="nx-acc__act-btn view"
+                              title="Voir les details"
+                              onclick="nxOpenDrawer(this)">
+                        <i class="fa-solid fa-eye"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              {% else %}
+                <tr>
+                  <td colspan="8" class="nx-acc__empty">
+                    <i class="fa-solid fa-building-columns"></i>
+                    Aucun compte enregistrÃ©.
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+    </div>
+  {% endif %}
+
+</section>
+
+{# JSON des coffres enrichis pour le drawer #}
+<script id="nx-vaults-json" type="application/json">
+{{ support.vault_data|default([])|json_encode|raw }}
+</script>
+
+{# -- Account Drawer -- #}
+<style>
+html.nx-drawer-open,
+body.nx-drawer-open {
+  overflow: hidden;
+}
+.nx-drawer-overlay {
+  display: none; position: fixed; inset: 0; z-index: 500;
+  background: rgba(10,37,64,.4); backdrop-filter: blur(4px);
+  cursor: pointer;
+}
+.nx-drawer-overlay.is-open { display: block; }
+.nx-drawer {
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: min(800px, 98vw);
+  height: 100dvh;
+  max-height: 100dvh;
+  z-index: 501;
+  background: #f0f4f9;
+  box-shadow: -8px 0 48px rgba(0,0,0,.22);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  transform: translateX(100%);
+  transition: transform .35s cubic-bezier(.4,0,.2,1);
+}
+.nx-drawer.is-open { transform: translateX(0); }
+.nx-drawer-topbar {
+  background: linear-gradient(135deg, #0a2540, #1e3448);
+  padding: 1.1rem 1.6rem;
+  display: flex; align-items: center; gap: 1rem;
+  flex-shrink: 0;
+  min-height: 68px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.nx-drawer-topbar-icon {
+  width: 44px; height: 44px; border-radius: 13px;
+  background: linear-gradient(135deg, #00B4A0, #0d9e93);
+  display: grid; place-items: center; color: #fff; font-size: 1.1rem; flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(0,180,160,.35);
+}
+.nx-drawer-topbar-text h3 { font-size: 1rem; font-weight: 800; color: #fff; margin: 0; }
+.nx-drawer-topbar-text p  { font-size: .75rem; color: rgba(255,255,255,.55); margin: .2rem 0 0; }
+.nx-drawer-close {
+  margin-left: auto; width: 38px; height: 38px; border-radius: 10px;
+  background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2);
+  color: #fff; font-size: 1rem; cursor: pointer;
+  display: grid; place-items: center; transition: background .2s; flex-shrink: 0;
+}
+.nx-drawer-close:hover { background: rgba(239,68,68,.75); }
+.nx-drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  padding: 1.4rem 1.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+/* Scrollbar visible */
+.nx-drawer-body::-webkit-scrollbar { width: 8px; }
+.nx-drawer-body::-webkit-scrollbar-track { background: #dce8f3; }
+.nx-drawer-body::-webkit-scrollbar-thumb {
+  background: #00B4A0;
+  border-radius: 4px;
+}
+.nx-drawer-body::-webkit-scrollbar-thumb:hover { background: #0d9e93; }
+/* Firefox */
+.nx-drawer-body { scrollbar-width: thin; scrollbar-color: #00B4A0 #dce8f3; }
+/* Hero */
+.nx-dw-hero {
+  background: linear-gradient(135deg, #0a2540, #1e3448);
+  border-radius: 14px; padding: 1.2rem 1.4rem;
+  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  position: relative; overflow: hidden;
+}
+.nx-dw-hero-icon {
+  width: 48px; height: 48px; border-radius: 13px;
+  background: linear-gradient(135deg, #00B4A0, #0d9e93);
+  display: grid; place-items: center; color: #fff; font-size: 1.2rem; flex-shrink: 0;
+}
+.nx-dw-hero-info h2 { font-size: 1.2rem; font-weight: 900; color: #fff; }
+.nx-dw-hero-info p  { font-size: .75rem; color: rgba(255,255,255,.5); margin-top: .2rem; }
+.nx-dw-badges { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin-top: .6rem; }
+.nx-dw-badge {
+  display: inline-flex; align-items: center; gap: .35rem;
+  padding: .35rem .8rem; border-radius: 20px; font-size: .75rem; font-weight: 700;
+  background: rgba(255,255,255,.1); color: #fff; border: 1px solid rgba(255,255,255,.18);
+}
+.nx-dw-badge.actif  { background: rgba(34,197,94,.18);  border-color: rgba(34,197,94,.35); }
+.nx-dw-badge.ferme  { background: rgba(239,68,68,.18);  border-color: rgba(239,68,68,.35); }
+.nx-dw-badge.bloque { background: rgba(249,115,22,.18); border-color: rgba(249,115,22,.35); }
+.nx-dw-badge-solde  { font-size: 1rem; font-weight: 900; color: #00B4A0; }
+/* KPIs */
+.nx-dw-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: .75rem; }
+.nx-dw-kpi {
+  background: #fff; border: 1px solid #e4ecf4; border-radius: 12px;
+  padding: .9rem 1rem; display: flex; align-items: center; gap: .75rem;
+  position: relative; overflow: hidden;
+}
+.nx-dw-kpi::after {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px; border-radius: 0 3px 3px 0;
+}
+.nx-dw-kpi:nth-child(1)::after { background: #00B4A0; }
+.nx-dw-kpi:nth-child(2)::after { background: #22c55e; }
+.nx-dw-kpi:nth-child(3)::after { background: #B8860B; }
+.nx-dw-kpi-icon {
+  width: 38px; height: 38px; border-radius: 10px;
+  display: grid; place-items: center; font-size: .95rem; flex-shrink: 0;
+}
+.nx-dw-kpi:nth-child(1) .nx-dw-kpi-icon { background: rgba(0,180,160,.1);  color: #00B4A0; }
+.nx-dw-kpi:nth-child(2) .nx-dw-kpi-icon { background: rgba(34,197,94,.1);  color: #22c55e; }
+.nx-dw-kpi:nth-child(3) .nx-dw-kpi-icon { background: rgba(184,134,11,.1); color: #B8860B; }
+.nx-dw-kpi-body strong { display: block; font-size: 1.3rem; font-weight: 900; color: #1a2b3c; line-height: 1; }
+.nx-dw-kpi-body small  { font-size: .68rem; color: #6b85a0; font-weight: 500; margin-top: .15rem; display: block; }
+/* Panel */
+.nx-dw-panel {
+  background: #fff; border: 1px solid #e4ecf4; border-radius: 14px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.05); overflow: hidden;
+}
+.nx-dw-panel-head {
+  display: flex; align-items: center; gap: .75rem;
+  padding: .9rem 1.1rem; border-bottom: 1px solid #e4ecf4;
+  background: linear-gradient(to right, #fafcff, #f5f8fd);
+}
+.nx-dw-panel-head-icon {
+  width: 32px; height: 32px; border-radius: 9px;
+  background: linear-gradient(135deg, #00B4A0, #0d9e93);
+  display: grid; place-items: center; color: #fff; font-size: .8rem; flex-shrink: 0;
+}
+.nx-dw-panel-head h3 { font-size: .85rem; font-weight: 800; color: #1a2b3c; margin: 0; }
+.nx-dw-panel-head p  { font-size: .7rem; color: #6b85a0; margin: .1rem 0 0; }
+.nx-dw-panel-count {
+  margin-left: auto; background: #f0f4f9; border: 1px solid #e4ecf4;
+  border-radius: 20px; padding: .15rem .6rem;
+  font-size: .7rem; font-weight: 700; color: #6b85a0;
+}
+.nx-dw-search {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .65rem .9rem; border-bottom: 1px solid #e4ecf4;
+}
+.nx-dw-search i { color: #6b85a0; font-size: .75rem; }
+.nx-dw-search input {
+  flex: 1; height: 32px; padding: 0 .7rem;
+  border: 1px solid #e4ecf4; border-radius: 7px;
+  font-size: .78rem; color: #1a2b3c; background: #f0f4f9;
+  outline: none; font-family: inherit; transition: border-color .2s;
+}
+.nx-dw-search input:focus { border-color: #00B4A0; background: #fff; }
+.nx-dw-table { width: 100%; border-collapse: collapse; font-size: .76rem; }
+.nx-dw-table thead th {
+  padding: .55rem .85rem; text-align: left;
+  font-size: .65rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .5px; color: #6b85a0;
+  background: #f0f4f9; border-bottom: 1px solid #e4ecf4; white-space: nowrap;
+}
+.nx-dw-table tbody td { padding: .65rem .85rem; border-bottom: 1px solid #e4ecf4; vertical-align: middle; }
+.nx-dw-table tbody tr:last-child td { border-bottom: none; }
+.nx-dw-table tbody tr:hover td { background: rgba(0,180,160,.03); }
+.nx-dw-prog-bar { height: 6px; background: #f0f4f9; border-radius: 6px; overflow: hidden; min-width: 80px; }
+.nx-dw-prog-fill { height: 100%; border-radius: 6px; }
+.nx-dw-tag {
+  display: inline-block; padding: .18rem .55rem; border-radius: 20px;
+  font-size: .68rem; font-weight: 700; text-transform: capitalize;
+  background: #f0f4f9; color: #6b85a0; border: 1px solid #e4ecf4;
+}
+.nx-dw-tag.actif  { background: rgba(34,197,94,.1);  color: #166534; border-color: rgba(34,197,94,.25); }
+.nx-dw-tag.ferme  { background: rgba(239,68,68,.1);  color: #991b1b; border-color: rgba(239,68,68,.25); }
+.nx-dw-tag.bloque { background: rgba(249,115,22,.1); color: #9a3412; border-color: rgba(249,115,22,.25); }
+.nx-dw-empty { text-align: center; color: #6b85a0; font-size: .78rem; padding: 2rem 1rem; }
+</style>
+
+<div class="nx-drawer-overlay" id="nx-drawer-overlay"></div>
+<aside class="nx-drawer" id="nx-account-drawer">
+  <div class="nx-drawer-topbar">
+    <div class="nx-drawer-topbar-icon" id="nx-dw-icon"><i class="fa-solid fa-building-columns"></i></div>
+    <div class="nx-drawer-topbar-text">
+      <h3 id="nx-dw-title">Détail du Compte</h3>
+      <p id="nx-dw-subtitle">Informations et coffres associés</p>
+    </div>
+    <button class="nx-drawer-close" type="button" id="nx-drawer-close">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+  </div>
+  <div class="nx-drawer-body" id="nx-drawer-body">
+    <div style="text-align:center;padding:3rem;color:#6b85a0">
+      <i class="fa-solid fa-spinner fa-spin" style="font-size:2rem;opacity:.4"></i>
+    </div>
+  </div>
+</aside>
+<script>
+(() => {
+  /* â”€â”€ Search â”€â”€ */
+  const wire = (inputId, tableId) => {
+    const input = document.getElementById(inputId);
+    const table = document.getElementById(tableId);
+    if (!input || !table) return;
+    input.addEventListener('input', () => {
+      const q = input.value.toLowerCase().trim();
+      table.querySelectorAll('tbody tr').forEach(row => {
+        row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+      });
+    });
+  };
+  wire('nx-acc-account-search', 'nx-account-table');
+  wire('nx-acc-vault-search',   'nx-vault-table');
+
+  /* â”€â”€ Sort â”€â”€ */
+  const wireSort = (tableId) => {
+    document.querySelectorAll(`#${tableId} thead th.sortable`).forEach(th => {
+      th.addEventListener('click', () => {
+        const table = document.getElementById(tableId);
+        const col   = +th.dataset.col;
+        const asc   = !th.classList.contains('sort-asc');
+        table.querySelectorAll('thead th').forEach(h => h.classList.remove('sort-asc','sort-desc'));
+        th.classList.add(asc ? 'sort-asc' : 'sort-desc');
+        const icon = th.querySelector('.sort-icon');
+        if (icon) icon.className = 'fa-solid sort-icon ' + (asc ? 'fa-sort-up' : 'fa-sort-down');
+        const rows = [...table.querySelectorAll('tbody tr')];
+        rows.sort((a, b) => {
+          const va = a.cells[col]?.textContent.trim() ?? '';
+          const vb = b.cells[col]?.textContent.trim() ?? '';
+          const na = parseFloat(va.replace(/\s/g,''));
+          const nb = parseFloat(vb.replace(/\s/g,''));
+          const cmp = (!isNaN(na) && !isNaN(nb)) ? na - nb : va.localeCompare(vb, 'fr');
+          return asc ? cmp : -cmp;
+        });
+        rows.forEach(r => table.querySelector('tbody').appendChild(r));
+      });
+    });
+  };
+  wireSort('nx-account-table');
+  wireSort('nx-vault-table');
+
+  /* â”€â”€ Sort dropdown (compte table) â”€â”€ */
+  let sortAsc = true;
+  const sortField = document.getElementById('nx-acc-sort-field');
+  const sortDirBtn = document.getElementById('nx-acc-sort-dir');
+
+  function applyDropdownSort() {
+    const col = sortField?.value;
+    if (col === '' || col === null || col === undefined) return;
+    const table = document.getElementById('nx-account-table');
+    if (!table) return;
+    const rows = [...table.querySelectorAll('tbody tr')];
+    rows.sort((a, b) => {
+      const va = a.cells[+col]?.textContent.trim() ?? '';
+      const vb = b.cells[+col]?.textContent.trim() ?? '';
+      const na = parseFloat(va.replace(/\s/g,''));
+      const nb = parseFloat(vb.replace(/\s/g,''));
+      const cmp = (!isNaN(na) && !isNaN(nb)) ? na - nb : va.localeCompare(vb, 'fr');
+      return sortAsc ? cmp : -cmp;
+    });
+    rows.forEach(r => table.querySelector('tbody').appendChild(r));
+    if (sortDirBtn) {
+      sortDirBtn.querySelector('i').className = 'fa-solid ' + (sortAsc ? 'fa-arrow-up-a-z' : 'fa-arrow-down-z-a');
+    }
+  }
+
+  sortField?.addEventListener('change', applyDropdownSort);
+  sortDirBtn?.addEventListener('click', () => {
+    sortAsc = !sortAsc;
+    applyDropdownSort();
+  });
+
+  /* â”€â”€ Sort dropdown (vault table) â”€â”€ */
+  let vaultSortAsc = true;
+  const vaultSortField  = document.getElementById('nx-vault-sort-field');
+  const vaultSortDirBtn = document.getElementById('nx-vault-sort-dir');
+
+  function applyVaultSort() {
+    const col = vaultSortField?.value;
+    if (col === '' || col === null || col === undefined) return;
+    const table = document.getElementById('nx-vault-table');
+    if (!table) return;
+    const rows = [...table.querySelectorAll('tbody tr')];
+    rows.sort((a, b) => {
+      const va = a.cells[+col]?.textContent.trim() ?? '';
+      const vb = b.cells[+col]?.textContent.trim() ?? '';
+      const na = parseFloat(va.replace(/\s/g,''));
+      const nb = parseFloat(vb.replace(/\s/g,''));
+      const cmp = (!isNaN(na) && !isNaN(nb)) ? na - nb : va.localeCompare(vb, 'fr');
+      return vaultSortAsc ? cmp : -cmp;
+    });
+    rows.forEach(r => table.querySelector('tbody').appendChild(r));
+    if (vaultSortDirBtn) {
+      vaultSortDirBtn.querySelector('i').className = 'fa-solid ' + (vaultSortAsc ? 'fa-arrow-up-a-z' : 'fa-arrow-down-z-a');
+    }
+    // update count
+    const countEl = document.getElementById('nx-vault-count');
+    if (countEl) {
+      const visible = rows.filter(r => r.style.display !== 'none').length;
+      countEl.textContent = visible + ' coffre' + (visible !== 1 ? 's' : '');
+    }
+  }
+
+  vaultSortField?.addEventListener('change', applyVaultSort);
+  vaultSortDirBtn?.addEventListener('click', () => {
+    vaultSortAsc = !vaultSortAsc;
+    applyVaultSort();
+  });
+
+  /* â”€â”€ Vault search with count update â”€â”€ */
+  document.getElementById('nx-acc-vault-search')?.addEventListener('input', function() {
+    const q = this.value.toLowerCase().trim();
+    const table = document.getElementById('nx-vault-table');
+    if (!table) return;
+    let visible = 0;
+    table.querySelectorAll('tbody tr').forEach(row => {
+      const show = row.textContent.toLowerCase().includes(q);
+      row.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+    const countEl = document.getElementById('nx-vault-count');
+    if (countEl) countEl.textContent = visible + ' coffre' + (visible !== 1 ? 's' : '');
+  });
+
+  /* â”€â”€ Row click â†’ fill form + update export link â”€â”€ */
+  const exportBtn   = document.getElementById('nx-export-btn');
+  const exportBase  = '{{ path('admin_account_export_pdf') }}';
+
+  document.querySelectorAll('#nx-account-table tbody tr').forEach(row => {
+    row.addEventListener('click', (e) => {
+      // Don't trigger if clicking a button/form inside the row
+      if (e.target.closest('button, a, form')) return;
+      // Highlight
+      document.querySelectorAll('#nx-account-table tbody tr').forEach(r => r.classList.remove('is-selected'));
+      row.classList.add('is-selected');
+      // Fill form
+      nxEditCompte(row);
+      // Update export button to point to this account
+      if (exportBtn && row.dataset.id) {
+        exportBtn.href = exportBase + '?idCompte=' + row.dataset.id;
+      }
+    });
+  });
+
+  // Reset export link when form is reset
+  document.getElementById('nx-compte-form')?.addEventListener('reset', () => {
+    document.querySelectorAll('#nx-account-table tbody tr').forEach(r => r.classList.remove('is-selected'));
+    if (exportBtn) exportBtn.href = exportBase;
+  });
+})();
+
+/* â”€â”€ Edit: prÃ©-remplir le formulaire â”€â”€ */
+function nxEditCompte(row) {
+  const d = row.dataset;
+  document.getElementById('f-idCompte').value        = d.id;
+  document.getElementById('f-numeroCompte').value    = d.numero;
+  document.getElementById('f-solde').value           = d.solde;
+  document.getElementById('f-dateOuverture').value   = d.date;
+  document.getElementById('f-plafondRetrait').value  = d.plafondRetrait;
+  document.getElementById('f-plafondVirement').value = d.plafondVirement;
+  const sel1 = document.getElementById('f-statutCompte');
+  const sel2 = document.getElementById('f-typeCompte');
+  [...sel1.options].forEach(o => o.selected = o.value === d.statut);
+  [...sel2.options].forEach(o => o.selected = o.value === d.type);
+  document.getElementById('f-mode-label').textContent = 'Modification du compte #' + d.id;
+  document.getElementById('nx-acc-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Update export button
+  const exportBtn  = document.getElementById('nx-export-btn');
+  const exportBase = '{{ path('admin_account_export_pdf') }}';
+  if (exportBtn) exportBtn.href = exportBase + '?idCompte=' + d.id;
+}
+
+/* â”€â”€ Reset form â”€â”€ */
+function nxResetCompteForm() {
+  document.getElementById('f-idCompte').value = '';
+  document.getElementById('nx-compte-form').reset();
+  document.getElementById('f-mode-label').textContent = 'Nouveau compte â€” laisser vide pour crÃ©er';
+  document.querySelectorAll('#nx-account-table tbody tr').forEach(r => r.classList.remove('is-selected'));
+  const exportBtn = document.getElementById('nx-export-btn');
+  if (exportBtn) exportBtn.href = '{{ path('admin_account_export_pdf') }}';
+}
+
+/* â”€â”€ View: afficher la modal de dÃ©tail â”€â”€ */
+function nxViewCompte(row) {
+  const d = row.dataset;
+  const fields = [
+    ['ID Compte',         '#' + d.id],
+    ['NumÃ©ro de Compte',  d.numero],
+    ['Solde',             d.solde + ' DT'],
+    ['Date d\'Ouverture', d.date || 'â€”'],
+    ['Statut',            d.statut],
+    ['Plafond Retrait',   d.plafondRetrait ? d.plafondRetrait + ' DT' : 'â€”'],
+    ['Plafond Virement',  d.plafondVirement ? d.plafondVirement + ' DT' : 'â€”'],
+    ['Type de Compte',    d.type],
+  ];
+  const body = document.getElementById('nx-detail-body');
+  body.innerHTML = fields.map(([k,v]) =>
+    `<div class="nx-detail-row"><span>${k}</span><span>${v}</span></div>`
+  ).join('');
+  document.getElementById('nx-detail-modal').hidden = false;
+}
+
+/* â”€â”€ Vault: Edit â”€â”€ */
+function nxEditVault(row) {
+  const d = row.dataset;
+  document.getElementById('vf-idCoffre').value      = d.id;
+  document.getElementById('vf-nom').value           = d.nom;
+  document.getElementById('vf-objectif').value      = d.objectif;
+  document.getElementById('vf-actuel').value        = d.actuel;
+  document.getElementById('vf-dateCreation').value  = d.dateCreation || '';
+  document.getElementById('vf-dateObjectifs').value = d.dateObjectifs || '';
+  const selStatus = document.getElementById('vf-status');
+  const selVerrou = document.getElementById('vf-verrou');
+  const selCompte = document.getElementById('vf-idCompte');
+  if (selStatus) [...selStatus.options].forEach(o => o.selected = o.value === d.status);
+  if (selVerrou) [...selVerrou.options].forEach(o => o.selected = o.value === d.verrou);
+  if (selCompte) [...selCompte.options].forEach(o => o.selected = o.value === d.idCompte);
+  document.getElementById('vf-mode-label').textContent = 'Modification du coffre #' + d.id;
+  document.getElementById('nx-acc-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function nxResetVaultForm() {
+  document.getElementById('vf-idCoffre').value = '';
+  document.getElementById('nx-vault-form').reset();
+  document.getElementById('vf-mode-label').textContent = 'Nouveau coffre';
+}
+
+/* â”€â”€ Vault: View â”€â”€ */
+function nxViewVault(row) {
+  if (window.nxOpenVaultDrawer) {
+    window.nxOpenVaultDrawer(row);
+    return;
+  }
+
+  const d = row.dataset;
+  const pct = d.objectif > 0 ? ((d.actuel / d.objectif) * 100).toFixed(1) : 0;
+  const fields = [
+    ['ID Coffre',       '#' + d.id],
+    ['Nom',             d.nom],
+    ['Objectif',        parseFloat(d.objectif).toFixed(2) + ' DT'],
+    ['Montant actuel',  parseFloat(d.actuel).toFixed(2) + ' DT'],
+    ['Progression',     pct + '%'],
+    ['Statut',          d.status],
+  ];
+  const body = document.getElementById('nx-detail-body');
+  body.innerHTML = fields.map(([k,v]) =>
+    `<div class="nx-detail-row"><span>${k}</span><span>${v}</span></div>`
+  ).join('');
+  document.getElementById('nx-detail-modal').hidden = false;
+}
+</script>
+
+
+<script>
+(function() {
+  'use strict';
+
+  /* ── Drawer open/close ── */
+  var overlay  = document.getElementById('nx-drawer-overlay');
+  var drawer   = document.getElementById('nx-account-drawer');
+  var closeBtn = document.getElementById('nx-drawer-close');
+  var body     = document.getElementById('nx-drawer-body');
+  var iconEl   = document.getElementById('nx-dw-icon');
+  var titleEl  = document.getElementById('nx-dw-title');
+  var subtitleEl = document.getElementById('nx-dw-subtitle');
+
+  if (overlay && overlay.parentElement !== document.body) {
+    document.body.appendChild(overlay);
+  }
+  if (drawer && drawer.parentElement !== document.body) {
+    document.body.appendChild(drawer);
+  }
+
+  function setDrawerState(isOpen) {
+    if (drawer) {
+      drawer.classList.toggle('is-open', isOpen);
+    }
+    if (overlay) {
+      overlay.classList.toggle('is-open', isOpen);
+    }
+    document.documentElement.classList.toggle('nx-drawer-open', isOpen);
+    document.body.classList.toggle('nx-drawer-open', isOpen);
+  }
+
+  function setDrawerHeader(iconClass, title, subtitle) {
+    if (iconEl) {
+      iconEl.innerHTML = '<i class="fa-solid ' + iconClass + '"></i>';
+    }
+    if (titleEl) {
+      titleEl.textContent = title;
+    }
+    if (subtitleEl) {
+      subtitleEl.textContent = subtitle;
+    }
+  }
+
+  function formatMoney(value) {
+    var num = parseFloat(value || 0);
+    if (!isFinite(num)) num = 0;
+    return num.toFixed(2) + ' DT';
+  }
+
+  function formatNumber(value) {
+    var num = parseFloat(value || 0);
+    if (!isFinite(num)) num = 0;
+    return num.toFixed(1).replace(/\.0$/, '');
+  }
+
+  function closeDrawer() {
+    setDrawerState(false);
+  }
+
+  if (closeBtn) closeBtn.addEventListener('click', closeDrawer);
+  if (overlay)  overlay.addEventListener('click', closeDrawer);
+  document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeDrawer(); });
+
+  /* ── Load vaults JSON ── */
+  var allVaults = [];
+  try {
+    var jsonEl = document.getElementById('nx-vaults-json');
+    if (jsonEl) allVaults = JSON.parse(jsonEl.textContent || '[]');
+  } catch(e) {}
+
+  /* ── Color helpers ── */
+  function statColor(st) {
+    var s = (st || '').toLowerCase();
+    if (s === 'actif')  return { bg: 'rgba(34,197,94,.15)',  border: 'rgba(34,197,94,.35)',  color: '#166534' };
+    if (s === 'fermé' || s === 'ferme')  return { bg: 'rgba(239,68,68,.15)',  border: 'rgba(239,68,68,.35)',  color: '#991b1b' };
+    if (s === 'bloqué' || s === 'bloque') return { bg: 'rgba(249,115,22,.15)', border: 'rgba(249,115,22,.35)', color: '#9a3412' };
+    return { bg: 'rgba(255,255,255,.1)', border: 'rgba(255,255,255,.2)', color: '#fff' };
+  }
+
+  function progColor(pct) {
+    if (pct >= 100) return '#22c55e';
+    if (pct >= 50)  return '#f97316';
+    return '#ef4444';
+  }
+
+  function buildVaultDrawer(row) {
+    var d = row.dataset;
+    var idCoffre = d.id || '—';
+    var nom = d.nom || '—';
+    var objectif = parseFloat(d.objectif || 0);
+    var actuel = parseFloat(d.actuel || 0);
+    var creation = d.dateCreation || '—';
+    var objectifDate = d.dateObjectifs || '—';
+    var status = d.status || '—';
+    var verrouille = String(d.verrou || '0') === '1' || (objectif > 0 && actuel >= objectif);
+    var numeroCompte = d.numeroCompte || '—';
+    var idCompte = d.idCompte || '—';
+    var progression = objectif > 0 ? Math.min((actuel / objectif) * 100, 100) : 0;
+    var restant = Math.max(objectif - actuel, 0);
+    var sc = statColor(status);
+    var barColor = progColor(progression);
+    var lockIcon = verrouille ? 'fa-lock' : 'fa-lock-open';
+    var lockColor = verrouille ? '#ef4444' : '#22c55e';
+
+    var html = '';
+
+    html += '<div style="background:linear-gradient(135deg,#0a2540,#1e3448);border-radius:16px;padding:1.6rem 1.8rem;display:flex;align-items:flex-start;gap:1.2rem;flex-wrap:wrap;position:relative;overflow:hidden;">';
+    html += '<div style="position:absolute;width:220px;height:220px;top:-70px;right:-50px;border-radius:50%;background:radial-gradient(circle,rgba(0,180,160,.18) 0%,transparent 70%);pointer-events:none;"></div>';
+    html += '<div style="width:56px;height:56px;border-radius:15px;background:linear-gradient(135deg,#00B4A0,#0d9e93);display:grid;place-items:center;color:#fff;font-size:1.4rem;flex-shrink:0;box-shadow:0 6px 20px rgba(0,180,160,.4);"><i class="fa-solid fa-vault"></i></div>';
+    html += '<div style="flex:1;min-width:0;">';
+    html += '<h2 style="font-size:1.5rem;font-weight:900;color:#fff;margin:0 0 .3rem;letter-spacing:-.3px;">' + nom + '</h2>';
+    html += '<p style="font-size:.82rem;color:rgba(255,255,255,.55);margin:0 0 .8rem;">Coffre #' + idCoffre + ' &middot; Compte li&eacute; ' + numeroCompte + '</p>';
+    html += '<div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;">';
+    html += '<span style="display:inline-flex;align-items:center;gap:.4rem;padding:.4rem .95rem;border-radius:20px;font-size:.8rem;font-weight:700;background:' + sc.bg + ';color:' + sc.color + ';border:1px solid ' + sc.border + ';">';
+    html += '<i class="fa-solid fa-circle" style="font-size:.45rem"></i>' + status + '</span>';
+    html += '<span style="display:inline-flex;align-items:center;gap:.4rem;padding:.4rem .95rem;border-radius:20px;font-size:.8rem;font-weight:700;background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.18);">';
+    html += '<i class="fa-solid ' + lockIcon + '" style="color:' + lockColor + '"></i>' + (verrouille ? 'Verrouill&eacute;' : 'Ouvert') + '</span>';
+    html += '<span style="display:inline-flex;align-items:center;gap:.4rem;padding:.4rem .95rem;border-radius:20px;font-size:.8rem;font-weight:700;background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.18);">';
+    html += '<i class="fa-solid fa-coins" style="color:#00B4A0"></i><span style="font-size:1.05rem;font-weight:900;color:#00B4A0;">' + formatMoney(actuel) + '</span></span>';
+    html += '</div></div></div>';
+
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.9rem;">';
+    [
+      { icon: 'fa-bullseye', color: '#2b7de9', bg: 'rgba(43,125,233,.1)', border: '#2b7de9', value: formatMoney(objectif), label: 'Objectif' },
+      { icon: 'fa-chart-line', color: '#00B4A0', bg: 'rgba(0,180,160,.1)', border: '#00B4A0', value: formatNumber(progression) + '%', label: 'Progression' },
+      { icon: 'fa-wallet', color: '#B8860B', bg: 'rgba(184,134,11,.1)', border: '#B8860B', value: formatMoney(restant), label: 'Montant restant' }
+    ].forEach(function(k) {
+      html += '<div style="background:#fff;border:1px solid #e4ecf4;border-radius:14px;padding:1.1rem 1.2rem;display:flex;align-items:center;gap:.9rem;position:relative;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.05);">';
+      html += '<div style="position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:0 4px 4px 0;background:' + k.border + '"></div>';
+      html += '<div style="width:44px;height:44px;border-radius:12px;background:' + k.bg + ';display:grid;place-items:center;font-size:1.1rem;flex-shrink:0;color:' + k.color + ';">';
+      html += '<i class="fa-solid ' + k.icon + '"></i></div>';
+      html += '<div><strong style="display:block;font-size:1.3rem;font-weight:900;color:#1a2b3c;line-height:1;">' + k.value + '</strong>';
+      html += '<small style="font-size:.75rem;color:#6b85a0;font-weight:500;margin-top:.2rem;display:block;">' + k.label + '</small></div></div>';
+    });
+    html += '</div>';
+
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem;">';
+
+    html += '<div style="background:#fff;border:1px solid #e4ecf4;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.05);overflow:hidden;">';
+    html += '<div style="display:flex;align-items:center;gap:.7rem;padding:1rem 1.1rem;border-bottom:1px solid #e4ecf4;background:linear-gradient(to right,#fafcff,#f5f8fd);">';
+    html += '<div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#00B4A0,#0d9e93);display:grid;place-items:center;color:#fff;font-size:.85rem;"><i class="fa-solid fa-circle-info"></i></div>';
+    html += '<div><h3 style="font-size:.86rem;font-weight:800;color:#1a2b3c;margin:0;">Informations du coffre</h3><p style="font-size:.72rem;color:#6b85a0;margin:.1rem 0 0;">Toutes les donn&eacute;es essentielles</p></div>';
+    html += '</div>';
+    html += '<div style="padding:1rem 1.1rem;display:grid;gap:.8rem;">';
+    [
+      ['ID Coffre', '#' + idCoffre],
+      ['Nom du coffre', nom],
+      ['Date de cr&eacute;ation', creation],
+      ['Date objectif', objectifDate],
+      ['Statut', status],
+      ['Verrouillage', verrouille ? 'Oui' : 'Non']
+    ].forEach(function(field) {
+      html += '<div style="display:flex;justify-content:space-between;gap:1rem;padding:.75rem .85rem;background:#f8fbff;border:1px solid #e4ecf4;border-radius:10px;">';
+      html += '<span style="font-size:.74rem;font-weight:700;color:#6b85a0;text-transform:uppercase;letter-spacing:.4px;">' + field[0] + '</span>';
+      html += '<strong style="font-size:.82rem;color:#1a2b3c;text-align:right;">' + field[1] + '</strong>';
+      html += '</div>';
+    });
+    html += '</div></div>';
+
+    html += '<div style="background:#fff;border:1px solid #e4ecf4;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.05);overflow:hidden;">';
+    html += '<div style="display:flex;align-items:center;gap:.7rem;padding:1rem 1.1rem;border-bottom:1px solid #e4ecf4;background:linear-gradient(to right,#fafcff,#f5f8fd);">';
+    html += '<div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#2b7de9,#1f6cd6);display:grid;place-items:center;color:#fff;font-size:.85rem;"><i class="fa-solid fa-link"></i></div>';
+    html += '<div><h3 style="font-size:.86rem;font-weight:800;color:#1a2b3c;margin:0;">Compte associ&eacute;</h3><p style="font-size:.72rem;color:#6b85a0;margin:.1rem 0 0;">Rattachement et suivi financier</p></div>';
+    html += '</div>';
+    html += '<div style="padding:1rem 1.1rem;display:grid;gap:.8rem;">';
+    [
+      ['N&deg; compte', numeroCompte],
+      ['ID compte', idCompte !== '—' ? '#' + idCompte : '—'],
+      ['Objectif', formatMoney(objectif)],
+      ['Montant actuel', formatMoney(actuel)],
+      ['Montant restant', formatMoney(restant)],
+      ['Progression', formatNumber(progression) + '%']
+    ].forEach(function(field) {
+      html += '<div style="display:flex;justify-content:space-between;gap:1rem;padding:.75rem .85rem;background:#f8fbff;border:1px solid #e4ecf4;border-radius:10px;">';
+      html += '<span style="font-size:.74rem;font-weight:700;color:#6b85a0;text-transform:uppercase;letter-spacing:.4px;">' + field[0] + '</span>';
+      html += '<strong style="font-size:.82rem;color:#1a2b3c;text-align:right;">' + field[1] + '</strong>';
+      html += '</div>';
+    });
+    html += '</div></div>';
+
+    html += '</div>';
+
+    html += '<div style="background:#fff;border:1px solid #e4ecf4;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.05);overflow:hidden;">';
+    html += '<div style="display:flex;align-items:center;gap:.75rem;padding:.95rem 1.1rem;border-bottom:1px solid #e4ecf4;background:linear-gradient(to right,#fafcff,#f5f8fd);">';
+    html += '<div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#B8860B,#d6a535);display:grid;place-items:center;color:#fff;font-size:.85rem;"><i class="fa-solid fa-chart-pie"></i></div>';
+    html += '<div><h3 style="font-size:.86rem;font-weight:800;color:#1a2b3c;margin:0;">Suivi de progression</h3><p style="font-size:.72rem;color:#6b85a0;margin:.1rem 0 0;">Avancement du coffre vers son objectif</p></div>';
+    html += '</div>';
+    html += '<div style="padding:1rem 1.1rem;">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:.55rem;"><span style="font-size:.78rem;color:#6b85a0;font-weight:700;">Progression actuelle</span><strong style="font-size:1rem;color:#1a2b3c;">' + formatNumber(progression) + '%</strong></div>';
+    html += '<div style="height:10px;background:#edf3f8;border-radius:999px;overflow:hidden;"><div style="height:100%;width:' + Math.min(progression, 100) + '%;background:' + barColor + ';border-radius:999px;"></div></div>';
+    html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.75rem;margin-top:1rem;">';
+    [
+      ['Objectif', formatMoney(objectif)],
+      ['Actuel', formatMoney(actuel)],
+      ['Restant', formatMoney(restant)]
+    ].forEach(function(field) {
+      html += '<div style="padding:.85rem .9rem;background:#f8fbff;border:1px solid #e4ecf4;border-radius:10px;text-align:center;">';
+      html += '<small style="display:block;font-size:.7rem;color:#6b85a0;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:.2rem;">' + field[0] + '</small>';
+      html += '<strong style="font-size:.82rem;color:#1a2b3c;">' + field[1] + '</strong>';
+      html += '</div>';
+    });
+    html += '</div></div></div>';
+
+    return html;
+  }
+
+  /* ── Build drawer HTML ── */
+  function buildDrawer(row) {
+    var d = row.dataset;
+    var idCompte = d.id;
+    var numero   = d.numero || '—';
+    var solde    = parseFloat(d.solde || 0).toFixed(2);
+    var date     = d.date || '—';
+    var statut   = d.statut || '—';
+    var retrait  = d.plafondRetrait ? parseFloat(d.plafondRetrait).toFixed(2) + ' DT' : '—';
+    var virement = d.plafondVirement ? parseFloat(d.plafondVirement).toFixed(2) + ' DT' : '—';
+    var type     = d.type || '—';
+
+    // Filter vaults for this account
+    var vaults = allVaults.filter(function(v) {
+      return String(v.idCompte) === String(idCompte);
+    });
+
+    var totalStored = vaults.reduce(function(s, v) { return s + parseFloat(v.montantActuel || 0); }, 0);
+    var actifs = vaults.filter(function(v) { return (v.status || '').toLowerCase() === 'actif'; }).length;
+
+    var sc = statColor(statut);
+    var stLow = statut.toLowerCase().replace('é','e').replace('û','u');
+
+    // Hero
+    var html = '<div style="background:linear-gradient(135deg,#0a2540,#1e3448);border-radius:16px;padding:1.6rem 1.8rem;display:flex;align-items:flex-start;gap:1.2rem;flex-wrap:wrap;position:relative;overflow:hidden;">';
+    html += '<div style="position:absolute;width:220px;height:220px;top:-70px;right:-50px;border-radius:50%;background:radial-gradient(circle,rgba(0,180,160,.18) 0%,transparent 70%);pointer-events:none;"></div>';
+    html += '<div style="width:56px;height:56px;border-radius:15px;background:linear-gradient(135deg,#00B4A0,#0d9e93);display:grid;place-items:center;color:#fff;font-size:1.4rem;flex-shrink:0;box-shadow:0 6px 20px rgba(0,180,160,.4);"><i class="fa-solid fa-building-columns"></i></div>';
+    html += '<div style="flex:1;min-width:0;">';
+    html += '<h2 style="font-size:1.5rem;font-weight:900;color:#fff;margin:0 0 .3rem;letter-spacing:-.3px;">' + numero + '</h2>';
+    html += '<p style="font-size:.82rem;color:rgba(255,255,255,.55);margin:0 0 .8rem;">' + type + ' &middot; Ouvert le ' + date + '</p>';
+    html += '<div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;">';
+    html += '<span style="display:inline-flex;align-items:center;gap:.4rem;padding:.4rem .95rem;border-radius:20px;font-size:.8rem;font-weight:700;background:' + sc.bg + ';color:' + sc.color + ';border:1px solid ' + sc.border + ';">';
+    html += '<i class="fa-solid fa-circle" style="font-size:.45rem"></i>' + statut + '</span>';
+    html += '<span style="display:inline-flex;align-items:center;gap:.4rem;padding:.4rem .95rem;border-radius:20px;font-size:.8rem;font-weight:700;background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.18);">';
+    html += '<i class="fa-solid fa-coins" style="color:#00B4A0"></i><span style="font-size:1.05rem;font-weight:900;color:#00B4A0;">' + solde + ' DT</span></span>';
+    html += '<span style="display:inline-flex;align-items:center;gap:.4rem;padding:.4rem .95rem;border-radius:20px;font-size:.8rem;font-weight:700;background:rgba(255,255,255,.1);color:rgba(255,255,255,.85);border:1px solid rgba(255,255,255,.18);">';
+    html += '<i class="fa-solid fa-arrow-down"></i>Retrait : ' + retrait + '</span>';
+    html += '<span style="display:inline-flex;align-items:center;gap:.4rem;padding:.4rem .95rem;border-radius:20px;font-size:.8rem;font-weight:700;background:rgba(255,255,255,.1);color:rgba(255,255,255,.85);border:1px solid rgba(255,255,255,.18);">';
+    html += '<i class="fa-solid fa-paper-plane"></i>Virement : ' + virement + '</span>';
+    html += '</div></div></div>';
+
+    // KPIs
+    html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.9rem;">';
+    var kpis = [
+      { icon: 'fa-vault',        color: '#00B4A0', bg: 'rgba(0,180,160,.1)',  val: vaults.length,                label: 'Coffres associés' },
+      { icon: 'fa-circle-check', color: '#22c55e', bg: 'rgba(34,197,94,.1)',  val: actifs,                       label: 'Coffres actifs' },
+      { icon: 'fa-coins',        color: '#B8860B', bg: 'rgba(184,134,11,.1)', val: totalStored.toFixed(2)+' DT', label: 'Montant stocké' },
+    ];
+    var borders = ['#00B4A0','#22c55e','#B8860B'];
+    kpis.forEach(function(k, i) {
+      html += '<div style="background:#fff;border:1px solid #e4ecf4;border-radius:14px;padding:1.1rem 1.2rem;display:flex;align-items:center;gap:.9rem;position:relative;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.05);">';
+      html += '<div style="position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:0 4px 4px 0;background:' + borders[i] + '"></div>';
+      html += '<div style="width:44px;height:44px;border-radius:12px;background:' + k.bg + ';display:grid;place-items:center;font-size:1.1rem;flex-shrink:0;color:' + k.color + ';">';
+      html += '<i class="fa-solid ' + k.icon + '"></i></div>';
+      html += '<div><strong style="display:block;font-size:1.4rem;font-weight:900;color:#1a2b3c;line-height:1;">' + k.val + '</strong>';
+      html += '<small style="font-size:.75rem;color:#6b85a0;font-weight:500;margin-top:.2rem;display:block;">' + k.label + '</small></div></div>';
+    });
+    html += '</div>';
+
+    // Vaults panel
+    html += '<div style="background:#fff;border:1px solid #e4ecf4;border-radius:14px;overflow:hidden;">';
+    html += '<div style="display:flex;align-items:center;gap:.75rem;padding:.9rem 1.1rem;border-bottom:1px solid #e4ecf4;background:linear-gradient(to right,#fafcff,#f5f8fd);">';
+    html += '<div style="width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#00B4A0,#0d9e93);display:grid;place-items:center;color:#fff;font-size:.8rem;flex-shrink:0;"><i class="fa-solid fa-vault"></i></div>';
+    html += '<div><h3 style="font-size:.85rem;font-weight:800;color:#1a2b3c;margin:0;">Coffres Virtuels liés</h3>';
+    html += '<p style="font-size:.7rem;color:#6b85a0;margin:.1rem 0 0;">Tous les coffres associés à ce compte</p></div>';
+    html += '<span style="margin-left:auto;background:#f0f4f9;border:1px solid #e4ecf4;border-radius:20px;padding:.15rem .6rem;font-size:.7rem;font-weight:700;color:#6b85a0;">' + vaults.length + ' coffre' + (vaults.length !== 1 ? 's' : '') + '</span>';
+    html += '</div>';
+
+    // Search
+    html += '<div style="display:flex;align-items:center;gap:.5rem;padding:.65rem .9rem;border-bottom:1px solid #e4ecf4;">';
+    html += '<i class="fa-solid fa-magnifying-glass" style="color:#6b85a0;font-size:.75rem;"></i>';
+    html += '<input id="nx-dw-vault-search" type="text" placeholder="Rechercher un coffre..." style="flex:1;height:32px;padding:0 .7rem;border:1px solid #e4ecf4;border-radius:7px;font-size:.78rem;color:#1a2b3c;background:#f0f4f9;outline:none;font-family:inherit;">';
+    html += '</div>';
+
+    // Table
+    html += '<div style="overflow-x:auto;">';
+    html += '<table id="nx-dw-vault-table" style="width:100%;border-collapse:collapse;font-size:.82rem;">';
+    html += '<thead><tr style="background:#f0f4f9;">';
+    ['Nom','Objectif','Actuel','Date créa.','Date obj.','Statut','Verrou','Progression'].forEach(function(h) {
+      html += '<th style="padding:.65rem 1rem;text-align:left;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b85a0;border-bottom:1px solid #e4ecf4;white-space:nowrap;">' + h + '</th>';
+    });
+    html += '</tr></thead><tbody>';
+
+    if (vaults.length === 0) {
+      html += '<tr><td colspan="8" style="text-align:center;color:#6b85a0;font-size:.85rem;padding:2.5rem 1rem;">Aucun coffre lié à ce compte.</td></tr>';
+    } else {
+      vaults.forEach(function(v) {
+        var pct = parseFloat(v.progression || 0);
+        var barColor = progColor(pct);
+        var lockIcon = pct >= 100 ? 'fa-lock' : 'fa-lock-open';
+        var lockColor = pct >= 100 ? '#ef4444' : '#22c55e';
+        var stVc = statColor(v.status || '');
+        html += '<tr style="border-bottom:1px solid #e4ecf4;">';
+        html += '<td style="padding:.75rem 1rem;font-weight:700;color:#1a2b3c;font-size:.82rem;">' + (v.nom || '—') + '</td>';
+        html += '<td style="padding:.75rem 1rem;color:#1a2b3c;font-size:.82rem;">' + parseFloat(v.objectifMontant||0).toFixed(2) + ' DT</td>';
+        html += '<td style="padding:.75rem 1rem;color:#1a2b3c;font-size:.82rem;">' + parseFloat(v.montantActuel||0).toFixed(2) + ' DT</td>';
+        html += '<td style="padding:.75rem 1rem;color:#6b85a0;font-size:.78rem;">' + (v.dateCreation || '—') + '</td>';
+        html += '<td style="padding:.75rem 1rem;color:#6b85a0;font-size:.78rem;">' + (v.dateObjectifs || '—') + '</td>';
+        html += '<td style="padding:.75rem 1rem;"><span style="display:inline-block;padding:.22rem .65rem;border-radius:20px;font-size:.72rem;font-weight:700;background:' + stVc.bg + ';color:' + stVc.color + ';border:1px solid ' + stVc.border + ';">' + (v.status || '—') + '</span></td>';
+        html += '<td style="padding:.75rem 1rem;text-align:center;"><i class="fa-solid ' + lockIcon + '" style="color:' + lockColor + ';font-size:1.05rem;"></i></td>';
+        html += '<td style="padding:.75rem 1rem;min-width:110px;"><div style="height:7px;background:#f0f4f9;border-radius:6px;overflow:hidden;"><div style="height:100%;border-radius:6px;background:' + barColor + ';width:' + Math.min(pct,100) + '%;"></div></div>';
+        html += '<span style="font-size:.72rem;color:#6b85a0;font-weight:600;margin-top:.2rem;display:block;">' + pct + '%</span></td>';
+        html += '</tr>';
+      });
+    }
+    html += '</tbody></table></div></div>';
+    return html;
+  }
+
+  /* ── Open drawer ── */
+  window.nxOpenDrawer = function(btn) {
+    var row = btn.closest('tr');
+    if (!row) return;
+
+    var numero = row.dataset.numero || 'Compte';
+    setDrawerHeader('fa-building-columns', numero, 'Informations et coffres associés');
+
+    body.innerHTML = buildDrawer(row);
+
+    setDrawerState(true);
+    // Force scroll to top after DOM update
+    requestAnimationFrame(function() {
+      if (body) {
+        body.scrollTop = 0;
+      }
+    });
+
+    // Wire vault search inside drawer
+    var searchInput = document.getElementById('nx-dw-vault-search');
+    var table = document.getElementById('nx-dw-vault-table');
+    if (searchInput && table) {
+      searchInput.addEventListener('input', function() {
+        var q = this.value.toLowerCase().trim();
+        table.querySelectorAll('tbody tr').forEach(function(r) {
+          r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none';
+        });
+      });
+    }
+  };
+
+  window.nxOpenVaultDrawer = function(row) {
+    if (!row || !body) return;
+
+    var nom = row.dataset.nom || 'Coffre';
+    setDrawerHeader('fa-vault', nom, 'Toutes les informations du coffre virtuel');
+    body.innerHTML = buildVaultDrawer(row);
+
+    setDrawerState(true);
+    requestAnimationFrame(function() {
+      body.scrollTop = 0;
+    });
+  };
+})();
+</script>
+
+<script>
+/* ══════════════════════════════════════
+   VALIDATION — Compte Bancaire
+══════════════════════════════════════ */
+function nxSetError(fieldId, errId, msg) {
+  var field = document.getElementById(fieldId);
+  var err   = document.getElementById(errId);
+  if (!field || !err) return;
+  err.textContent = msg;
+  err.style.cssText = 'display:block;color:#dc2626;font-size:13px;font-weight:500;margin-top:4px;text-transform:none;letter-spacing:normal;background:none;';
+  field.style.borderColor = '#dc2626';
+  field.style.boxShadow = '0 0 0 2px rgba(220,38,38,.15)';
+}
+function nxClearError(fieldId, errId) {
+  var field = document.getElementById(fieldId);
+  var err   = document.getElementById(errId);
+  if (!field || !err) return;
+  err.style.display = 'none';
+  err.textContent = '';
+  field.style.borderColor = '#16a34a';
+  field.style.boxShadow = 'none';
+}
+
+function nxValidateCompte(e) {
+  var ok = true;
+  var today = new Date(); today.setHours(0,0,0,0);
+
+  // numeroCompte
+  var num = (document.getElementById('f-numeroCompte')?.value || '').trim();
+  if (num === '') {
+    nxSetError('f-numeroCompte','err-numeroCompte','Le numéro de compte est obligatoire.'); ok = false;
+  } else if (!/^CB-\d{3}$/.test(num)) {
+    nxSetError('f-numeroCompte','err-numeroCompte','Le numéro de compte doit être au format CB-XXX (ex : CB-123).'); ok = false;
+  } else { nxClearError('f-numeroCompte','err-numeroCompte'); }
+
+  // solde
+  var solde = document.getElementById('f-solde')?.value;
+  if (solde === '' || solde === null || solde === undefined) {
+    nxSetError('f-solde','err-solde','Le solde est obligatoire.'); ok = false;
+  } else if (parseFloat(solde) < 0) {
+    nxSetError('f-solde','err-solde','Le solde doit être un nombre positif ou égal à 0.'); ok = false;
+  } else { nxClearError('f-solde','err-solde'); }
+
+  // dateOuverture
+  var dateVal = document.getElementById('f-dateOuverture')?.value;
+  if (!dateVal) {
+    nxSetError('f-dateOuverture','err-dateOuverture',"La date d'ouverture est obligatoire."); ok = false;
+  } else {
+    var d = new Date(dateVal); d.setHours(0,0,0,0);
+    if (d > today) {
+      nxSetError('f-dateOuverture','err-dateOuverture',"La date d'ouverture ne doit pas être supérieure à la date actuelle."); ok = false;
+    } else { nxClearError('f-dateOuverture','err-dateOuverture'); }
+  }
+
+  // statutCompte
+  var statut = document.getElementById('f-statutCompte')?.value;
+  if (!statut) {
+    nxSetError('f-statutCompte','err-statutCompte','Veuillez sélectionner un statut.'); ok = false;
+  } else { nxClearError('f-statutCompte','err-statutCompte'); }
+
+  // plafondRetrait
+  var retrait = document.getElementById('f-plafondRetrait')?.value;
+  if (retrait === '' || retrait === null || retrait === undefined) {
+    nxSetError('f-plafondRetrait','err-plafondRetrait','Le plafond de retrait est obligatoire.'); ok = false;
+  } else if (parseFloat(retrait) <= 0) {
+    nxSetError('f-plafondRetrait','err-plafondRetrait','Le plafond de retrait doit être un nombre supérieur à 0.'); ok = false;
+  } else { nxClearError('f-plafondRetrait','err-plafondRetrait'); }
+
+  // plafondVirement
+  var virement = document.getElementById('f-plafondVirement')?.value;
+  if (virement === '' || virement === null || virement === undefined) {
+    nxSetError('f-plafondVirement','err-plafondVirement','Le plafond de virement est obligatoire.'); ok = false;
+  } else if (parseFloat(virement) <= 0) {
+    nxSetError('f-plafondVirement','err-plafondVirement','Le plafond de virement doit être un nombre supérieur à 0.'); ok = false;
+  } else { nxClearError('f-plafondVirement','err-plafondVirement'); }
+
+  // typeCompte
+  var type = document.getElementById('f-typeCompte')?.value;
+  if (!type) {
+    nxSetError('f-typeCompte','err-typeCompte','Veuillez sélectionner un type de compte.'); ok = false;
+  } else { nxClearError('f-typeCompte','err-typeCompte'); }
+
+  if (!ok && e) e.preventDefault();
+  return ok;
+}
+
+/* Live validation on input */
+['f-numeroCompte','f-solde','f-dateOuverture','f-statutCompte','f-plafondRetrait','f-plafondVirement','f-typeCompte'].forEach(function(id) {
+  var el = document.getElementById(id);
+  if (el) el.addEventListener('input', function() { nxValidateCompte(null); });
+  if (el) el.addEventListener('change', function() { nxValidateCompte(null); });
+});
+
+/* ══════════════════════════════════════
+   VALIDATION — Coffre Virtuel
+══════════════════════════════════════ */
+function nxValidateVault(e) {
+  var ok = true;
+  var today = new Date(); today.setHours(0,0,0,0);
+
+  // nom
+  var nom = (document.getElementById('vf-nom')?.value || '').trim();
+  if (nom.length < 3) {
+    nxSetError('vf-nom','err-nom','Le nom du coffre est obligatoire et doit contenir au moins 3 caractères.'); ok = false;
+  } else { nxClearError('vf-nom','err-nom'); }
+
+  // objectifMontant
+  var obj = document.getElementById('vf-objectif')?.value;
+  if (obj === '' || obj === null || obj === undefined) {
+    nxSetError('vf-objectif','err-objectif',"L'objectif de montant est obligatoire."); ok = false;
+  } else if (parseFloat(obj) <= 0) {
+    nxSetError('vf-objectif','err-objectif',"L'objectif de montant doit être supérieur à 0."); ok = false;
+  } else { nxClearError('vf-objectif','err-objectif'); }
+
+  // montantActuel
+  var actuel = document.getElementById('vf-actuel')?.value;
+  if (actuel === '' || actuel === null || actuel === undefined) {
+    nxSetError('vf-actuel','err-actuel','Le montant actuel est obligatoire.'); ok = false;
+  } else if (parseFloat(actuel) < 0) {
+    nxSetError('vf-actuel','err-actuel','Le montant actuel doit être positif ou égal à 0.'); ok = false;
+  } else if (obj && parseFloat(actuel) > parseFloat(obj)) {
+    nxSetError('vf-actuel','err-actuel',"Le montant actuel ne doit pas dépasser l'objectif de montant."); ok = false;
+  } else { nxClearError('vf-actuel','err-actuel'); }
+
+  // dateCreation
+  var dc = document.getElementById('vf-dateCreation')?.value;
+  if (!dc) {
+    nxSetError('vf-dateCreation','err-dateCreation','La date de création est obligatoire.'); ok = false;
+  } else {
+    var dCreation = new Date(dc); dCreation.setHours(0,0,0,0);
+    if (dCreation > today) {
+      nxSetError('vf-dateCreation','err-dateCreation','La date de création ne doit pas être supérieure à la date actuelle.'); ok = false;
+    } else { nxClearError('vf-dateCreation','err-dateCreation'); }
+  }
+
+  // dateObjectifs
+  var dobj = document.getElementById('vf-dateObjectifs')?.value;
+  if (dobj && dc) {
+    var dObjectif = new Date(dobj); dObjectif.setHours(0,0,0,0);
+    var dCreation2 = new Date(dc); dCreation2.setHours(0,0,0,0);
+    if (dObjectif < dCreation2) {
+      nxSetError('vf-dateObjectifs','err-dateObjectifs',"La date d'objectif doit être supérieure ou égale à la date de création."); ok = false;
+    } else { nxClearError('vf-dateObjectifs','err-dateObjectifs'); }
+  }
+
+  // status
+  var status = document.getElementById('vf-status')?.value;
+  if (!status) {
+    nxSetError('vf-status','err-status','Veuillez sélectionner un statut.'); ok = false;
+  } else { nxClearError('vf-status','err-status'); }
+
+  // estVerrouille — auto-lock if 100%
+  if (obj && actuel && parseFloat(obj) > 0) {
+    var pct = (parseFloat(actuel) / parseFloat(obj)) * 100;
+    var verrou = document.getElementById('vf-verrou');
+    if (pct >= 100 && verrou && verrou.value === '0') {
+      nxSetError('vf-verrou','err-verrou',"Le coffre doit être verrouillé lorsque l'objectif est atteint."); ok = false;
+    } else if (verrou) { nxClearError('vf-verrou','err-verrou'); }
+  }
+
+  // idCompte
+  var idCompte = document.getElementById('vf-idCompte')?.value;
+  if (!idCompte || idCompte === '0') {
+    nxSetError('vf-idCompte','err-idCompte','Veuillez sélectionner un compte associé.'); ok = false;
+  } else { nxClearError('vf-idCompte','err-idCompte'); }
+
+  if (!ok && e) e.preventDefault();
+  return ok;
+}
+
+/* Live validation on input */
+['vf-nom','vf-objectif','vf-actuel','vf-dateCreation','vf-dateObjectifs','vf-status','vf-verrou','vf-idCompte'].forEach(function(id) {
+  var el = document.getElementById(id);
+  if (el) el.addEventListener('input', function() { nxValidateVault(null); });
+  if (el) el.addEventListener('change', function() { nxValidateVault(null); });
+});
+</script>
