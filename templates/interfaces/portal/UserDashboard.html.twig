@@ -1013,35 +1013,6 @@
         </footer>
     </section>
 
-    {% if tab != 'credits' and tab != 'cashback' %}
-        {# â•â•â•â•â•â•â•â•â•â•â•â• SECONDARY / UTILITY NAV â•â•â•â•â•â•â•â•â•â•â•â• #}
-        <div class="nx-subnav">
-            <div class="nx-subnav-links">
-                {% for item in tabs %}
-                    {% if item.key in secondary_keys %}
-                        <a class="nx-subnav-link {{ item.key == tab ? 'nx-subnav-link-active' : '' }}"
-                           href="{{ path(route_name, { tab: item.key }) }}"
-                           title="{{ item.label }}">
-                            <i class="fa-solid {{ nav_icons[item.key]|default('fa-circle') }}"></i>
-                            <span>{{ item.label }}</span>
-                        </a>
-                    {% endif %}
-                {% endfor %}
-            </div>
-
-            {# Breadcrumb #}
-            <div class="nx-breadcrumb">
-                <i class="fa-solid fa-house nx-bc-home"></i>
-                <i class="fa-solid fa-chevron-right nx-bc-sep"></i>
-                <span>Tableau de bord</span>
-                <i class="fa-solid fa-chevron-right nx-bc-sep"></i>
-                <span class="nx-bc-active">{{ active_tab_label }}</span>
-            </div>
-        </div>
-
-    {% endif %}
-
-
     {# â•â•â•â•â•â•â•â•â•â•â•â• FLASH MESSAGES â•â•â•â•â•â•â•â•â•â•â•â• #}
     <div class="nx-flashes" id="nx-flashes">
         {% for type, messages in app.flashes(['success', 'error', 'warning', 'info']) %}

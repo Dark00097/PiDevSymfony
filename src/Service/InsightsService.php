@@ -41,8 +41,8 @@ final class InsightsService
                 'title' => 'Authentication posture',
                 'tone' => $biometricEnabled ? 'good' : 'warning',
                 'text' => $biometricEnabled
-                    ? 'Biometric login is enabled, which matches the Java app security preference flow.'
-                    : 'Biometric login is disabled. Enable it to match the strongest profile configuration.',
+                    ? 'Biometric login is enabled, aligned with the recommended secure profile configuration.'
+                    : 'Biometric login is disabled. Enable it to reach a stronger security configuration.',
             ],
             [
                 'title' => 'Account hygiene',
@@ -82,7 +82,7 @@ final class InsightsService
         }
 
         $summary = $score >= 80
-            ? 'The account posture is strong and close to the intended Java workflow.'
+            ? 'The account posture is strong and aligned with secure operating standards.'
             : ($score >= 60
                 ? 'The account is generally healthy but still has a few hardening actions to apply.'
                 : 'The account needs stronger controls before it matches the safest operating profile.');

@@ -312,6 +312,83 @@ final class AdminController extends AbstractController
         ]);
     }
 
+    #[Route('/admin/users/export/pdf', name: 'admin_users_export_pdf', methods: ['GET'])]
+    public function exportUsersPdf(
+        Request $request,
+        AuthService $authService,
+        BankingService $bankingService,
+        ExportService $exportService,
+    ): Response {
+        $session = $request->getSession();
+        $user = $authService->getAuthenticatedUser($session);
+        if ($user === null) {
+            return $this->redirectToRoute('login');
+        }
+
+        $blockedReason = $authService->getLoginBlockReason($user);
+        if ($blockedReason !== null) {
+            $authService->logoutUser($session);
+            $this->addFlash('error', $blockedReason);
+
+            return $this->redirectToRoute('login');
+        }
+
+        if (strtoupper((string) ($user['role'] ?? '')) !== 'ROLE_ADMIN') {
+            return $this->redirectToRoute('login');
+        }
+
+        $users = $bankingService->listUsers();
+        $fields = $this->buildUsersExportFields($users);
+        $headers = array_map(fn (string $field): string => $this->buildUsersExportLabel($field), $fields);
+        $rows = [];
+
+        foreach ($users as $row) {
+            $line = [];
+            foreach ($fields as $field) {
+                $line[] = $this->buildUsersExportValue($row[$field] ?? null, $field);
+            }
+            $rows[] = $line;
+        }
+
+        $activeCount = 0;
+        $pendingCount = 0;
+        $adminCount = 0;
+        foreach ($users as $row) {
+            $status = strtoupper(trim((string) ($row['status'] ?? '')));
+            $role = strtoupper(trim((string) ($row['role'] ?? '')));
+            if ($status === 'ACTIVE') {
+                $activeCount++;
+            }
+            if ($status === 'PENDING') {
+                $pendingCount++;
+            }
+            if ($role === 'ROLE_ADMIN') {
+                $adminCount++;
+            }
+        }
+
+        $stats = [
+            ['label' => 'Total utilisateurs', 'value' => (string) count($users)],
+            ['label' => 'Actifs', 'value' => (string) $activeCount],
+            ['label' => 'En attente', 'value' => (string) $pendingCount],
+            ['label' => 'Administrateurs', 'value' => (string) $adminCount],
+        ];
+
+        $pdfContent = $exportService->buildPdf(
+            'Rapport Utilisateurs - Tous les comptes',
+            $headers,
+            $rows,
+            $stats,
+            'Export complet des utilisateurs depuis le panneau admin Nexora.',
+            '#6c63ff'
+        );
+
+        return new Response($pdfContent, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="nexora-users-all.pdf"',
+        ]);
+    }
+
     private function handleAdminAction(
         Request $request,
         AuthService $authService,
@@ -576,5 +653,125 @@ final class AdminController extends AbstractController
         }
 
         return [$tab, $panel];
+    }
+
+    /**
+     * @param list<array<string, mixed>> $users
+     * @return list<string>
+     */
+    private function buildUsersExportFields(array $users): array
+    {
+        $preferredOrder = [
+            'idUser',
+            'nom',
+            'prenom',
+            'email',
+            'telephone',
+            'role',
+            'status',
+            'created_at',
+            'updated_at',
+            'account_opened_from',
+            'account_opened_location',
+            'account_opened_lat',
+            'account_opened_lng',
+            'last_online_at',
+            'last_online_from',
+            'last_login_location',
+            'last_login_lat',
+            'last_login_lng',
+            'biometric_enabled',
+            'profile_image_path',
+        ];
+
+        $collected = [];
+        foreach ($users as $row) {
+            foreach ($row as $key => $_value) {
+                if (!is_string($key) || $this->isSensitiveUsersExportField($key)) {
+                    continue;
+                }
+                $collected[$key] = true;
+            }
+        }
+
+        if ($collected === []) {
+            return ['idUser', 'nom', 'prenom', 'email', 'telephone', 'role', 'status', 'created_at'];
+        }
+
+        $ordered = [];
+        foreach ($preferredOrder as $field) {
+            if (isset($collected[$field])) {
+                $ordered[] = $field;
+                unset($collected[$field]);
+            }
+        }
+
+        ksort($collected, SORT_NATURAL | SORT_FLAG_CASE);
+
+        return array_merge($ordered, array_keys($collected));
+    }
+
+    private function isSensitiveUsersExportField(string $field): bool
+    {
+        $normalized = strtolower(trim($field));
+
+        return str_contains($normalized, 'password')
+            || str_contains($normalized, 'token')
+            || str_contains($normalized, 'secret')
+            || str_contains($normalized, 'salt')
+            || str_contains($normalized, 'descriptor')
+            || str_contains($normalized, 'otp')
+            || str_contains($normalized, 'pin');
+    }
+
+    private function buildUsersExportLabel(string $field): string
+    {
+        return match ($field) {
+            'idUser' => 'ID Utilisateur',
+            'nom' => 'Nom',
+            'prenom' => 'Prenom',
+            'email' => 'Email',
+            'telephone' => 'Telephone',
+            'role' => 'Role',
+            'status' => 'Statut',
+            'created_at' => 'Cree le',
+            'updated_at' => 'Maj le',
+            'account_opened_from' => 'Source inscription',
+            'account_opened_location' => 'Lieu inscription',
+            'account_opened_lat' => 'Lat inscription',
+            'account_opened_lng' => 'Lng inscription',
+            'last_online_at' => 'Derniere connexion',
+            'last_online_from' => 'Dernier appareil',
+            'last_login_location' => 'Derniere localisation',
+            'last_login_lat' => 'Lat derniere connexion',
+            'last_login_lng' => 'Lng derniere connexion',
+            'biometric_enabled' => 'Biometrie',
+            'profile_image_path' => 'Photo profil',
+            default => ucfirst(strtolower((string) preg_replace('/\s+/', ' ', trim((string) preg_replace('/(?<!^)([A-Z])/', ' $1', str_replace('_', ' ', $field)))))),
+        };
+    }
+
+    private function buildUsersExportValue(mixed $value, string $field): string
+    {
+        if ($value === null) {
+            return '-';
+        }
+
+        if ($field === 'biometric_enabled') {
+            return ((string) $value === '1') ? 'Oui' : 'Non';
+        }
+
+        if (is_bool($value)) {
+            return $value ? 'Oui' : 'Non';
+        }
+
+        if (is_array($value) || is_object($value)) {
+            $json = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            return $json !== false ? $json : '-';
+        }
+
+        $normalized = trim((string) $value);
+
+        return $normalized !== '' ? $normalized : '-';
     }
 }

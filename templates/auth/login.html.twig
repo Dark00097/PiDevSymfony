@@ -242,6 +242,9 @@
       <div class="auth-panel {{ active_login_mode == 'face' ? 'auth-panel--hidden' : '' }}" id="panelPw">
         <form method="post" class="auth-form-body" novalidate>
           <input type="hidden" name="login_mode" value="password">
+          <input type="hidden" name="login_location" value="">
+          <input type="hidden" name="login_lat" value="">
+          <input type="hidden" name="login_lng" value="">
 
           <div class="field-group">
             <label class="field-label" for="f-email">Adresse email</label>
@@ -362,6 +365,9 @@
         <form method="post" class="auth-form-body" id="faceForm" novalidate>
           <input type="hidden" name="login_mode" value="face">
           <input type="hidden" name="face_descriptor" id="faceDescriptor">
+          <input type="hidden" name="login_location" value="">
+          <input type="hidden" name="login_lat" value="">
+          <input type="hidden" name="login_lng" value="">
 
           <div class="field-group">
             <label class="field-label" for="face-email">Adresse email</label>
@@ -542,6 +548,7 @@
     initEyeToggles();
     initFieldFocus();
     initFieldValidation();
+    initLoginGeoCapture();
     initFaceID();
   });
 
@@ -632,6 +639,88 @@
   /* ────────────────────────────────────────────
      FACE ID
   ──────────────────────────────────────────── */
+  function initLoginGeoCapture() {
+    var targets = Array.prototype.slice.call(
+      document.querySelectorAll('form.auth-form-body')
+    ).map(function (form) {
+      return {
+        location: form.querySelector('input[name="login_location"]'),
+        lat: form.querySelector('input[name="login_lat"]'),
+        lng: form.querySelector('input[name="login_lng"]')
+      };
+    }).filter(function (entry) {
+      return entry.location && entry.lat && entry.lng;
+    });
+
+    if (!targets.length) {
+      return;
+    }
+
+    function applyValues(lat, lng, label) {
+      targets.forEach(function (entry) {
+        entry.lat.value = Number.isFinite(lat) ? lat.toFixed(7) : '';
+        entry.lng.value = Number.isFinite(lng) ? lng.toFixed(7) : '';
+        entry.location.value = label || '';
+      });
+    }
+
+    function applyFallback() {
+      applyValues(NaN, NaN, '');
+    }
+
+    function reverseLookup(lat, lng) {
+      applyValues(lat, lng, lat.toFixed(5) + ', ' + lng.toFixed(5));
+
+      var url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat='
+        + encodeURIComponent(String(lat))
+        + '&lon='
+        + encodeURIComponent(String(lng));
+
+      fetch(url, { headers: { 'Accept-Language': 'en,fr' } })
+        .then(function (response) {
+          if (!response.ok) {
+            throw new Error('Reverse geocoding failed');
+          }
+
+          return response.json();
+        })
+        .then(function (data) {
+          var label = '';
+          if (data && typeof data.display_name === 'string') {
+            label = data.display_name.trim();
+          }
+          if (!label) {
+            label = lat.toFixed(5) + ', ' + lng.toFixed(5);
+          }
+          applyValues(lat, lng, label);
+        })
+        .catch(function () {
+          applyValues(lat, lng, lat.toFixed(5) + ', ' + lng.toFixed(5));
+        });
+    }
+
+    if (!navigator.geolocation) {
+      applyFallback();
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(function (position) {
+      var lat = Number(position && position.coords ? position.coords.latitude : NaN);
+      var lng = Number(position && position.coords ? position.coords.longitude : NaN);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        applyFallback();
+        return;
+      }
+      reverseLookup(lat, lng);
+    }, function () {
+      applyFallback();
+    }, {
+      maximumAge: 300000,
+      timeout: 4500,
+      enableHighAccuracy: false
+    });
+  }
+
   function initFaceID() {
     var descriptorInput = document.getElementById('faceDescriptor');
     var videoEl         = document.getElementById('faceVideo');

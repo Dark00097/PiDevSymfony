@@ -47,7 +47,7 @@ class Garantiecredit
     private int $iduser;
 
     #[ORM\ManyToOne(targetEntity: Credit::class)]
-    #[ORM\JoinColumn(name: 'idCredit', referencedColumnName: 'idCredit', nullable: false)]
+    #[ORM\JoinColumn(name: 'idCredit', referencedColumnName: 'idCredit', nullable: true)]
     private ?Credit $credit = null;
 
 
