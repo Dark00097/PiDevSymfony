@@ -122,7 +122,7 @@ final class CreditsController
                         return ['type' => 'error', 'message' => 'Crédit introuvable ou inaccessible.'];
                     }
                     $data['idUser'] = (string) $userId;
-                    $bankingService->saveCredit($data, $creditId, null);
+                    $bankingService->saveCredit($data, $creditId, $userId);
                 } else {
                     $bankingService->saveCredit($data, null, $userId);
                 }
@@ -206,12 +206,13 @@ final class CreditsController
         }
 
         $dateDemande = trim((string) ($data['dateDemande'] ?? ''));
+        $isEdit = (int) ($data['idCredit'] ?? 0) > 0;
         if ($dateDemande === '') {
             $errors['dateDemande'] = 'La date de demande est obligatoire.';
         } else {
             try {
                 $parsedDate = new \DateTimeImmutable($dateDemande);
-                if ($parsedDate < $today) {
+                if (!$isEdit && $parsedDate < $today) {
                     $errors['dateDemande'] = 'La date de demande ne peut pas être dans le passé.';
                 }
             } catch (\Throwable) {
@@ -230,8 +231,13 @@ final class CreditsController
         }
 
         $autoFundingRaw = $data['autofinancement'] ?? '';
-        if ($autoFundingRaw !== '' && $autoFundingRaw !== null && (float) $autoFundingRaw < 0) {
+        $autoFunding = (float) $autoFundingRaw;
+        if ($autoFundingRaw === '' || $autoFundingRaw === null) {
+            $errors['autofinancement'] = "L'autofinancement est obligatoire.";
+        } elseif ($autoFunding < 0) {
             $errors['autofinancement'] = "L'autofinancement doit etre positif ou nul.";
+        } elseif ($amount > 0 && $autoFunding > $amount) {
+            $errors['autofinancement'] = "L'autofinancement ne doit pas depasser le montant demande.";
         }
 
         $duration = (int) ($data['duree'] ?? 0);
@@ -285,6 +291,29 @@ final class CreditsController
             $seniority = (int) $seniorityRaw;
             if ($seniority < 0 || $seniority > 60) {
                 $errors['ancienneteAnnees'] = "L'anciennete doit etre comprise entre 0 et 60 ans.";
+            }
+        }
+
+        $selectedGarantieId = (int) ($data['idGarantie'] ?? 0);
+        if ($selectedGarantieId <= 0) {
+            $errors['idGarantie'] = 'Veuillez selectionner une garantie enregistree.';
+        } else {
+            $matchingGarantie = null;
+            foreach ($bankingService->listGaranties($userId) as $garantie) {
+                if ((int) ($garantie['idGarantie'] ?? 0) === $selectedGarantieId) {
+                    $matchingGarantie = $garantie;
+                    break;
+                }
+            }
+
+            if ($matchingGarantie === null) {
+                $errors['idGarantie'] = 'Garantie selectionnee introuvable.';
+            } else {
+                $currentCreditId = (int) ($data['idCredit'] ?? 0);
+                $linkedCreditId = (int) ($matchingGarantie['idCredit'] ?? 0);
+                if ($linkedCreditId > 0 && $linkedCreditId !== $currentCreditId) {
+                    $errors['idGarantie'] = 'Cette garantie est deja associee a un autre credit.';
+                }
             }
         }
 

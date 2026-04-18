@@ -1,3 +1,48 @@
+<style>
+.nx-crud-pager {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+
+.nx-crud-pager[hidden] {
+    display: none !important;
+}
+
+.nx-crud-pager-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    border: 1px solid #d6e2ef;
+    background: #fff;
+    color: #6b85a0;
+    font-size: 14px;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.nx-crud-pager-btn.is-active {
+    background: linear-gradient(135deg, #11b7aa, #2b7de9);
+    border-color: transparent;
+    color: #fff;
+}
+
+.nx-crud-pager-btn:disabled {
+    opacity: .45;
+    cursor: default;
+}
+
+tr.nx-page-hidden {
+    display: none;
+}
+</style>
+
 <section class="panel-card nx-crud-screen">
     <header class="nx-crud-head">
         <div>
@@ -94,6 +139,59 @@
                     </tbody>
                 </table>
             </div>
+            <div class="nx-crud-pager" id="admin-garanties-pager" hidden></div>
         </article>
     </div>
 </section>
+<script>
+(() => {
+    const pager = document.getElementById('admin-garanties-pager');
+    const rows = Array.from(document.querySelectorAll('.nx-crud-table tbody tr'))
+        .filter((row) => row.querySelector('td') && row.querySelectorAll('td').length > 1);
+    const pageSize = 8;
+    let currentPage = 1;
+
+    if (!(pager instanceof HTMLElement) || rows.length === 0) {
+        return;
+    }
+
+    const renderPager = () => {
+        const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+        currentPage = Math.min(Math.max(1, currentPage), totalPages);
+        pager.innerHTML = '';
+        pager.hidden = rows.length === 0;
+        if (pager.hidden) return;
+
+        const appendButton = (label, page, { icon = '', disabled = false, active = false, ariaLabel = '' } = {}) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'nx-crud-pager-btn';
+            btn.disabled = disabled;
+            btn.setAttribute('aria-label', ariaLabel || String(label));
+            btn.innerHTML = icon ? `<i class="${icon}"></i>` : String(label);
+            if (active) btn.classList.add('is-active');
+            btn.addEventListener('click', () => {
+                if (disabled || page === currentPage) return;
+                currentPage = page;
+                applyPagination();
+            });
+            pager.appendChild(btn);
+        };
+
+        appendButton('Prev', Math.max(1, currentPage - 1), { icon: 'fa-solid fa-chevron-left', disabled: currentPage === 1, ariaLabel: 'Page precedente' });
+        for (let page = 1; page <= totalPages; page += 1) {
+            appendButton(String(page), page, { active: page === currentPage });
+        }
+        appendButton('Next', Math.min(totalPages, currentPage + 1), { icon: 'fa-solid fa-chevron-right', disabled: currentPage === totalPages, ariaLabel: 'Page suivante' });
+    };
+
+    const applyPagination = () => {
+        const start = (currentPage - 1) * pageSize;
+        const end = start + pageSize;
+        rows.forEach((row, index) => row.classList.toggle('nx-page-hidden', index < start || index >= end));
+        renderPager();
+    };
+
+    applyPagination();
+})();
+</script>

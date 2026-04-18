@@ -727,6 +727,45 @@
 .nx-acc__table thead th.sort-asc .sort-icon,
 .nx-acc__table thead th.sort-desc .sort-icon { opacity: 1; color: var(--na-teal); }
 
+.nx-table-pager {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin: 1rem 0 0;
+  flex-wrap: wrap;
+}
+
+.nx-table-pager[hidden] {
+  display: none !important;
+}
+
+.nx-table-pager-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--na-border);
+  background: #fff;
+  color: var(--na-muted);
+  font-size: .9rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.nx-table-pager-btn.is-active {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--na-teal), var(--na-blue));
+  color: #fff;
+}
+
+.nx-table-pager-btn:disabled {
+  opacity: .45;
+  cursor: default;
+}
+
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    RESPONSIVE
@@ -1019,7 +1058,7 @@
 
                     <label>
                         <span>Date d'Évaluation *</span>
-                        <input type="date" name="dateEvaluation" value="{{ current_date }}" min="{{ current_date }}" id="nx-garantie-date">
+                        <input type="date" name="dateEvaluation" value="{{ current_date }}" max="{{ current_date }}" id="nx-garantie-date">
                         <span id="cr-err-garantie-dateEvaluation" class="nx-field-error"></span>
                     </label>
 
@@ -1165,6 +1204,7 @@
                         {% endfor %}
                     </tbody>
                 </table>
+                <div class="nx-table-pager" id="nx-garantie-pager" hidden></div>
             </article>
         </div>
 
@@ -1297,7 +1337,7 @@
 
                     <label>
                         <span>Date Demande *</span>
-                        <input type="date" name="dateDemande" id="nx-credit-date" value="{{ current_date }}" min="{{ current_date }}">
+                        <input type="date" name="dateDemande" id="nx-credit-date" value="{{ current_date }}" max="{{ current_date }}">
                         <span id="cr-err-dateDemande" class="nx-field-error"></span>
                     </label>
 
@@ -1487,6 +1527,7 @@
                         {% endfor %}
                     </tbody>
                 </table>
+                <div class="nx-table-pager" id="nx-credit-pager" hidden></div>
             </article>
         </div>
     {% endif %}
@@ -1943,11 +1984,48 @@
     // ────────────────────────────────────────────────────────────────────────
     // FILTER / SEARCH UTILITIES
     // ────────────────────────────────────────────────────────────────────────
-    const filterTable = (searchInputId, selectSortId, tbodyId, rowClass) => {
+    const filterTable = (searchInputId, selectSortId, tbodyId, rowClass, pagerId) => {
         const searchInput = document.getElementById(searchInputId);
         const sortSelect = document.getElementById(selectSortId);
         const tbody = document.getElementById(tbodyId);
+        const pager = document.getElementById(pagerId);
+        const pageSize = 8;
+        let currentPage = 1;
         if (!tbody || (!searchInput && !sortSelect)) return;
+
+        const renderPager = (totalItems) => {
+            if (!(pager instanceof HTMLElement)) return;
+
+            const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+            currentPage = Math.min(Math.max(1, currentPage), totalPages);
+            pager.innerHTML = '';
+            pager.hidden = totalItems === 0;
+            if (pager.hidden) return;
+
+            const appendButton = (label, page, { icon = '', disabled = false, active = false, ariaLabel = '' } = {}) => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'nx-table-pager-btn';
+                btn.disabled = disabled;
+                btn.setAttribute('aria-label', ariaLabel || String(label));
+                btn.innerHTML = icon ? `<i class="${icon}"></i>` : String(label);
+                if (active) btn.classList.add('is-active');
+                btn.addEventListener('click', () => {
+                    if (disabled || page === currentPage) return;
+                    currentPage = page;
+                    applyState();
+                });
+                pager.appendChild(btn);
+            };
+
+            appendButton('Prev', Math.max(1, currentPage - 1), { icon: 'fa-solid fa-chevron-left', disabled: currentPage === 1, ariaLabel: 'Page precedente' });
+            const windowStart = Math.max(1, currentPage - 2);
+            const windowEnd = Math.min(totalPages, windowStart + 4);
+            for (let page = windowStart; page <= windowEnd; page += 1) {
+                appendButton(String(page), page, { active: page === currentPage });
+            }
+            appendButton('Next', Math.min(totalPages, currentPage + 1), { icon: 'fa-solid fa-chevron-right', disabled: currentPage === totalPages, ariaLabel: 'Page suivante' });
+        };
 
         const applyState = () => {
             const query = (searchInput?.value || '').toLowerCase().trim();
@@ -2007,16 +2085,25 @@
                 }
                 return parseNumber(a.dataset.originalIndex) - parseNumber(b.dataset.originalIndex);
             }).forEach(r => tbody.appendChild(r));
+
+            const totalPages = Math.max(1, Math.ceil(visibleRows.length / pageSize));
+            currentPage = Math.min(Math.max(1, currentPage), totalPages);
+            const start = (currentPage - 1) * pageSize;
+            const end = start + pageSize;
+            visibleRows.forEach((row, index) => {
+                row.hidden = index < start || index >= end;
+            });
+            renderPager(visibleRows.length);
         };
         
-        if (searchInput) searchInput.addEventListener('input', applyState);
-        if (sortSelect) sortSelect.addEventListener('change', applyState);
+        if (searchInput) searchInput.addEventListener('input', () => { currentPage = 1; applyState(); });
+        if (sortSelect) sortSelect.addEventListener('change', () => { currentPage = 1; applyState(); });
         
         applyState();
     };
 
-    filterTable('nx-credit-search', 'nx-credit-sort', 'nx-credit-tbody', 'nx-credit-row');
-    filterTable('nx-garantie-search', 'nx-garantie-sort', 'nx-garantie-tbody', 'nx-garantie-row');
+    filterTable('nx-credit-search', 'nx-credit-sort', 'nx-credit-tbody', 'nx-credit-row', 'nx-credit-pager');
+    filterTable('nx-garantie-search', 'nx-garantie-sort', 'nx-garantie-tbody', 'nx-garantie-row', 'nx-garantie-pager');
 
     
     

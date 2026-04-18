@@ -175,24 +175,6 @@ final class GarantiesController
             'Autre garantie',
         ];
 
-        $creditId = (int) ($data['idCredit'] ?? 0);
-        if ($creditId <= 0) {
-            $errors['idCredit'] = "L'identifiant du credit est obligatoire.";
-        } else {
-            $creditFound = false;
-            foreach ($bankingService->listCredits($userId) as $credit) {
-                if ((int) ($credit['idCredit'] ?? 0) === $creditId) {
-                    $creditFound = true;
-                    break;
-                }
-            }
-
-            if (!$creditFound) {
-                $errors['idCredit'] = 'Credit associe introuvable.';
-                $amounts['Autre'] += $estimated;
-            }
-        }
-
         $typeGarantie = trim((string) ($data['typeGarantie'] ?? ''));
         if ($typeGarantie === '') {
             $errors['typeGarantie'] = 'Le type de garantie est obligatoire.';
@@ -239,13 +221,14 @@ final class GarantiesController
         }
 
         $dateEvaluation = trim((string) ($data['dateEvaluation'] ?? ''));
+        $isEdit = (int) ($data['idGarantie'] ?? 0) > 0;
         if ($dateEvaluation === '') {
             $errors['dateEvaluation'] = "La date d'evaluation est obligatoire.";
         } else {
             try {
                 $parsedDate = new \DateTimeImmutable($dateEvaluation);
-                if ($parsedDate > $today) {
-                    $errors['dateEvaluation'] = "La date d'evaluation ne doit pas etre superieure a la date actuelle.";
+                if (!$isEdit && $parsedDate < $today) {
+                    $errors['dateEvaluation'] = "La date d'evaluation ne peut pas etre dans le passe.";
                 }
             } catch (\Throwable) {
                 $errors['dateEvaluation'] = "Date d'evaluation invalide.";

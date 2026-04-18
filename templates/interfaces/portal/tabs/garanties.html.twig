@@ -6,6 +6,51 @@
 {% set garantie_old = garantie_feedback.input|default({}) %}
 {% set garantie_errors = garantie_feedback.errors|default({}) %}
 
+<style>
+.nx-list-pager {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+
+.nx-list-pager[hidden] {
+    display: none !important;
+}
+
+.nx-list-pager-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    border: 1px solid #cfe0f2;
+    background: #fff;
+    color: #58789a;
+    font-size: 14px;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.nx-list-pager-btn.is-active {
+    background: linear-gradient(135deg, #16a34a, #14b8a6);
+    border-color: transparent;
+    color: #fff;
+}
+
+.nx-list-pager-btn:disabled {
+    opacity: .45;
+    cursor: default;
+}
+
+tr.nx-page-hidden {
+    display: none;
+}
+</style>
+
 <section class="panel-card">
     <h2>Garanties</h2>
     <p style="margin:6px 0 16px; color:#6b7280; font-size:13px;">
@@ -20,16 +65,6 @@
             <span>ID pour modifier</span>
             <input type="number" name="idGarantie" id="portal-garantie-id" placeholder="Laisser vide pour creer" value="{{ garantie_old.idGarantie|default('') }}">
             <span id="g-err-idGarantie" class="g-val-msg">{{ garantie_errors.idGarantie|default('') }}</span>
-        </label>
-        <label>
-            <span>Credit lie <span style="color:#dc2626">*</span></span>
-            <select name="idCredit" id="portal-garantie-credit" class="{{ garantie_errors.idCredit is defined ? 'acc-invalid' : '' }}">
-                <option value="">Selectionner</option>
-                {% for credit in support.credits|default([]) %}
-                    <option value="{{ credit.idCredit }}" {{ garantie_old.idCredit|default('') == credit.idCredit ? 'selected' : '' }}>#{{ credit.idCredit }} - {{ credit.typeCredit|default('Credit') }}</option>
-                {% endfor %}
-            </select>
-            <span id="g-err-idCredit" class="g-val-msg">{{ garantie_errors.idCredit|default('') }}</span>
         </label>
         <label>
             <span>Type garantie <span style="color:#dc2626">*</span></span>
@@ -115,7 +150,7 @@
                     data-garantie-status="{{ item.statut|default('')|e('html_attr') }}"
                 >
                     <td>{{ item.idGarantie }}</td>
-                    <td>#{{ item.idCredit }}</td>
+                    <td>{{ item.idCredit ? '#' ~ item.idCredit : 'Non associee' }}</td>
                     <td>{{ item.typeGarantie }}</td>
                     <td>{{ item.valeurEstimee|default(0)|number_format(2, '.', ' ') }}</td>
                     <td>{{ item.valeurRetenue|default(0)|number_format(2, '.', ' ') }}</td>
@@ -138,6 +173,7 @@
             </tbody>
         </table>
     </div>
+    <div class="nx-list-pager" id="portal-garanties-pager" hidden></div>
 </section>
 
 <script>
@@ -155,7 +191,7 @@
     const documentLink = document.getElementById('portal-garantie-document-link');
     const currentDateIso = '{{ current_date }}';
     const todayDate = new Date(`${currentDateIso}T00:00:00`);
-    const fieldNames = ['idCredit', 'typeGarantie', 'description', 'adresseBien', 'valeurEstimee', 'valeurRetenue', 'dateEvaluation', 'documentJustificatif', 'nomGarant'];
+    const fieldNames = ['typeGarantie', 'description', 'adresseBien', 'valeurEstimee', 'valeurRetenue', 'dateEvaluation', 'documentJustificatif', 'nomGarant'];
 
     const parseNum = (v) => {
         const n = Number(v);
@@ -232,8 +268,6 @@
         const value = String(field?.value ?? '').trim();
 
         switch (name) {
-            case 'idCredit':
-                return value === '' ? setError(field, msgEl, 'Veuillez selectionner un credit associe.') : setValid(field, msgEl);
             case 'typeGarantie':
                 return value === '' ? setError(field, msgEl, 'Veuillez selectionner un type de garantie.') : setValid(field, msgEl);
             case 'description':
@@ -350,7 +384,6 @@
             const row = btn.closest('[data-garantie-row]');
             if (!row) return;
             setFieldValue('idGarantie', row.dataset.garantieId ?? '');
-            setFieldValue('idCredit', row.dataset.garantieCreditId ?? '');
             setFieldValue('typeGarantie', row.dataset.garantieType ?? '');
             setFieldValue('description', row.dataset.garantieDescription ?? '');
             setFieldValue('adresseBien', row.dataset.garantieAddress ?? '');
@@ -368,5 +401,50 @@
     });
 
     syncDocumentMeta(existingDocumentField instanceof HTMLInputElement ? existingDocumentField.value : '', '');
+
+    const pager = document.getElementById('portal-garanties-pager');
+    const rows = Array.from(document.querySelectorAll('[data-garantie-row]'));
+    const pageSize = 6;
+    let currentPage = 1;
+
+    const renderPager = () => {
+        if (!(pager instanceof HTMLElement)) return;
+        const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+        currentPage = Math.min(Math.max(1, currentPage), totalPages);
+        pager.innerHTML = '';
+        pager.hidden = rows.length === 0;
+        if (pager.hidden) return;
+
+        const appendButton = (label, page, { icon = '', disabled = false, active = false, ariaLabel = '' } = {}) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'nx-list-pager-btn';
+            btn.disabled = disabled;
+            btn.setAttribute('aria-label', ariaLabel || String(label));
+            btn.innerHTML = icon ? `<i class="${icon}"></i>` : String(label);
+            if (active) btn.classList.add('is-active');
+            btn.addEventListener('click', () => {
+                if (disabled || page === currentPage) return;
+                currentPage = page;
+                applyPagination();
+            });
+            pager.appendChild(btn);
+        };
+
+        appendButton('Prev', Math.max(1, currentPage - 1), { icon: 'fa-solid fa-chevron-left', disabled: currentPage === 1, ariaLabel: 'Page precedente' });
+        for (let page = 1; page <= totalPages; page += 1) {
+            appendButton(String(page), page, { active: page === currentPage });
+        }
+        appendButton('Next', Math.min(totalPages, currentPage + 1), { icon: 'fa-solid fa-chevron-right', disabled: currentPage === totalPages, ariaLabel: 'Page suivante' });
+    };
+
+    const applyPagination = () => {
+        const start = (currentPage - 1) * pageSize;
+        const end = start + pageSize;
+        rows.forEach((row, index) => row.classList.toggle('nx-page-hidden', index < start || index >= end));
+        renderPager();
+    };
+
+    applyPagination();
 })();
 </script>
