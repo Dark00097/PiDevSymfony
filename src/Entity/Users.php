@@ -84,8 +84,8 @@ class Users
     #[ORM\OneToMany(mappedBy: 'users', targetEntity: Reclamation::class)]
     private Collection $reclamations;
 
-    #[ORM\OneToMany(mappedBy: 'users', targetEntity: SurplusNotifications::class)]
-    private Collection $surplusNotificationses;
+    #[ORM\OneToMany(mappedBy: 'users', targetEntity: SuperplusNotifications::class)]
+    private Collection $superplusNotifications;
 
     #[ORM\OneToMany(mappedBy: 'users', targetEntity: Transactions::class)]
     private Collection $transactionses;

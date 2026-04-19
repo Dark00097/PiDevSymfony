@@ -6,6 +6,8 @@ use Doctrine\DBAL\Connection;
 
 final class InsightsService
 {
+    private const SUPERPLUS_NOTIFICATION_TABLE = 'superplus_notifications';
+
     public function __construct(
         private readonly Connection $connection,
         private readonly BankingService $bankingService,
@@ -122,32 +124,119 @@ final class InsightsService
         return implode("\n", $lines)."\n";
     }
 
-    public function getSpendingPrediction(int $userId): array
+    public function getSpendingPrediction(int $userId, ?int $accountId = null): array
     {
-        $transactions = $this->bankingService->listTransactions($userId);
+        $allAccounts = $this->bankingService->listAccounts($userId);
+        $selectedAccount = null;
+
+        if ($accountId !== null && $accountId > 0) {
+            foreach ($allAccounts as $account) {
+                if ((int) ($account['idCompte'] ?? 0) === $accountId) {
+                    $selectedAccount = $account;
+                    break;
+                }
+            }
+        }
+
+        if ($selectedAccount === null && $allAccounts !== []) {
+            $selectedAccount = $allAccounts[0];
+        }
+
+        $selectedAccountId = $selectedAccount !== null ? (int) ($selectedAccount['idCompte'] ?? 0) : null;
+        $accounts = $selectedAccount !== null ? [$selectedAccount] : [];
+
+        // IDs de tous les comptes appartenant à l'utilisateur — nécessaire pour classifier
+        // correctement les VIREMENT entrants (destinataire = compte propre) vs sortants
+        $userAccountIds = array_map(
+            static fn (array $row): int => (int) $row['idCompte'],
+            $allAccounts
+        );
+
+        $transactions = array_values(array_filter(
+            $this->bankingService->listTransactions($userId),
+            static fn (array $transaction): bool => $selectedAccountId === null
+                || (int) ($transaction['idCompte'] ?? 0) === $selectedAccountId
+        ));
+        $today = new \DateTimeImmutable('today');
+        $recentWindowStart = $today->modify('-30 days');
+        $currentMonth = $this->currentMonth();
         $byCategory = [];
         $monthlyCredits = 0.0;
         $monthlyDebits = 0.0;
         $months = [];
+        $dailyDebits = [];
+        $creditPatterns = [];
+        $projectionDays = 30;
 
         foreach ($transactions as $transaction) {
             $date = $this->normalizeDate((string) ($transaction['dateTransaction'] ?? ''));
-            $month = $date !== null ? substr($date, 0, 7) : null;
+            if ($date === null) {
+                continue;
+            }
+
+            $month = substr($date, 0, 7);
             if ($month !== null) {
                 $months[$month] = true;
             }
 
             $amount = (float) ($transaction['montant_value'] ?? 0);
-            $type = strtoupper((string) ($transaction['typeTransaction'] ?? ''));
-            $category = trim((string) ($transaction['categorie'] ?? 'Autre')) ?: 'Autre';
+            $typeRaw = strtolower(trim((string) ($transaction['typeTransaction'] ?? '')));
 
-            if ($type === 'DEBIT') {
+            // Logique de résolution du SENS (CREDIT vs DEBIT)
+            // Règles métier officielles :
+            // DEPOT / VERSEMENT               → CREDIT (entrée d'argent)
+            // PAIEMENT / RETRAIT              → DEBIT  (sortie d'argent)
+            // VIREMENT :
+            //   idCompteDestinataire == compte courant de la ligne → CREDIT (reçu)
+            //   idCompteDestinataire != compte courant de la ligne → DEBIT  (envoyé)
+            //   idCompteDestinataire NULL/0                        → DEBIT  (inconnu → DEBIT)
+            $resolvedType = 'UNKNOWN';
+            if (str_contains($typeRaw, 'depot') || str_contains($typeRaw, 'versement')) {
+                $resolvedType = 'CREDIT';
+            } elseif (str_contains($typeRaw, 'paiement') || str_contains($typeRaw, 'retrait') || $typeRaw === 'debit' || str_contains($typeRaw, 'paimenet')) {
+                $resolvedType = 'DEBIT';
+            } elseif (str_contains($typeRaw, 'virement')) {
+                $dest = (int) ($transaction['idCompteDestinataire'] ?? 0);
+                $txAccountId = (int) ($transaction['idCompte'] ?? 0);
+                // CREDIT si idCompteDestinataire == compte courant (réception)
+                // CREDIT si idCompteDestinataire NULL/0 (inconnu → CREDIT)
+                // DEBIT  si idCompteDestinataire est un compte différent (envoi)
+                $resolvedType = ($dest === 0 || $dest === $txAccountId) ? 'CREDIT' : 'DEBIT';
+            }
+
+            // Résolution intelligente de la catégorie :
+            // - Si PAIEMENT → la catégorie est toujours renseignée (Alimentation, Transport, Shopping, Education)
+            // - Si DEPOT / RETRAIT / VIREMENT → categorie est NULL en base → on déduit depuis le type
+            $rawCategory = trim((string) ($transaction['categorie'] ?? ''));
+            $category = $rawCategory !== '' ? $rawCategory : match (true) {
+                str_contains($typeRaw, 'depot') || str_contains($typeRaw, 'versement') => 'Revenu',
+                str_contains($typeRaw, 'retrait')                                       => 'Retrait',
+                str_contains($typeRaw, 'virement')                                     => 'Virement',
+                default                                                                 => 'Autre',
+            };
+            $description = trim((string) ($transaction['description'] ?? ''));
+            $dateObject = new \DateTimeImmutable($date);
+
+            if ($resolvedType === 'DEBIT') {
                 $byCategory[$category] = ($byCategory[$category] ?? 0.0) + $amount;
-                if ($month === $this->currentMonth()) {
+                if ($month === $currentMonth) {
                     $monthlyDebits += $amount;
                 }
-            } elseif ($month === $this->currentMonth()) {
-                $monthlyCredits += $amount;
+
+                if ($dateObject >= $recentWindowStart) {
+                    $dailyDebits[$date] = ($dailyDebits[$date] ?? 0.0) + $amount;
+                }
+            } elseif ($resolvedType === 'CREDIT') {
+                if ($month === $currentMonth) {
+                    $monthlyCredits += $amount;
+                }
+
+                $signature = $this->resolveRecurringCreditSignature($category, $description);
+                $creditPatterns[$signature]['label'] = $this->resolveRecurringCreditLabel($category, $description);
+                $creditPatterns[$signature]['keyword_hint'] = $this->isRecurringIncomeKeyword($category, $description);
+                $creditPatterns[$signature]['months'][$month] = true;
+                $creditPatterns[$signature]['amounts'][] = $amount;
+                $creditPatterns[$signature]['days'][] = (int) $dateObject->format('j');
             }
         }
 
@@ -163,31 +252,158 @@ final class InsightsService
         usort($predictions, static fn (array $left, array $right): int => $right['predicted_amount'] <=> $left['predicted_amount']);
         $predictions = array_slice($predictions, 0, 6);
 
-        $totalPredicted = array_sum(array_column($predictions, 'predicted_amount'));
+        $averageDailyDebit = $dailyDebits === []
+            ? 0.0
+            : round(array_sum($dailyDebits) / count($dailyDebits), 2);
+        $totalPredicted = round($averageDailyDebit * $projectionDays, 2);
         $savingsRate = $monthlyCredits > 0 ? max(0.0, 1 - ($monthlyDebits / max($monthlyCredits, 1))) : 0.0;
         $savingsScore = (int) round(max(0, min(100, $savingsRate * 100)));
+        $currentBalance = round(array_sum(array_map(
+            static fn (array $row): float => (float) ($row['solde'] ?? 0.0),
+            $accounts
+        )), 2);
+
+        [$recurringCredits, $scheduledCredits, $nextRecurringCredit] = $this->buildRecurringCreditsForecast(
+            $creditPatterns,
+            $today,
+            $projectionDays
+        );
+
+        $futureProjection = [];
+        $runningBalance = $currentBalance;
+        $firstZeroDay = null;
+        $firstNegativeDay = null;
+
+        for ($offset = 1; $offset <= $projectionDays; $offset++) {
+            $futureDate = $today->modify(sprintf('+%d day', $offset));
+            $futureKey = $futureDate->format('Y-m-d');
+            $income = round((float) ($scheduledCredits[$futureKey] ?? 0.0), 2);
+            $expense = $averageDailyDebit;
+            $runningBalance = round($runningBalance - $expense + $income, 2);
+
+            $point = [
+                'day' => $offset,
+                'date' => $futureKey,
+                'label' => 'J+'.$offset,
+                'display_label' => $futureDate->format('d/m'),
+                'balance' => $runningBalance,
+                'income' => $income,
+                'expense' => $expense,
+                'is_negative' => $runningBalance < 0,
+                'is_critical' => $runningBalance <= 0,
+            ];
+
+            if ($firstZeroDay === null && $runningBalance <= 0) {
+                $firstZeroDay = $point;
+            }
+            if ($firstNegativeDay === null && $runningBalance < 0) {
+                $firstNegativeDay = $point;
+            }
+
+            $futureProjection[] = $point;
+        }
+
+        $lastProjectionPoint = $futureProjection !== [] ? $futureProjection[count($futureProjection) - 1] : null;
+        $projectedBalance7 = (float) ($futureProjection[6]['balance'] ?? $currentBalance);
+        $projectedBalance15 = (float) ($futureProjection[14]['balance'] ?? ($lastProjectionPoint['balance'] ?? $currentBalance));
+        $projectedBalance30 = (float) ($lastProjectionPoint['balance'] ?? $currentBalance);
+
+        $alerts = [];
+        if ($firstZeroDay !== null) {
+            $alerts[] = [
+                'level' => $firstNegativeDay !== null ? 'danger' : 'warning',
+                'title' => $firstNegativeDay !== null ? 'Solde negatif detecte' : 'Seuil critique approche',
+                'text' => $firstNegativeDay !== null
+                    ? sprintf('Votre solde passera sous 0 DT vers %s (%s).', $firstNegativeDay['label'], $firstNegativeDay['date'])
+                    : sprintf('Votre solde atteindra 0 DT vers %s (%s).', $firstZeroDay['label'], $firstZeroDay['date']),
+            ];
+        }
+
+        if ($nextRecurringCredit !== null) {
+            $alerts[] = [
+                'level' => 'info',
+                'title' => 'Revenu recurrent identifie',
+                'text' => sprintf(
+                    '%s de %.2f DT attendu le %s.',
+                    $nextRecurringCredit['label'],
+                    $nextRecurringCredit['amount'],
+                    $nextRecurringCredit['date']
+                ),
+            ];
+        }
+
+        if ($alerts === []) {
+            $alerts[] = [
+                'level' => 'success',
+                'title' => 'Projection saine',
+                'text' => 'Le solde reste positif sur les 30 prochains jours selon le rythme financier actuel.',
+            ];
+        }
 
         $tips = [];
         if ($predictions !== []) {
-            $tips[] = sprintf('Watch the "%s" category, which is the highest expected spend next month.', $predictions[0]['category']);
+            $tips[] = sprintf('La categorie "%s" reste la depense la plus lourde a surveiller.', $predictions[0]['category']);
         }
-        if ($savingsScore < 25) {
-            $tips[] = 'Move one debit each month toward savings or coffre transfers to improve the score.';
+        if ($averageDailyDebit > 0) {
+            $tips[] = sprintf('Vos depenses recentes tournent autour de %.2f DT par jour.', $averageDailyDebit);
+        }
+        if ($firstNegativeDay !== null) {
+            $tips[] = sprintf('Reduisez les debits quotidiens ou alimentez le compte avant %s pour eviter le negatif.', $firstNegativeDay['label']);
         } elseif ($savingsScore >= 50) {
-            $tips[] = 'Current inflow versus spending is healthy enough to support additional savings goals.';
+            $tips[] = 'Le rythme actuel reste compatible avec une epargne additionnelle si vous gardez cette discipline.';
         }
         if ($tips === []) {
-            $tips[] = 'Keep transaction categories precise so next-month forecasting stays reliable.';
+            $tips[] = 'Ajoutez plus de transactions pour rendre la prediction plus precise.';
         }
+
+        $status = $firstNegativeDay !== null ? 'danger' : ($firstZeroDay !== null ? 'warning' : 'stable');
+        $summary = $firstNegativeDay !== null
+            ? sprintf(
+                'Au rythme actuel de %.2f DT par jour, le solde pourrait devenir negatif en %d jours.',
+                $averageDailyDebit,
+                (int) $firstNegativeDay['day']
+            )
+            : ($nextRecurringCredit !== null
+                ? sprintf(
+                    'Le solde reste positif sur la fenetre projetee. Prochain revenu recurrent : %.2f DT le %s.',
+                    (float) $nextRecurringCredit['amount'],
+                    (string) $nextRecurringCredit['date']
+                )
+                : 'Le solde futur reste globalement stable sur les prochains jours selon l historique disponible.');
 
         return [
             'predictions' => $predictions,
-            'total_predicted_spending' => round($totalPredicted, 2),
+            'total_predicted_spending' => $totalPredicted,
             'savings_score' => $savingsScore,
             'conseils' => $tips,
-            'summary' => $predictions === []
-                ? 'Not enough transaction history is available yet for a category forecast.'
-                : sprintf('Expected monthly spend is %.2f DT across %d major categories.', $totalPredicted, count($predictions)),
+            'summary' => $summary,
+            'current_balance' => $currentBalance,
+            'average_daily_debit' => $averageDailyDebit,
+            'projection_days' => $projectionDays,
+            'projection_windows' => [7, 15, 30],
+            'future_projection' => $futureProjection,
+            'projected_balance_7' => round($projectedBalance7, 2),
+            'projected_balance_15' => round($projectedBalance15, 2),
+            'projected_balance_30' => round($projectedBalance30, 2),
+            'recurring_credits' => $recurringCredits,
+            'next_recurring_credit' => $nextRecurringCredit,
+            'alerts' => $alerts,
+            'first_zero_day' => $firstZeroDay,
+            'first_negative_day' => $firstNegativeDay,
+            'projection_status' => $status,
+            'projection_status_label' => match ($status) {
+                'danger' => 'Alerte previsionnelle',
+                'warning' => 'Vigilance requise',
+                default => 'Projection stable',
+            },
+            'selected_account' => $selectedAccount !== null ? [
+                'idCompte' => (int) ($selectedAccount['idCompte'] ?? 0),
+                'numeroCompte' => (string) ($selectedAccount['numeroCompte'] ?? ''),
+                'typeCompte' => (string) ($selectedAccount['typeCompte'] ?? ''),
+                'solde' => round((float) ($selectedAccount['solde'] ?? 0.0), 2),
+                'statutCompte' => (string) ($selectedAccount['statutCompte'] ?? ''),
+            ] : null,
+            'scoped_transaction_count' => count($transactions),
         ];
     }
 
@@ -407,18 +623,62 @@ final class InsightsService
     {
         $currentMonth = $this->currentMonth();
         $alreadyShown = (bool) $this->connection->fetchOne(
-            'SELECT COUNT(*) FROM surplus_notifications WHERE idUser = ? AND moisAffiche = ?',
+            sprintf('SELECT COUNT(*) FROM %s WHERE idUser = ? AND moisAffiche = ?', self::SUPERPLUS_NOTIFICATION_TABLE),
             [$userId, $currentMonth]
+        );
+
+        $months = [];
+        for ($offset = 0; $offset < 4; $offset++) {
+            $months[] = $this->monthKeyFromOffset($offset);
+        }
+
+        // Récupérer tous les idCompte appartenant à cet utilisateur
+        // Utilisé pour classifier correctement les VIREMENT entrants vs sortants
+        $userAccountIds = array_map(
+            static fn (array $row): int => (int) $row['idCompte'],
+            $this->connection->fetchAllAssociative(
+                'SELECT idCompte FROM compte WHERE idUser = ?',
+                [$userId]
+            )
         );
 
         $creditsByMonth = [];
         $rows = $this->connection->fetchAllAssociative(
-            'SELECT dateTransaction, montant, typeTransaction FROM transactions WHERE idUser = ? ORDER BY idTransaction DESC',
+            'SELECT dateTransaction, montant, typeTransaction, idCompte, idCompteDestinataire FROM transactions WHERE idUser = ? ORDER BY idTransaction DESC',
             [$userId]
         );
 
         foreach ($rows as $row) {
-            if (strtoupper((string) ($row['typeTransaction'] ?? '')) !== 'CREDIT') {
+            $typeRaw = strtolower(trim((string) ($row['typeTransaction'] ?? '')));
+            $resolvedType = 'UNKNOWN';
+
+            // Règles métier officielles CREDIT/DEBIT :
+            // DEPOT       → CREDIT (argent entrant)
+            // VERSEMENT   → CREDIT (argent entrant)
+            // PAIEMENT    → DEBIT  (argent sortant)
+            // RETRAIT     → DEBIT  (argent sortant)
+            // VIREMENT :
+            //   idCompteDestinataire == compte courant de la ligne → CREDIT (virement reçu)
+            //   idCompteDestinataire != compte courant de la ligne → DEBIT  (virement envoyé)
+            //   idCompteDestinataire NULL/0                        → DEBIT  (inconnu → DEBIT)
+            if (str_contains($typeRaw, 'depot') || str_contains($typeRaw, 'versement')) {
+                $resolvedType = 'CREDIT';
+            } elseif (str_contains($typeRaw, 'paiement') || str_contains($typeRaw, 'retrait') || $typeRaw === 'debit' || str_contains($typeRaw, 'paimenet')) {
+                $resolvedType = 'DEBIT';
+            } elseif (str_contains($typeRaw, 'virement')) {
+                $dest = (int) ($row['idCompteDestinataire'] ?? 0);
+                $sourceAccountId = (int) ($row['idCompte'] ?? 0);
+                // CREDIT si idCompteDestinataire == compte courant (réception)
+                // CREDIT si idCompteDestinataire NULL/0 (inconnu → CREDIT)
+                // DEBIT  si idCompteDestinataire est un compte différent (envoi)
+                if ($dest === 0 || $dest === $sourceAccountId) {
+                    $resolvedType = 'CREDIT';
+                } else {
+                    $resolvedType = 'DEBIT';
+                }
+            }
+
+            if ($resolvedType !== 'CREDIT') {
                 continue;
             }
 
@@ -428,27 +688,86 @@ final class InsightsService
             }
 
             $month = substr($date, 0, 7);
+            if (!in_array($month, $months, true)) {
+                continue;
+            }
+
             $creditsByMonth[$month] = ($creditsByMonth[$month] ?? 0.0) + ((float) ($this->security->decryptAmount((string) ($row['montant'] ?? '')) ?? 0));
         }
 
-        $currentIncome = (float) ($creditsByMonth[$currentMonth] ?? 0.0);
-        unset($creditsByMonth[$currentMonth]);
-        krsort($creditsByMonth);
-        $history = array_slice(array_values($creditsByMonth), 0, 3);
-        $average = $history === [] ? 0.0 : array_sum($history) / count($history);
-        $surplus = $currentIncome - $average;
-        $shouldShow = !$alreadyShown && $currentIncome > 0 && $average > 0 && $currentIncome >= ($average * 1.15);
+        $currentIncome = round((float) ($creditsByMonth[$currentMonth] ?? 0.0), 2);
+        $historyMonths = array_slice($months, 1, 3);
+        $historyIncomes = array_values(array_map(
+            static fn (string $month): float => round((float) ($creditsByMonth[$month] ?? 0.0), 2),
+            $historyMonths
+        ));
+        $average = $historyIncomes === [] ? 0.0 : round(array_sum($historyIncomes) / count($historyIncomes), 2);
+        $maxHistory = $historyIncomes === [] ? 0.0 : max($historyIncomes);
+        $minHistory = $historyIncomes === [] ? 0.0 : min($historyIncomes);
+        $historySpread = round($maxHistory - $minHistory, 2);
+        $stabilityTolerance = round(max(100.0, $average * 0.15), 2);
+        $stabilityOk = count($historyIncomes) === 3 && $average > 0 && $historySpread <= $stabilityTolerance;
+        $surplus = round(max(0.0, $currentIncome - $average), 2);
+        $surplusThreshold = round(max(150.0, $average * 0.15), 2);
+        $recommendedTransfer = round(max(0.0, $surplus * 0.20), 2);
 
-        $message = $shouldShow
-            ? sprintf('Income this month is %.2f DT versus a recent average of %.2f DT. Consider moving %.2f DT to a vault or investment target.', $currentIncome, $average, max(10.0, $surplus * 0.35))
-            : 'No unusual monthly income surplus is waiting for action.';
+        $accounts = $this->bankingService->listAccounts($userId);
+        $sourceAccount = $this->resolveSurplusSourceAccount($accounts, $recommendedTransfer);
+        $canTransfer = $sourceAccount !== null
+            && $recommendedTransfer > 0
+            && (float) ($sourceAccount['solde'] ?? 0.0) >= $recommendedTransfer;
+        $shouldShow = !$alreadyShown
+            && $stabilityOk
+            && $currentIncome > $average
+            && $surplus >= $surplusThreshold
+            && $recommendedTransfer >= 20.0
+            && $canTransfer;
+
+        $monthlyIncomes = array_map(function (string $month) use ($creditsByMonth, $currentMonth): array {
+            return [
+                'month' => $month,
+                'label' => $month === $currentMonth ? 'Mois actuel' : $month,
+                'income' => round((float) ($creditsByMonth[$month] ?? 0.0), 2),
+                'is_current' => $month === $currentMonth,
+            ];
+        }, array_reverse($months));
+
+        if ($shouldShow) {
+            $message = sprintf(
+                'Surplus detecte : les credits du mois atteignent %.2f DT contre une moyenne recente de %.2f DT. Superplus recommande d epargner %.2f DT.',
+                $currentIncome,
+                $average,
+                $recommendedTransfer
+            );
+        } elseif ($currentIncome <= 0) {
+            $message = 'Pas de surplus detecte : aucun credit n a encore ete enregistre ce mois-ci.';
+        } elseif (!$stabilityOk) {
+            $message = 'Pas de surplus detecte : les credits des trois derniers mois ne sont pas assez stables pour servir de reference fiable.';
+        } elseif ($surplus < $surplusThreshold) {
+            $message = 'Pas de surplus detecte : le revenu du mois reste trop proche de la moyenne des trois derniers mois.';
+        } elseif (!$canTransfer) {
+            $message = 'Pas de surplus detecte : aucun compte actif ne peut financer le montant recommande.';
+        } else {
+            $message = 'Pas de surplus detecte pour ce mois.';
+        }
 
         return [
             'show' => $shouldShow,
-            'current_income' => round($currentIncome, 2),
-            'average_income' => round($average, 2),
-            'surplus' => round(max(0.0, $surplus), 2),
+            'already_shown' => $alreadyShown,
+            'current_income' => $currentIncome,
+            'average_income' => $average,
+            'surplus' => $surplus,
+            'recommended_transfer' => $recommendedTransfer,
+            'display_recommended_transfer' => $shouldShow ? $recommendedTransfer : 0.0,
+            'stability_ok' => $stabilityOk,
+            'history_spread' => $historySpread,
+            'stability_tolerance' => $stabilityTolerance,
+            'surplus_threshold' => $surplusThreshold,
+            'monthly_incomes' => $monthlyIncomes,
+            'source_account' => $sourceAccount,
             'message' => $message,
+            'ui_tone' => $shouldShow ? 'accent' : 'success',
+            'status_label' => $shouldShow ? 'Surplus detecte' : 'Aucun surplus detecte',
             'month' => $currentMonth,
         ];
     }
@@ -456,7 +775,7 @@ final class InsightsService
     public function acknowledgeMonthlySurplus(int $userId, string $month): void
     {
         $existing = $this->connection->fetchOne(
-            'SELECT COUNT(*) FROM surplus_notifications WHERE idUser = ? AND moisAffiche = ?',
+            sprintf('SELECT COUNT(*) FROM %s WHERE idUser = ? AND moisAffiche = ?', self::SUPERPLUS_NOTIFICATION_TABLE),
             [$userId, $month]
         );
 
@@ -464,10 +783,249 @@ final class InsightsService
             return;
         }
 
-        $this->connection->insert('surplus_notifications', [
+        $this->connection->insert(self::SUPERPLUS_NOTIFICATION_TABLE, [
             'idUser' => $userId,
             'moisAffiche' => $month,
         ]);
+    }
+
+    public function transferDetectedMonthlySurplusToVault(int $userId, int $vaultId): array
+    {
+        $surplus = $this->detectMonthlySurplus($userId);
+        $amount = round((float) ($surplus['recommended_transfer'] ?? 0.0), 2);
+        if (!(bool) ($surplus['show'] ?? false) || $amount <= 0) {
+            throw new \RuntimeException('Aucun surplus disponible a transferer pour ce mois.');
+        }
+
+        $vault = null;
+        foreach ($this->bankingService->listVaults($userId) as $row) {
+            if ((int) ($row['idCoffre'] ?? 0) === $vaultId) {
+                $vault = $row;
+                break;
+            }
+        }
+
+        if ($vault === null) {
+            throw new \RuntimeException('Le coffre selectionne est introuvable.');
+        }
+
+        $accounts = $this->bankingService->listAccounts($userId);
+        $sourceAccount = $this->resolveSurplusSourceAccount($accounts, $amount);
+        if ($sourceAccount === null) {
+            throw new \RuntimeException('Aucun compte actif ne peut financer automatiquement ce transfert.');
+        }
+
+        $goal = (float) ($vault['objectifMontant'] ?? 0.0);
+        $currentVaultAmount = (float) ($vault['montantActuel'] ?? 0.0);
+        if ($goal > 0) {
+            $remainingCapacity = round(max(0.0, $goal - $currentVaultAmount), 2);
+            if ($remainingCapacity <= 0) {
+                throw new \RuntimeException('Ce coffre a deja atteint son objectif.');
+            }
+
+            $amount = min($amount, $remainingCapacity);
+        }
+
+        if ($amount <= 0) {
+            throw new \RuntimeException('Le montant de surplus recommande est invalide.');
+        }
+
+        $sourceBalance = (float) ($sourceAccount['solde'] ?? 0.0);
+        if ($sourceBalance < $amount) {
+            throw new \RuntimeException('Le compte source selectionne automatiquement ne dispose pas d un solde suffisant.');
+        }
+
+        $newBalance = round($sourceBalance - $amount, 2);
+        $newVaultAmount = round($currentVaultAmount + $amount, 2);
+        $shouldLock = $goal > 0 && $newVaultAmount >= $goal;
+        $today = (new \DateTimeImmutable('today'))->format('Y-m-d');
+
+        $this->connection->transactional(function () use (
+            $userId,
+            $vaultId,
+            $vault,
+            $amount,
+            $sourceAccount,
+            $newBalance,
+            $newVaultAmount,
+            $shouldLock,
+            $today
+        ): void {
+            $this->connection->update('compte', [
+                'solde' => $newBalance,
+            ], [
+                'idCompte' => (int) $sourceAccount['idCompte'],
+                'idUser' => $userId,
+            ]);
+
+            $vaultCriteria = ['idCoffre' => $vaultId];
+            if ((int) ($vault['idUser'] ?? 0) > 0) {
+                $vaultCriteria['idUser'] = $userId;
+            }
+
+            $this->connection->update('coffrevirtuel', [
+                'montantActuel' => $newVaultAmount,
+                'estVerrouille' => $shouldLock ? 1 : (int) ($vault['estVerrouille'] ?? 0),
+            ], $vaultCriteria);
+
+            $this->connection->insert('transactions', [
+                'idCompte' => (int) $sourceAccount['idCompte'],
+                'idUser' => $userId,
+                'categorie' => 'Epargne',
+                'dateTransaction' => $today,
+                'montant' => $this->security->encryptAmount($amount),
+                'typeTransaction' => 'DEBIT',
+                'soldeApres' => $newBalance,
+                'description' => sprintf('Transfert surplus mensuel vers coffre #%d', $vaultId),
+                'montantPaye' => $this->security->encryptAmount($amount),
+            ]);
+        });
+
+        $this->acknowledgeMonthlySurplus($userId, (string) ($surplus['month'] ?? $this->currentMonth()));
+        $this->activityService->log(
+            $userId,
+            'SURPLUS_TRANSFER',
+            'Symfony portal',
+            sprintf('Transferred %.2f DT of detected monthly surplus to vault #%d.', $amount, $vaultId)
+        );
+
+        return [
+            'amount' => $amount,
+            'vault_id' => $vaultId,
+            'vault_name' => (string) ($vault['nom'] ?? '#'.$vaultId),
+            'source_account' => [
+                'idCompte' => (int) ($sourceAccount['idCompte'] ?? 0),
+                'numeroCompte' => (string) ($sourceAccount['numeroCompte'] ?? ''),
+            ],
+        ];
+    }
+
+    /**
+     * @param array<string, array<string, mixed>> $creditPatterns
+     * @return array{0: array<int, array<string, mixed>>, 1: array<string, float>, 2: array<string, mixed>|null}
+     */
+    private function buildRecurringCreditsForecast(array $creditPatterns, \DateTimeImmutable $today, int $horizonDays): array
+    {
+        $credits = [];
+        $schedule = [];
+        $nextRecurring = null;
+
+        foreach ($creditPatterns as $pattern) {
+            $monthsCount = count(array_keys((array) ($pattern['months'] ?? [])));
+            $keywordHint = (bool) ($pattern['keyword_hint'] ?? false);
+            if ($monthsCount < 2 && !$keywordHint) {
+                continue;
+            }
+
+            $amounts = array_values(array_map('floatval', (array) ($pattern['amounts'] ?? [])));
+            $days = array_values(array_map('intval', (array) ($pattern['days'] ?? [])));
+            if ($amounts === [] || $days === []) {
+                continue;
+            }
+
+            $amount = round(array_sum($amounts) / count($amounts), 2);
+            $dayOfMonth = max(1, min(28, (int) round(array_sum($days) / count($days))));
+            $occurrences = $this->buildRecurringCreditOccurrences($today, $dayOfMonth, $amount, $horizonDays);
+            if ($occurrences === []) {
+                continue;
+            }
+
+            $label = trim((string) ($pattern['label'] ?? 'Revenu recurrent')) ?: 'Revenu recurrent';
+            $credit = [
+                'label' => $label,
+                'amount' => $amount,
+                'day_of_month' => $dayOfMonth,
+                'occurrences' => $occurrences,
+            ];
+            $credits[] = $credit;
+
+            foreach ($occurrences as $occurrence) {
+                $schedule[$occurrence['date']] = round(($schedule[$occurrence['date']] ?? 0.0) + $amount, 2);
+                if ($nextRecurring === null || strcmp((string) $occurrence['date'], (string) $nextRecurring['date']) < 0) {
+                    $nextRecurring = [
+                        'label' => $label,
+                        'amount' => $amount,
+                        'date' => $occurrence['date'],
+                    ];
+                }
+            }
+        }
+
+        usort($credits, static fn (array $left, array $right): int => ((float) ($right['amount'] ?? 0.0)) <=> ((float) ($left['amount'] ?? 0.0)));
+
+        return [$credits, $schedule, $nextRecurring];
+    }
+
+    /**
+     * @return array<int, array{date:string,label:string}>
+     */
+    private function buildRecurringCreditOccurrences(\DateTimeImmutable $today, int $dayOfMonth, float $amount, int $horizonDays): array
+    {
+        if ($amount <= 0 || $horizonDays <= 0) {
+            return [];
+        }
+
+        $endDate = $today->modify(sprintf('+%d day', $horizonDays));
+        $cursor = $today->modify('first day of this month');
+        $occurrences = [];
+
+        while ($cursor <= $endDate) {
+            $lastDay = (int) $cursor->format('t');
+            $targetDay = min($dayOfMonth, $lastDay);
+            $candidate = $cursor->setDate(
+                (int) $cursor->format('Y'),
+                (int) $cursor->format('m'),
+                $targetDay
+            );
+
+            if ($candidate > $today && $candidate <= $endDate) {
+                $occurrences[] = [
+                    'date' => $candidate->format('Y-m-d'),
+                    'label' => $candidate->format('d/m'),
+                ];
+            }
+
+            $cursor = $cursor->modify('+1 month');
+        }
+
+        return $occurrences;
+    }
+
+    private function resolveRecurringCreditSignature(string $category, string $description): string
+    {
+        $base = strtolower(trim($category));
+        if ($base !== '' && $base !== 'autre') {
+            return $base;
+        }
+
+        $cleanDescription = strtolower(trim(preg_replace('/\d+/', '', $description) ?? $description));
+
+        return $cleanDescription !== '' ? $cleanDescription : 'credit';
+    }
+
+    private function resolveRecurringCreditLabel(string $category, string $description): string
+    {
+        $categoryLabel = trim($category);
+        if ($categoryLabel !== '' && strtolower($categoryLabel) !== 'autre') {
+            return $categoryLabel;
+        }
+
+        $descriptionLabel = trim($description);
+
+        return $descriptionLabel !== '' ? $descriptionLabel : 'Revenu recurrent';
+    }
+
+    private function isRecurringIncomeKeyword(string $category, string $description): bool
+    {
+        $text = strtolower(trim($category.' '.$description));
+
+        foreach (['salaire', 'salary', 'payroll', 'paie', 'revenu'] as $keyword) {
+            if (str_contains($text, $keyword)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function extractNumberAfterKeywords(string $text, array $keywords, float $fallback): float
@@ -498,5 +1056,33 @@ final class InsightsService
     private function currentMonth(): string
     {
         return (new \DateTimeImmutable())->format('Y-m');
+    }
+
+    private function monthKeyFromOffset(int $monthsBack): string
+    {
+        return (new \DateTimeImmutable('first day of this month'))
+            ->modify(sprintf('-%d month', max(0, $monthsBack)))
+            ->format('Y-m');
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $accounts
+     * @return array<string, mixed>|null
+     */
+    private function resolveSurplusSourceAccount(array $accounts, float $requiredAmount): ?array
+    {
+        $activeAccounts = array_values(array_filter($accounts, static function (array $account): bool {
+            return strtolower(trim((string) ($account['statutCompte'] ?? ''))) === 'actif';
+        }));
+
+        usort($activeAccounts, static fn (array $left, array $right): int => ((float) ($right['solde'] ?? 0.0)) <=> ((float) ($left['solde'] ?? 0.0)));
+
+        foreach ($activeAccounts as $account) {
+            if ((float) ($account['solde'] ?? 0.0) >= $requiredAmount) {
+                return $account;
+            }
+        }
+
+        return $activeAccounts[0] ?? null;
     }
 }

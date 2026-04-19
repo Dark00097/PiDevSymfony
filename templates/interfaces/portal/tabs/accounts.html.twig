@@ -1,4 +1,4 @@
-﻿{% set activity_logs = support.activity|default([]) %}
+﻿﻿﻿﻿{% set activity_logs = support.activity|default([]) %}
 {% set account_history = support.account_history|default([]) %}
 {% set all_accounts = support.all_accounts|default(items) %}
 {% set account_query = support.account_query|default({ q: '', search_in: 'all', filter: 'all', sort: '', dir: 'asc' }) %}
@@ -35,6 +35,16 @@
 {% set account_data = support.form_data_compte|default({}) %}
 {% set vault_errors = support.form_errors_vault|default({}) %}
 {% set vault_data = support.form_data_vault|default({}) %}
+{% set wheel = support.wheel|default({}) %}
+{% set wheel_security = support.wheel_security|default({ locked: false, message: '' }) %}
+{% set wheel_feedback = support.wheel_feedback|default({ type: '', message: '' }) %}
+{% set surplus = support.surplus|default({}) %}
+{% set prediction = support.prediction|default({}) %}
+{% set assistant_view = app.request.query.get('assistant') == '1' %}
+{% set wheel_view = app.request.query.get('show_wheel') == '1' %}
+{% set surplus_view = app.request.query.get('show_surplus') == '1' %}
+{% set prediction_view = app.request.query.get('show_prediction') == '1' %}
+{% set assistant_panel_active = assistant_view or wheel_view or surplus_view or prediction_view %}
 
 <style>
 .acc-page{display:flex;flex-direction:column;gap:22px}
@@ -72,6 +82,10 @@
 .acc-panel-icon{width:48px;height:48px;border-radius:16px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;color:#fff;font-size:19px;border:1px solid rgba(255,255,255,.2)}
 .acc-panel-head h2{margin:0;font-size:20px;font-weight:800;color:#fff}
 .acc-panel-head p{margin:4px 0 0;font-size:13px;color:rgba(255,255,255,.7)}
+.acc-panel-tools{margin-left:auto;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.acc-panel-voice-btn{width:42px;height:42px;border-radius:50%;border:2px solid rgba(255,255,255,.3);background:rgba(255,255,255,.15);color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+.acc-panel-voice-btn:hover{background:rgba(255,255,255,.24);transform:translateY(-1px)}
+.acc-panel-voice-btn i{pointer-events:none}
 .acc-voice{display:flex;align-items:center;gap:14px;padding:16px 24px;background:linear-gradient(90deg,#0d9488,#0891b2);color:#fff}
 .acc-voice i{font-size:18px}
 .acc-voice strong{display:block;font-size:15px}
@@ -175,6 +189,93 @@
 .acc-history-main time{font-size:11px;color:#8aa0b5}
 @media (max-width:1100px){.acc-hero{grid-template-columns:1fr;gap:16px}.acc-hero-metrics{justify-content:flex-start}.acc-hero-actions{justify-content:flex-start}.acc-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.acc-body{grid-template-columns:1fr}.acc-search{min-width:100%}}
 @media (max-width:640px){.acc-stats{grid-template-columns:1fr}.acc-grid-2{grid-template-columns:1fr}.acc-card-meta{grid-template-columns:1fr}.acc-panel-head h2,.acc-board-title h3,.acc-vault-title h3{font-size:22px}}
+
+/* ── Pending card styles ── */
+.acc-card.acc-card-pending {
+    border: 2px dashed #f59e0b;
+    box-shadow: 0 0 0 4px rgba(245,158,11,.12), 0 12px 28px rgba(15,40,72,.08);
+    position: relative;
+    animation: acc-float 3s ease-in-out infinite;
+}
+@keyframes acc-float {
+    0%,100% { transform: translateY(0); }
+    50%      { transform: translateY(-6px); }
+}
+.acc-pending-banner {
+    background: linear-gradient(90deg, #f59e0b, #d97706);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+    padding: 7px 14px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    letter-spacing: .03em;
+}
+.acc-pending-banner i { font-size: 12px; animation: acc-spin 2s linear infinite; }
+@keyframes acc-spin { to { transform: rotate(360deg); } }
+.acc-card-body-blurred {
+    filter: blur(3px);
+    user-select: none;
+    pointer-events: none;
+}
+.acc-status-pill.en { background: #fef3c7; color: #d97706; }
+.acc-status-pill.attente { background: #fef3c7; color: #d97706; }
+
+/* ── Voice button states ── */
+#acc-voice-btn.is-listening {
+    background: #ef4444 !important;
+    border-color: #ef4444 !important;
+    animation: acc-pulse-mic 1s ease infinite;
+}
+#acc-voice-btn.is-processing {
+    background: #f59e0b !important;
+    border-color: #f59e0b !important;
+}
+@keyframes acc-pulse-mic {
+    0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,.5); }
+    50%      { box-shadow: 0 0 0 10px rgba(239,68,68,0); }
+}
+.acc-voice-toast {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+    background: #0a2540; color: #fff; padding: 10px 22px;
+    border-radius: 999px; font-size: 13px; font-weight: 700;
+    z-index: 9999; display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.25);
+    animation: acc-toast-in .25s ease;
+}
+@keyframes acc-toast-in {
+    from { opacity:0; transform: translateX(-50%) translateY(12px); }
+    to   { opacity:1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ── Language selector ── */
+.acc-lang-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.acc-lang-select {
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    padding: 0 14px;
+    background: rgba(255,255,255,.12) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23fff'/%3E%3C/svg%3E") no-repeat right 10px center;
+    padding-right: 28px;
+    color: #fff;
+    font-weight: 700;
+    font-size: 13px;
+    border: 1px solid rgba(255,255,255,.24);
+    border-radius: 999px;
+    height: 36px;
+    min-width: 130px;
+    outline: none;
+    transition: background .2s;
+}
+.acc-lang-select:hover { background-color: rgba(255,255,255,.22); }
+.acc-lang-select option { background: #0a2540; color: #fff; }
+.acc-lang-spinner { color: rgba(255,255,255,.8); font-size: 14px; }
 </style>
 
 <section class="acc-page">
@@ -194,9 +295,22 @@
             <div class="acc-hero-metric"><strong>{{ blocked_count }}</strong><span>Bloques</span></div>
         </div>
         <div class="acc-hero-actions">
-            <a class="acc-hero-btn" href="{{ path(route_name, { tab: 'accounts' }) }}"><i class="fa-solid fa-download"></i><span>PDF</span></a>
+            <div class="acc-lang-wrap">
+                <select class="acc-hero-btn acc-lang-select" id="acc-lang-select" title="Changer la langue">
+                    <option value="fr" selected>🇫🇷 Français</option>
+                    <option value="en">🇬🇧 English</option>
+                    <option value="ar">🇸🇦 العربية</option>
+                    <option value="es">🇪🇸 Español</option>
+                    <option value="de">🇩🇪 Deutsch</option>
+                    <option value="it">🇮🇹 Italiano</option>
+                </select>
+                <span class="acc-lang-spinner" id="acc-lang-spinner" hidden>
+                    <i class="fa-solid fa-circle-notch fa-spin"></i>
+                </span>
+            </div>
             <button class="acc-hero-btn" type="button" id="acc-open-history"><i class="fa-solid fa-clock-rotate-left"></i><span>Historique</span></button>
-            <a class="acc-hero-btn ai" href="{{ path('portal_features', { section: 'insights' }) }}"><i class="fa-solid fa-brain"></i><span>Tourne Roue</span></a>
+            <a class="acc-hero-btn" href="{{ path('portal_export_pdf') }}" title="Exporter PDF" style="background:rgba(255,255,255,.12);"><i class="fa-solid fa-file-pdf"></i><span>Exporter PDF</span></a>
+            <a class="acc-hero-btn ai" href="{{ path(route_name, query_state|merge({ assistant: '1' })) }}"><i class="fa-solid fa-sparkles"></i><span>Assistante IA</span></a>
             <a class="acc-hero-btn cta" href="{{ path(route_name, query_state|merge({ show_vault: '1' })) }}">
                 <i class="fa-solid fa-plus"></i><span>Nouvelle</span>
             </a>
@@ -246,6 +360,25 @@
         </article>
     </div>
 
+    {% if assistant_panel_active %}
+        {% include 'interfaces/portal/tabs/_accounts_ai_assistant.html.twig' with {
+            route_name: route_name,
+            query_state: query_state,
+            current_user: current_user,
+            all_accounts: all_accounts,
+            support: support,
+            notifications: notifications|default([]),
+            wheel: wheel,
+            wheel_security: wheel_security,
+            wheel_feedback: wheel_feedback,
+            surplus: surplus,
+            prediction: prediction,
+            assistant_view: assistant_view,
+            wheel_view: wheel_view,
+            surplus_view: surplus_view,
+            prediction_view: prediction_view
+        } only %}
+    {% else %}
     <div class="acc-body">
 
     {# ══ COLONNE GAUCHE : formulaires ══ #}
@@ -258,6 +391,11 @@
             <div>
                 <h2>Compte Bancaire</h2>
                 <p>Créer ou modifier un compte</p>
+            </div>
+            <div class="acc-panel-tools">
+                <button type="button" class="acc-panel-voice-btn" id="acc-voice-btn" title="Remplir par la voix" aria-label="Remplir par la voix">
+                    <i class="fa-solid fa-microphone-lines" id="acc-voice-icon"></i>
+                </button>
             </div>
         </div>
 
@@ -278,12 +416,16 @@
         {% set date_value = account_data.dateOuverture is defined ? account_data.dateOuverture : (edit_account ? edit_account.dateOuverture : 'now'|date('Y-m-d')) %}
         {% set retrait_value = account_data.plafondRetrait is defined ? account_data.plafondRetrait : (edit_account ? edit_account.plafondRetrait : '') %}
         {% set virement_value = account_data.plafondVirement is defined ? account_data.plafondVirement : (edit_account ? edit_account.plafondVirement : '') %}
+        {% set is_create_mode = edit_account is null %}
         <form method="post" class="acc-form" action="{{ path(route_name, query_state) }}" novalidate>
             <input type="hidden" name="tab"      value="accounts">
             <input type="hidden" name="action"   value="account_save">
             <input type="hidden" name="idCompte" value="{{ account_id_value }}">
             <input type="hidden" name="idUser"   value="{{ current_user.idUser|default('') }}">
             <input type="hidden" name="selected_account" value="{{ selected_id }}">
+            {% if is_create_mode %}
+                <input type="hidden" name="statutCompte" value="En attente">
+            {% endif %}
 
             <div class="acc-form-block">
                 <div class="acc-form-block-head">
@@ -311,13 +453,18 @@
                         </div>
                         <div class="acc-field">
                             <label><i class="fa-solid fa-circle-dot"></i> Statut <span style="color:#e53935">*</span></label>
-                            <select name="statutCompte" required class="{{ account_errors.statutCompte is defined ? 'acc-invalid' : '' }}">
-                                <option value="">— Sélectionner —</option>
-                                {% for v in ['Actif','Fermé','Bloqué'] %}
-                                    <option value="{{ v }}" {{ statut_value == v ? 'selected' : '' }}>{{ v }}</option>
-                                {% endfor %}
-                            </select>
-                            {% if account_errors.statutCompte is defined %}<div class="acc-field-error">{{ account_errors.statutCompte }}</div>{% endif %}
+                            {% if is_create_mode %}
+                                <input type="text" value="En attente de validation admin" readonly>
+                                <div class="acc-field-ok">Le compte sera envoyé à l'administration pour validation.</div>
+                            {% else %}
+                                <select name="statutCompte" required class="{{ account_errors.statutCompte is defined ? 'acc-invalid' : '' }}">
+                                    <option value="">— Sélectionner —</option>
+                                    {% for v in ['Actif','Fermé','Bloqué'] %}
+                                        <option value="{{ v }}" {{ statut_value == v ? 'selected' : '' }}>{{ v }}</option>
+                                    {% endfor %}
+                                </select>
+                                {% if account_errors.statutCompte is defined %}<div class="acc-field-error">{{ account_errors.statutCompte }}</div>{% endif %}
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -339,7 +486,10 @@
                         </div>
                         <div class="acc-field">
                             <label><i class="fa-solid fa-calendar-day"></i> Date d'ouverture</label>
-                            <input type="date" name="dateOuverture" class="{{ account_errors.dateOuverture is defined ? 'acc-invalid' : '' }}"
+                            <input type="date" name="dateOuverture"
+                                   min="{{ 'now'|date('Y-m-d') }}"
+                                   max="{{ 'now'|date('Y-m-d') }}"
+                                   class="{{ account_errors.dateOuverture is defined ? 'acc-invalid' : '' }}"
                                    value="{{ date_value }}">
                             {% if account_errors.dateOuverture is defined %}<div class="acc-field-error">{{ account_errors.dateOuverture }}</div>{% endif %}
                         </div>
@@ -366,7 +516,7 @@
             <div class="acc-form-actions">
                 <button type="submit" class="acc-btn acc-btn-save">
                     <i class="fa-solid fa-floppy-disk"></i>
-                    {{ edit_account ? 'Mettre à jour' : 'Enregistrer' }}
+                    {{ edit_account ? 'Mettre à jour' : 'Ajouter' }}
                 </button>
                 {% if edit_account %}
                     <a href="{{ path(route_name, query_state) }}" class="acc-btn acc-btn-cancel">
@@ -607,9 +757,16 @@
                 {% for account in items %}
                     {% set type_key = account.typeCompte|default('Courant')|lower|replace({'é':'e','è':'e','ê':'e'}) %}
                     {% set stat_key = account.statutCompte|default('Actif')|lower|replace({'é':'e','è':'e'}) %}
-                    <div class="acc-card account-link {{ type_key }} {{ selected_id ~ '' == account.idCompte ~ '' ? 'is-selected' : '' }}"
+                    {% set is_pending = 'attente' in stat_key %}
+                    <div class="acc-card account-link {{ type_key }} {{ selected_id ~ '' == account.idCompte ~ '' ? 'is-selected' : '' }} {{ is_pending ? 'acc-card-pending' : '' }}"
                          data-account-select
                          data-account-url="{{ path(route_name, query_state|merge({ selected_account: account.idCompte })) }}">
+                        {% if is_pending %}
+                        <div class="acc-pending-banner">
+                            <i class="fa-solid fa-clock"></i>
+                            En attente de validation par l'administrateur
+                        </div>
+                        {% endif %}
                         <div class="acc-card-top">
                             <div class="acc-card-top-left">
                                 <div class="acc-card-badge-icon">
@@ -624,7 +781,7 @@
                         <div class="acc-card-body">
                             <div class="acc-card-number">{{ account.numeroCompte }}</div>
                             <div class="acc-card-balance-label">Solde disponible</div>
-                            <div class="acc-card-balance">{{ account.solde|number_format(2, '.', ' ') }} DT</div>
+                            <div class="acc-card-balance">{{ account.solde|number_format(2, '.', ' ')~' DT' }}</div>
                             <div class="acc-card-status">
                                 <span class="acc-status-pill {{ stat_key }}">{{ account.statutCompte|default('Actif') }}</span>
                             </div>
@@ -639,6 +796,7 @@
                                 </div>
                             </div>
                         </div>
+                        {% if not is_pending %}
                         <div class="acc-card-actions">
                             <a href="{{ path(route_name, query_state|merge({ edit_id: account.idCompte, selected_account: selected_id })) }}"
                                class="acc-card-edit">
@@ -662,6 +820,7 @@
                                 </form>
                             </div>
                         </div>
+                        {% endif %}
                     </div>
                 {% endfor %}
             {% endif %}
@@ -705,13 +864,13 @@
                 </div>
 
                 {% if account_vaults is empty %}
-                    <div style="padding:40px 20px;text-align:center;color:#7c90a4;">
+                    <div id="vault-list-{{ selected_id }}" style="padding:40px 20px;text-align:center;color:#7c90a4;">
                         <i class="fa-solid fa-vault" style="font-size:2.5rem;opacity:.2;display:block;margin-bottom:12px;"></i>
                         <strong style="display:block;font-size:14px;color:#102a43;">Aucun coffre lié</strong>
                         <span style="font-size:13px;">Cliquez sur "Nouvelle" pour créer un coffre pour ce compte.</span>
                     </div>
                 {% else %}
-                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;padding:20px;">
+                    <div id="vault-list-{{ selected_id }}" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;padding:20px;">
                         {% for vault in account_vaults %}
                             {% set pct      = vault.progression|default(0) %}
                             {% set barColor = vault.bar_color|default('#ef4444') %}
@@ -778,11 +937,22 @@
                         {% endfor %}
                     </div>
                 {% endif %}
+
+                {% include 'interfaces/portal/tabs/_vault_ai_suggestions.html.twig' with {
+                    selected_id: selected_id,
+                    selected_account: selected_account,
+                    account_vaults: account_vaults,
+                    all_accounts: all_accounts,
+                    route_name: route_name,
+                    query_state: query_state,
+                    current_user: current_user
+                } %}
             </div>
         {% endif %}
     </div>
 
 </div>
+    {% endif %}
 <div class="acc-modal-wrap" id="acc-history-modal" hidden>
     <button class="acc-modal-backdrop" type="button" data-acc-history-close aria-label="Fermer"></button>
     <div class="acc-modal">
@@ -828,49 +998,38 @@
     const $ = (s, c = document) => c.querySelector(s);
     const $$ = (s, c = document) => Array.from(c.querySelectorAll(s));
 
-    const historyModal = $('#acc-history-modal');
-    const openHistoryBtn = $('#acc-open-history');
-    const historyTitle = $('#acc-history-title');
+    const historyModal    = $('#acc-history-modal');
+    const openHistoryBtn  = $('#acc-open-history');
+    const historyTitle    = $('#acc-history-title');
     const historySubtitle = $('#acc-history-subtitle');
-    const historyRows = $$('[data-history-row]');
-    const historyEmpty = $('#acc-history-empty');
+    const historyRows     = $$('[data-history-row]');
+    const historyEmpty    = $('#acc-history-empty');
 
-    function normalize(value) {
-        return (value || '')
-            .toString()
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '');
+    function normalize(v) {
+        return (v||'').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
     }
 
     function openHistory(accountId, accountNumber) {
         if (!historyModal) return;
         if (!accountId) {
-            historyRows.forEach((row) => {
-                row.hidden = false;
-            });
-            if (historyTitle) historyTitle.textContent = 'Historique des opérations';
+            historyRows.forEach(r => { r.hidden = false; });
+            if (historyTitle)    historyTitle.textContent    = 'Historique des opérations';
             if (historySubtitle) historySubtitle.textContent = 'Toutes les actions enregistrées automatiquement';
-            if (historyEmpty) historyEmpty.hidden = historyRows.length === 0;
-            historyModal.hidden = false;
-            document.body.style.overflow = 'hidden';
-            return;
+            if (historyEmpty)    historyEmpty.hidden = historyRows.length === 0;
+        } else {
+            const idNeedle  = normalize('#' + accountId);
+            const numNeedle = normalize(accountNumber);
+            let visible = 0;
+            historyRows.forEach(row => {
+                const hay   = normalize(row.dataset.historyText);
+                const match = hay.includes(idNeedle) || hay.includes(numNeedle);
+                row.hidden  = !match;
+                if (match) visible++;
+            });
+            if (historyTitle)    historyTitle.textContent    = 'Historique - ' + accountNumber;
+            if (historySubtitle) historySubtitle.textContent = 'Actions recentes liees au compte #' + accountId;
+            if (historyEmpty)    historyEmpty.hidden = visible !== 0;
         }
-
-        const idNeedle = normalize('#' + accountId);
-        const numNeedle = normalize(accountNumber);
-        let visible = 0;
-
-        historyRows.forEach((row) => {
-            const hay = normalize(row.dataset.historyText);
-            const match = hay.includes(idNeedle) || hay.includes(numNeedle);
-            row.hidden = !match;
-            if (match) visible++;
-        });
-
-        if (historyTitle) historyTitle.textContent = 'Historique - ' + accountNumber;
-        if (historySubtitle) historySubtitle.textContent = 'Actions recentes liees au compte #' + accountId;
-        if (historyEmpty) historyEmpty.hidden = visible !== 0;
         historyModal.hidden = false;
         document.body.style.overflow = 'hidden';
     }
@@ -881,199 +1040,39 @@
         document.body.style.overflow = '';
     }
 
-    $$('[data-acc-history-open]').forEach((button) => {
-        button.addEventListener('click', () => openHistory(button.dataset.accountId || '', button.dataset.accountNumber || 'Compte'));
-    });
-
+    $$('[data-acc-history-open]').forEach(btn =>
+        btn.addEventListener('click', () => openHistory(btn.dataset.accountId||'', btn.dataset.accountNumber||'Compte'))
+    );
     openHistoryBtn?.addEventListener('click', () => openHistory('', ''));
+    $$('[data-acc-history-close]').forEach(btn => btn.addEventListener('click', closeHistory));
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeHistory(); });
 
-    $$('[data-acc-history-close]').forEach((button) => {
-        button.addEventListener('click', closeHistory);
-    });
-
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') closeHistory();
-    });
-
-    const form = $('#acc-account-form');
-    const cardsRoot = $('#acc-cards');
-    if (!form || !cardsRoot) return;
-
-    const fields = {
-        id: $('#acc-idCompte'),
-        numero: $('#acc-numero'),
-        solde: $('#acc-solde'),
-        date: $('#acc-date'),
-        statut: $('#acc-statut'),
-        type: $('#acc-type'),
-        retrait: $('#acc-retrait'),
-        virement: $('#acc-virement')
-    };
-    const vaultFields = {
-        id: $('#vault-idCoffre'),
-        nom: $('#vault-nom'),
-        objectif: $('#vault-objectif'),
-        actuel: $('#vault-actuel'),
-        dateCreation: $('#vault-dateCreation'),
-        dateObjectifs: $('#vault-dateObjectifs'),
-        status: $('#vault-status'),
-        verrouille: $('#vault-verrouille'),
-        compte: $('#vault-compte')
-    };
-
-    const searchInput = $('#acc-search');
-    const sortSelect = $('#acc-sort');
-    const typeButtons = $$('#acc-type-tabs [data-type-filter]');
-    const vaultPanel = $('#acc-vault-panel');
-    const toggleVaultBtn = $('#acc-toggle-vault');
-    let currentType = 'all';
-
-    function getCards() {
-        return $$('[data-account-card]', cardsRoot);
-    }
-
-    function resetFormState() {
-        window.setTimeout(() => {
-            fields.id.value = '';
-            fields.date.value = '{{ 'now'|date('Y-m-d') }}';
-            fields.statut.value = 'Actif';
-            fields.type.value = '';
-        }, 0);
-    }
-
-    function resetVaultFormState() {
-        window.setTimeout(() => {
-            if (vaultFields.id) vaultFields.id.value = '';
-            if (vaultFields.dateCreation) vaultFields.dateCreation.value = '{{ 'now'|date('Y-m-d') }}';
-            if (vaultFields.dateObjectifs) vaultFields.dateObjectifs.value = '';
-            if (vaultFields.status) vaultFields.status.value = 'Actif';
-            if (vaultFields.verrouille) vaultFields.verrouille.value = '0';
-            if (vaultFields.compte) vaultFields.compte.value = '';
-        }, 0);
-    }
-
-    function showVaultForm() {
-        if (!vaultPanel) return;
-        vaultPanel.hidden = false;
-        vaultPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-
-    function loadCard(button) {
-        const rawStatus = button.dataset.statut || '';
-        const rawType = button.dataset.type || '';
-        const normalizedStatus = normalize(rawStatus);
-        const normalizedType = normalize(rawType);
-        fields.id.value = button.dataset.id || '';
-        fields.numero.value = button.dataset.numero || '';
-        fields.solde.value = button.dataset.solde || '';
-        fields.date.value = button.dataset.date || '';
-        fields.statut.value = normalizedStatus.includes('bloq') ? 'Bloque' : (normalizedStatus.includes('ferm') ? 'Ferme' : 'Actif');
-        fields.type.value = normalizedType.includes('prof') ? 'Professionnel' : (normalizedType.includes('epar') ? 'Epargne' : 'Courant');
-        fields.retrait.value = button.dataset.retrait || '';
-        fields.virement.value = button.dataset.virement || '';
-        if (vaultFields.compte) vaultFields.compte.value = button.dataset.id || '';
-        document.getElementById('acc-form-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-
-    function applyFilters() {
-        const keyword = normalize(searchInput?.value || '');
-        getCards().forEach((card) => {
-            const typeOk = currentType === 'all' || normalize(card.dataset.accountType).includes(currentType);
-            const textOk = keyword === '' || normalize(card.dataset.accountSearch).includes(keyword);
-            card.hidden = !(typeOk && textOk);
-        });
-    }
-
-    function sortCards() {
-        const value = sortSelect?.value || 'solde-desc';
-        const [key, direction] = value.split('-');
-        const factor = direction === 'asc' ? 1 : -1;
-        getCards()
-            .sort((a, b) => {
-                let va = '';
-                let vb = '';
-                if (key === 'solde') {
-                    va = parseFloat(a.dataset.accountBalance || '0');
-                    vb = parseFloat(b.dataset.accountBalance || '0');
-                } else if (key === 'date') {
-                    va = a.dataset.accountDate || '';
-                    vb = b.dataset.accountDate || '';
-                } else if (key === 'statut') {
-                    va = normalize(a.dataset.accountStatus);
-                    vb = normalize(b.dataset.accountStatus);
-                } else {
-                    va = normalize(a.dataset.accountNumber);
-                    vb = normalize(b.dataset.accountNumber);
-                }
-                return va < vb ? -1 * factor : va > vb ? 1 * factor : 0;
-            })
-            .forEach((card) => cardsRoot.appendChild(card));
-    }
-
-    $$('[data-acc-edit]').forEach((button) => {
-        button.addEventListener('click', () => loadCard(button));
-    });
-
-    $$('[data-account-select]').forEach((card) => {
-        card.addEventListener('click', (event) => {
-            if (event.target.closest('a, button, form, input, select, textarea, label')) {
-                return;
-            }
+    $$('[data-account-select]').forEach(card => {
+        card.addEventListener('click', e => {
+            if (e.target.closest('a, button, form, input, select, textarea, label')) return;
             const url = card.dataset.accountUrl;
-            if (url) {
-                window.location.href = url;
-            }
+            if (url) window.location.href = url;
         });
     });
-
-    typeButtons.forEach((button) => {
-        button.addEventListener('click', () => {
-            currentType = normalize(button.dataset.typeFilter || 'all');
-            typeButtons.forEach((item) => item.classList.remove('active'));
-            button.classList.add('active');
-            applyFilters();
-        });
-    });
-
-    searchInput?.addEventListener('input', applyFilters);
-    sortSelect?.addEventListener('change', () => {
-        sortCards();
-        applyFilters();
-    });
-    $('#acc-reset-btn')?.addEventListener('click', resetFormState);
-    $('#vault-reset-btn')?.addEventListener('click', resetVaultFormState);
-    toggleVaultBtn?.addEventListener('click', () => {
-        showVaultForm();
-        resetVaultFormState();
-    });
-
-    resetFormState();
-    resetVaultFormState();
-    sortCards();
-    applyFilters();
 })();
 </script>
 
 <script>
-/* ── Validation live formulaire Compte Bancaire ── */
 (function() {
     var today = new Date(); today.setHours(0,0,0,0);
 
     function setValid(el, msgEl) {
-        el.classList.remove('acc-invalid');
-        el.classList.add('acc-valid');
+        el.classList.remove('acc-invalid'); el.classList.add('acc-valid');
         if (msgEl) { msgEl.className = 'acc-field-ok'; msgEl.textContent = 'Valide'; }
     }
     function setError(el, msgEl, msg) {
-        el.classList.remove('acc-valid');
-        el.classList.add('acc-invalid');
+        el.classList.remove('acc-valid'); el.classList.add('acc-invalid');
         if (msgEl) { msgEl.className = 'acc-field-error'; msgEl.textContent = msg; }
     }
     function clearState(el, msgEl) {
         el.classList.remove('acc-valid','acc-invalid');
         if (msgEl) { msgEl.className = ''; msgEl.textContent = ''; }
     }
-
     function getOrCreateMsg(el) {
         var next = el.nextElementSibling;
         if (next && (next.classList.contains('acc-field-error') || next.classList.contains('acc-field-ok'))) return next;
@@ -1081,65 +1080,46 @@
         el.parentNode.insertBefore(span, el.nextSibling);
         return span;
     }
-
     function validateField(el) {
-        var name = el.name;
-        var val  = el.value.trim();
-        var msg  = getOrCreateMsg(el);
-
+        var name = el.name, val = el.value.trim(), msg = getOrCreateMsg(el);
         if (name === 'numeroCompte') {
-            if (val === '') return setError(el, msg, 'Le numéro de compte est obligatoire.');
-            if (!/^CB-\d{3}$/.test(val)) return setError(el, msg, 'Format requis : CB-XXX (ex: CB-123).');
+            if (!val) return setError(el, msg, 'Le numéro de compte est obligatoire.');
+            if (!/^CB-\d{3,}$/.test(val)) return setError(el, msg, 'Format requis : CB-XXX (ex: CB-123).');
             return setValid(el, msg);
         }
-        if (name === 'typeCompte') {
-            if (!val) return setError(el, msg, 'Veuillez sélectionner un type.');
-            return setValid(el, msg);
-        }
-        if (name === 'statutCompte') {
-            if (!val) return setError(el, msg, 'Veuillez sélectionner un statut.');
-            return setValid(el, msg);
-        }
+        if (name === 'typeCompte')   { return val ? setValid(el, msg) : setError(el, msg, 'Veuillez sélectionner un type.'); }
+        if (name === 'statutCompte') { return val ? setValid(el, msg) : setError(el, msg, 'Veuillez sélectionner un statut.'); }
         if (name === 'solde') {
-            if (val === '') return setError(el, msg, 'Le solde est obligatoire.');
+            if (!val) return setError(el, msg, 'Le solde est obligatoire.');
             if (parseFloat(val) < 0) return setError(el, msg, 'Le solde doit être ≥ 0.');
             return setValid(el, msg);
         }
         if (name === 'dateOuverture') {
             if (!val) return clearState(el, msg);
             var d = new Date(val); d.setHours(0,0,0,0);
-            if (d > today) return setError(el, msg, "La date ne doit pas dépasser aujourd'hui.");
+            var todayStr = today.toISOString().split('T')[0];
+            if (val !== todayStr) return setError(el, msg, 'La date actuelle est obligatoire.');
             return setValid(el, msg);
         }
-        if (name === 'plafondRetrait') {
-            if (val === '') return clearState(el, msg);
-            if (parseFloat(val) <= 0) return setError(el, msg, 'Doit être > 0.');
-            return setValid(el, msg);
-        }
-        if (name === 'plafondVirement') {
-            if (val === '') return clearState(el, msg);
-            if (parseFloat(val) <= 0) return setError(el, msg, 'Doit être > 0.');
+        if (name === 'plafondRetrait' || name === 'plafondVirement') {
+            if (!val) return clearState(el, msg);
+            if (parseFloat(val) < 10 || parseFloat(val) > 1000) return setError(el, msg, 'Doit être entre 10 DT et 1000 DT.');
             return setValid(el, msg);
         }
     }
-
-    var form = document.querySelector('form[action*="accounts"] input[name="action"][value="account_save"]');
-    if (form) form = form.closest('form');
-    if (!form) return;
-
+    var formInput = document.querySelector('input[name="action"][value="account_save"]');
+    if (!formInput) return;
+    var form = formInput.closest('form');
     var fields = ['numeroCompte','typeCompte','statutCompte','solde','dateOuverture','plafondRetrait','plafondVirement'];
     fields.forEach(function(name) {
-        var el = form.querySelector('[name="' + name + '"]');
+        var el = form.querySelector('[name="'+name+'"]');
         if (!el) return;
-        el.addEventListener('input', function() { validateField(el); });
-        el.addEventListener('change', function() { validateField(el); });
-        el.addEventListener('blur', function() { validateField(el); });
+        ['input','change','blur'].forEach(function(ev) { el.addEventListener(ev, function() { validateField(el); }); });
     });
-
     form.addEventListener('submit', function(e) {
         var ok = true;
         fields.forEach(function(name) {
-            var el = form.querySelector('[name="' + name + '"]');
+            var el = form.querySelector('[name="'+name+'"]');
             if (!el) return;
             validateField(el);
             if (el.classList.contains('acc-invalid')) ok = false;
@@ -1150,116 +1130,627 @@
 </script>
 
 <script>
-/* ── Validation live formulaire Coffre Virtuel ── */
 (function() {
     var today = new Date(); today.setHours(0,0,0,0);
-
-    function setValid(el, msgEl) {
-        el.classList.remove('acc-invalid');
-        el.classList.add('acc-valid');
-        if (msgEl) { msgEl.className = 'acc-field-ok'; msgEl.textContent = 'Valide'; }
+    function setValid(el,m){el.classList.remove('acc-invalid');el.classList.add('acc-valid');if(m){m.className='acc-field-ok';m.textContent='Valide';}}
+    function setError(el,m,msg){el.classList.remove('acc-valid');el.classList.add('acc-invalid');if(m){m.className='acc-field-error';m.textContent=msg;}}
+    function clearState(el,m){el.classList.remove('acc-valid','acc-invalid');if(m){m.className='';m.textContent='';}}
+    function getOrCreateMsg(el){var next=el.nextElementSibling;if(next&&(next.classList.contains('acc-field-error')||next.classList.contains('acc-field-ok')))return next;var s=document.createElement('span');el.parentNode.insertBefore(s,el.nextSibling);return s;}
+    function validate(el,form){
+        var name=el.name,val=el.value.trim(),m=getOrCreateMsg(el);
+        if(name==='nom'){return val.length<3?setError(el,m,'Le nom doit contenir au moins 3 caractères.'):setValid(el,m);}
+        if(name==='objectifMontant'){if(!val)return setError(el,m,"L'objectif est obligatoire.");return parseFloat(val)<=0?setError(el,m,"L'objectif doit être > 0."):setValid(el,m);}
+        if(name==='montantActuel'){if(!val)return clearState(el,m);if(parseFloat(val)<0)return setError(el,m,'Le montant actuel doit être ≥ 0.');var o=form.querySelector('[name="objectifMontant"]');if(o&&o.value&&parseFloat(val)>parseFloat(o.value))return setError(el,m,"Ne doit pas dépasser l'objectif.");return setValid(el,m);}
+        if(name==='dateCreation'){if(!val)return clearState(el,m);var d=new Date(val);d.setHours(0,0,0,0);return d>today?setError(el,m,"La date de création ne doit pas dépasser aujourd'hui."):setValid(el,m);}
+        if(name==='dateObjectifs'){if(!val)return clearState(el,m);var dc=form.querySelector('[name="dateCreation"]');if(dc&&dc.value){var a=new Date(dc.value),b=new Date(val);a.setHours(0,0,0,0);b.setHours(0,0,0,0);if(b<a)return setError(el,m,'Doit être ≥ à la date de création.');}return setValid(el,m);}
+        if(name==='status'){return val?setValid(el,m):setError(el,m,'Veuillez sélectionner un statut.');}
+        if(name==='idCompte'){return(!val||val==='0')?setError(el,m,'Veuillez sélectionner un compte.'):setValid(el,m);}
+        if(name==='estVerrouille'){var o2=form.querySelector('[name="objectifMontant"]'),a2=form.querySelector('[name="montantActuel"]');if(o2&&a2&&o2.value&&a2.value){var pct=(parseFloat(a2.value)/parseFloat(o2.value))*100;if(pct>=100&&val==='0')return setError(el,m,"Le coffre doit être verrouillé à 100%.");}return setValid(el,m);}
     }
-    function setError(el, msgEl, msg) {
-        el.classList.remove('acc-valid');
-        el.classList.add('acc-invalid');
-        if (msgEl) { msgEl.className = 'acc-field-error'; msgEl.textContent = msg; }
-    }
-    function clearState(el, msgEl) {
-        el.classList.remove('acc-valid','acc-invalid');
-        if (msgEl) { msgEl.className = ''; msgEl.textContent = ''; }
-    }
-    function getOrCreateMsg(el) {
-        var next = el.nextElementSibling;
-        if (next && (next.classList.contains('acc-field-error') || next.classList.contains('acc-field-ok'))) return next;
-        var span = document.createElement('span');
-        el.parentNode.insertBefore(span, el.nextSibling);
-        return span;
-    }
-
-    function validateVaultField(el, form) {
-        var name = el.name;
-        var val  = el.value.trim();
-        var msg  = getOrCreateMsg(el);
-
-        if (name === 'nom') {
-            if (val.length < 3) return setError(el, msg, 'Le nom doit contenir au moins 3 caractères.');
-            return setValid(el, msg);
-        }
-        if (name === 'objectifMontant') {
-            if (val === '') return setError(el, msg, "L'objectif est obligatoire.");
-            if (parseFloat(val) <= 0) return setError(el, msg, "L'objectif doit être > 0.");
-            return setValid(el, msg);
-        }
-        if (name === 'montantActuel') {
-            if (val === '') return clearState(el, msg);
-            if (parseFloat(val) < 0) return setError(el, msg, 'Le montant actuel doit être ≥ 0.');
-            var objEl = form.querySelector('[name="objectifMontant"]');
-            if (objEl && objEl.value && parseFloat(val) > parseFloat(objEl.value)) {
-                return setError(el, msg, "Ne doit pas dépasser l'objectif.");
-            }
-            return setValid(el, msg);
-        }
-        if (name === 'dateCreation') {
-            if (!val) return clearState(el, msg);
-            var d = new Date(val); d.setHours(0,0,0,0);
-            if (d > today) return setError(el, msg, "La date de création ne doit pas dépasser aujourd'hui.");
-            return setValid(el, msg);
-        }
-        if (name === 'dateObjectifs') {
-            if (!val) return clearState(el, msg);
-            var dcEl = form.querySelector('[name="dateCreation"]');
-            if (dcEl && dcEl.value) {
-                var dc = new Date(dcEl.value); dc.setHours(0,0,0,0);
-                var do_ = new Date(val); do_.setHours(0,0,0,0);
-                if (do_ < dc) return setError(el, msg, 'Doit être ≥ à la date de création.');
-            }
-            return setValid(el, msg);
-        }
-        if (name === 'status') {
-            if (!val) return setError(el, msg, 'Veuillez sélectionner un statut.');
-            return setValid(el, msg);
-        }
-        if (name === 'idCompte') {
-            if (!val || val === '0') return setError(el, msg, 'Veuillez sélectionner un compte.');
-            return setValid(el, msg);
-        }
-        if (name === 'estVerrouille') {
-            var objEl2 = form.querySelector('[name="objectifMontant"]');
-            var actEl  = form.querySelector('[name="montantActuel"]');
-            if (objEl2 && actEl && objEl2.value && actEl.value) {
-                var pct = (parseFloat(actEl.value) / parseFloat(objEl2.value)) * 100;
-                if (pct >= 100 && val === '0') {
-                    return setError(el, msg, "Le coffre doit être verrouillé à 100%.");
-                }
-            }
-            return setValid(el, msg);
-        }
-    }
-
-    /* Find the vault form by looking for action=vault_save */
-    var vaultFormInput = document.querySelector('input[name="action"][value="vault_save"]');
-    if (!vaultFormInput) return;
-    var vaultForm = vaultFormInput.closest('form');
-    if (!vaultForm) return;
-
-    var vaultFields = ['nom','objectifMontant','montantActuel','dateCreation','dateObjectifs','status','idCompte','estVerrouille'];
-    vaultFields.forEach(function(name) {
-        var el = vaultForm.querySelector('[name="' + name + '"]');
-        if (!el) return;
-        el.addEventListener('input',  function() { validateVaultField(el, vaultForm); });
-        el.addEventListener('change', function() { validateVaultField(el, vaultForm); });
-        el.addEventListener('blur',   function() { validateVaultField(el, vaultForm); });
+    var inp=document.querySelector('input[name="action"][value="vault_save"]');
+    if(!inp)return;
+    var form=inp.closest('form');
+    ['nom','objectifMontant','montantActuel','dateCreation','dateObjectifs','status','idCompte','estVerrouille'].forEach(function(name){
+        var el=form.querySelector('[name="'+name+'"]');if(!el)return;
+        ['input','change','blur'].forEach(function(ev){el.addEventListener(ev,function(){validate(el,form);});});
     });
-
-    vaultForm.addEventListener('submit', function(e) {
-        var ok = true;
-        vaultFields.forEach(function(name) {
-            var el = vaultForm.querySelector('[name="' + name + '"]');
-            if (!el) return;
-            validateVaultField(el, vaultForm);
-            if (el.classList.contains('acc-invalid')) ok = false;
+    form.addEventListener('submit',function(e){
+        var ok=true;
+        ['nom','objectifMontant','montantActuel','dateCreation','dateObjectifs','status','idCompte','estVerrouille'].forEach(function(name){
+            var el=form.querySelector('[name="'+name+'"]');if(!el)return;
+            validate(el,form);if(el.classList.contains('acc-invalid'))ok=false;
         });
-        if (!ok) e.preventDefault();
+        if(!ok)e.preventDefault();
     });
 })();
 </script>
+
+<script>
+(function () {
+    const TRANSLATE_URL = '/api/translate';
+
+    const SELECTORS = [
+        '.acc-hero-title',
+        '.acc-hero-sub',
+        '.acc-hero-metric span',
+        '.acc-stat-label',
+        '.acc-stat-sub',
+        '.acc-board-title h3',
+        '.acc-board-title p',
+        '.acc-panel-head h2',
+        '.acc-panel-head p',
+        '.acc-form-block-head span',
+        '.acc-field label',
+        '.acc-btn-save',
+        '.acc-btn-cancel',
+        '.acc-card-balance-label',
+        '.acc-card-meta span',
+        '.acc-card-edit',
+        '#acc-open-history span',
+        '.acc-empty strong',
+        '.acc-empty span',
+    ];
+
+    let textNodes  = null;
+    let currentLang = 'fr';
+
+    function collectTextNodes() {
+        if (textNodes) return;
+        textNodes = [];
+        const seen = new WeakSet();
+        SELECTORS.forEach(sel => {
+            document.querySelectorAll(sel).forEach(el => {
+                el.childNodes.forEach(child => {
+                    if (child.nodeType !== 3) return;
+                    const text = child.textContent.trim();
+                    if (text.length < 2 || seen.has(child)) return;
+                    seen.add(child);
+                    textNodes.push({ node: child, original: child.textContent });
+                });
+            });
+        });
+    }
+
+    async function applyTranslation(lang) {
+        if (lang === 'fr') {
+            if (textNodes) textNodes.forEach(({ node, original }) => { node.textContent = original; });
+            document.querySelector('.acc-page').style.direction = 'ltr';
+            return;
+        }
+
+        collectTextNodes();
+        const texts = textNodes.map(n => n.node.textContent.trim());
+        const CHUNK = 40;
+        let translated = [];
+
+        for (let i = 0; i < texts.length; i += CHUNK) {
+            const chunk = texts.slice(i, i + CHUNK);
+            const res = await fetch(TRANSLATE_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ texts: chunk, lang })
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + await res.text());
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+            translated = translated.concat(data.translations || chunk);
+        }
+
+        textNodes.forEach(({ node }, idx) => {
+            if (translated[idx] !== undefined && translated[idx] !== '') {
+                node.textContent = translated[idx];
+            }
+        });
+
+        document.querySelector('.acc-page').style.direction = lang === 'ar' ? 'rtl' : 'ltr';
+    }
+
+    const langSelect  = document.getElementById('acc-lang-select');
+    const langSpinner = document.getElementById('acc-lang-spinner');
+
+    langSelect?.addEventListener('change', async function () {
+        const lang = this.value;
+        if (!lang || lang === currentLang) return;
+        currentLang = lang;
+        langSpinner.hidden = false;
+        this.disabled = true;
+        try {
+            await applyTranslation(lang);
+        } catch (e) {
+            console.error('[Translate]', e);
+        } finally {
+            langSpinner.hidden = true;
+            this.disabled = false;
+        }
+    });
+})();
+</script>
+
+<script>
+(function () {
+    const btn  = document.getElementById('acc-voice-btn');
+    const icon = document.getElementById('acc-voice-icon');
+    if (!btn || !icon) return;
+
+    const STT_PARSE_URL = '/api/voice-stt-parse';
+
+    function normalize(str) {
+        return (str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+    }
+
+    function showToast(msg, duration) {
+        document.querySelectorAll('.acc-voice-toast').forEach(t => t.remove());
+        const t = document.createElement('div');
+        t.className = 'acc-voice-toast';
+        t.innerHTML = '<i class="fa-solid fa-microphone-lines"></i> ' + msg;
+        document.body.appendChild(t);
+        if (duration > 0) setTimeout(() => t.remove(), duration);
+        return t;
+    }
+
+    function wordsToNumber(words) {
+        const cleaned = normalize(words).replace(/[^a-z\s-]/g, ' ').replace(/\s+/g, ' ').trim();
+        if (!cleaned) return null;
+
+        const map = {
+            zero: 0, un: 1, une: 1, deux: 2, trois: 3, quatre: 4, cinq: 5, six: 6, sept: 7, huit: 8, neuf: 9,
+            dix: 10, onze: 11, douze: 12, treize: 13, quatorze: 14, quinze: 15, seize: 16,
+            vingt: 20, trente: 30, quarante: 40, cinquante: 50, soixante: 60,
+            cent: 100, cents: 100, mille: 1000
+        };
+
+        let total = 0;
+        let current = 0;
+
+        cleaned.replace(/-/g, ' ').split(' ').forEach(token => {
+            if (!token || token === 'et' || !Object.prototype.hasOwnProperty.call(map, token)) return;
+            const value = map[token];
+            if (value === 100) {
+                current = current === 0 ? 100 : current * 100;
+            } else if (value === 1000) {
+                current = current === 0 ? 1000 : current * 1000;
+                total += current;
+                current = 0;
+            } else {
+                current += value;
+            }
+        });
+
+        total += current;
+        return total > 0 ? total : null;
+    }
+
+    function extractSegmentAfterLabels(text, labels, stopLabels) {
+        const labelPattern = '(?:' + labels.map(label => label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')';
+        const match = text.match(new RegExp(labelPattern + '\\s*(.+)$', 'i'));
+        if (!match || !match[1]) return '';
+
+        let segment = match[1].trim();
+        if (!segment) return '';
+
+        if (stopLabels.length > 0) {
+            const stopPattern = new RegExp('\\b(?:' + stopLabels.map(label => label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')\\b', 'i');
+            const stopMatch = segment.match(stopPattern);
+            if (stopMatch && typeof stopMatch.index === 'number') {
+                segment = segment.slice(0, stopMatch.index).trim();
+            }
+        }
+
+        return segment.replace(/\b(?:dt|dinar|dinars)\b/gi, ' ').replace(/\s+/g, ' ').trim();
+    }
+
+    function extractLabeledNumber(text, labels, stopLabels) {
+        const directPattern = new RegExp('(?:' + labels.map(label => label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')[^\\d]{0,30}(\\d+\\s+(?:virgule|point)\\s+\\d{1,2}|\\d+\\s+\\d{1,2}|[\\d]+(?:[\\.,]\\d{1,2})?)', 'i');
+        const directMatch = text.match(directPattern);
+        if (directMatch && directMatch[1]) {
+            return normalizeRecognizedNumber(directMatch[1]);
+        }
+
+        const segment = extractSegmentAfterLabels(text, labels, stopLabels);
+        if (!segment) return '';
+
+        const segmentNumber = extractNumericValueFromSegment(segment);
+        if (segmentNumber) {
+            return segmentNumber;
+        }
+
+        const asWords = wordsToNumber(segment);
+        return asWords !== null ? asWords.toFixed(2) : '';
+    }
+
+    function extractNumericValueFromSegment(segment) {
+        const decimalMatch = segment.match(/\b(\d+)\s*(?:[\.,]|virgule|point)\s*(\d{1,2})\b/i);
+        if (decimalMatch) {
+            return decimalMatch[1] + '.' + decimalMatch[2].padEnd(2, '0');
+        }
+
+        const splitDecimalMatch = segment.match(/\b(\d+)\s+(\d{1,2})\b/);
+        if (splitDecimalMatch) {
+            return splitDecimalMatch[1] + '.' + splitDecimalMatch[2].padEnd(2, '0');
+        }
+
+        const plainMatch = segment.match(/\b(\d+(?:[\.,]\d{1,2})?)\b/);
+        return plainMatch ? normalizeRecognizedNumber(plainMatch[1]) : '';
+    }
+
+    function normalizeRecognizedNumber(raw) {
+        const value = String(raw || '').trim();
+        if (!value) return '';
+
+        let match = value.match(/^(\d+)\s*(?:virgule|point)\s*(\d{1,2})$/i);
+        if (match) return match[1] + '.' + match[2].padEnd(2, '0');
+
+        match = value.match(/^(\d+)\s+(\d{1,2})$/);
+        if (match) return match[1] + '.' + match[2].padEnd(2, '0');
+
+        match = value.replace(/\s+/g, '').replace(',', '.').match(/-?\d+(?:\.\d{1,2})?/);
+        return match ? match[0] : '';
+    }
+
+    function extractDateValue(text) {
+        const slashMatch = text.match(/\b(?:date(?:\s+d?\s*ouverture|\s+ouverture)?[^\d]{0,20})?(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})\b/i);
+        if (slashMatch) {
+            let year = parseInt(slashMatch[3], 10);
+            if (year < 100) year += 2000;
+            return [year, slashMatch[2].padStart(2, '0'), slashMatch[1].padStart(2, '0')].join('-');
+        }
+
+        const monthMap = {
+            janvier: '01', fevrier: '02', mars: '03', avril: '04', mai: '05', juin: '06',
+            juillet: '07', aout: '08', septembre: '09', octobre: '10', novembre: '11', decembre: '12'
+        };
+        const longMatch = text.match(/\b(?:date(?:\s+d?\s*ouverture|\s+ouverture)?[^\d]{0,20})?(\d{1,2})\s+(janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)\s+(\d{4})\b/i);
+        if (!longMatch) return '';
+
+        const month = monthMap[normalize(longMatch[2])];
+        return month ? [longMatch[3], month, longMatch[1].padStart(2, '0')].join('-') : '';
+    }
+
+    function buildTranscriptFallbackFields(transcript) {
+        const normalizedText = normalize(transcript).replace(/\bviriment\b/g, 'virement').replace(/\bveriment\b/g, 'virement');
+        const fields = {};
+
+        let match = transcript.match(/cb[-\s]?(\d{2,})/i);
+        if (!match) match = normalizedText.match(/\b(?:numero|num|n)(?:\s+de)?(?:\s+compte)?[^\d]{0,20}(\d{3,})\b/i);
+        if (!match) match = normalizedText.match(/\bcompte[^\d]{0,20}(\d{3,})\b/i);
+        if (match && match[1]) fields.numeroCompte = 'CB-' + match[1];
+
+        if (normalizedText.includes('courant')) fields.typeCompte = 'Courant';
+        else if (normalizedText.includes('professionnel') || normalizedText.includes('compte pro') || normalizedText.includes('pro ')) fields.typeCompte = 'Professionnel';
+        else if (normalizedText.includes('epargne')) fields.typeCompte = 'Épargne';
+
+        if (normalizedText.includes('actif')) fields.statutCompte = 'Actif';
+        else if (normalizedText.includes('ferme')) fields.statutCompte = 'Fermé';
+        else if (normalizedText.includes('bloque')) fields.statutCompte = 'Bloqué';
+
+        const date = extractDateValue(normalizedText);
+        if (date) fields.dateOuverture = date;
+
+        const solde = extractLabeledNumber(normalizedText, ['solde', 'montant'], ['date', 'plafond retrait', 'plafond virement', 'virement', 'retrait']);
+        if (solde) fields.solde = solde;
+
+        const retrait = extractLabeledNumber(normalizedText, ['plafond retrait', 'retrait'], ['plafond virement', 'virement', 'date']);
+        if (retrait) fields.plafondRetrait = retrait;
+
+        const virement = extractLabeledNumber(normalizedText, ['plafond virement', 'virement', 'versement'], ['date']);
+        if (virement) fields.plafondVirement = virement;
+
+        return fields;
+    }
+
+    function sanitizeRecognizedValue(key, value) {
+        const raw = String(value || '').trim();
+        if (!raw) return '';
+
+        if (key === 'numeroCompte') {
+            const match = raw.match(/(?:cb)?[^\d]{0,4}(\d{3,})/i);
+            return match ? ('CB-' + match[1]) : raw.toUpperCase().replace(/\s+/g, '');
+        }
+
+        if (key === 'solde' || key === 'plafondRetrait' || key === 'plafondVirement') {
+            return normalizeRecognizedNumber(raw);
+        }
+
+        if (key === 'dateOuverture') {
+            const normalizedValue = normalize(raw);
+            const slashMatch = normalizedValue.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
+            if (slashMatch) {
+                let year = parseInt(slashMatch[3], 10);
+                if (year < 100) year += 2000;
+                return [year, slashMatch[2].padStart(2, '0'), slashMatch[1].padStart(2, '0')].join('-');
+            }
+            const isoMatch = normalizedValue.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            const longDate = extractDateValue(normalizedValue);
+            return isoMatch ? isoMatch[0] : (longDate || '');
+        }
+
+        if (key === 'typeCompte') {
+            const normalizedValue = normalize(raw);
+            if (normalizedValue.includes('courant')) return 'Courant';
+            if (normalizedValue.includes('pro')) return 'Professionnel';
+            if (normalizedValue.includes('epargne')) return 'Épargne';
+        }
+
+        if (key === 'statutCompte') {
+            const normalizedValue = normalize(raw);
+            if (normalizedValue.includes('actif')) return 'Actif';
+            if (normalizedValue.includes('ferme')) return 'Fermé';
+            if (normalizedValue.includes('bloque')) return 'Bloqué';
+        }
+
+        return raw;
+    }
+
+    function fillForm(fields) {
+        const formInput = document.querySelector('input[name="action"][value="account_save"]');
+        if (!formInput) { showToast('Formulaire introuvable.', 3000); return; }
+        const form = formInput.closest('form');
+
+        const map = {
+            numeroCompte:    'input[name="numeroCompte"]',
+            typeCompte:      'select[name="typeCompte"]',
+            statutCompte:    'select[name="statutCompte"]',
+            solde:           'input[name="solde"]',
+            dateOuverture:   'input[name="dateOuverture"]',
+            plafondRetrait:  'input[name="plafondRetrait"]',
+            plafondVirement: 'input[name="plafondVirement"]',
+        };
+
+        let filled = 0;
+
+        Object.entries(fields).forEach(([key, value]) => {
+            if (!value || !map[key]) return;
+            const el = form.querySelector(map[key]);
+            if (!el) return;
+            const sanitizedValue = sanitizeRecognizedValue(key, value);
+            if (!sanitizedValue) return;
+
+            if (el.tagName === 'SELECT') {
+                const needle  = normalize(String(sanitizedValue));
+                let matched   = false;
+
+                for (const opt of el.options) {
+                    if (!opt.value) continue;
+                    if (normalize(opt.value) === needle) { el.value = opt.value; matched = true; break; }
+                }
+                if (!matched) {
+                    for (const opt of el.options) {
+                        if (!opt.value) continue;
+                        const nv = normalize(opt.value);
+                        if (nv.includes(needle) || needle.includes(nv)) { el.value = opt.value; matched = true; break; }
+                    }
+                }
+                if (!matched) {
+                    for (const opt of el.options) {
+                        if (!opt.value) continue;
+                        const nt = normalize(opt.text);
+                        if (nt.includes(needle) || needle.includes(nt)) { el.value = opt.value; matched = true; break; }
+                    }
+                }
+                if (matched) filled++;
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+
+            } else {
+                el.value = String(sanitizedValue);
+                el.dispatchEvent(new Event('input',  { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+                el.dispatchEvent(new Event('blur',   { bubbles: true }));
+                filled++;
+            }
+        });
+
+        showToast(
+            filled > 0
+                ? '✓ ' + filled + ' champ(s) rempli(s) avec succès'
+                : 'Aucun champ reconnu — parlez plus clairement en citant : type, statut, numéro, solde…',
+            3500
+        );
+
+        if (filled > 0) {
+            document.getElementById('acc-form-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
+    function startRecorder() {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const source = audioCtx.createMediaStreamSource(stream);
+                const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+                const sampleRate = audioCtx.sampleRate;
+                const chunks = [];
+                const startedAt = Date.now();
+                let lastSoundAt = startedAt;
+                let hasSpeech = false;
+                processor.onaudioprocess = (e) => {
+                    const input = e.inputBuffer.getChannelData(0);
+                    chunks.push(new Float32Array(input));
+                    let peak = 0;
+                    for (let i = 0; i < input.length; i++) {
+                        const v = Math.abs(input[i]);
+                        if (v > peak) peak = v;
+                    }
+                    if (peak > 0.02) {
+                        lastSoundAt = Date.now();
+                        hasSpeech = true;
+                    }
+                };
+                source.connect(processor);
+                processor.connect(audioCtx.destination);
+
+                resolve({
+                    stop: async () => {
+                        processor.disconnect();
+                        source.disconnect();
+                        stream.getTracks().forEach(t => t.stop());
+                        const wavBlob = floatToWav(chunks, sampleRate);
+                        audioCtx.close();
+                        return wavBlob;
+                    },
+                    getStartedAt: () => startedAt,
+                    getLastSoundAt: () => lastSoundAt,
+                    hasSpeech: () => hasSpeech,
+                });
+            } catch (e) {
+                reject(e);
+            }
+        });
+    }
+
+    function floatToWav(buffers, sampleRate) {
+        let length = 0;
+        for (const b of buffers) length += b.length;
+        const pcm = new Int16Array(length);
+        let offset = 0;
+        for (const b of buffers) {
+            for (let i = 0; i < b.length; i++) {
+                let s = Math.max(-1, Math.min(1, b[i]));
+                pcm[offset++] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+            }
+        }
+        const wavBuffer = new ArrayBuffer(44 + pcm.length * 2);
+        const view = new DataView(wavBuffer);
+        writeString(view, 0, 'RIFF');
+        view.setUint32(4, 36 + pcm.length * 2, true);
+        writeString(view, 8, 'WAVE');
+        writeString(view, 12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);
+        view.setUint16(22, 1, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * 2, true);
+        view.setUint16(32, 2, true);
+        view.setUint16(34, 16, true);
+        writeString(view, 36, 'data');
+        view.setUint32(40, pcm.length * 2, true);
+        let idx = 44;
+        for (let i = 0; i < pcm.length; i++, idx += 2) {
+            view.setInt16(idx, pcm[i], true);
+        }
+        return new Blob([view], { type: 'audio/wav' });
+    }
+
+    function writeString(view, offset, str) {
+        for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+    }
+
+    async function sendWav(blob) {
+        const form = new FormData();
+        form.append('audio', blob, 'recording.wav');
+        const langSelect = document.getElementById('acc-lang-select');
+        const lang = langSelect ? (langSelect.value || 'fr') : 'fr';
+        form.append('lang', lang);
+        const res = await fetch(STT_PARSE_URL, { method: 'POST', body: form });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.error) throw new Error(data.error || ('HTTP ' + res.status));
+        return data;
+    }
+
+    let recording = null;
+    let toastEl   = null;
+    let stopTimer = null;
+    let monitorTimer = null;
+    let isStopping = false;
+
+    function clearVoiceTimers() {
+        if (stopTimer) {
+            clearTimeout(stopTimer);
+            stopTimer = null;
+        }
+        if (monitorTimer) {
+            clearInterval(monitorTimer);
+            monitorTimer = null;
+        }
+    }
+
+    async function stopRecordingAndProcess() {
+        if (!recording || isStopping) return;
+        isStopping = true;
+        const activeRecording = recording;
+        recording = null;
+        try {
+            btn.classList.remove('is-listening');
+            btn.classList.add('is-processing');
+            icon.className = 'fa-solid fa-circle-notch fa-spin';
+            toastEl?.remove(); toastEl = null;
+            toastEl = showToast('Transcription et analyse en cours…', 0);
+            const blob = await activeRecording.stop();
+            const hadSpeech = typeof activeRecording.hasSpeech === 'function' ? activeRecording.hasSpeech() : true;
+
+            if (!hadSpeech) {
+                throw new Error('Aucune voix detectee. Parlez plus pres du micro puis reessayez.');
+            }
+
+            const data = await sendWav(blob);
+            toastEl?.remove(); toastEl = null;
+
+            const transcript = (data.transcript || '').trim();
+            const fields = { ...buildTranscriptFallbackFields(transcript), ...(data.fields || {}) };
+
+            if (transcript) {
+                toastEl = showToast('Texte reconnu : "' + transcript + '"', 4500);
+            }
+
+            fillForm(fields);
+        } catch (e) {
+            toastEl?.remove(); toastEl = null;
+            showToast('Erreur audio/STT: ' + (e.message || e), 4000);
+            console.error('[Voice]', e);
+        } finally {
+            clearVoiceTimers();
+            btn.classList.remove('is-processing');
+            icon.className = 'fa-solid fa-microphone-lines';
+            isStopping = false;
+        }
+    }
+
+    btn.addEventListener('click', async () => {
+        if (!recording) {
+            try {
+                recording = await startRecorder();
+                btn.classList.add('is-listening');
+                icon.className = 'fa-solid fa-stop';
+                toastEl = showToast('Parlez librement… arrêt auto après votre silence ou dans 20 secondes', 0);
+
+                stopTimer = setTimeout(() => {
+                    stopRecordingAndProcess();
+                }, 20000);
+
+                monitorTimer = setInterval(() => {
+                    if (!recording) return;
+                    const startedAt = typeof recording.getStartedAt === 'function' ? recording.getStartedAt() : Date.now();
+                    const lastSoundAt = typeof recording.getLastSoundAt === 'function' ? recording.getLastSoundAt() : startedAt;
+                    const now = Date.now();
+                    const recordMs = now - startedAt;
+                    const silenceMs = now - lastSoundAt;
+
+                    if (recording.hasSpeech && recording.hasSpeech() && recordMs >= 3000 && silenceMs >= 1800) {
+                        stopRecordingAndProcess();
+                    }
+                }, 300);
+            } catch (e) {
+                showToast('Accès au micro refusé ou indisponible.', 4000);
+            }
+        } else {
+            await stopRecordingAndProcess();
+        }
+    });
+})();
+</script>
+
+{% if account_errors is not empty or vault_errors is not empty %}
+<script>
+(function () {
+    const anchor = document.getElementById('acc-form-anchor');
+    if (!anchor) return;
+    window.requestAnimationFrame(() => {
+        anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const firstInvalid = anchor.querySelector('.acc-invalid');
+        if (firstInvalid && typeof firstInvalid.focus === 'function') {
+            firstInvalid.focus();
+        }
+    });
+})();
+</script>
+{% endif %}

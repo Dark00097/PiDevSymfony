@@ -1,0 +1,1230 @@
+{% set assistant_base_query = query_state|merge({ assistant: '1' }) %}
+{% set assistant_home_link = path(route_name, assistant_base_query) %}
+{% set assistant_wheel_link = path(route_name, assistant_base_query|merge({ show_wheel: '1' })) %}
+{% set assistant_surplus_link = path(route_name, assistant_base_query|merge({ show_surplus: '1' })) %}
+{% set assistant_prediction_link = path(route_name, assistant_base_query|merge({ show_prediction: '1' })) %}
+{% set assistant_back_link = path(route_name, query_state) %}
+{% set active_module = wheel_view ? 'wheel' : (surplus_view ? 'surplus' : (prediction_view ? 'prediction' : 'assistant')) %}
+{% set wheel_segments = wheel.segments|default([5, 10, 20, 15, 8, 12, 3, 7, 25, 2, 18, 6]) %}
+{% set wheel_conditions = wheel.eligibility.conditions|default({}) %}
+{% set failed_conditions = wheel.eligibility.failed_conditions|default([]) %}
+{% set wheel_target = wheel.bonus_target|default(100) %}
+{% set wheel_reward = wheel.reward_amount|default(50) %}
+{% set wheel_points = wheel.total_points|default(0) %}
+{% set wheel_progress = wheel_points > wheel_target ? wheel_target : wheel_points %}
+{% set can_spin_now = wheel.can_spin|default(false) and not wheel_security.locked|default(false) %}
+{% set all_vaults = support.vault_data|default([]) %}
+{% set monthly_incomes = surplus.monthly_incomes|default([]) %}
+{% set top_prediction_amount = 1 %}
+{% for prediction_item in prediction.predictions|default([]) %}
+    {% if prediction_item.predicted_amount|default(0) > top_prediction_amount %}
+        {% set top_prediction_amount = prediction_item.predicted_amount|default(0) %}
+    {% endif %}
+{% endfor %}
+{% set top_income_amount = 1 %}
+{% for income_item in monthly_incomes %}
+    {% if income_item.income|default(0) > top_income_amount %}
+        {% set top_income_amount = income_item.income|default(0) %}
+    {% endif %}
+{% endfor %}
+{% set surplus_ratio = surplus.average_income|default(0) > 0 ? ((surplus.current_income|default(0) * 100) / surplus.average_income) : 0 %}
+{% set superplus_detected = surplus.show|default(false) %}
+{% set superplus_display_amount = superplus_detected ? surplus.display_recommended_transfer|default(surplus.recommended_transfer|default(0)) : 0 %}
+{% set prediction_status = prediction.projection_status|default('stable') %}
+{% set prediction_badge_class = prediction_status == 'danger' ? 'danger' : (prediction_status == 'warning' ? 'warn' : 'ok') %}
+{% set prediction_selected_account = prediction.selected_account|default(null) %}
+{% set prediction_selected_account_id = prediction_selected_account ? prediction_selected_account.idCompte|default('') : '' %}
+{% set assistant_goal_success_count = 0 %}
+{% set assistant_goal_overdue_count = 0 %}
+{% set assistant_today_key = 'now'|date('Y-m-d') %}
+{% for vault in all_vaults %}
+    {% set vault_goal_amount = vault.objectifMontant|default(0) + 0 %}
+    {% set vault_current_amount = vault.montantActuel|default(0) + 0 %}
+    {% set vault_progress_amount = vault_goal_amount > 0 ? ((vault_current_amount * 100) / vault_goal_amount) : 0 %}
+    {% set vault_goal_date = vault.dateObjectifs|default('') %}
+    {% if vault_goal_amount > 0 and vault_progress_amount >= 100 and (vault_goal_date == '' or vault_goal_date >= assistant_today_key) %}
+        {% set assistant_goal_success_count = assistant_goal_success_count + 1 %}
+    {% endif %}
+    {% if vault_goal_amount > 0 and vault_goal_date != '' and vault_goal_date < assistant_today_key and vault_progress_amount < 100 %}
+        {% set assistant_goal_overdue_count = assistant_goal_overdue_count + 1 %}
+    {% endif %}
+{% endfor %}
+{% set assistant_goal_notification_count = assistant_goal_success_count + assistant_goal_overdue_count %}
+{% if active_module == 'surplus' %}
+    {% if superplus_detected %}
+        {% set stage_top = '#e8f8f2' %}
+        {% set stage_mid = '#d0f0e4' %}
+        {% set stage_glow = 'rgba(20,184,166,.10)' %}
+        {% set accent_color = '#0f766e' %}
+        {% set button_to = '#14b8a6' %}
+    {% else %}
+        {% set stage_top = '#e8f8f2' %}
+        {% set stage_mid = '#d0f0e4' %}
+        {% set stage_glow = 'rgba(20,184,166,.10)' %}
+        {% set accent_color = '#0f766e' %}
+        {% set button_to = '#14b8a6' %}
+    {% endif %}
+{% else %}
+    {% set stage_top = '#e8f8f2' %}
+    {% set stage_mid = '#d0f0e4' %}
+    {% set stage_glow = 'rgba(20,184,166,.10)' %}
+    {% set accent_color = '#0f766e' %}
+    {% set button_to = '#14b8a6' %}
+{% endif %}
+
+<style>
+.acc-ai-shell{display:flex;flex-direction:column;gap:20px}.acc-ai-stage{position:relative;padding:24px;border-radius:30px;border:1px solid #b2e8d8;background:linear-gradient(180deg,var(--acc-ai-stage-top,#e8f8f2) 0%,var(--acc-ai-stage-mid,#d0f0e4) 54%,#f6fbff 54%,#f8fcff 100%);box-shadow:0 24px 60px rgba(15,40,72,.08);overflow:hidden}.acc-ai-stage:before,.acc-ai-stage:after{content:'';position:absolute;border-radius:50%;pointer-events:none}.acc-ai-stage:before{width:280px;height:280px;right:-110px;top:-120px;background:radial-gradient(circle,rgba(255,255,255,.18),rgba(255,255,255,0))}.acc-ai-stage:after{width:220px;height:220px;left:-70px;bottom:-70px;background:radial-gradient(circle,var(--acc-ai-stage-glow,rgba(34,211,238,.16)),rgba(34,211,238,0))}.acc-ai-hero,.acc-ai-grid,.acc-ai-split,.acc-ai-rules,.acc-ai-prediction{display:grid;gap:18px}.acc-ai-hero{grid-template-columns:minmax(0,1fr) auto;align-items:start;position:relative;z-index:1}.acc-ai-grid,.acc-ai-prediction{grid-template-columns:repeat(2,minmax(0,1fr))}.acc-ai-split{grid-template-columns:minmax(340px,430px) minmax(0,1fr)}.acc-ai-rules{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:18px}.acc-ai-kicker{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:rgba(15,118,110,.12);font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#0f766e}.acc-ai-title{margin:14px 0 0;font-size:32px;line-height:1.05;font-weight:900;color:#0a2540}.acc-ai-subtitle{margin:10px 0 0;max-width:760px;font-size:14px;line-height:1.7;color:#3d6b5e}.acc-ai-side{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;justify-content:flex-end}.acc-ai-stat{min-width:120px;padding:14px 16px;border-radius:20px;background:rgba(15,118,110,.10);border:1px solid rgba(15,118,110,.15)}.acc-ai-stat span{display:block;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#0f766e}.acc-ai-stat strong{display:block;margin-top:8px;font-size:20px;color:#0a2540}.acc-ai-close,.acc-ai-tab{height:46px;padding:0 18px;border-radius:18px;border:1px solid rgba(15,118,110,.22);text-decoration:none;font-size:13px;font-weight:900;display:inline-flex;align-items:center;gap:9px;transition:transform .22s,box-shadow .22s,background .22s}.acc-ai-close{background:#dc2626;color:#fff;border:none;box-shadow:0 6px 18px rgba(220,38,38,.30);font-weight:900;border-radius:999px}.acc-ai-tab{background:linear-gradient(135deg,#6366f1,#7c3aed);color:#fff;border:none;box-shadow:0 6px 20px rgba(99,102,241,.35)}.acc-ai-close:hover,.acc-ai-tab:hover,.acc-ai-main-btn:hover,.acc-ai-ghost-btn:hover,.acc-ai-vault-btn:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(7,22,43,.2)}.acc-ai-tab.active{background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff;border-color:#0f766e;box-shadow:0 18px 36px rgba(15,118,110,.28)}.acc-ai-toolbar{position:relative;z-index:1;display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:22px;padding:14px;border-radius:24px;background:rgba(15,118,110,.08);border:1px solid rgba(15,118,110,.15)}.acc-ai-toolbar-label{padding:0 8px;font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#0f766e}.acc-ai-content{position:relative;z-index:1;margin-top:18px;padding:24px;border-radius:28px;background:linear-gradient(180deg,#fff 0%,#f8fcff 100%);border:1px solid #deebf4}.acc-ai-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}.acc-ai-head h2{margin:0;font-size:30px;font-weight:900;color:#102a43}.acc-ai-head p{margin:10px 0 0;max-width:760px;font-size:14px;line-height:1.7;color:#62809b}.acc-ai-badge{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 14px;border-radius:999px;font-size:12px;font-weight:900}.acc-ai-badge.ok,.acc-ai-badge.calm{background:#dcfce7;color:#166534}.acc-ai-badge.warn{background:#fef3c7;color:#a16207}.acc-ai-badge.locked{background:#fee2e2;color:#b91c1c}.acc-ai-badge.accent{background:#dbeafe;color:#1d4ed8}.acc-ai-card,.acc-ai-row,.acc-ai-explainer,.acc-ai-vaults,.acc-ai-tip,.acc-ai-progress-card,.acc-ai-condition{padding:20px;border-radius:24px;border:1px solid #dbe8f4;background:#fff;box-shadow:0 12px 28px rgba(15,40,72,.07)}.acc-ai-card h3,.acc-ai-explainer h3,.acc-ai-vaults h3{margin:0;font-size:21px;font-weight:900;color:#102a43}.acc-ai-card p,.acc-ai-row p,.acc-ai-explainer p,.acc-ai-vaults p,.acc-ai-progress-card p{margin:8px 0 0;font-size:13px;line-height:1.65;color:#678199}.acc-ai-main-btn,.acc-ai-ghost-btn,.acc-ai-vault-btn{height:50px;padding:0 18px;border:0;border-radius:16px;font:inherit;font-size:14px;font-weight:900;display:inline-flex;align-items:center;gap:10px;cursor:pointer;transition:transform .18s,box-shadow .18s,opacity .18s}.acc-ai-main-btn{background:linear-gradient(135deg,var(--acc-ai-stage-mid,#0f766e),var(--acc-ai-button-to,#14b8a6));color:#fff;box-shadow:0 16px 30px rgba(20,184,166,.24)}.acc-ai-ghost-btn{background:#fff;border:1px solid #d6e4ef;color:#5a748f}.acc-ai-vault-btn{height:44px;padding:0 16px;background:linear-gradient(135deg,var(--acc-ai-stage-mid,#0f766e),var(--acc-ai-button-to,#22c55e));color:#fff}.acc-ai-main-btn[disabled],.acc-ai-ghost-btn[disabled],.acc-ai-vault-btn[disabled]{opacity:.55;cursor:not-allowed}.acc-ai-empty{padding:18px;border-radius:20px;border:1px dashed #c9d8e5;background:#f8fbfd;color:#6d8498}.acc-ai-rows,.acc-ai-bars,.acc-ai-tip-list,.acc-ai-vault-list,.acc-ai-explainer-body,.acc-ai-condition-wrap{display:flex;flex-direction:column;gap:12px}.acc-ai-tip-list{padding:0;margin:18px 0 0}.acc-ai-tip{list-style:none;color:#5e7893}.acc-ai-tip strong{display:block;margin-bottom:4px;color:#102a43}.acc-ai-wheel-top,.acc-ai-row-head,.acc-ai-vault-row,.acc-ai-progress-head,.acc-ai-explainer-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.acc-ai-wheel-stage{position:relative;display:grid;place-items:center;padding:24px 0 14px}.acc-ai-wheel-pointer{position:absolute;top:4px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:18px solid transparent;border-right:18px solid transparent;border-top:30px solid #0f172a;z-index:4}.acc-wheel-disc{--rotation:0deg;position:relative;width:min(100%,300px);aspect-ratio:1;border-radius:50%;border:12px solid #e6f2fb;background:conic-gradient(from -15deg,#0ea5e9 0 30deg,#8b5cf6 30deg 60deg,#ec4899 60deg 90deg,#ef4444 90deg 120deg,#f97316 120deg 150deg,#facc15 150deg 180deg,#14b8a6 180deg 210deg,#10b981 210deg 240deg,#2563eb 240deg 270deg,#7c3aed 270deg 300deg,#fb7185 300deg 330deg,#22c55e 330deg 360deg);box-shadow:0 24px 50px rgba(15,40,72,.18);transform:rotate(var(--rotation));transition:transform 2.4s cubic-bezier(.18,.91,.22,1)}.acc-wheel-label{position:absolute;left:50%;top:50%;width:56px;margin-left:-28px;margin-top:-14px;font-size:13px;font-weight:900;color:#fff;text-align:center;text-shadow:0 2px 6px rgba(15,23,42,.35);transform:rotate(calc((var(--i) * 30deg) + 15deg)) translateY(-124px) rotate(calc((var(--i) * -30deg) - 15deg))}.acc-wheel-center{position:absolute;inset:50%;width:108px;height:108px;margin:-54px;border-radius:50%;background:radial-gradient(circle,#fff,#e8f2fb 72%,#d6e6f5);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#102a43;font-weight:900}.acc-wheel-center i{color:#f59e0b}.acc-wheel-center span{font-size:12px;letter-spacing:.08em;text-transform:uppercase}.acc-ai-form-box{display:flex;flex-direction:column;gap:12px;padding:18px;border-radius:20px;border:1px solid #dbe8f4;background:#fff;box-shadow:0 10px 24px rgba(15,40,72,.05)}.acc-ai-form-box label{font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#678099}.acc-ai-form-box select{height:52px;border-radius:16px;border:1px solid #d1dfeb;background:#fff;padding:0 16px;font:inherit;color:#102a43}.acc-ai-condition{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px}.acc-ai-condition.ok{background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border-color:#bbf7d0}.acc-ai-condition.ko{background:linear-gradient(135deg,#fef2f2,#fff7ed);border-color:#fecaca}.acc-ai-condition i{width:42px;height:42px;border-radius:14px;display:flex;align-items:center;justify-content:center}.acc-ai-condition.ok i{background:#dcfce7;color:#166534}.acc-ai-condition.ko i{background:#fee2e2;color:#b91c1c}.acc-ai-condition strong{display:block;font-size:15px;color:#102a43}.acc-ai-condition small{display:block;margin-top:4px;font-size:12px;line-height:1.45;color:#64809a}.acc-ai-condition b{font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}.acc-ai-row-head strong,.acc-ai-progress-head strong{font-size:15px;color:#102a43}.acc-ai-row-head span,.acc-ai-progress-head span{font-size:13px;font-weight:800;color:var(--acc-ai-accent,#0f8a86)}.acc-ai-progress{height:12px;margin-top:12px;border-radius:999px;background:#e6edf5;overflow:hidden}.acc-ai-progress span,.acc-ai-bar span{display:block;height:100%;border-radius:999px}.acc-ai-progress span{background:linear-gradient(90deg,#f59e0b,#facc15,var(--acc-ai-stage-mid,#14b8a6))}.acc-ai-bar{height:10px;margin-top:12px;border-radius:999px;background:#e8eff6;overflow:hidden}.acc-ai-bar.balance span{background:linear-gradient(90deg,var(--acc-ai-stage-mid,#0f766e),var(--acc-ai-button-to,#14b8a6))}.acc-ai-bar.prediction span{background:linear-gradient(90deg,#7c3aed,#ec4899)}.acc-ai-advice{padding:20px 22px;border-radius:24px;background:linear-gradient(180deg,#0f766e,#0d5c55);color:#fff}.acc-ai-advice-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.acc-ai-advice-head h3{margin:0;font-size:18px;font-weight:900;color:#fff}.acc-ai-advice-head button{height:40px;padding:0 14px;border-radius:999px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.12);color:#fff;font:inherit;font-size:12px;font-weight:800;cursor:pointer}.acc-ai-advice-item,.acc-ai-explainer-item{padding:16px;border-radius:18px}.acc-ai-advice-item{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.08)}.acc-ai-advice-item strong{display:block;font-size:14px}.acc-ai-advice-item p{margin:8px 0 0;font-size:13px;line-height:1.6;color:rgba(255,255,255,.84)}.acc-ai-explainer{color:#fff}.acc-ai-explainer.clear{background:linear-gradient(180deg,#0f766e,#11998e);border-color:#6ee7b7}.acc-ai-explainer.detected{background:linear-gradient(180deg,#173b6d,#2b7de9);border-color:#93c5fd}.acc-ai-explainer h3,.acc-ai-explainer .acc-ai-explainer-amount strong,.acc-ai-explainer .acc-ai-explainer-kicker,.acc-ai-explainer .acc-ai-explainer-state{color:#fff}.acc-ai-explainer p,.acc-ai-explainer small{color:rgba(255,255,255,.85)}.acc-ai-explainer-amount{margin-top:18px;padding:18px 20px;border-radius:22px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.14)}.acc-ai-explainer-amount span,.acc-ai-explainer-item strong,.acc-ai-explainer-kicker{display:block;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#d9fbff}.acc-ai-explainer-amount strong{display:block;margin-top:10px;font-size:34px;line-height:1}.acc-ai-explainer-amount small{display:block;margin-top:8px;font-size:12px}.acc-ai-explainer-item{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.12)}.acc-ai-explainer-item p{margin:8px 0 0;color:#fff}.acc-ai-vault-row{padding:16px 18px;border-radius:20px;background:#f9fcff;border:1px solid #dbe8f4}.acc-ai-vault-row strong{display:block;font-size:15px;color:#102a43}.acc-ai-vault-row p{margin:6px 0 0;font-size:12px;color:#6b8398}.acc-ai-vault-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.acc-ai-vault-note{display:inline-flex;align-items:center;gap:8px;padding:9px 12px;border-radius:999px;background:#eef6ff;color:#2657c8;font-size:12px;font-weight:800}@media (max-width:1200px){.acc-ai-grid,.acc-ai-split,.acc-ai-rules,.acc-ai-prediction{grid-template-columns:1fr}}@media (max-width:900px){.acc-ai-hero{grid-template-columns:1fr}.acc-ai-side{justify-content:flex-start}}@media (max-width:780px){.acc-ai-title,.acc-ai-head h2{font-size:24px}.acc-ai-toolbar{padding:12px}.acc-ai-tab{width:100%;justify-content:center}.acc-ai-condition{grid-template-columns:1fr}.acc-ai-explainer-amount strong{font-size:28px}}
+</style>
+
+<style>
+.acc-ai-badge.danger{background:#fee2e2;color:#b91c1c}
+.acc-pred-layout{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(320px,.9fr);gap:18px}
+.acc-pred-chart-card{padding:20px;border-radius:24px;border:1px solid #dbe8f4;background:linear-gradient(180deg,#ffffff 0%,#f8fcff 100%);box-shadow:0 12px 28px rgba(15,40,72,.07)}
+.acc-pred-head,.acc-pred-toolbar,.acc-pred-metrics,.acc-pred-range{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.acc-pred-head h3,.acc-pred-side .acc-ai-card h3{margin:0;font-size:21px;font-weight:900;color:#102a43}
+.acc-pred-head p{margin:8px 0 0;font-size:13px;line-height:1.65;color:#678199}
+.acc-pred-range button{height:38px;padding:0 14px;border-radius:999px;border:1px solid #d6e4ef;background:#fff;color:#4f6b87;font:inherit;font-size:12px;font-weight:900;cursor:pointer;transition:all .18s}
+.acc-pred-range button.active{background:linear-gradient(135deg,#0f766e,#14b8a6);border-color:#0f766e;color:#fff;box-shadow:0 10px 22px rgba(20,184,166,.22)}
+.acc-pred-legend{display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:11px;font-weight:800;color:#58728b}
+.acc-pred-legend span{display:inline-flex;align-items:center;gap:6px}
+.acc-pred-legend i{display:inline-block;width:12px;height:12px;border-radius:999px}
+.acc-pred-legend .pos i{background:#16a34a}
+.acc-pred-legend .neg i{background:#dc2626}
+.acc-pred-legend .zero i{background:#0f172a}
+.acc-pred-metrics{margin-top:16px}
+.acc-pred-metric{flex:1 1 180px;padding:14px 16px;border-radius:18px;background:#f5fbff;border:1px solid #dbe8f4}
+.acc-pred-metric span{display:block;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#5c7894}
+.acc-pred-metric strong{display:block;margin-top:8px;font-size:24px;color:#102a43}
+.acc-pred-metric small{display:block;margin-top:6px;font-size:12px;line-height:1.5;color:#6a849a}
+.acc-pred-canvas-wrap{position:relative;margin-top:18px;padding:16px;border-radius:22px;background:linear-gradient(180deg,#edf7ff,#f9fcff);border:1px solid #dbe8f4}
+.acc-pred-canvas{display:block;width:100%;height:320px}
+.acc-pred-foot{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:16px}
+.acc-pred-foot-item{padding:14px 16px;border-radius:18px;background:#fff;border:1px solid #dbe8f4}
+.acc-pred-foot-item span{display:block;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#69839b}
+.acc-pred-foot-item strong{display:block;margin-top:8px;font-size:19px;color:#102a43}
+.acc-pred-alerts{display:flex;flex-direction:column;gap:12px}
+.acc-pred-alert{padding:16px;border-radius:18px;border:1px solid #dbe8f4;background:#fff}
+.acc-pred-alert strong{display:block;font-size:14px;color:#102a43}
+.acc-pred-alert p{margin:8px 0 0;font-size:13px;line-height:1.6;color:#64809a}
+.acc-pred-alert.success{background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border-color:#bbf7d0}
+.acc-pred-alert.warning{background:linear-gradient(135deg,#fffbeb,#fef3c7);border-color:#fde68a}
+.acc-pred-alert.danger{background:linear-gradient(135deg,#fef2f2,#fee2e2);border-color:#fecaca}
+.acc-pred-alert.info{background:linear-gradient(135deg,#eff6ff,#dbeafe);border-color:#bfdbfe}
+.acc-pred-income-list{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.acc-pred-income-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-radius:16px;background:#f8fbff;border:1px solid #dbe8f4}
+.acc-pred-income-row strong{display:block;font-size:13px;color:#102a43}
+.acc-pred-income-row span{font-size:12px;color:#6f879b}
+.acc-pred-account-box{margin-bottom:18px}
+.acc-pred-account-form{display:flex;flex-direction:column;gap:12px}
+.acc-pred-account-hint{margin:0;font-size:12px;line-height:1.6;color:#64809a}
+.acc-goal-stack{display:flex;flex-direction:column;gap:18px}
+.acc-goal-card{padding:24px;border-radius:28px;border:1px solid #dbe8f4;background:#fff;box-shadow:0 18px 34px rgba(15,40,72,.08)}
+.acc-goal-card.success{background:linear-gradient(135deg,#f0fdf4,#ffffff 55%);border-color:#bbf7d0}
+.acc-goal-card.overdue{background:linear-gradient(135deg,#fff7ed,#ffffff 55%);border-color:#fed7aa}
+.acc-goal-card-head,.acc-goal-card-top,.acc-goal-vault-meta,.acc-goal-account-row,.acc-goal-card-actions{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.acc-goal-card-head{margin-bottom:18px}
+.acc-goal-card-kicker{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+.acc-goal-card.success .acc-goal-card-kicker{background:#dcfce7;color:#166534}
+.acc-goal-card.overdue .acc-goal-card-kicker{background:#ffedd5;color:#c2410c}
+.acc-goal-card-head h3{margin:12px 0 0;font-size:28px;font-weight:900;color:#102a43}
+.acc-goal-card-head p{margin:10px 0 0;max-width:760px;font-size:14px;line-height:1.7;color:#64809a}
+.acc-goal-pill{display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:0 14px;border-radius:999px;font-size:12px;font-weight:900}
+.acc-goal-pill.success{background:#dcfce7;color:#166534}
+.acc-goal-pill.overdue{background:#ffedd5;color:#c2410c}
+.acc-goal-vault{padding:18px;border-radius:22px;background:#f8fbff;border:1px solid #dbe8f4}
+.acc-goal-vault strong{display:block;font-size:20px;color:#102a43}
+.acc-goal-vault p{margin:8px 0 0;font-size:13px;color:#64809a;line-height:1.6}
+.acc-goal-vault-meta span{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:#eef6ff;color:#295cce;font-size:12px;font-weight:800}
+.acc-goal-progress{height:12px;margin-top:16px;border-radius:999px;background:#e5edf5;overflow:hidden}
+.acc-goal-progress span{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#10b981,#14b8a6)}
+.acc-goal-card.overdue .acc-goal-progress span{background:linear-gradient(90deg,#f97316,#fb923c)}
+.acc-goal-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:18px}
+.acc-goal-panel{padding:18px;border-radius:22px;background:#fff;border:1px solid #dbe8f4}
+.acc-goal-panel h4{margin:0;font-size:18px;font-weight:900;color:#102a43}
+.acc-goal-panel p{margin:8px 0 0;font-size:13px;line-height:1.6;color:#64809a}
+.acc-goal-accounts,.acc-goal-extensions{display:flex;flex-direction:column;gap:12px;margin-top:16px}
+.acc-goal-account-row{padding:14px 16px;border-radius:18px;background:#f8fbff;border:1px solid #dbe8f4}
+.acc-goal-account-row strong{display:block;font-size:14px;color:#102a43}
+.acc-goal-account-row span{display:block;margin-top:5px;font-size:12px;color:#678199}
+.acc-goal-inline-form{margin:0}
+.acc-goal-action-btn{height:44px;padding:0 16px;border:0;border-radius:14px;font:inherit;font-size:13px;font-weight:900;display:inline-flex;align-items:center;gap:8px;cursor:pointer;transition:transform .18s,box-shadow .18s,opacity .18s}
+.acc-goal-action-btn:hover{transform:translateY(-2px);box-shadow:0 12px 22px rgba(15,40,72,.12)}
+.acc-goal-action-btn.transfer{background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff}
+.acc-goal-action-btn.extend{background:#fff7ed;color:#c2410c;border:1px solid #fdba74}
+.acc-goal-action-btn[disabled]{opacity:.55;cursor:not-allowed}
+.acc-goal-helper{padding:16px 18px;border-radius:18px;background:#f8fbff;border:1px dashed #cbd8e6;color:#678199;font-size:13px;line-height:1.6}
+.acc-goal-empty{padding:24px;border-radius:24px;border:1px dashed #cbd8e6;background:#f8fbff;color:#64809a}
+.acc-goal-empty strong{display:block;font-size:18px;color:#102a43}
+.acc-goal-empty p{margin:10px 0 0;font-size:14px;line-height:1.7}
+@media (max-width:1100px){.acc-pred-layout{grid-template-columns:1fr}.acc-pred-foot{grid-template-columns:1fr}}
+@media (max-width:900px){.acc-goal-grid{grid-template-columns:1fr}}
+</style>
+
+<section class="acc-ai-shell">
+    <article class="acc-ai-stage" style="--acc-ai-stage-top: {{ stage_top }}; --acc-ai-stage-mid: {{ stage_mid }}; --acc-ai-stage-glow: {{ stage_glow }}; --acc-ai-accent: {{ accent_color }}; --acc-ai-button-to: {{ button_to }};">
+        <div class="acc-ai-hero">
+            <div>
+                <span class="acc-ai-kicker"><i class="fa-solid fa-stars"></i> Assistante IA bancaire</span>
+                <h2 class="acc-ai-title">{% if active_module == 'assistant' %}Notifications intelligentes{% elseif active_module == 'wheel' %}Tourne la Roue{% elseif active_module == 'surplus' %}Superplus{% else %}Prediction du solde futur{% endif %}</h2>
+                <p class="acc-ai-subtitle"></p>
+            </div>
+            <div class="acc-ai-side">
+                <a class="acc-ai-close" href="{{ assistant_back_link }}"><i class="fa-solid fa-arrow-left"></i> Retour</a>
+            </div>
+        </div>
+
+        <div class="acc-ai-toolbar">
+            <span class="acc-ai-toolbar-label">Modules IA</span>
+            {% set ai_notif_count = 0 %}
+            {% for notif in notifications|default([]) %}
+                {% if notif.type|default('') == 'AI_ANALYSIS' %}
+                    {% set ai_notif_count = ai_notif_count + 1 %}
+                {% endif %}
+            {% endfor %}
+            <a class="acc-ai-tab {{ active_module == 'assistant' ? 'active' : '' }}" href="{{ assistant_home_link }}">
+                <i class="fa-solid fa-bell"></i> Notifications
+                {% if ai_notif_count > 0 %}
+                    <span style="margin-left:6px;background:#e53935;color:#fff;font-size:10px;padding:2px 6px;border-radius:10px;font-weight:900;">{{ ai_notif_count }}</span>
+                {% endif %}
+            </a>
+            <a class="acc-ai-tab {{ active_module == 'wheel' ? 'active' : '' }}" href="{{ assistant_wheel_link }}"><i class="fa-solid fa-dharmachakra"></i> Tourne la Roue</a>
+            <a class="acc-ai-tab {{ active_module == 'surplus' ? 'active' : '' }}" href="{{ assistant_surplus_link }}"><i class="fa-solid fa-vault"></i> Superplus</a>
+            <a class="acc-ai-tab {{ active_module == 'prediction' ? 'active' : '' }}" href="{{ assistant_prediction_link }}"><i class="fa-solid fa-chart-line"></i> Prediction</a>
+        </div>
+
+        <div class="acc-ai-content">
+            {% if active_module == 'assistant' %}
+                <div class="acc-ai-head">
+                    <div>
+                        <h2>Objectifs du coffre suivis par l IA</h2>
+                    </div>
+                    <span class="acc-ai-badge {{ assistant_goal_notification_count > 0 ? 'accent' : 'calm' }}"><i class="fa-solid fa-bolt"></i> {{ assistant_goal_notification_count > 0 ? assistant_goal_notification_count ~ ' notification' ~ (assistant_goal_notification_count > 1 ? 's' : '') : 'Aucune alerte active' }}</span>
+                </div>
+
+                {# ── Alertes AI_ANALYSIS envoyées par l'admin (On n'affiche que la plus récente) ── #}
+                {% set latest_ai_analysis = null %}
+                {% for notif in notifications|default([]) %}
+                    {% if notif.type|default('') == 'AI_ANALYSIS' %}
+                        {% if latest_ai_analysis is null %}
+                            {% set latest_ai_analysis = notif %}
+                        {% endif %}
+                    {% endif %}
+                {% endfor %}
+
+                {% if latest_ai_analysis is not null %}
+                    {% set notif = latest_ai_analysis %}
+                    <div style="display:flex;flex-direction:column;gap:24px;margin-bottom:30px;">
+                        {% set notif_message_lower = notif.message|lower %}
+                        {% set is_danger = 'fraude' in notif_message_lower or 'risque' in notif_message_lower %}
+                        {% set is_warning = 'fragile' in notif_message_lower or 'alerte' in notif_message_lower %}
+                        
+                        {% set main_color = '#14b8a6' %} {# Teal for stable #}
+                        {% set gradient_start = '#1e293b' %}
+                        {% set gradient_end = '#334155' %}
+                        
+                        {% if is_danger %}
+                            {% set main_color = '#ef4444' %}
+                            {% set gradient_start = '#7f1d1d' %}
+                            {% set gradient_end = '#b91c1c' %}
+                        {% elseif is_warning %}
+                            {% set main_color = '#f59e0b' %}
+                            {% set gradient_start = '#78350f' %}
+                            {% set gradient_end = '#d97706' %}
+                        {% endif %}
+
+                        <div style="background:#fff;border-radius:28px;overflow:hidden;box-shadow:0 20px 50px rgba(15,40,72,0.12);border:2px solid {{ is_danger ? '#fecaca' : (is_warning ? '#fef3c7' : '#e2e8f0') }};position:relative;">
+                            {# Header avec gradient dynamique #}
+                            <div style="padding:24px 30px;background:linear-gradient(135deg, {{ gradient_start }} 0%, {{ gradient_end }} 100%);color:#fff;display:flex;align-items:center;justify-content:space-between;position:relative;overflow:hidden;">
+                                <div style="position:absolute;top:-20px;right:-20px;width:120px;height:120px;background:radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);pointer-events:none;"></div>
+                                <div style="display:flex;align-items:center;gap:18px;position:relative;z-index:1;">
+                                    <div style="width:50px;height:50px;border-radius:16px;background:rgba(255,255,255,0.1);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;color:{{ main_color }};font-size:20px;border:1px solid rgba(255,255,255,0.2);">
+                                        <i class="fa-solid {{ is_danger ? 'fa-triangle-exclamation' : (is_warning ? 'fa-circle-exclamation' : 'fa-brain') }}"></i>
+                                    </div>
+                                    <div>
+                                        <h3 style="margin:0;font-size:18px;font-weight:900;letter-spacing:-0.02em;">{{ notif.title|default('Analyse IA Personnalisée') }}</h3>
+                                        <div style="margin-top:4px;display:flex;align-items:center;gap:10px;">
+                                            <span style="font-size:12px;color:rgba(255,255,255,0.6);display:flex;align-items:center;gap:5px;">
+                                                <i class="fa-regular fa-calendar"></i> {{ notif.created_at|default('Maintenant') }}
+                                            </span>
+                                            <span style="width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,0.3);"></span>
+                                            <span style="font-size:12px;color:{{ main_color }};font-weight:700;">Rapport Nexora AI</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="position:relative;z-index:1;">
+                                    <span style="padding:8px 16px;border-radius:999px;background:rgba(255,255,255,0.1);color:#fff;font-size:11px;font-weight:900;letter-spacing:0.06em;text-transform:uppercase;border:1px solid rgba(255,255,255,0.2);">
+                                        <i class="fa-solid fa-shield-check"></i> {{ is_danger ? 'ALERTE CRITIQUE' : (is_warning ? 'ATTENTION' : 'VÉRIFIÉ PAR IA') }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {# Contenu principal #}
+                            <div style="padding:30px;background:{{ is_danger ? '#fffafa' : (is_warning ? '#fffcf0' : '#fff') }};">
+                                <div style="display:grid;grid-template-columns:1fr;gap:24px;">
+                                    {% set lines = notif.message|default('')|split('\n') %}
+                                    
+                                    <div style="display:flex;flex-direction:column;gap:16px;">
+                                        {% for line in lines %}
+                                            {% set trimmed = line|trim %}
+                                            {% if trimmed starts with '###' %}
+                                                <div style="margin-top:10px;padding-bottom:10px;border-bottom:2px solid {{ is_danger ? '#fecaca' : (is_warning ? '#fef3c7' : '#f1f5f9') }};">
+                                                    <h4 style="margin:0;font-size:16px;font-weight:900;color:#0f172a;display:flex;align-items:center;gap:10px;">
+                                                        <span style="width:8px;height:8px;border-radius:50%;background:{{ main_color }};"></span>
+                                                        {{ trimmed|replace({'###': ''})|trim }}
+                                                    </h4>
+                                                </div>
+                                            {% elseif trimmed starts with '####' %}
+                                                {% set section_title = trimmed|replace({'####': ''})|trim %}
+                                                {% set section_icon = 'fa-circle-info' %}
+                                                {% set section_color = '#3b82f6' %}
+                                                {% if 'alerte' in section_title|lower or 'fraude' in section_title|lower %}
+                                                    {% set section_icon = 'fa-triangle-exclamation' %}
+                                                    {% set section_color = '#ef4444' %}
+                                                {% elseif 'recommandation' in section_title|lower %}
+                                                    {% set section_icon = 'fa-lightbulb' %}
+                                                    {% set section_color = '#f59e0b' %}
+                                                {% elseif 'analyse' in section_title|lower %}
+                                                    {% set section_icon = 'fa-magnifying-glass-chart' %}
+                                                    {% set section_color = '#6366f1' %}
+                                                {% endif %}
+                                                
+                                                <div style="margin-top:20px;display:flex;align-items:center;gap:10px;padding:12px 18px;background:{{ section_color }}10;border-radius:14px;border-left:4px solid {{ section_color }};">
+                                                    <i class="fa-solid {{ section_icon }}" style="color:{{ section_color }};"></i>
+                                                    <h5 style="margin:0;font-size:13px;font-weight:900;color:{{ section_color }};text-transform:uppercase;letter-spacing:0.05em;">{{ section_title }}</h5>
+                                                </div>
+                                            {% elseif trimmed starts with '**' and 'Score' in trimmed %}
+                                                <div style="margin:10px 0;padding:16px;background:#fff;border-radius:18px;display:flex;align-items:center;justify-content:space-between;border:1px solid {{ is_danger ? '#fecaca' : '#e2e8f0' }};box-shadow:0 4px 12px rgba(0,0,0,0.03);">
+                                                    <div style="display:flex;align-items:center;gap:12px;">
+                                                        <div style="width:40px;height:40px;border-radius:12px;background:{{ is_danger ? '#fee2e2' : '#f8fafc' }};display:flex;align-items:center;justify-content:center;color:{{ is_danger ? '#ef4444' : '#64748b' }};">
+                                                            <i class="fa-solid fa-gauge-high"></i>
+                                                        </div>
+                                                        <span style="font-size:14px;font-weight:700;color:#475569;">{{ trimmed|split(':')|first|replace({'**':''})|trim }}</span>
+                                                    </div>
+                                                    <span style="font-size:20px;font-weight:900;color:{{ is_danger ? '#ef4444' : '#0f172a' }};">{{ trimmed|split(':')|last|replace({'**':''})|trim }}</span>
+                                                </div>
+                                            {% elseif trimmed starts with '**' and 'Segment' in trimmed %}
+                                                <div style="margin:10px 0;padding:16px;background:#fff;border-radius:18px;display:flex;align-items:center;justify-content:space-between;border:1px solid #e2e8f0;box-shadow:0 4px 12px rgba(0,0,0,0.03);">
+                                                    <div style="display:flex;align-items:center;gap:12px;">
+                                                        <div style="width:40px;height:40px;border-radius:12px;background:#f8fafc;display:flex;align-items:center;justify-content:center;color:#64748b;">
+                                                            <i class="fa-solid fa-user-tag"></i>
+                                                        </div>
+                                                        <span style="font-size:14px;font-weight:700;color:#475569;">{{ trimmed|split(':')|first|replace({'**':''})|trim }}</span>
+                                                    </div>
+                                                    <span style="padding:6px 14px;background:{{ gradient_start }};color:#fff;border-radius:999px;font-size:12px;font-weight:800;">{{ trimmed|split(':')|last|replace({'**':''})|trim }}</span>
+                                                </div>
+                                            {% elseif trimmed starts with '-' %}
+                                                <div style="display:flex;align-items:flex-start;gap:14px;padding:14px;background:#fff;border-radius:14px;margin-bottom:8px;transition:all 0.2s;border:1px solid {{ is_danger ? '#fee2e2' : '#f1f5f9' }};" onmouseover="this.style.borderColor='{{ main_color }}';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.05)';" onmouseout="this.style.borderColor='{{ is_danger ? '#fee2e2' : '#f1f5f9' }}';this.style.boxShadow='none';">
+                                                    <div style="width:24px;height:24px;border-radius:8px;background:{{ main_color }}15;display:flex;align-items:center;justify-content:center;color:{{ main_color }};font-size:12px;flex-shrink:0;">
+                                                        <i class="fa-solid fa-check"></i>
+                                                    </div>
+                                                    <span style="font-size:14px;color:#334155;line-height:1.6;font-weight:500;">{{ trimmed|slice(1)|trim }}</span>
+                                                </div>
+                                            {% elseif trimmed is not empty %}
+                                                <p style="margin:8px 0;font-size:14px;color:#64748b;line-height:1.8;padding-left:4px;">{{ trimmed }}</p>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {# Footer avec bouton de suppression réelle #}
+                            <div style="padding:15px 30px;background:{{ is_danger ? '#fef2f2' : (is_warning ? '#fffbeb' : '#f8fafc') }};border-top:1px solid {{ is_danger ? '#fee2e2' : '#f1f5f9' }};display:flex;align-items:center;justify-content:space-between;">
+                                <span style="font-size:12px;color:{{ is_danger ? '#b91c1c' : '#94a3b8' }};font-style:italic;font-weight:600;">
+                                    <i class="fa-solid fa-robot"></i> Nexora Intelligence Artificielle
+                                </span>
+                                <div style="display:flex;gap:10px;">
+                                    <button onclick="window.print()" style="padding:8px 16px;border-radius:10px;background:#fff;border:1px solid #e2e8f0;color:#475569;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='#f8fafc'">
+                                        <i class="fa-solid fa-print"></i> Imprimer
+                                    </button>
+                                    <form method="POST" action="{{ path(route_name, query_state) }}" style="margin:0;">
+                                        <input type="hidden" name="tab" value="accounts">
+                                        <input type="hidden" name="action" value="notification_delete">
+                                        <input type="hidden" name="assistant" value="1">
+                                        <input type="hidden" name="idNotification" value="{{ notif.idNotification }}">
+                                        <button type="submit" style="padding:8px 24px;border-radius:10px;background:{{ gradient_start }};border:none;color:#fff;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.2s;box-shadow:0 4px 12px {{ gradient_start }}40;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 15px {{ gradient_start }}60'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 12px {{ gradient_start }}40'">
+                                            <i class="fa-solid fa-check-double"></i> Compris
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+
+                <div class="acc-goal-stack" data-goal-assistant data-endpoint="{{ path('api_account_goal_assistant') }}" data-action-url="{{ path(route_name, query_state) }}">
+                    <div class="acc-goal-empty">
+                        <strong>Analyse IA en cours</strong>
+                        <p>L assistante prepare les notifications de suivi des objectifs et les actions disponibles pour chaque coffre.</p>
+                    </div>
+                </div>
+            {% elseif active_module == 'wheel' %}
+                <div class="acc-ai-head">
+                    <div>
+                        <h2>La roue de jeu NEXORA</h2>
+                    </div>
+                    {% if wheel_security.locked|default(false) %}
+                        <span class="acc-ai-badge locked"><i class="fa-solid fa-triangle-exclamation"></i> Roue verrouillee</span>
+                    {% elseif can_spin_now %}
+                        <span class="acc-ai-badge ok"><i class="fa-solid fa-circle-check"></i> Eligible</span>
+                    {% else %}
+                        <span class="acc-ai-badge warn"><i class="fa-solid fa-lock"></i> Verification requise</span>
+                    {% endif %}
+                </div>
+
+                <div class="acc-ai-split">
+                    <div class="acc-ai-card">
+                        <div class="acc-ai-wheel-top">
+                            <div>
+                                <h3>Tourner la roue</h3>
+                                <p>Le bouton lance l'animation puis envoie le tour au backend existant.</p>
+                            </div>
+                            <form method="post" action="{{ path(route_name, query_state) }}" data-wheel-spin-form id="acc-wheel-spin-form">
+                                <input type="hidden" name="tab" value="accounts">
+                                <input type="hidden" name="action" value="wheel_spin">
+                                <input type="hidden" name="assistant" value="1">
+                                <input type="hidden" name="show_wheel" value="1">
+                                <input type="hidden" name="client_local_iso" value="" data-wheel-client-iso>
+                                <button class="acc-ai-main-btn" type="submit" {{ not can_spin_now ? 'disabled' : '' }}><i class="fa-solid fa-play"></i> Tourner la roue</button>
+                            </form>
+                        </div>
+
+                        <div class="acc-ai-wheel-stage">
+                            <div class="acc-ai-wheel-pointer"></div>
+                            <div class="acc-wheel-disc" id="acc-wheel-disc">
+                                {% for segment in wheel_segments %}
+                                    <span class="acc-wheel-label" style="--i:{{ loop.index0 }};">+{{ segment }}</span>
+                                {% endfor %}
+                                <div class="acc-wheel-center"><i class="fa-solid fa-star"></i><span>Nexora</span></div>
+                            </div>
+                        </div>
+
+                        <p style="margin:0;text-align:center;font-size:13px;color:#6a8297;line-height:1.6;">{% if wheel.already_played|default(false) %}Vous avez deja joue ce mois-ci. Revenez au prochain cycle mensuel.{% elseif can_spin_now %}Les trois conditions sont validees. Vous pouvez lancer la roue maintenant.{% else %}Debloquez les trois conditions pour activer la rotation.{% endif %}</p>
+
+                        <div class="acc-ai-form-box" style="margin-top:18px;">
+                            <label for="acc-wheel-account-select">Compte a crediter si le seuil est atteint</label>
+                            <select id="acc-wheel-account-select" name="idCompteBonus" form="acc-wheel-spin-form">
+                                {% for account in all_accounts %}
+                                    <option value="{{ account.idCompte }}">{{ account.numeroCompte }} | {{ account.solde|number_format(2, '.', ' ') }} DT</option>
+                                {% else %}
+                                    <option value="">Aucun compte disponible</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="acc-ai-rows">
+                        {% if wheel_feedback.message|default('') is not empty %}
+                            <div class="acc-ai-row"><div class="acc-ai-row-head"><strong>Resultat</strong><span>{{ wheel_feedback.type|default('info')|upper }}</span></div><p>{{ wheel_feedback.message }}</p></div>
+                        {% endif %}
+                        {% if wheel_security.locked|default(false) %}
+                            <div class="acc-ai-row" style="background:#fef2f2;border-color:#fecaca;"><div class="acc-ai-row-head"><strong>Securite</strong><span style="color:#b91c1c;">ALERTE</span></div><p>{{ wheel_security.message|default('Une anomalie de date a ete detectee.') }}</p></div>
+                        {% endif %}
+                        <div class="acc-ai-condition-wrap">
+                            {% set condition_icons = { budget: 'fa-chart-pie', balance: 'fa-wallet', savings: 'fa-vault' } %}
+                            {% for condition in wheel_conditions %}
+                                <div class="acc-ai-condition {{ condition.ok ? 'ok' : 'ko' }}">
+                                    <i class="fa-solid {{ attribute(condition_icons, condition.key)|default('fa-circle-info') }}"></i>
+                                    <div><strong>{{ condition.short_label|default(condition.label|default('Condition')) }}</strong><small>{{ condition.detail|default(condition.reason|default('')) }}</small></div>
+                                    <b>{{ condition.ok ? 'OK' : 'KO' }}</b>
+                                </div>
+                            {% endfor %}
+                        </div>
+                        <div class="acc-ai-progress-card">
+                            <div class="acc-ai-progress-head"><strong><i class="fa-solid fa-star"></i> Barre de progression</strong><span>{{ wheel_points }} / {{ wheel_target }} pts</span></div>
+                            <div class="acc-ai-progress"><span style="width: {{ wheel_target > 0 ? (wheel_progress * 100 / wheel_target) : 0 }}%;"></span></div>
+                            <p>Si vous atteignez {{ wheel_target }} points, {{ wheel_reward|number_format(0, '.', ' ') }} DT seront ajoutes a votre compte. {{ wheel.eligibility.suggestion|default('') }}</p>
+                        </div>
+                        <div class="acc-ai-grid">
+                            <div class="acc-ai-row"><div class="acc-ai-row-head"><strong>Dernier gain</strong><span>+{{ wheel.last_points|default(0) }}</span></div><p>{{ wheel.last_spin_date|default('Aucun tour ce mois-ci') }}</p></div>
+                            <div class="acc-ai-row"><div class="acc-ai-row-head"><strong>Points restants</strong><span>{{ wheel.remaining_points|default(0) }}</span></div><p>{{ wheel_reward|number_format(0, '.', ' ') }} DT credites a {{ wheel_target }} points.</p></div>
+                        </div>
+                        {% if failed_conditions is not empty %}
+                            <div class="acc-ai-advice" data-wheel-advice>
+                                <div class="acc-ai-advice-head">
+                                    <h3><i class="fa-solid fa-wand-magic-sparkles"></i> Analyse IA</h3>
+                                    <button type="button" data-wheel-advice-refresh>Actualiser</button>
+                                </div>
+                                <div style="display:none;">{% for condition in failed_conditions %}<span data-wheel-failed-key="{{ condition.key }}"></span>{% endfor %}</div>
+                                <div class="acc-ai-rows" data-wheel-advice-list><div class="acc-ai-advice-item"><strong>Chargement</strong><p>L'API prepare une explication claire sur chaque condition non respectee.</p></div></div>
+                            </div>
+                        {% else %}
+                            <div class="acc-ai-row" style="background:linear-gradient(135deg,#ecfdf5,#f0fdf4);border-color:#bbf7d0;"><div class="acc-ai-row-head"><strong>Conditions completees</strong><span>Toutes OK</span></div><p>Les trois conditions sont validees. Vous pouvez jouer une fois ce mois-ci.</p></div>
+                        {% endif %}
+                    </div>
+                </div>
+
+            {% elseif active_module == 'surplus' %}
+                <div class="acc-ai-head">
+                    <div>
+                        <h2>Superplus intelligent</h2>
+                    </div>
+                    <span class="acc-ai-badge {{ superplus_detected ? 'accent' : 'calm' }}"><i class="fa-solid fa-vault"></i> {{ superplus_detected ? 'Suggestion active' : 'Aucun surplus detecte' }}</span>
+                </div>
+
+                <div class="acc-ai-grid">
+                    <article class="acc-ai-row" style="background:linear-gradient(135deg,#0f766e,#14b8a6 48%,#6ee7b7);color:#fff;">
+                        <h3 style="margin:0;color:#fff;">Crédits du mois actuel</h3>
+                        <p style="color:rgba(255,255,255,.84);">Total des transactions de type DÉPÔT, VIREMENT reçu et CRÉDIT enregistrées en {{ surplus.month|default('mois courant') }}.</p>
+                        <strong style="display:block;margin-top:18px;font-size:34px;">{{ surplus.current_income|default(0)|number_format(2, '.', ' ') }} DT</strong>
+                        {% if superplus_detected %}
+                            <span style="display:inline-block;margin-top:10px;background:rgba(255,255,255,.2);padding:4px 12px;border-radius:999px;font-size:11px;font-weight:900;">
+                                +{{ surplus.surplus|default(0)|number_format(2, '.', ' ') }} DT au-dessus de la moyenne
+                            </span>
+                        {% endif %}
+                    </article>
+                    <article class="acc-ai-row" style="background:linear-gradient(135deg,#0f172a,#1d4ed8 48%,#60a5fa);color:#fff;">
+                        <h3 style="margin:0;color:#fff;">Moyenne des 3 derniers mois</h3>
+                        <p style="color:rgba(255,255,255,.84);">Référence calculée uniquement à partir des crédits des trois mois précédents (DÉPÔT, VIREMENT reçu, CRÉDIT).</p>
+                        <strong style="display:block;margin-top:18px;font-size:34px;">{{ surplus.average_income|default(0)|number_format(2, '.', ' ') }} DT</strong>
+                        {% if surplus.stability_ok|default(false) %}
+                            <span style="display:inline-block;margin-top:10px;background:rgba(255,255,255,.18);padding:4px 12px;border-radius:999px;font-size:11px;font-weight:900;color:#a7f3d0;">
+                                <i class="fa-solid fa-circle-check"></i> Stabilité confirmée
+                            </span>
+                        {% else %}
+                            <span style="display:inline-block;margin-top:10px;background:rgba(255,87,51,.25);padding:4px 12px;border-radius:999px;font-size:11px;font-weight:900;color:#fca5a5;">
+                                <i class="fa-solid fa-triangle-exclamation"></i> Historique insuffisant
+                            </span>
+                        {% endif %}
+                    </article>
+                </div>
+
+                <div class="acc-ai-grid" style="margin-top:18px;">
+                    <section class="acc-ai-explainer {{ superplus_detected ? 'detected' : 'clear' }}" data-surplus-explanation data-endpoint="{{ path('api_surplus_explanation') }}"
+                             style="background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 50%,#a78bfa 100%);border:none;border-radius:24px;color:#fff;box-shadow:0 16px 40px rgba(99,102,241,.25);">
+                        <div class="acc-ai-explainer-top">
+                            <div>
+                                <span class="acc-ai-explainer-kicker" style="color:rgba(255,255,255,.85);background:rgba(255,255,255,.15);padding:5px 12px;border-radius:999px;display:inline-block;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;">Analyse explicative API</span>
+                                <h3 style="margin:12px 0 0;font-size:22px;font-weight:900;color:#fff;">{{ superplus_detected ? 'Montant a epargner' : 'Aucun surplus ce mois' }}</h3>
+                                <p style="margin:8px 0 0;font-size:13px;color:rgba(255,255,255,.82);">{{ superplus_detected ? 'L interface affiche uniquement la recommandation utile et sa justification.' : 'L API confirme qu aucun transfert automatique n est conseille pour le moment.' }}</p>
+                            </div>
+                            <span class="acc-ai-badge {{ superplus_detected ? 'accent' : 'calm' }}" data-surplus-explanation-badge style="background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.25);">{{ superplus_detected ? 'Suggestion active' : 'Situation stable' }}</span>
+                        </div>
+                        <div class="acc-ai-explainer-amount" style="margin-top:18px;padding:16px 18px;border-radius:18px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.18);">
+                            <span style="display:block;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.75);">Montant a epargner</span>
+                            <strong data-surplus-explanation-amount style="display:block;margin-top:8px;font-size:32px;font-weight:900;color:#fff;">{{ superplus_display_amount|number_format(2, '.', ' ') }} DT</strong>
+                            <small data-surplus-explanation-caption style="display:block;margin-top:6px;font-size:12px;color:rgba(255,255,255,.75);">{{ superplus_detected ? '20 % du surplus detecte' : 'Aucun transfert recommande' }}</small>
+                        </div>
+                        <div class="acc-ai-explainer-body" data-surplus-explanation-body style="margin-top:14px;display:flex;flex-direction:column;gap:10px;">
+                            {# Conditions de détection affichées de manière transparente #}
+                            <div class="acc-ai-explainer-item" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:14px 16px;">
+                                <strong style="display:block;font-size:11px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.75);">Justification</strong>
+                                <p style="margin:8px 0 0;font-size:13px;color:#fff;">{{ surplus.message|default('Analyse Superplus en cours…') }}</p>
+                            </div>
+                            {% if superplus_detected and surplus.source_account is defined and surplus.source_account %}
+                                <div class="acc-ai-explainer-item" style="background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:12px 16px;">
+                                    <strong style="display:block;font-size:11px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.7);">Compte source du transfert</strong>
+                                    <p style="margin:6px 0 0;font-size:13px;color:#fff;">
+                                        <i class="fa-solid fa-building-columns" style="margin-right:6px;opacity:.8;"></i>
+                                        {{ surplus.source_account.numeroCompte|default('#' ~ surplus.source_account.idCompte) }}
+                                        — solde disponible : {{ surplus.source_account.solde|default(0)|number_format(2, '.', ' ') }} DT
+                                    </p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </section>
+
+                    <section class="acc-ai-vaults">
+                        <div class="acc-ai-head" style="margin:0 0 8px;">
+                            <div>
+                                <h3>Coffres virtuels disponibles</h3>
+                                <p>Choisissez un coffre pour y transférer automatiquement <strong style="color:#0f766e;">{{ superplus_display_amount|number_format(2, '.', ' ') }} DT</strong> (20&nbsp;% du surplus détecté).</p>
+                            </div>
+                            {% if surplus.show|default(false) %}
+                                <form method="post" action="{{ path(route_name, query_state) }}" data-superplus-action-form>
+                                    <input type="hidden" name="tab" value="accounts">
+                                    <input type="hidden" name="assistant" value="1">
+                                    <input type="hidden" name="show_surplus" value="1">
+                                    <input type="hidden" name="month" value="{{ surplus.month|default('') }}">
+                                    <button type="submit" name="action" value="surplus_dismiss" class="acc-ai-ghost-btn"><i class="fa-solid fa-xmark"></i> Ignorer ce mois</button>
+                                </form>
+                            {% endif %}
+                        </div>
+
+                        {% if all_vaults is not empty %}
+                            <div class="acc-ai-vault-list">
+                                {% for vault in all_vaults %}
+                                    {% set vault_goal = vault.objectifMontant|default(0) + 0 %}
+                                    {% set vault_current = vault.montantActuel|default(0) + 0 %}
+                                    {% set vault_full = vault_goal > 0 and vault_current >= vault_goal %}
+                                    {% set vault_locked = vault.estVerrouille|default(false) %}
+                                    {% set vault_status_lower = vault.status|default('')|lower %}
+                                    {% set vault_inactive = vault_status_lower == 'fermé' or vault_status_lower == 'ferme' or vault_status_lower == 'bloqué' or vault_status_lower == 'bloque' %}
+                                    {% set vault_pct = vault_goal > 0 ? ((vault_current / vault_goal) * 100)|round(1) : 0 %}
+                                    {% set vault_remaining = vault_goal > 0 ? (vault_goal - vault_current) : 9999 %}
+                                    {% set vault_ready = surplus.show|default(false) and not vault_full and not vault_locked and not vault_inactive %}
+                                    <div class="acc-ai-vault-row" style="{{ vault_ready ? 'border-color:#14b8a6;background:linear-gradient(135deg,#f0fdf9,#e6fcf5);' : '' }}">
+                                        <div style="flex:1;min-width:0;">
+                                            <strong>{{ vault.nom }}</strong>
+                                            <p style="margin:4px 0 0;">
+                                                <span style="color:#0f766e;font-weight:700;">{{ vault_current|number_format(2, '.', ' ') }} DT</span>
+                                                <span style="color:#9eb5c8;"> / {{ vault_goal|number_format(2, '.', ' ') }} DT</span>
+                                                {% if vault_pct > 0 %}<span style="margin-left:8px;background:#e0faf5;color:#0f766e;font-size:11px;font-weight:900;padding:2px 8px;border-radius:999px;">{{ vault_pct }}%</span>{% endif %}
+                                            </p>
+                                            {# Barre de progression #}
+                                            <div style="height:6px;margin-top:8px;border-radius:999px;background:#dbeafe;overflow:hidden;">
+                                                <div style="height:100%;width:{{ vault_pct > 100 ? 100 : vault_pct }}%;background:linear-gradient(90deg,#14b8a6,#22c55e);border-radius:999px;transition:width .4s;"></div>
+                                            </div>
+                                            {% if vault_ready and superplus_display_amount > 0 %}
+                                                <p style="margin:6px 0 0;font-size:11px;color:#0f766e;font-weight:800;">
+                                                    <i class="fa-solid fa-arrow-up"></i>
+                                                    Après transfert : {{ (vault_current + superplus_display_amount)|number_format(2, '.', ' ') }} DT
+                                                    {% if vault_goal > 0 %}({{ (((vault_current + superplus_display_amount) / vault_goal) * 100)|round(1) > 100 ? 100 : (((vault_current + superplus_display_amount) / vault_goal) * 100)|round(1) }}%){% endif %}
+                                                </p>
+                                            {% endif %}
+                                        </div>
+                                        <div class="acc-ai-vault-actions" style="flex-shrink:0;margin-left:14px;">
+                                            {% if vault_full %}
+                                                <span class="acc-ai-vault-note" style="background:#dcfce7;color:#166534;"><i class="fa-solid fa-flag-checkered"></i> Objectif atteint</span>
+                                            {% elseif vault_locked %}
+                                                <span class="acc-ai-vault-note" style="background:#fee2e2;color:#b91c1c;"><i class="fa-solid fa-lock"></i> Coffre verrouillé</span>
+                                            {% elseif vault_inactive %}
+                                                <span class="acc-ai-vault-note" style="background:#f3f4f6;color:#6b7280;"><i class="fa-solid fa-ban"></i> {{ vault.status }}</span>
+                                            {% elseif not surplus.show|default(false) %}
+                                                <span class="acc-ai-vault-note"><i class="fa-solid fa-hourglass-half"></i> Pas de surplus ce mois</span>
+                                            {% endif %}
+                                            <form method="post" action="{{ path(route_name, query_state) }}" data-superplus-action-form>
+                                                <input type="hidden" name="tab" value="accounts">
+                                                <input type="hidden" name="assistant" value="1">
+                                                <input type="hidden" name="show_surplus" value="1">
+                                                <input type="hidden" name="month" value="{{ surplus.month|default('') }}">
+                                                <input type="hidden" name="idCoffre" value="{{ vault.idCoffre }}">
+                                                <button type="submit" name="action" value="surplus_transfer" class="acc-ai-vault-btn"
+                                                        {{ not vault_ready ? 'disabled' : '' }}
+                                                        title="{{ vault_ready ? 'Transférer ' ~ superplus_display_amount|number_format(2, '.', ' ') ~ ' DT vers ce coffre' : 'Coffre non disponible' }}">
+                                                    <i class="fa-solid fa-arrow-up-right-dots"></i> Épargner ici
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="acc-ai-empty"><i class="fa-solid fa-vault" style="margin-right:8px;opacity:.5;"></i>Aucun coffre disponible. Créez d'abord un coffre virtuel pour recevoir le transfert Superplus recommandé.</div>
+                        {% endif %}
+                    </section>
+                </div>
+
+            {% else %}
+                <div class="acc-ai-head">
+                    <div>
+                        <h2>Prediction du solde futur</h2>
+                    </div>
+                    <span class="acc-ai-badge {{ prediction_badge_class }}"><i class="fa-solid fa-chart-line"></i> {{ prediction.projection_status_label|default('Projection stable') }}</span>
+                </div>
+
+                <div class="acc-ai-form-box acc-pred-account-box" style="background:#f3f4f6;border:1px solid #d1d5db;border-radius:18px;padding:18px 20px;">
+                    <form method="get" action="{{ path(route_name) }}" class="acc-pred-account-form" data-prediction-account-form>
+                        {% for key, value in query_state %}
+                            <input type="hidden" name="{{ key }}" value="{{ value }}">
+                        {% endfor %}
+                        <input type="hidden" name="assistant" value="1">
+                        <input type="hidden" name="show_prediction" value="1">
+                        <label for="acc-prediction-account-select">Choisir le compte a analyser</label>
+                        <select id="acc-prediction-account-select" name="selected_account">
+                            {% for account in all_accounts %}
+                                <option value="{{ account.idCompte }}" {{ prediction_selected_account_id ~ '' == account.idCompte ~ '' ? 'selected' : '' }}>
+                                    {{ account.numeroCompte|default('Compte') }} | {{ account.typeCompte|default('Compte') }}
+                                </option>
+                            {% else %}
+                                <option value="">Aucun compte disponible</option>
+                            {% endfor %}
+                        </select>
+                        <p class="acc-pred-account-hint">
+                            {% if prediction_selected_account %}
+                                Analyse active sur le compte {{ prediction_selected_account.numeroCompte|default('') }} de type {{ prediction_selected_account.typeCompte|default('Compte') }}.
+                            {% else %}
+                                Aucun compte n est disponible pour lancer une prediction individualisee.
+                            {% endif %}
+                        </p>
+                    </form>
+                </div>
+
+                <div class="acc-ai-grid">
+                </div>
+
+                <div class="acc-pred-layout" style="margin-top:18px;">
+                    <section class="acc-pred-chart-card"
+                             data-balance-chart
+                             data-series="{{ prediction.future_projection|default([])|json_encode|e('html_attr') }}">
+                        <div class="acc-pred-head">
+                            <div>
+                                <h3>Courbe previsionnelle</h3>
+                                <p>La courbe soustrait les depenses quotidiennes estimees et ajoute automatiquement les revenus recurrents identifies sur l horizon choisi.</p>
+                            </div>
+                            <div class="acc-pred-range">
+                                <button type="button" data-projection-window="7">7 jours</button>
+                                <button type="button" data-projection-window="15">15 jours</button>
+                                <button type="button" data-projection-window="30" class="active">30 jours</button>
+                            </div>
+                        </div>
+
+                        <div class="acc-pred-toolbar" style="margin-top:14px;">
+                            <div class="acc-pred-legend">
+                                <span class="pos"><i></i> Zone positive</span>
+                                <span class="neg"><i></i> Zone negative</span>
+                                <span class="zero"><i></i> Seuil critique 0 DT</span>
+                            </div>
+                        </div>
+
+                        <div class="acc-pred-metrics">
+                            <div class="acc-pred-metric">
+                                <span>Projection selectionnee</span>
+                                <strong data-projection-selected-balance>{{ prediction.projected_balance_30|default(0)|number_format(2, '.', ' ') }} DT</strong>
+                                <small data-projection-selected-label>Solde estime a J+30</small>
+                            </div>
+                            <div class="acc-pred-metric">
+                                <span>Depenses projetees</span>
+                                <strong>{{ prediction.total_predicted_spending|default(0)|number_format(2, '.', ' ') }} DT</strong>
+                                <small>Total simule sur 30 jours au rythme moyen actuel.</small>
+                            </div>
+                            <div class="acc-pred-metric">
+                                <span>Prochain revenu</span>
+                                <strong>
+                                    {% if prediction.next_recurring_credit is defined and prediction.next_recurring_credit %}
+                                        {{ prediction.next_recurring_credit.amount|default(0)|number_format(2, '.', ' ') }} DT
+                                    {% else %}
+                                        Aucun
+                                    {% endif %}
+                                </strong>
+                                <small>
+                                    {% if prediction.next_recurring_credit is defined and prediction.next_recurring_credit %}
+                                        {{ prediction.next_recurring_credit.label|default('Revenu recurrent') }} le {{ prediction.next_recurring_credit.date|default('—') }}
+                                    {% else %}
+                                        Aucun credit recurrent detecte sur la fenetre projetee.
+                                    {% endif %}
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="acc-pred-canvas-wrap">
+                            <canvas id="acc-prediction-canvas" class="acc-pred-canvas" height="320"></canvas>
+                        </div>
+
+                        <div class="acc-pred-foot">
+                            <div class="acc-pred-foot-item">
+                                <span>Solde J+7</span>
+                                <strong>{{ prediction.projected_balance_7|default(0)|number_format(2, '.', ' ') }} DT</strong>
+                            </div>
+                            <div class="acc-pred-foot-item">
+                                <span>Solde J+15</span>
+                                <strong>{{ prediction.projected_balance_15|default(0)|number_format(2, '.', ' ') }} DT</strong>
+                            </div>
+                            <div class="acc-pred-foot-item">
+                                <span>Solde J+30</span>
+                                <strong>{{ prediction.projected_balance_30|default(0)|number_format(2, '.', ' ') }} DT</strong>
+                            </div>
+                        </div>
+                    </section>
+
+                    <div class="acc-pred-side">
+                        <div class="acc-ai-card">
+                            <h3>Alertes intelligentes</h3>
+                            <p>Le systeme detecte a l avance les passages critiques et les revenus qui peuvent reequilibrer la trajectoire.</p>
+                            <div class="acc-pred-alerts" style="margin-top:14px;">
+                                {% for alert in prediction.alerts|default([]) %}
+                                    <div class="acc-pred-alert {{ alert.level|default('info') }}">
+                                        <strong>{{ alert.title|default('Alerte') }}</strong>
+                                        <p>{{ alert.text|default('Aucune alerte detaillee.') }}</p>
+                                    </div>
+                                {% else %}
+                                    <div class="acc-pred-alert info">
+                                        <strong>Analyse indisponible</strong>
+                                        <p>Ajoutez plus de transactions pour obtenir des alertes plus precises.</p>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="acc-ai-card" style="margin-top:18px;">
+                            <h3>Revenus recurrents</h3>
+                            <p>Credits anticipes pendant l horizon de projection pour expliquer les rebonds de la courbe.</p>
+                            <div class="acc-pred-income-list">
+                                {% for income in prediction.recurring_credits|default([]) %}
+                                    <div class="acc-pred-income-row">
+                                        <div>
+                                            <strong>{{ income.label|default('Revenu recurrent') }}</strong>
+                                            <span>
+                                                {% if income.occurrences|default([]) is not empty %}
+                                                    Prochaine occurrence : {{ income.occurrences[0].date|default('—') }}
+                                                {% else %}
+                                                    Aucune occurrence sur la fenetre courante
+                                                {% endif %}
+                                            </span>
+                                        </div>
+                                        <strong>{{ income.amount|default(0)|number_format(2, '.', ' ') }} DT</strong>
+                                    </div>
+                                {% else %}
+                                    <div class="acc-ai-empty">Aucun revenu recurrent clair n a ete detecte pour les 30 prochains jours.</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="acc-ai-prediction" style="margin-top:18px;">
+                    <div class="acc-ai-bars">
+                        {% for prediction_item in prediction.predictions|default([]) %}
+                            <div class="acc-ai-row">
+                                <div class="acc-ai-row-head"><strong>{{ prediction_item.category|default('Categorie') }}</strong><span>{{ prediction_item.predicted_amount|default(0)|number_format(2, '.', ' ') }} DT</span></div>
+                                <div class="acc-ai-bar prediction"><span style="width: {{ top_prediction_amount > 0 ? ((prediction_item.predicted_amount|default(0) * 100) / top_prediction_amount) : 0 }}%;"></span></div>
+                            </div>
+                        {% else %}
+                            <div class="acc-ai-empty">Ajoutez davantage de transactions pour obtenir une prediction plus fiable.</div>
+                        {% endfor %}
+                    </div>
+                    <div class="acc-ai-rows">
+                        <div class="acc-ai-progress-card">
+                            <div class="acc-ai-progress-head"><strong><i class="fa-solid fa-piggy-bank"></i> Score d'epargne</strong><span>{{ prediction.savings_score|default(0) }}/100</span></div>
+                            <div class="acc-ai-progress"><span style="width: {{ prediction.savings_score|default(0) }}%;"></span></div>
+                            <p>Plus le score est eleve, plus l equilibre entre credits et debits du mois courant reste favorable.</p>
+                        </div>
+                        <div class="acc-ai-card">
+                            <h3>Conseils IA</h3>
+                            <p>Actions proposees automatiquement pour mieux piloter votre solde futur.</p>
+                            <ul class="acc-ai-tip-list">
+                                {% for tip in prediction.conseils|default([]) %}
+                                    <li class="acc-ai-tip"><strong>Suggestion</strong>{{ tip }}</li>
+                                {% else %}
+                                    <li class="acc-ai-tip"><strong>Aucun conseil pour l'instant</strong>Les recommandations apparaitront avec un historique plus riche.</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </article>
+</section>
+
+<script>
+(function () {
+    const wheelForm = document.querySelector('[data-wheel-spin-form]');
+    const wheelDisc = document.getElementById('acc-wheel-disc');
+    if (wheelForm && wheelDisc) {
+        const clientIsoInput = wheelForm.querySelector('[data-wheel-client-iso]');
+        wheelForm.addEventListener('submit', function (event) {
+            if (wheelForm.dataset.spinning === '1') return;
+            const submitButton = wheelForm.querySelector('button[type="submit"]');
+            if (submitButton && submitButton.disabled) return;
+            event.preventDefault();
+            wheelForm.dataset.spinning = '1';
+            if (clientIsoInput) clientIsoInput.value = new Date().toISOString();
+            wheelDisc.style.setProperty('--rotation', (1980 + Math.floor(Math.random() * 720)) + 'deg');
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Rotation en cours...';
+            }
+            window.setTimeout(function () { wheelForm.submit(); }, 2400);
+        });
+    }
+
+    const adviceRoot = document.querySelector('[data-wheel-advice]');
+    if (adviceRoot) {
+        const refreshButton = adviceRoot.querySelector('[data-wheel-advice-refresh]');
+        const list = adviceRoot.querySelector('[data-wheel-advice-list]');
+        const failedKeys = Array.from(adviceRoot.querySelectorAll('[data-wheel-failed-key]')).map(function (item) { return item.getAttribute('data-wheel-failed-key'); }).filter(Boolean);
+
+        function renderAdvice(items, message) {
+            if (!list) return;
+            if (!items || !items.length) {
+                list.innerHTML = '<div class="acc-ai-advice-item"><strong>Conditions validees</strong><p>' + (message || 'Toutes les conditions sont deja respectees.') + '</p></div>';
+                return;
+            }
+            list.innerHTML = items.map(function (item) {
+                return '<div class="acc-ai-advice-item"><strong>' + (item.title || 'Conseil IA') + '</strong><p><b>Pourquoi :</b> ' + (item.reason || 'Condition non respectee.') + '</p><p><b>Solution :</b> ' + (item.solution || 'Mettez a jour votre situation financiere puis reessayez.') + '</p></div>';
+            }).join('');
+        }
+
+        async function loadAdvice() {
+            if (!refreshButton || !list) return;
+            refreshButton.disabled = true;
+            list.innerHTML = '<div class="acc-ai-advice-item"><strong>Analyse IA en cours</strong><p>L assistant prepare une explication personnalisee pour chaque condition bloquante.</p></div>';
+            try {
+                const response = await fetch('/api/wheel-condition-advice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conditions: failedKeys }) });
+                const payload = await response.json();
+                if (!response.ok || payload.error) throw new Error(payload.error || 'HTTP ' + response.status);
+                renderAdvice(payload.items || [], payload.message || '');
+            } catch (error) {
+                list.innerHTML = '<div class="acc-ai-advice-item"><strong>Analyse indisponible</strong><p>' + error.message + '</p></div>';
+            } finally {
+                refreshButton.disabled = false;
+            }
+        }
+
+        refreshButton?.addEventListener('click', loadAdvice);
+        if (failedKeys.length > 0) loadAdvice();
+    }
+
+    const goalRoot = document.querySelector('[data-goal-assistant]');
+    if (goalRoot) {
+        const endpoint = goalRoot.getAttribute('data-endpoint');
+        const actionUrl = goalRoot.getAttribute('data-action-url');
+
+        function escapeGoalHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function formatGoalMoney(value) {
+            return Number(value || 0).toLocaleString('fr-TN', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            }) + ' DT';
+        }
+
+        function renderGoalNotifications(payload) {
+            const notifications = Array.isArray(payload.notifications) ? payload.notifications : [];
+            const accounts = Array.isArray(payload.accounts) ? payload.accounts : [];
+
+            if (!notifications.length) {
+                goalRoot.innerHTML = '<div class="acc-goal-empty"><strong>Aucune notification pour le moment</strong><p>Vos coffres restent sous controle. Les prochaines alertes intelligentes apparaitront ici automatiquement.</p></div>';
+                return;
+            }
+
+            goalRoot.innerHTML = notifications.map(function (item) {
+                const vault = item.vault || {};
+                const progress = Math.max(0, Math.min(100, Number(vault.progression || 0)));
+                const targetDate = vault.dateObjectifs ? escapeGoalHtml(vault.dateObjectifs) : 'Non definie';
+                const explanation = escapeGoalHtml(item.explanation || 'Aucune explication disponible.');
+                const message = escapeGoalHtml(item.message || '');
+                const title = escapeGoalHtml(item.title || 'Notification IA');
+                const vaultName = escapeGoalHtml(vault.nom || 'Coffre');
+                const currentAmount = formatGoalMoney(vault.montantActuel || 0);
+                const goalAmount = formatGoalMoney(vault.objectifMontant || 0);
+
+                if (item.type === 'success') {
+                    const accountRows = accounts.length ? accounts.map(function (account) {
+                        const accountLabel = escapeGoalHtml(account.numeroCompte || 'Compte');
+                        const accountType = escapeGoalHtml(account.typeCompte || 'Compte');
+                        const accountStatus = escapeGoalHtml(account.statutCompte || 'Statut indisponible');
+                        const accountBalance = formatGoalMoney(account.solde || 0);
+
+                        return '<div class="acc-goal-account-row">'
+                            + '<div><strong>' + accountLabel + '</strong><span>' + accountType + ' | ' + accountBalance + ' | ' + accountStatus + '</span></div>'
+                            + '<form method="post" action="' + escapeGoalHtml(actionUrl || '') + '" class="acc-goal-inline-form">'
+                            + '<input type="hidden" name="tab" value="accounts">'
+                            + '<input type="hidden" name="assistant" value="1">'
+                            + '<input type="hidden" name="action" value="vault_goal_transfer">'
+                            + '<input type="hidden" name="idCoffre" value="' + escapeGoalHtml(item.idCoffre || '') + '">'
+                            + '<input type="hidden" name="idCompte" value="' + escapeGoalHtml(account.idCompte || '') + '">'
+                            + '<button type="submit" class="acc-goal-action-btn transfer"><i class="fa-solid fa-arrow-right-arrow-left"></i> Transferer le montant</button>'
+                            + '</form>'
+                            + '</div>';
+                    }).join('') : '<div class="acc-goal-helper">Aucun compte bancaire n est disponible pour recevoir ce montant.</div>';
+
+                    return '<article class="acc-goal-card success">'
+                        + '<div class="acc-goal-card-head">'
+                        + '<div><span class="acc-goal-card-kicker"><i class="fa-solid fa-trophy"></i> Objectif atteint</span><h3>' + title + '</h3><p>' + message + '</p></div>'
+                        + '<span class="acc-goal-pill success"><i class="fa-solid fa-circle-check"></i> ' + formatGoalMoney(item.transfer_amount || 0) + '</span>'
+                        + '</div>'
+                        + '<div class="acc-goal-grid">'
+                        + '<section class="acc-goal-panel"><h4>Choisir un compte</h4><p>Le montant du coffre est transfere vers le compte bancaire selectionne des que vous validez l action.</p><div class="acc-goal-accounts">' + accountRows + '</div></section>'
+                        + '<section class="acc-goal-panel"><h4>Action recommandee</h4>'
+                        + '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:14px;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border:1px solid #bbf7d0;margin-bottom:12px;">'
+                        + '<div><span style="font-size:10px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:#166534;">Montant disponible</span><strong style="display:block;font-size:22px;font-weight:900;color:#0f766e;margin-top:4px;">' + currentAmount + '</strong></div>'
+                        + '<div style="text-align:right;"><span style="font-size:10px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:#166534;">Progression</span><strong style="display:block;font-size:22px;font-weight:900;color:#0f766e;margin-top:4px;">' + progress.toFixed(0) + '%</strong></div>'
+                        + '</div>'
+                        + '<div style="height:8px;border-radius:999px;background:#e5edf5;overflow:hidden;margin-bottom:12px;"><div style="height:100%;border-radius:999px;background:linear-gradient(90deg,#10b981,#14b8a6);width:' + progress + '%;"></div></div>'
+                        + '<p style="font-size:13px;color:#64809a;margin:0;">Vous pouvez maintenant affecter ce montant a un compte courant, epargne ou professionnel sans quitter cette interface.</p>'
+                        + '</section>'
+                        + '</div>'
+                        + '</article>';
+                }
+
+                const extensions = Array.isArray(item.extensions) ? item.extensions : [];
+                const extensionSelect = extensions.length
+                    ? '<form method="post" action="' + escapeGoalHtml(actionUrl || '') + '" class="acc-goal-inline-form" style="display:flex;flex-direction:column;gap:10px;">'
+                        + '<input type="hidden" name="tab" value="accounts">'
+                        + '<input type="hidden" name="assistant" value="1">'
+                        + '<input type="hidden" name="action" value="vault_goal_extend">'
+                        + '<input type="hidden" name="idCoffre" value="' + escapeGoalHtml(item.idCoffre || '') + '">'
+                        + '<select name="extension" style="height:46px;border-radius:14px;border:1px solid #fdba74;background:#fff7ed;padding:0 14px;font:inherit;font-size:13px;font-weight:700;color:#c2410c;width:100%;">'
+                        + extensions.map(function(ext){ return '<option value="' + escapeGoalHtml(ext.code||'') + '">' + escapeGoalHtml(ext.label||'+3 mois') + '</option>'; }).join('')
+                        + '</select>'
+                        + '<button type="submit" class="acc-goal-action-btn extend" style="width:100%;justify-content:center;"><i class="fa-solid fa-calendar-plus"></i> Confirmer la prolongation</button>'
+                        + '</form>'
+                    : '<div class="acc-goal-helper">Aucune prolongation n est proposee pour ce coffre.</div>';
+
+                return '<article class="acc-goal-card overdue">'
+                    + '<div class="acc-goal-card-head">'
+                    + '<div><span class="acc-goal-card-kicker"><i class="fa-solid fa-triangle-exclamation"></i> Retard detecte</span><h3>' + title + '</h3><p>' + message + '</p></div>'
+                    + '<span class="acc-goal-pill overdue"><i class="fa-solid fa-hourglass-end"></i> ' + progress.toFixed(1) + '%</span>'
+                    + '</div>'
+                    + '<div class="acc-goal-vault">'
+                    + '<div class="acc-goal-card-top"><div><strong>' + vaultName + '</strong><p>' + explanation + '</p></div><div class="acc-goal-vault-meta"><span><i class="fa-solid fa-bullseye"></i> ' + currentAmount + ' / ' + goalAmount + '</span><span><i class="fa-solid fa-calendar-xmark"></i> ' + targetDate + '</span></div></div>'
+                    + '<div class="acc-goal-progress"><span style="width:' + progress + '%;"></span></div>'
+                    + '</div>'
+                    + '<div class="acc-goal-grid">'
+                    + '<section class="acc-goal-panel"><h4>Justification IA</h4><p>' + explanation + '</p><div class="acc-goal-helper">La recommandation vous propose de prolonger la date au lieu de recreer un nouvel objectif.</div></section>'
+                    + '<section class="acc-goal-panel"><h4>Prolonger l objectif</h4><p>Choisissez la nouvelle duree qui correspond le mieux a votre rythme d epargne actuel.</p><div class="acc-goal-extensions">' + extensionSelect + '</div></section>'
+                    + '</div>'
+                    + '</article>';
+            }).join('');
+        }
+
+        goalRoot.addEventListener('submit', function (event) {
+            const form = event.target;
+            if (!(form instanceof HTMLFormElement)) return;
+            const button = form.querySelector('button[type="submit"]');
+            if (!button || button.disabled) return;
+            button.disabled = true;
+            button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Traitement...';
+        });
+
+        fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) })
+            .then(function (response) { return response.json().then(function (payload) { return { ok: response.ok, payload: payload, status: response.status }; }); })
+            .then(function (result) {
+                if (!result.ok || result.payload.error) throw new Error(result.payload.error || 'HTTP ' + result.status);
+                renderGoalNotifications(result.payload);
+            })
+            .catch(function (error) {
+                goalRoot.innerHTML = '<div class="acc-goal-empty"><strong>Notifications indisponibles</strong><p>' + escapeGoalHtml(error.message) + '</p></div>';
+            });
+    }
+
+    const surplusRoot = document.querySelector('[data-surplus-explanation]');
+    if (surplusRoot) {
+        const endpoint = surplusRoot.getAttribute('data-endpoint');
+        const body = surplusRoot.querySelector('[data-surplus-explanation-body]');
+        const amount = surplusRoot.querySelector('[data-surplus-explanation-amount]');
+        const caption = surplusRoot.querySelector('[data-surplus-explanation-caption]');
+        const badge = surplusRoot.querySelector('[data-surplus-explanation-badge]');
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function renderSurplus(payload) {
+            if (!body) return;
+            const amountValue = Number(payload.amount || 0);
+            const isDetected = payload.status === 'surplus' && amountValue > 0;
+            const justification = payload.justification || 'Aucune explication disponible pour le moment.';
+
+            surplusRoot.classList.toggle('detected', isDetected);
+            surplusRoot.classList.toggle('clear', !isDetected);
+
+            if (amount) {
+                amount.textContent = amountValue.toLocaleString('fr-TN', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                }) + ' DT';
+            }
+
+            if (caption) {
+                caption.textContent = isDetected ? '20 % du surplus detecte' : 'Aucun transfert recommande';
+            }
+
+            if (badge) {
+                badge.className = 'acc-ai-badge ' + (isDetected ? 'accent' : 'calm');
+                badge.textContent = payload.badge || (isDetected ? 'Suggestion active' : 'Situation stable');
+            }
+
+            body.innerHTML = '<div class="acc-ai-explainer-item"><strong>Justification</strong><p>' + escapeHtml(justification) + '</p></div>';
+        }
+
+        fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) })
+            .then(function (response) { return response.json().then(function (payload) { return { ok: response.ok, payload: payload, status: response.status }; }); })
+            .then(function (result) {
+                if (!result.ok || result.payload.error) throw new Error(result.payload.error || 'HTTP ' + result.status);
+                renderSurplus(result.payload);
+            })
+            .catch(function (error) {
+                if (body) body.innerHTML = '<div class="acc-ai-explainer-item"><strong>Analyse indisponible</strong><p>' + error.message + '</p></div>';
+            });
+    }
+
+    const predictionRoot = document.querySelector('[data-balance-chart]');
+    const predictionAccountForm = document.querySelector('[data-prediction-account-form]');
+    const predictionAccountSelect = predictionAccountForm?.querySelector('select[name="selected_account"]');
+    if (predictionAccountForm && predictionAccountSelect) {
+        predictionAccountSelect.addEventListener('change', function () {
+            predictionAccountForm.submit();
+        });
+    }
+
+    if (predictionRoot) {
+        const canvas = document.getElementById('acc-prediction-canvas');
+        const windowButtons = Array.from(predictionRoot.querySelectorAll('[data-projection-window]'));
+        const selectedBalance = predictionRoot.querySelector('[data-projection-selected-balance]');
+        const selectedLabel = predictionRoot.querySelector('[data-projection-selected-label]');
+        let projectionSeries = [];
+
+        try {
+            projectionSeries = JSON.parse(predictionRoot.getAttribute('data-series') || '[]');
+        } catch (error) {
+            projectionSeries = [];
+        }
+
+        function formatMoney(value) {
+            return Number(value || 0).toLocaleString('fr-TN', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            }) + ' DT';
+        }
+
+        function drawProjection(windowSize) {
+            if (!canvas || !projectionSeries.length) return;
+            const series = projectionSeries.slice(0, windowSize);
+            if (!series.length) return;
+
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+
+            const ratio = window.devicePixelRatio || 1;
+            const bounds = canvas.getBoundingClientRect();
+            const cssWidth = Math.max(320, bounds.width || 320);
+            const cssHeight = Math.max(240, bounds.height || 320);
+            canvas.width = Math.round(cssWidth * ratio);
+            canvas.height = Math.round(cssHeight * ratio);
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.scale(ratio, ratio);
+
+            const padding = { top: 18, right: 16, bottom: 34, left: 16 };
+            const chartWidth = cssWidth - padding.left - padding.right;
+            const chartHeight = cssHeight - padding.top - padding.bottom;
+            const values = series.map(function (point) { return Number(point.balance || 0); });
+            const minValue = Math.min.apply(null, values.concat([0]));
+            const maxValue = Math.max.apply(null, values.concat([0]));
+            const verticalGap = Math.max(80, (maxValue - minValue) * 0.15);
+            const domainMin = minValue - verticalGap;
+            const domainMax = maxValue + verticalGap;
+            const zeroRatio = (0 - domainMin) / Math.max(1, (domainMax - domainMin));
+            const zeroY = padding.top + chartHeight - (zeroRatio * chartHeight);
+
+            function xFor(index) {
+                return padding.left + (chartWidth * (series.length === 1 ? 0.5 : (index / (series.length - 1))));
+            }
+
+            function yFor(value) {
+                const ratioValue = (value - domainMin) / Math.max(1, (domainMax - domainMin));
+                return padding.top + chartHeight - (ratioValue * chartHeight);
+            }
+
+            ctx.clearRect(0, 0, cssWidth, cssHeight);
+
+            ctx.fillStyle = 'rgba(34,197,94,.10)';
+            ctx.fillRect(padding.left, padding.top, chartWidth, Math.max(0, zeroY - padding.top));
+            ctx.fillStyle = 'rgba(239,68,68,.08)';
+            ctx.fillRect(padding.left, Math.max(padding.top, zeroY), chartWidth, Math.max(0, (padding.top + chartHeight) - zeroY));
+
+            ctx.strokeStyle = 'rgba(148,163,184,.16)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < 5; i += 1) {
+                const y = padding.top + ((chartHeight / 4) * i);
+                ctx.beginPath();
+                ctx.moveTo(padding.left, y);
+                ctx.lineTo(padding.left + chartWidth, y);
+                ctx.stroke();
+            }
+
+            ctx.save();
+            ctx.setLineDash([6, 6]);
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(padding.left, zeroY);
+            ctx.lineTo(padding.left + chartWidth, zeroY);
+            ctx.stroke();
+            ctx.restore();
+
+            function strokeSegment(fromX, fromY, toX, toY, color) {
+                ctx.beginPath();
+                ctx.moveTo(fromX, fromY);
+                ctx.lineTo(toX, toY);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 3;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.stroke();
+            }
+
+            for (let index = 0; index < series.length - 1; index += 1) {
+                const current = series[index];
+                const next = series[index + 1];
+                const x1 = xFor(index);
+                const y1 = yFor(Number(current.balance || 0));
+                const x2 = xFor(index + 1);
+                const y2 = yFor(Number(next.balance || 0));
+                const v1 = Number(current.balance || 0);
+                const v2 = Number(next.balance || 0);
+
+                if ((v1 >= 0 && v2 >= 0) || (v1 < 0 && v2 < 0)) {
+                    strokeSegment(x1, y1, x2, y2, v1 >= 0 ? '#16a34a' : '#dc2626');
+                    continue;
+                }
+
+                const ratioCross = Math.abs(v1) / Math.max(0.0001, Math.abs(v1) + Math.abs(v2));
+                const crossX = x1 + ((x2 - x1) * ratioCross);
+                strokeSegment(x1, y1, crossX, zeroY, v1 >= 0 ? '#16a34a' : '#dc2626');
+                strokeSegment(crossX, zeroY, x2, y2, v2 >= 0 ? '#16a34a' : '#dc2626');
+            }
+
+            series.forEach(function (point, index) {
+                const x = xFor(index);
+                const y = yFor(Number(point.balance || 0));
+                ctx.beginPath();
+                ctx.arc(x, y, 4, 0, Math.PI * 2);
+                ctx.fillStyle = Number(point.balance || 0) >= 0 ? '#16a34a' : '#dc2626';
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#ffffff';
+                ctx.stroke();
+            });
+
+            ctx.fillStyle = '#627d98';
+            ctx.font = '11px system-ui, sans-serif';
+            ctx.textAlign = 'center';
+            const labelIndexes = Array.from(new Set([0, Math.max(0, Math.floor((series.length - 1) / 2)), series.length - 1]));
+            labelIndexes.forEach(function (index) {
+                ctx.fillText(series[index].label || ('J+' + (index + 1)), xFor(index), cssHeight - 10);
+            });
+
+            const lastPoint = series[series.length - 1];
+            if (selectedBalance) selectedBalance.textContent = formatMoney(lastPoint.balance || 0);
+            if (selectedLabel) selectedLabel.textContent = 'Solde estime a ' + (lastPoint.label || ('J+' + series.length));
+        }
+
+        function activeWindowValue() {
+            const activeButton = predictionRoot.querySelector('[data-projection-window].active');
+
+            return activeButton ? Number(activeButton.getAttribute('data-projection-window')) || 30 : 30;
+        }
+
+        function activateWindow(windowSize) {
+            windowButtons.forEach(function (button) {
+                button.classList.toggle('active', Number(button.getAttribute('data-projection-window')) === windowSize);
+            });
+            drawProjection(windowSize);
+        }
+
+        windowButtons.forEach(function (button) {
+            button.addEventListener('click', function () {
+                activateWindow(Number(button.getAttribute('data-projection-window')) || 30);
+            });
+        });
+
+        activateWindow(30);
+        window.addEventListener('resize', function () {
+            activateWindow(activeWindowValue());
+        });
+    }
+
+    document.querySelectorAll('[data-superplus-action-form]').forEach(function (form) {
+        form.addEventListener('submit', function () {
+            const button = form.querySelector('button[type="submit"]');
+            if (!button || button.disabled) return;
+            button.disabled = true;
+            button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Traitement...';
+        });
+    });
+})();
+</script>

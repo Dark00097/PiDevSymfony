@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
-use App\Repository\SurplusNotificationsRepository;
+use App\Repository\SuperplusNotificationsRepository;
 use Doctrine\ORM\Mapping as ORM;
 
-#[ORM\Entity(repositoryClass: SurplusNotificationsRepository::class)]
-#[ORM\Table(name: 'surplus_notifications')]
-class SurplusNotifications
+#[ORM\Entity(repositoryClass: SuperplusNotificationsRepository::class)]
+#[ORM\Table(name: 'superplus_notifications')]
+class SuperplusNotifications
 {
     #[ORM\Id]
     #[ORM\Column(name: 'moisAffiche', type: 'string', length: 7)]

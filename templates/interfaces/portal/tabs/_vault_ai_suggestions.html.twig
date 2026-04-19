@@ -1,0 +1,409 @@
+{#
+══════════════════════════════════════════════════════════════════════
+  _vault_ai_suggestions.html.twig
+  Recommandations IA — affichées SOUS la liste des coffres existants
+══════════════════════════════════════════════════════════════════════
+#}
+
+{% set _sid          = selected_id is defined ? selected_id : 0 %}
+{% set _uid          = (current_user is defined and current_user.idUser is defined) ? current_user.idUser : 0 %}
+{% set _vaults_json  = (account_vaults is defined and account_vaults is not null) ? account_vaults|json_encode : '[]' %}
+{% set _acc_type     = (selected_account is defined and selected_account.typeCompte is defined) ? selected_account.typeCompte|json_encode : '""' %}
+{% set _acc_solde    = (selected_account is defined and selected_account.solde is defined) ? selected_account.solde : 0 %}
+{% set _acc_retrait  = (selected_account is defined and selected_account.plafondRetrait is defined) ? selected_account.plafondRetrait : 0 %}
+{% set _acc_virement = (selected_account is defined and selected_account.plafondVirement is defined) ? selected_account.plafondVirement : 0 %}
+{% set _acc_statut   = (selected_account is defined and selected_account.statutCompte is defined) ? selected_account.statutCompte|json_encode : '""' %}
+{% set _acc_numero   = (selected_account is defined and selected_account.numeroCompte is defined) ? selected_account.numeroCompte|json_encode : '""' %}
+{% set _post_url     = path(route_name, query_state|merge({ selected_account: _sid })) %}
+{% set _edit_base    = path(route_name, query_state|merge({ show_vault: '1', selected_account: _sid })) %}
+
+<style>
+.vai-wrap{margin:0 0 0;background:#fff;border-top:2px solid #ede9fe}
+.vai-head{padding:14px 20px;background:linear-gradient(135deg,#4f46e5 0%,#7c3aed 55%,#a855f7 100%);display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.vai-head-icon{width:42px;height:42px;border-radius:13px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;color:#fff;font-size:17px;flex-shrink:0}
+.vai-head-text{flex:1;min-width:0}
+.vai-head-text strong{display:block;font-size:14px;font-weight:800;color:#fff}
+.vai-head-text span{font-size:11px;color:rgba(255,255,255,.72)}
+.vai-refresh{height:34px;padding:0 13px;border-radius:999px;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.14);color:#fff;font:inherit;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .18s;white-space:nowrap}
+.vai-refresh:hover{background:rgba(255,255,255,.24)}
+.vai-refresh:disabled{opacity:.5;cursor:not-allowed}
+.vai-body{padding:18px 20px}
+.vai-loading,.vai-error{text-align:center;padding:28px 16px;color:#7c90a4}
+.vai-spinner{display:inline-block;width:30px;height:30px;border:3px solid #ede9fe;border-top-color:#7c3aed;border-radius:50%;animation:vai-spin .75s linear infinite;margin-bottom:10px}
+@keyframes vai-spin{to{transform:rotate(360deg)}}
+.vai-loading strong,.vai-error strong{display:block;font-size:13px;color:#102a43;margin-bottom:3px}
+.vai-loading span,.vai-error span{font-size:12px}
+.vai-error i{font-size:1.8rem;display:block;margin-bottom:8px;color:#f59e0b}
+.vai-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+.vai-card{background:#f8fbff;border:1px solid #dbe8f4;border-radius:16px;overflow:hidden;box-shadow:0 4px 12px rgba(15,40,72,.06);display:flex;flex-direction:column;transition:transform .18s,box-shadow .18s}
+.vai-card:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(15,40,72,.11)}
+.vai-card-top{padding:12px 14px;color:#fff;position:relative;overflow:hidden}
+.vai-card-top::before{content:'';position:absolute;width:80px;height:80px;top:-25px;right:-15px;border-radius:50%;background:rgba(255,255,255,.09);pointer-events:none}
+.vai-card-inner{display:flex;align-items:flex-start;gap:10px;position:relative}
+.vai-card-ico{width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.vai-card-name{font-size:13px;font-weight:800;line-height:1.3;margin:0}
+.vai-card-dur{font-size:10px;color:rgba(255,255,255,.78);margin-top:3px;display:flex;align-items:center;gap:4px}
+.vai-prio{position:absolute;top:8px;right:8px;font-size:9px;font-weight:800;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:rgba(255,255,255,.22);color:#fff;letter-spacing:.03em}
+.vai-card-body{padding:12px 14px;flex:1;display:flex;flex-direction:column;gap:8px}
+.vai-card-desc{font-size:11px;color:#6c8298;line-height:1.5;margin:0}
+.vai-card-obj{display:flex;align-items:baseline;gap:5px}
+.vai-card-obj strong{font-size:16px;font-weight:900;color:#102a43}
+.vai-card-obj span{font-size:11px;color:#8296aa}
+.vai-avantages{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:4px}
+.vai-avantages li{font-size:10px;color:#5a738b;display:flex;align-items:flex-start;gap:5px;line-height:1.4}
+.vai-avantages li::before{content:'✓';width:14px;height:14px;border-radius:50%;background:#dcfce7;color:#16a34a;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.vai-card-foot{padding:10px 14px;border-top:1px solid #e8f0f8;display:flex;align-items:center;gap:7px}
+.vai-add{flex:1;height:36px;border-radius:11px;border:0;font:inherit;font-size:12px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;color:#fff;transition:transform .15s,box-shadow .15s,background .15s}
+.vai-add:hover{transform:translateY(-1px)}
+.vai-add:disabled{opacity:.55;cursor:not-allowed;transform:none}
+.vai-add.vai-ok{background:#16a34a !important}
+.vai-add.vai-adding{background:#6b7280 !important}
+.vai-tip{width:36px;height:36px;border-radius:11px;border:1px solid #d8e4ef;background:#f0f7ff;color:#2563eb;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:12px;transition:background .15s;position:relative;flex-shrink:0}
+.vai-tip:hover{background:#dbeafe}
+.vai-tip-bubble{position:absolute;bottom:calc(100% + 7px);right:0;background:#102a43;color:#fff;font-size:10px;line-height:1.5;padding:7px 10px;border-radius:9px;min-width:160px;max-width:220px;white-space:normal;pointer-events:none;opacity:0;transition:opacity .18s;z-index:30;text-align:left}
+.vai-tip:hover .vai-tip-bubble,.vai-tip:focus .vai-tip-bubble{opacity:1}
+.vai-toast-ia{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);padding:9px 20px;border-radius:999px;font-size:13px;font-weight:700;z-index:9999;display:flex;align-items:center;gap:9px;box-shadow:0 6px 28px rgba(0,0,0,.22);animation:vai-tin .22s ease;white-space:nowrap;color:#fff}
+@keyframes vai-tin{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+@keyframes vai-card-appear{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+</style>
+
+<div class="vai-wrap">
+    <div class="vai-head">
+        <div class="vai-head-icon"><i class="fa-solid fa-brain"></i></div>
+        <div class="vai-head-text">
+            <strong>Recommandations IA — Coffres intelligents</strong>
+            <span>Générées automatiquement selon le profil financier du compte</span>
+        </div>
+        <button class="vai-refresh" id="vai-btn-{{ _sid }}" type="button">
+            <i class="fa-solid fa-rotate-right" id="vai-ico-{{ _sid }}"></i> Actualiser
+        </button>
+        <button type="button" id="vai-close-{{ _sid }}"
+                style="width:34px;height:34px;border-radius:999px;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.14);color:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;transition:background .18s;"
+                onmouseover="this.style.background='rgba(255,255,255,.28)'"
+                onmouseout="this.style.background='rgba(255,255,255,.14)'"
+                title="Fermer les recommandations">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+    <div class="vai-body" id="vai-content-{{ _sid }}">
+        <div class="vai-loading">
+            <div class="vai-spinner"></div>
+            <strong>Analyse du profil en cours…</strong>
+            <span>L'IA prépare vos recommandations personnalisées</span>
+        </div>
+    </div>
+</div>
+
+{# Portail de données #}
+<div id="vai-data-{{ _sid }}" hidden
+     data-account-id="{{ _sid }}"
+     data-user-id="{{ _uid }}"
+     data-post-url="{{ _post_url|e('html_attr') }}"
+     data-edit-base="{{ _edit_base|e('html_attr') }}"
+     data-suggest-url="/api/vault-suggestions"
+     data-type="{{ _acc_type|raw|e('html_attr') }}"
+     data-solde="{{ _acc_solde }}"
+     data-retrait="{{ _acc_retrait }}"
+     data-virement="{{ _acc_virement }}"
+     data-statut="{{ _acc_statut|raw|e('html_attr') }}"
+     data-numero="{{ _acc_numero|raw|e('html_attr') }}"
+     data-vaults="{{ _vaults_json|e('html_attr') }}"
+></div>
+
+<script>
+(function () {
+    'use strict';
+
+    var dataEl = document.getElementById('vai-data-{{ _sid }}');
+    if (!dataEl) return;
+
+    var ACCOUNT_ID  = dataEl.dataset.accountId;
+    var USER_ID     = dataEl.dataset.userId;
+    var POST_URL    = dataEl.dataset.postUrl;
+    var EDIT_BASE   = dataEl.dataset.editBase;
+    var SUGGEST_URL = dataEl.dataset.suggestUrl;
+
+    var accountData = {
+        typeCompte     : JSON.parse(dataEl.dataset.type    || '""'),
+        solde          : parseFloat(dataEl.dataset.solde)   || 0,
+        plafondRetrait : parseFloat(dataEl.dataset.retrait) || 0,
+        plafondVirement: parseFloat(dataEl.dataset.virement)|| 0,
+        statutCompte   : JSON.parse(dataEl.dataset.statut  || '""'),
+        numeroCompte   : JSON.parse(dataEl.dataset.numero  || '""'),
+    };
+    var existingVaults = JSON.parse(dataEl.dataset.vaults || '[]');
+
+    var contentEl  = document.getElementById('vai-content-'  + ACCOUNT_ID);
+    var refreshBtn = document.getElementById('vai-btn-'      + ACCOUNT_ID);
+    var refreshIco = document.getElementById('vai-ico-'      + ACCOUNT_ID);
+    if (!contentEl || !refreshBtn) return;
+
+    /* ── Helpers ── */
+    function esc(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+            .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function toast(msg, bg, ms) {
+        document.querySelectorAll('.vai-toast-ia').forEach(function(t){ t.remove(); });
+        var d = document.createElement('div');
+        d.className = 'vai-toast-ia';
+        d.style.background = bg;
+        d.innerHTML = msg;
+        document.body.appendChild(d);
+        if (ms > 0) setTimeout(function(){ d.remove(); }, ms);
+        return d;
+    }
+
+    /* ── Fetch suggestions ── */
+    async function fetchSuggestions() {
+        var res = await fetch(SUGGEST_URL, {
+            method : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body   : JSON.stringify({ account: accountData, vaults: existingVaults }),
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        var data = await res.json();
+        if (data.error) throw new Error(data.error);
+        return data.suggestions || [];
+    }
+
+    /* ── Rendu carte suggestion ── */
+    var PRIO = { haute: '🔴 Haute', moyenne: '🟡 Moyenne', faible: '🟢 Faible' };
+
+    function renderCard(s, idx) {
+        var avLi  = (s.avantages || []).map(function(a){ return '<li>' + esc(a) + '</li>'; }).join('');
+        var col   = esc(s.couleur || '#7c3aed');
+        var delay = (idx * 0.08) + 's';
+        var bid   = 'vai-add-' + ACCOUNT_ID + '-' + idx;
+        return '<div class="vai-card" style="animation:vai-card-appear .3s ease ' + delay + ' both">'
+             + '<div class="vai-card-top" style="background:linear-gradient(135deg,' + col + ' 0%,' + col + 'bb 100%)">'
+             + '<span class="vai-prio">' + esc(PRIO[s.priorite] || s.priorite) + '</span>'
+             + '<div class="vai-card-inner">'
+             + '<div class="vai-card-ico"><i class="fa-solid ' + esc(s.icon || 'fa-vault') + '"></i></div>'
+             + '<div><p class="vai-card-name">' + esc(s.nom) + '</p>'
+             + '<div class="vai-card-dur"><i class="fa-regular fa-clock"></i>' + esc(s.dureeEstimee || '—') + '</div>'
+             + '</div></div></div>'
+             + '<div class="vai-card-body">'
+             + '<p class="vai-card-desc">' + esc(s.description) + '</p>'
+             + '<div class="vai-card-obj"><strong>' + Number(s.objectifMontant || 0).toLocaleString('fr-TN') + ' DT</strong><span>objectif</span></div>'
+             + '<ul class="vai-avantages">' + avLi + '</ul>'
+             + '</div>'
+             + '<div class="vai-card-foot">'
+             + '<button class="vai-add" id="' + bid + '" type="button" style="background:' + col + '" data-idx="' + idx + '">'
+             + '<i class="fa-solid fa-plus"></i> Ajouter</button>'
+             + '<button class="vai-tip" type="button" tabindex="0"><i class="fa-solid fa-circle-info"></i>'
+             + '<div class="vai-tip-bubble"><strong>' + esc(s.nom) + '</strong><br>'
+             + 'Catégorie : ' + esc(s.categorie || '—') + '<br>'
+             + 'Durée : ' + esc(s.dureeEstimee || '—') + '<br>'
+             + 'Objectif : ' + Number(s.objectifMontant || 0).toLocaleString('fr-TN') + ' DT'
+             + '</div></button></div></div>';
+    }
+
+    function renderGrid(suggestions) {
+        if (!suggestions.length) {
+            contentEl.innerHTML = '<div class="vai-error"><i class="fa-solid fa-triangle-exclamation"></i>'
+                + '<strong>Aucune recommandation générée</strong>'
+                + '<span>Cliquez sur Actualiser pour réessayer.</span></div>';
+            return;
+        }
+        var html = '<div class="vai-grid">';
+        for (var i = 0; i < suggestions.length; i++) { html += renderCard(suggestions[i], i); }
+        html += '</div>';
+        contentEl.innerHTML = html;
+        bindAddButtons(suggestions);
+    }
+
+    /* ── Injection dans la liste des coffres existants avec Modifier + Supprimer ── */
+    function injectVaultCard(s, today, newId) {
+        // Cibler la grille des coffres existants par son id
+        var grid = document.getElementById('vault-list-' + ACCOUNT_ID);
+        if (!grid) return;
+
+        // Supprimer le message "Aucun coffre" si présent
+        var gridIsEmptyState = (grid.getAttribute('style') || '').indexOf('text-align:center') !== -1;
+        var emptyMsg = gridIsEmptyState ? grid : grid.querySelector('[style*="text-align:center"]');
+        if (emptyMsg) {
+            // Transformer le conteneur vide en grille
+            grid.innerHTML = '';
+            grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;padding:20px;';
+            if (emptyMsg !== grid) {
+                emptyMsg.remove();
+            }
+        }
+
+        var col = esc(s.couleur || '#0f766e');
+
+        // Construire l'URL de modification si on a l'id du nouveau coffre
+        var editUrl = newId ? (EDIT_BASE + '&edit_vault=' + newId) : '#';
+
+        var card = document.createElement('div');
+        card.style.cssText = 'background:#f8fbff;border:1px solid #dbe8f4;border-radius:16px;overflow:hidden;box-shadow:0 4px 14px rgba(15,40,72,.06);animation:vai-card-appear .35s ease both';
+        card.innerHTML =
+            '<div style="padding:14px 16px;background:linear-gradient(135deg,' + col + ',#14b8a6);color:#fff;">'
+          +   '<div style="display:flex;align-items:center;gap:10px;">'
+          +     '<i class="fa-solid fa-lock-open" style="color:#22c55e;font-size:1.1rem;"></i>'
+          +     '<strong style="font-size:14px;font-weight:800;">' + esc(s.nom) + '</strong>'
+          +   '</div>'
+          +   '<div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:4px;">Ouvert le ' + today + '</div>'
+          + '</div>'
+          + '<div style="padding:14px 16px;">'
+          +   '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
+          +     '<span style="font-size:12px;color:#7c90a4;">Progression</span>'
+          +     '<strong style="font-size:13px;color:#102a43;">0%</strong>'
+          +   '</div>'
+          +   '<div style="height:8px;background:#e8f0f8;border-radius:6px;overflow:hidden;margin-bottom:12px;">'
+          +     '<div style="height:100%;border-radius:6px;background:#ef4444;width:0%;transition:width .4s;"></div>'
+          +   '</div>'
+          +   '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">'
+          +     '<div><span style="color:#7c90a4;">Actuel</span><strong style="display:block;color:#102a43;">0.00 DT</strong></div>'
+          +     '<div><span style="color:#7c90a4;">Objectif</span><strong style="display:block;color:#102a43;">' + Number(s.objectifMontant || 0).toLocaleString('fr-TN') + ' DT</strong></div>'
+          +     '<div><span style="color:#7c90a4;">Statut</span><strong style="display:block;color:#16a34a;">Actif</strong></div>'
+          +     '<div><span style="color:#7c90a4;">Date objectif</span><strong style="display:block;color:#102a43;">—</strong></div>'
+          +   '</div>'
+          + '</div>'
+          + '<div style="padding:10px 16px;border-top:1px solid #e8f0f8;display:flex;align-items:center;justify-content:space-between;gap:10px;">'
+          +   '<a href="' + esc(editUrl) + '" style="background:#eef4ff;color:#2563eb;border:0;border-radius:10px;height:36px;padding:0 12px;font-size:12px;font-weight:800;display:inline-flex;align-items:center;gap:6px;text-decoration:none;">'
+          +     '<i class="fa-solid fa-pen"></i> Modifier'
+          +   '</a>'
+          +   '<button type="button" onclick="vaiDeleteVault(this,' + (newId || 0) + ',\'' + esc(ACCOUNT_ID) + '\')" '
+          +     'style="width:36px;height:36px;border-radius:10px;border:0;background:#fff1f2;color:#e11d48;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:13px;" title="Supprimer">'
+          +     '<i class="fa-solid fa-trash"></i>'
+          +   '</button>'
+          + '</div>';
+
+        grid.appendChild(card);
+    }
+
+    /* ── Suppression inline via JS ── */
+    window.vaiDeleteVault = function(btn, idCoffre, accountId) {
+        if (!confirm('Supprimer ce coffre ?')) return;
+        if (!idCoffre) {
+            // Pas encore persisté — juste retirer la carte du DOM
+            btn.closest('[style*="border-radius:16px"]').remove();
+            return;
+        }
+        var fd = new FormData();
+        fd.append('tab',              'accounts');
+        fd.append('action',           'vault_delete');
+        fd.append('idCoffre',         String(idCoffre));
+        fd.append('selected_account', String(accountId));
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+        fetch(POST_URL, { method: 'POST', body: fd })
+            .then(function(res) {
+                if (res.ok || res.redirected) {
+                    var card = btn.closest('[style*="border-radius:16px"]');
+                    if (card) {
+                        card.style.transition = 'opacity .3s,transform .3s';
+                        card.style.opacity = '0';
+                        card.style.transform = 'scale(.95)';
+                        setTimeout(function(){ card.remove(); }, 320);
+                    }
+                    toast('<i class="fa-solid fa-circle-check"></i> Coffre supprimé', '#15803d', 3000);
+                } else {
+                    throw new Error('HTTP ' + res.status);
+                }
+            })
+            .catch(function(err) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+                toast('<i class="fa-solid fa-circle-xmark"></i> Erreur : ' + esc(err.message), '#dc2626', 4000);
+            });
+    };
+
+    /* ── Boutons Ajouter ── */
+    function bindAddButtons(suggestions) {
+        contentEl.querySelectorAll('.vai-add').forEach(function(btn) {
+            btn.addEventListener('click', async function() {
+                var idx   = parseInt(btn.dataset.idx, 10);
+                var s     = suggestions[idx];
+                var today = new Date().toISOString().split('T')[0];
+
+                btn.disabled = true;
+                btn.classList.add('vai-adding');
+                btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Ajout…';
+
+                try {
+                    var fd = new FormData();
+                    fd.append('tab',             'accounts');
+                    fd.append('action',          'vault_save');
+                    fd.append('idUser',          String(USER_ID));
+                    fd.append('idCompte',        String(ACCOUNT_ID));
+                    fd.append('nom',             s.nom);
+                    fd.append('objectifMontant', String(s.objectifMontant || 1000));
+                    fd.append('montantActuel',   '0');
+                    fd.append('dateCreation',    today);
+                    fd.append('dateObjectifs',   '');
+                    fd.append('status',          'Actif');
+                    fd.append('estVerrouille',   '0');
+
+                    var res = await fetch(POST_URL, { method: 'POST', body: fd, redirect: 'manual' });
+
+                    // Récupérer l'id du coffre créé depuis le header Location ou la réponse JSON
+                    var newId = null;
+                    var locHeader = res.headers.get('Location') || res.url || '';
+                    var m = locHeader.match(/[?&]edit_vault=(\d+)/);
+                    if (m) newId = parseInt(m[1], 10);
+
+                    if (res.ok || res.type === 'opaqueredirect' || res.redirected) {
+                        btn.classList.remove('vai-adding');
+                        btn.classList.add('vai-ok');
+                        btn.innerHTML = '<i class="fa-solid fa-check"></i> Ajouté !';
+                        toast('<i class="fa-solid fa-circle-check"></i> Coffre « ' + esc(s.nom) + ' » ajouté avec succès', '#15803d', 3500);
+                        injectVaultCard(s, today, newId);
+                    } else {
+                        throw new Error('HTTP ' + res.status);
+                    }
+                } catch(err) {
+                    btn.classList.remove('vai-adding');
+                    btn.disabled  = false;
+                    btn.innerHTML = '<i class="fa-solid fa-plus"></i> Ajouter';
+                    toast('<i class="fa-solid fa-circle-xmark"></i> Erreur : ' + esc(err.message), '#dc2626', 4000);
+                    console.error('[VaultAI]', err);
+                }
+            });
+        });
+    }
+
+    /* ── Chargement ── */
+    async function load() {
+        contentEl.innerHTML = '<div class="vai-loading"><div class="vai-spinner"></div>'
+            + '<strong>Analyse du profil en cours…</strong>'
+            + '<span>L\'IA prépare vos recommandations personnalisées</span></div>';
+        refreshBtn.disabled  = true;
+        refreshIco.className = 'fa-solid fa-circle-notch fa-spin';
+        try {
+            var suggestions = await fetchSuggestions();
+            renderGrid(suggestions);
+        } catch(err) {
+            contentEl.innerHTML = '<div class="vai-error"><i class="fa-solid fa-triangle-exclamation"></i>'
+                + '<strong>Impossible de charger les recommandations</strong>'
+                + '<span>' + esc(err.message) + '</span></div>';
+            console.error('[VaultAI]', err);
+        } finally {
+            refreshBtn.disabled  = false;
+            refreshIco.className = 'fa-solid fa-rotate-right';
+        }
+    }
+
+    refreshBtn.addEventListener('click', load);
+    load();
+
+    /* ── Bouton fermer ── */
+    var closeBtn = document.getElementById('vai-close-' + ACCOUNT_ID);
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function() {
+            var wrap = document.getElementById('vai-content-' + ACCOUNT_ID);
+            var panel = wrap ? wrap.closest('.vai-wrap') : null;
+            if (panel) {
+                panel.style.transition = 'opacity .25s, transform .25s';
+                panel.style.opacity = '0';
+                panel.style.transform = 'translateY(-6px)';
+                setTimeout(function() { panel.style.display = 'none'; }, 260);
+            }
+        });
+    }
+
+})();
+</script>

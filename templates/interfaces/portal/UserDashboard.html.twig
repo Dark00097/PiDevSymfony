@@ -1,4 +1,4 @@
-﻿{% extends 'base.html.twig' %}
+{% extends 'base.html.twig' %}
 
 {% block title %}Nexora Portal â€” {{ tab|replace({'_': ' '})|title }}{% endblock %}
 {% block body_class %}nx-portal-body{% endblock %}
@@ -932,9 +932,10 @@
                aria-controls="nx-notif-modal"
                aria-expanded="false">
                 <i class="fa-solid fa-bell"></i>
-                {% if notifications_count|default(0) > 0 %}
+                {% set display_count = notifications|default([])|filter(n => n.type|default('') != 'AI_ANALYSIS' and n.is_read|default(1) in [0, '0', false])|length %}
+                {% if display_count > 0 %}
                     <span class="nx-notif-badge">
-                        {{ notifications_count > 99 ? '99+' : notifications_count }}
+                        {{ display_count > 99 ? '99+' : display_count }}
                     </span>
                 {% endif %}
             </a>
@@ -991,7 +992,8 @@
         </header>
 
         <div class="nx-notif-list">
-            {% for item in notifications|default([]) %}
+            {% set filtered_notifs = notifications|default([])|filter(n => n.type|default('') != 'AI_ANALYSIS') %}
+            {% for item in filtered_notifs %}
                 {% set unread = item.is_read|default(1) in [0, '0', false] %}
                 <article class="nx-notif-item {{ unread ? 'is-unread' : '' }}">
                     <div class="nx-notif-item-top">

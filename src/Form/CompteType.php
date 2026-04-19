@@ -19,20 +19,39 @@ final class CompteType extends BaseCrudFormType
         $existingAccounts = $options['existing_accounts'];
         $currentId = (int) ($options['current_id'] ?? 0);
 
+        $userChoices = [];
+        foreach ($options['users'] as $user) {
+            $userId = (int) ($user['idUser'] ?? 0);
+            if ($userId <= 0) {
+                continue;
+            }
+
+            $fullName = trim(trim((string) ($user['prenom'] ?? '')) . ' ' . trim((string) ($user['nom'] ?? '')));
+            $label = $fullName !== '' ? $fullName : sprintf('Utilisateur #%d', $userId);
+            $userChoices[$label] = $userId;
+        }
+        ksort($userChoices, SORT_NATURAL | SORT_FLAG_CASE);
+
         $this->addFields($builder, [
             'idCompte' => [
                 'type' => HiddenType::class,
             ],
             'idUser' => [
-                'type' => HiddenType::class,
+                'type' => ChoiceType::class,
+                'placeholder' => '-- Selectionner un utilisateur --',
+                'choices' => $userChoices,
+                'required' => true,
+                'constraints' => [
+                    new Assert\NotBlank(message: 'Veuillez selectionner un utilisateur.'),
+                ],
             ],
             'numeroCompte' => [
                 'type' => TextType::class,
                 'constraints' => [
-                    new Assert\NotBlank(message: 'Le numéro de compte est obligatoire.'),
+                    new Assert\NotBlank(message: 'Le numero de compte est obligatoire.'),
                     new Assert\Regex(
-                        pattern: '/^CB-\d{3}$/',
-                        message: 'Le numéro de compte doit être au format CB-XXX (ex : CB-123).'
+                        pattern: '/^CB-\d{3,}$/',
+                        message: 'Le numero de compte doit etre au format CB-XXX (ex : CB-123).'
                     ),
                     new Assert\Callback(function ($value, $context) use ($existingAccounts, $currentId) {
                         $numero = trim((string) $value);
@@ -44,7 +63,8 @@ final class CompteType extends BaseCrudFormType
                             $existingNumero = trim((string) ($account['numeroCompte'] ?? ''));
                             $existingId = (int) ($account['idCompte'] ?? 0);
                             if ($existingNumero === $numero && $existingId !== $currentId) {
-                                $context->buildViolation('Ce numéro de compte existe déjà.')->addViolation();
+                                $context->buildViolation('Ce numero de compte existe deja.')->addViolation();
+
                                 return;
                             }
                         }
@@ -57,7 +77,7 @@ final class CompteType extends BaseCrudFormType
                     new Assert\NotBlank(message: 'Le solde est obligatoire.'),
                     new Assert\GreaterThanOrEqual(
                         value: 0,
-                        message: 'Le solde doit être un nombre positif ou égal à 0.'
+                        message: 'Le solde doit etre un nombre positif ou egal a 0.'
                     ),
                 ],
             ],
@@ -66,8 +86,13 @@ final class CompteType extends BaseCrudFormType
                 'widget' => 'single_text',
                 'input' => 'string',
                 'html5' => true,
+                'empty_data' => $today->format('Y-m-d'),
+                'attr' => [
+                    'readonly' => true,
+                    'max' => $today->format('Y-m-d'),
+                ],
                 'constraints' => [
-                    new Assert\NotBlank(message: "La date d’ouverture est obligatoire."),
+                    new Assert\NotBlank(message: "La date d'ouverture est obligatoire."),
                     new Assert\Callback(function ($value, $context) use ($today) {
                         if ($value === null || $value === '') {
                             return;
@@ -75,29 +100,32 @@ final class CompteType extends BaseCrudFormType
 
                         try {
                             $date = new \DateTimeImmutable((string) $value);
-                            if ($date > $today) {
-                                $context->buildViolation('La date d’ouverture ne doit pas être supérieure à la date actuelle.')
+                            if ($date->format('Y-m-d') !== $today->format('Y-m-d')) {
+                                $context->buildViolation(sprintf(
+                                    "La date d'ouverture est fixee automatiquement au %s.",
+                                    $today->format('Y-m-d')
+                                ))
                                     ->addViolation();
                             }
                         } catch (\Throwable) {
-                            $context->buildViolation('La date d’ouverture est invalide.')->addViolation();
+                            $context->buildViolation("La date d'ouverture est invalide.")->addViolation();
                         }
                     }),
                 ],
             ],
             'statutCompte' => [
                 'type' => ChoiceType::class,
-                'placeholder' => 'Sélectionner',
+                'placeholder' => 'Selectionner',
                 'choices' => [
                     'Actif' => 'Actif',
                     'Fermé' => 'Fermé',
                     'Bloqué' => 'Bloqué',
                 ],
                 'constraints' => [
-                    new Assert\NotBlank(message: 'Veuillez sélectionner un statut.'),
+                    new Assert\NotBlank(message: 'Veuillez selectionner un statut.'),
                     new Assert\Choice(
                         choices: ['Actif', 'Fermé', 'Bloqué'],
-                        message: 'Veuillez sélectionner un statut.'
+                        message: 'Veuillez selectionner un statut.'
                     ),
                 ],
             ],
@@ -105,9 +133,10 @@ final class CompteType extends BaseCrudFormType
                 'type' => NumberType::class,
                 'constraints' => [
                     new Assert\NotBlank(message: 'Le plafond de retrait est obligatoire.'),
-                    new Assert\GreaterThan(
-                        value: 0,
-                        message: 'Le plafond de retrait doit être un nombre supérieur à 0.'
+                    new Assert\Range(
+                        min: 10,
+                        max: 1000,
+                        notInRangeMessage: 'Le plafond de retrait doit etre compris entre 10 DT et 1000 DT.'
                     ),
                 ],
             ],
@@ -115,25 +144,26 @@ final class CompteType extends BaseCrudFormType
                 'type' => NumberType::class,
                 'constraints' => [
                     new Assert\NotBlank(message: 'Le plafond de virement est obligatoire.'),
-                    new Assert\GreaterThan(
-                        value: 0,
-                        message: 'Le plafond de virement doit être un nombre supérieur à 0.'
+                    new Assert\Range(
+                        min: 10,
+                        max: 1000,
+                        notInRangeMessage: 'Le plafond de virement doit etre compris entre 10 DT et 1000 DT.'
                     ),
                 ],
             ],
             'typeCompte' => [
                 'type' => ChoiceType::class,
-                'placeholder' => 'Sélectionner',
+                'placeholder' => 'Selectionner',
                 'choices' => [
                     'Courant' => 'Courant',
                     'Professionnel' => 'Professionnel',
                     'Épargne' => 'Épargne',
                 ],
                 'constraints' => [
-                    new Assert\NotBlank(message: 'Veuillez sélectionner un type de compte.'),
+                    new Assert\NotBlank(message: 'Veuillez selectionner un type de compte.'),
                     new Assert\Choice(
                         choices: ['Courant', 'Professionnel', 'Épargne'],
-                        message: 'Veuillez sélectionner un type de compte.'
+                        message: 'Veuillez selectionner un type de compte.'
                     ),
                 ],
             ],
@@ -146,8 +176,10 @@ final class CompteType extends BaseCrudFormType
         $resolver->setDefaults([
             'existing_accounts' => [],
             'current_id' => null,
+            'users' => [],
         ]);
         $resolver->setAllowedTypes('existing_accounts', 'array');
         $resolver->setAllowedTypes('current_id', ['null', 'int']);
+        $resolver->setAllowedTypes('users', 'array');
     }
 }

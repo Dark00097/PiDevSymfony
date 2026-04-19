@@ -514,9 +514,19 @@ final class TransactionsController
         return trim($value) !== '' ? trim($value) : 'Autre';
     }
 
-    private function canonicalTransactionType(string $value): string
+    private function canonicalTransactionType(string $value, ?string $dest = null): string
     {
-        return str_contains($this->normalizeSearchText($value), 'debit') ? 'Debit' : 'Credit';
+        $normalized = $this->normalizeSearchText($value);
+        if (str_contains($normalized, 'depot') || str_contains($normalized, 'versement') || str_contains($normalized, 'credit')) {
+            return 'Credit';
+        }
+        if (str_contains($normalized, 'paiement') || str_contains($normalized, 'retrait') || str_contains($normalized, 'debit') || str_contains($normalized, 'paimenet')) {
+            return 'Debit';
+        }
+        if (str_contains($normalized, 'virement')) {
+            return ($dest !== null && $dest !== '' && $dest !== '0') ? 'Debit' : 'Credit';
+        }
+        return 'Credit';
     }
 
     private function normalizeSearchText(string $value): string

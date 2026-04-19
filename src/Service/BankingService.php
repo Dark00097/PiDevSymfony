@@ -6,6 +6,7 @@ use Doctrine\DBAL\Connection;
 
 final class BankingService
 {
+    private const DEFAULT_ACCOUNT_LIMIT = 10.0;
     private const BAD_WORDS = [
         'fuck',
         'shit',
@@ -229,6 +230,18 @@ final class BankingService
         $this->connection->delete('users', ['idUser' => $userId]);
     }
 
+    public function listPendingAccounts(): array
+    {
+        return $this->connection->fetchAllAssociative(
+            "SELECT c.*, CONCAT(COALESCE(u.prenom,''), ' ', COALESCE(u.nom,'')) AS owner_name,
+                    u.telephone AS owner_phone, u.email AS owner_email
+             FROM compte c
+             LEFT JOIN users u ON u.idUser = c.idUser
+             WHERE LOWER(TRIM(c.statutCompte)) = 'en attente'
+             ORDER BY c.idCompte DESC"
+        );
+    }
+
     public function listAccounts(?int $userId = null): array
     {
         $sql = 'SELECT c.*, CONCAT(COALESCE(u.prenom, \'\'), \' \', COALESCE(u.nom, \'\')) AS owner_name
@@ -244,27 +257,82 @@ final class BankingService
         return $this->connection->fetchAllAssociative($sql, $params);
     }
 
-    public function saveAccount(array $data, ?int $id = null, ?int $forcedUserId = null): void
+    public function saveAccount(array $data, ?int $id = null, ?int $forcedUserId = null): int
     {
-        $userId = $forcedUserId ?? $this->nullableInt($data['idUser'] ?? null);
+        $existingAccount = null;
+        if ($id !== null) {
+            $existingAccount = $this->connection->fetchAssociative(
+                'SELECT * FROM compte WHERE idCompte = ? LIMIT 1',
+                [$id]
+            );
+            if (!$existingAccount) {
+                throw new \RuntimeException('Compte introuvable.');
+            }
+        }
+
+        $isPortalCreate = ($id === null && $forcedUserId !== null);
+        if ($isPortalCreate) {
+            $data['statutCompte'] = 'En attente';
+        }
+
+        $userId = $forcedUserId
+            ?? $this->nullableInt($data['idUser'] ?? null)
+            ?? $this->nullableInt($existingAccount['idUser'] ?? null);
+
+        if ($userId === null) {
+            throw new \InvalidArgumentException('Utilisateur obligatoire pour ce compte.');
+        }
+        if (!$this->userExists($userId)) {
+            throw new \RuntimeException('Utilisateur introuvable.');
+        }
+
         $payload = [
-            'numeroCompte' => trim((string) ($data['numeroCompte'] ?? '')),
-            'solde' => (float) ($data['solde'] ?? 0),
-            'dateOuverture' => trim((string) ($data['dateOuverture'] ?? date('Y-m-d'))),
-            'statutCompte' => trim((string) ($data['statutCompte'] ?? 'Actif')),
-            'plafondRetrait' => (float) ($data['plafondRetrait'] ?? 0),
-            'plafondVirement' => (float) ($data['plafondVirement'] ?? 0),
-            'typeCompte' => trim((string) ($data['typeCompte'] ?? 'Courant')),
-            'idUser' => $userId,
+            'numeroCompte'   => trim((string) ($data['numeroCompte'] ?? '')),
+            'solde'          => (float) ($data['solde'] ?? 0),
+            'dateOuverture'  => $this->resolveAccountDateValue(
+                $data['dateOuverture'] ?? null,
+                $existingAccount['dateOuverture'] ?? null
+            ),
+            'statutCompte'   => $isPortalCreate
+                ? 'En attente'
+                : $this->resolveAccountTextValue($data['statutCompte'] ?? null, $existingAccount['statutCompte'] ?? null, 'Actif'),
+            'plafondRetrait' => $this->resolveAccountLimitValue(
+                $data['plafondRetrait'] ?? null,
+                $existingAccount['plafondRetrait'] ?? null
+            ),
+            'plafondVirement'=> $this->resolveAccountLimitValue(
+                $data['plafondVirement'] ?? null,
+                $existingAccount['plafondVirement'] ?? null
+            ),
+            'typeCompte'     => $this->resolveAccountTextValue($data['typeCompte'] ?? null, $existingAccount['typeCompte'] ?? null, 'Courant'),
+            'idUser'         => $userId,
         ];
 
         if ($id === null) {
             $this->connection->insert('compte', $payload);
+            $newId = (int) $this->connection->lastInsertId(); // must be called immediately after insert
+
             if ($userId !== null) {
                 $this->activityService->log($userId, 'ACCOUNT_CREATE', 'Symfony portal', 'Bank account created.');
+
+                $user = $this->connection->fetchAssociative('SELECT * FROM users WHERE idUser = ? LIMIT 1', [$userId]);
+                if ($user) {
+                    $payload['idCompte'] = $newId;
+                    if ($isPortalCreate) {
+                        // Portal creation → notify admins (pending validation)
+                        $this->notificationService->notifyAdminsAboutPendingAccount($payload, $user);
+                    } else {
+                        // Admin creation → send confirmation email to the client
+                        try {
+                            $this->notificationService->sendAccountCreatedEmail($payload, $user);
+                        } catch (\Throwable) {
+                            // email failure must never block account creation
+                        }
+                    }
+                }
             }
 
-            return;
+            return $newId;
         }
 
         $criteria = ['idCompte' => $id];
@@ -275,6 +343,131 @@ final class BankingService
         $this->connection->update('compte', $payload, $criteria);
         if ($userId !== null) {
             $this->activityService->log($userId, 'ACCOUNT_UPDATE', 'Symfony portal', sprintf('Bank account #%d updated.', $id));
+        }
+
+        return $id;
+    }
+
+    private function resolveAccountDateValue(mixed $value, mixed $fallback = null): string
+    {
+        $resolved = trim((string) $value);
+        if ($resolved !== '') {
+            return $resolved;
+        }
+
+        $fallbackValue = trim((string) $fallback);
+
+        return $fallbackValue !== '' ? $fallbackValue : date('Y-m-d');
+    }
+
+    private function resolveAccountTextValue(mixed $value, mixed $fallback = null, string $default = ''): string
+    {
+        $resolved = trim((string) $value);
+        if ($resolved !== '') {
+            return $resolved;
+        }
+
+        $fallbackValue = trim((string) $fallback);
+        if ($fallbackValue !== '') {
+            return $fallbackValue;
+        }
+
+        return $default;
+    }
+
+    private function resolveAccountLimitValue(mixed $value, mixed $fallback = null): float
+    {
+        $resolved = trim((string) $value);
+        if ($resolved !== '') {
+            return (float) $resolved;
+        }
+
+        $fallbackValue = trim((string) $fallback);
+        if ($fallbackValue !== '') {
+            return (float) $fallbackValue;
+        }
+
+        return self::DEFAULT_ACCOUNT_LIMIT;
+    }
+
+    public function validateAccount(int $idCompte, bool $accept): void
+    {
+        $account = $this->connection->fetchAssociative('SELECT * FROM compte WHERE idCompte = ? LIMIT 1', [$idCompte]);
+        if (!$account) {
+            return;
+        }
+
+        // Accepter → statut Actif | Refuser → supprimer le compte
+        if ($accept) {
+            $this->connection->update('compte', ['statutCompte' => 'Actif'], ['idCompte' => $idCompte]);
+            $account['statutCompte'] = 'Actif';
+        } else {
+            $this->connection->delete('compte', ['idCompte' => $idCompte]);
+        }
+
+        // Notifications and SMS are best-effort — never block the action
+        try {
+            $userId = $this->nullableInt($account['idUser'] ?? null);
+            if ($userId === null) {
+                return;
+            }
+
+            $user = $this->connection->fetchAssociative('SELECT * FROM users WHERE idUser = ? LIMIT 1', [$userId]);
+            if (!$user) {
+                return;
+            }
+
+            $phone = trim((string) ($user['telephone'] ?? ''));
+
+            if ($accept) {
+                $smsMsg     = 'Bienvenue à Nexora Bank, ce compte est maintenant actif et visible avec toutes ses informations.';
+                $notifTitle = 'Compte bancaire activé';
+                $notifMsg   = sprintf('Votre compte %s (N° %s) a été accepté et est maintenant actif.', $account['typeCompte'] ?? '', $account['numeroCompte'] ?? '');
+            } else {
+                $smsMsg     = "Ce compte n'a pas été accepté et n'est pas accessible.";
+                $notifTitle = 'Compte bancaire refusé';
+                $notifMsg   = sprintf('Votre demande de compte %s (N° %s) a été refusée et supprimée.', $account['typeCompte'] ?? '', $account['numeroCompte'] ?? '');
+            }
+
+            if ($accept) {
+                $notifTitle = 'Compte bancaire activé';
+                $notifMsg = 'Bienvenue à Nexora Bank, ce compte est maintenant activé et visible avec toutes ses informations.';
+                $smsMsg = $notifMsg;
+            } else {
+                $notifTitle = 'Compte bancaire refusé';
+                $notifMsg = "Le compte est refusé. Veuillez contacter l’administration.";
+                $smsMsg = $notifMsg;
+            }
+
+            try {
+                $this->notificationService->createNotification(
+                    $userId,
+                    null,
+                    $userId,
+                    'ACCOUNT_VALIDATION',
+                    $notifTitle,
+                    $notifMsg,
+                    false
+                );
+            } catch (\Throwable) {
+                // notification failure must not block the validation
+            }
+
+            try {
+                $this->notificationService->sendAccountValidationEmail($account, $user, $accept);
+            } catch (\Throwable) {
+                // email failure must not block the validation
+            }
+
+            if ($phone !== '') {
+                try {
+                    $this->notificationService->sendSms($phone, $smsMsg);
+                } catch (\Throwable) {
+                    // SMS failure must not block the validation
+                }
+            }
+        } catch (\Throwable) {
+            // Any notification error is silently ignored
         }
     }
 
@@ -294,8 +487,14 @@ final class BankingService
     {
         $sql = 'SELECT t.*,
                        c.idUser AS compte_user_id,
+                       c.numeroCompte AS compte_numero,
+                       c.typeCompte AS compte_type,
+                       c.statutCompte AS compte_status,
+                       c.plafondRetrait AS compte_plafond_retrait,
+                       c.plafondVirement AS compte_plafond_virement,
                        COALESCE(t.idUser, c.idUser) AS resolved_user_id,
-                       CONCAT(COALESCE(u.prenom, \'\'), \' \', COALESCE(u.nom, \'\')) AS user_name
+                       CONCAT(COALESCE(u.prenom, \'\'), \' \', COALESCE(u.nom, \'\')) AS user_name,
+                       u.email AS user_email
                 FROM transactions t
                 LEFT JOIN compte c ON c.idCompte = t.idCompte
                 LEFT JOIN users u ON u.idUser = COALESCE(t.idUser, c.idUser)';
@@ -312,6 +511,32 @@ final class BankingService
             $row['montant_value'] = $this->security->decryptAmount($row['montant'] ?? null) ?? 0.0;
             $row['montantPaye_value'] = $this->security->decryptAmount($row['montantPaye'] ?? null) ?? 0.0;
             $row['is_anomalie'] = $this->isTransactionAnomaly((int) ($row['resolved_user_id'] ?? $row['idUser'] ?? 0), (float) $row['montant_value']);
+            
+            // Résolution logique du type de transaction (CREDIT/DEBIT)
+            // Règles métier officielles :
+            // DEPOT / VERSEMENT               → CREDIT (entrée d'argent)
+            // PAIEMENT / RETRAIT              → DEBIT  (sortie d'argent)
+            // VIREMENT :
+            //   idCompteDestinataire == compte courant de la ligne → CREDIT (virement reçu)
+            //   idCompteDestinataire != compte courant de la ligne → DEBIT  (virement envoyé)
+            //   idCompteDestinataire NULL/0                        → DEBIT  (inconnu → DEBIT)
+            $typeRaw = strtolower(trim((string) ($row['typeTransaction'] ?? '')));
+            $resolvedType = 'UNKNOWN';
+
+            if (str_contains($typeRaw, 'depot') || str_contains($typeRaw, 'versement')) {
+                $resolvedType = 'CREDIT';
+            } elseif (str_contains($typeRaw, 'paiement') || str_contains($typeRaw, 'retrait') || str_contains($typeRaw, 'paimenet')) {
+                $resolvedType = 'DEBIT';
+            } elseif (str_contains($typeRaw, 'virement')) {
+                $dest = (int) ($row['idCompteDestinataire'] ?? 0);
+                $currentAccount = (int) ($row['idCompte'] ?? 0);
+                // CREDIT si idCompteDestinataire == compte courant (réception)
+                // CREDIT si idCompteDestinataire NULL/0 (inconnu → CREDIT)
+                // DEBIT  si idCompteDestinataire est un compte différent (envoi)
+                $resolvedType = ($dest === 0 || $dest === $currentAccount) ? 'CREDIT' : 'DEBIT';
+            }
+
+            $row['resolved_type'] = $resolvedType;
         }
 
         return $rows;
@@ -1102,6 +1327,149 @@ final class BankingService
         }
     }
 
+    public function transferVaultAmountToAccount(int $userId, int $vaultId, int $accountId): array
+    {
+        $vault = $this->resolveVaultForUser($vaultId, $userId);
+        $account = $this->connection->fetchAssociative(
+            'SELECT * FROM compte WHERE idCompte = ? AND idUser = ? LIMIT 1',
+            [$accountId, $userId]
+        );
+
+        if (!$account) {
+            throw new \RuntimeException('Le compte bancaire selectionne est introuvable.');
+        }
+
+        $amount = round((float) ($vault['montantActuel'] ?? 0.0), 2);
+        if ($amount <= 0) {
+            throw new \RuntimeException('Ce coffre ne contient aucun montant a transferer.');
+        }
+
+        $newBalance = round(((float) ($account['solde'] ?? 0.0)) + $amount, 2);
+        $today = (new \DateTimeImmutable('today'))->format('Y-m-d');
+
+        $this->connection->transactional(function () use ($userId, $vaultId, $vault, $accountId, $amount, $newBalance, $today): void {
+            $this->connection->update('compte', [
+                'solde' => $newBalance,
+            ], [
+                'idCompte' => $accountId,
+                'idUser' => $userId,
+            ]);
+
+            $vaultCriteria = ['idCoffre' => $vaultId];
+            if ((int) ($vault['idUser'] ?? 0) > 0) {
+                $vaultCriteria['idUser'] = $userId;
+            }
+
+            $this->connection->update('coffrevirtuel', [
+                'montantActuel' => 0,
+                'estVerrouille' => 0,
+            ], $vaultCriteria);
+
+            $this->connection->insert('transactions', [
+                'idCompte' => $accountId,
+                'idUser' => $userId,
+                'categorie' => 'Epargne',
+                'dateTransaction' => $today,
+                'montant' => $this->security->encryptAmount($amount),
+                'typeTransaction' => 'CREDIT',
+                'soldeApres' => $newBalance,
+                'description' => sprintf('Transfert depuis le coffre objectif #%d', $vaultId),
+                'montantPaye' => $this->security->encryptAmount($amount),
+            ]);
+        });
+
+        $vaultName = trim((string) ($vault['nom'] ?? '')) ?: '#'.$vaultId;
+        $accountNumber = trim((string) ($account['numeroCompte'] ?? '')) ?: '#'.$accountId;
+
+        $this->notificationService->createNotification(
+            $userId,
+            null,
+            $userId,
+            'VAULT_GOAL_TRANSFER',
+            'Objectif transfere',
+            sprintf(
+                '%.2f DT du coffre %s ont ete transferes vers le compte %s.',
+                $amount,
+                $vaultName,
+                $accountNumber
+            )
+        );
+        $this->activityService->log(
+            $userId,
+            'VAULT_GOAL_TRANSFER',
+            'Symfony portal',
+            sprintf('Transferred %.2f DT from vault #%d to account #%d.', $amount, $vaultId, $accountId)
+        );
+
+        return [
+            'amount' => $amount,
+            'vault_id' => $vaultId,
+            'vault_name' => $vaultName,
+            'account_id' => $accountId,
+            'account_number' => $accountNumber,
+            'new_balance' => $newBalance,
+        ];
+    }
+
+    public function extendVaultGoalDate(int $userId, int $vaultId, string $extensionCode): array
+    {
+        $allowedExtensions = [
+            'P3M' => ['interval' => new \DateInterval('P3M'), 'label' => '+3 mois'],
+            'P6M' => ['interval' => new \DateInterval('P6M'), 'label' => '+6 mois'],
+            'P1Y' => ['interval' => new \DateInterval('P1Y'), 'label' => '+1 an'],
+        ];
+
+        if (!isset($allowedExtensions[$extensionCode])) {
+            throw new \InvalidArgumentException('La duree de prolongation est invalide.');
+        }
+
+        $vault = $this->resolveVaultForUser($vaultId, $userId);
+        $baseDateRaw = trim((string) ($vault['dateObjectifs'] ?? ''));
+        $baseDate = $baseDateRaw !== '' ? new \DateTimeImmutable($baseDateRaw) : new \DateTimeImmutable('today');
+        $newDate = $baseDate->add($allowedExtensions[$extensionCode]['interval']);
+
+        $vaultCriteria = ['idCoffre' => $vaultId];
+        if ((int) ($vault['idUser'] ?? 0) > 0) {
+            $vaultCriteria['idUser'] = $userId;
+        }
+
+        $this->connection->update('coffrevirtuel', [
+            'dateObjectifs' => $newDate->format('Y-m-d'),
+        ], $vaultCriteria);
+
+        $vaultName = trim((string) ($vault['nom'] ?? '')) ?: '#'.$vaultId;
+        $label = $allowedExtensions[$extensionCode]['label'];
+
+        $this->notificationService->createNotification(
+            $userId,
+            null,
+            $userId,
+            'VAULT_GOAL_EXTEND',
+            'Objectif prolonge',
+            sprintf(
+                'La date objectif du coffre %s a ete prolongee de %s jusqu au %s.',
+                $vaultName,
+                $label,
+                $newDate->format('Y-m-d')
+            )
+        );
+        $this->activityService->log(
+            $userId,
+            'VAULT_GOAL_EXTEND',
+            'Symfony portal',
+            sprintf('Extended vault #%d by %s until %s.', $vaultId, $extensionCode, $newDate->format('Y-m-d'))
+        );
+
+        return [
+            'vault_id' => $vaultId,
+            'vault_name' => $vaultName,
+            'extension_code' => $extensionCode,
+            'extension_label' => $label,
+            'previous_date' => $baseDate->format('Y-m-d'),
+            'new_date' => $newDate->format('Y-m-d'),
+        ];
+    }
+
     private function resolvePartnerRating(?int $partnerId, string $partnerName): float
     {
         if ($partnerId !== null) {
@@ -1121,6 +1489,27 @@ final class BankingService
         );
 
         return $rating !== false ? (float) $rating : 0.0;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function resolveVaultForUser(int $vaultId, int $userId): array
+    {
+        $vault = $this->connection->fetchAssociative(
+            'SELECT v.*, c.idUser AS compte_user_id, COALESCE(v.idUser, c.idUser) AS resolved_user_id
+             FROM coffrevirtuel v
+             LEFT JOIN compte c ON c.idCompte = v.idCompte
+             WHERE v.idCoffre = ?
+             LIMIT 1',
+            [$vaultId]
+        );
+
+        if (!$vault || (int) ($vault['resolved_user_id'] ?? 0) !== $userId) {
+            throw new \RuntimeException('Le coffre selectionne est introuvable.');
+        }
+
+        return $vault;
     }
 
     private function resolveCashbackRate(float $amount, float $partnerRating): float
@@ -1353,6 +1742,18 @@ final class BankingService
         return $int > 0 ? $int : null;
     }
 
+    private function userExists(int $userId): bool
+    {
+        if ($userId <= 0) {
+            return false;
+        }
+
+        return (int) $this->connection->fetchOne(
+            'SELECT COUNT(*) FROM users WHERE idUser = ?',
+            [$userId]
+        ) > 0;
+    }
+
     private function assertValidUserName(string $value, string $label): void
     {
         $normalized = trim($value);
@@ -1554,14 +1955,26 @@ final class BankingService
                 continue;
             }
 
-            $type = strtolower(trim((string) ($transaction['typeTransaction'] ?? '')));
-            $isEntry = str_contains($type, 'credit')
-                || str_contains($type, 'depot')
-                || str_contains($type, 'entree')
-                || str_contains($type, 'entrée')
-                || str_contains($type, 'versement');
+            // Utiliser resolved_type si disponible (transactions enrichies par listTransactions())
+            // sinon recalculer selon les règles métier
+            $resolvedType = strtoupper(trim((string) ($transaction['resolved_type'] ?? '')));
+            if ($resolvedType !== 'CREDIT' && $resolvedType !== 'DEBIT') {
+                $type = strtolower(trim((string) ($transaction['typeTransaction'] ?? '')));
+                if (str_contains($type, 'depot') || str_contains($type, 'versement')) {
+                    $resolvedType = 'CREDIT';
+                } elseif (str_contains($type, 'paiement') || str_contains($type, 'retrait') || str_contains($type, 'paimenet')) {
+                    $resolvedType = 'DEBIT';
+                } elseif (str_contains($type, 'virement')) {
+                    $dest = (int) ($transaction['idCompteDestinataire'] ?? 0);
+                    $src  = (int) ($transaction['idCompte'] ?? 0);
+                    // CREDIT si idCompteDestinataire == compte courant (réception)
+                    // CREDIT si idCompteDestinataire NULL/0 (inconnu → CREDIT)
+                    // DEBIT  si idCompteDestinataire est un compte différent (envoi)
+                    $resolvedType = ($dest === 0 || $dest === $src) ? 'CREDIT' : 'DEBIT';
+                }
+            }
 
-            if ($isEntry) {
+            if ($resolvedType === 'CREDIT') {
                 $entries[$monthIndex] += $amount;
             } else {
                 $exits[$monthIndex] += $amount;
