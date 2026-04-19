@@ -23,14 +23,21 @@ final class NotificationsController
         ];
     }
 
-    public function handleAction(string $action, NotificationService $notificationService, array $user): ?array
+    public function handleAction(string $action, NotificationService $notificationService, array $user, ?Request $request = null): ?array
     {
-        if ($action !== 'notifications_read') {
-            return null;
+        if ($action === 'notifications_read') {
+            $notificationService->markAllAsRead((int) $user['idUser'], (string) $user['role']);
+            return ['type' => 'success', 'message' => 'Notifications marked as read.'];
         }
 
-        $notificationService->markAllAsRead((int) $user['idUser'], (string) $user['role']);
+        if ($action === 'notification_delete' && $request !== null) {
+            $id = (int) $request->request->get('idNotification');
+            if ($id > 0) {
+                $notificationService->deleteNotification($id, (int) $user['idUser'], (string) $user['role']);
+                return ['type' => 'success', 'message' => 'Notification supprimée.'];
+            }
+        }
 
-        return ['type' => 'success', 'message' => 'Notifications marked as read.'];
+        return null;
     }
 }

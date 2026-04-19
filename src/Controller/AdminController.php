@@ -368,6 +368,8 @@ final class AdminController extends AbstractController
             'notifications_count' => $notificationService->countUnreadFor((int) $user['idUser'], (string) $user['role']),
         ];
         $data['support']['active_panel'] = $panel;
+        // Always inject pending accounts so the bell panel works on every tab
+        $data['support']['pending_accounts'] = $bankingService->listPendingAccounts();
 
         // Filter by userId for non-admin users
         $isAdmin = strtoupper((string) ($user['role'] ?? '')) === 'ROLE_ADMIN';
@@ -561,7 +563,7 @@ final class AdminController extends AbstractController
         ];
 
         $allowedPanelsByTab = [
-            'accounts' => ['compte', 'coffre'],
+            'accounts' => ['compte', 'coffre', 'ia'],
             'transactions' => ['transaction', 'reclamation'],
             'credits' => ['credit', 'garantie'],
             'cashback' => ['partenaire', 'cashback'],

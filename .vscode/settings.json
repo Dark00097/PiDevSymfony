@@ -1,3 +1,5 @@
 {
-    "kiroAgent.configureMCP": "Disabled"
+  "python.terminal.shellIntegration.enabled": false,
+  "python-envs.terminal.autoActivationType": "off",
+  "python.terminal.activateEnvironment": false
 }

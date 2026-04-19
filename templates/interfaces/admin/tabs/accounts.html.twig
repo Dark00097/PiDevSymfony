@@ -1,8 +1,12 @@
-﻿{% set active_panel  = panel|default(support.active_panel|default('compte')) %}
+﻿﻿﻿{% set active_panel  = panel|default(support.active_panel|default('compte')) %}
 {% set account_items = support.accounts|default(items) %}
 {% set vault_items   = support.vaults|default([]) %}
 {% set users         = support.users|default([]) %}
 {% set all_accounts  = support.accounts|default([]) %}
+{% set compte_form_old = support.form_data_compte|default({}) %}
+{% set compte_form_errors = support.form_errors_compte|default({}) %}
+{% set current_account_date = 'now'|date('Y-m-d') %}
+{% set ai_assistant = support.ai_assistant|default({}) %}
 
 <style>
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -721,21 +725,423 @@
 .nx-acc__table thead th.sort-asc .sort-icon,
 .nx-acc__table thead th.sort-desc .sort-icon { opacity: 1; color: var(--na-teal); }
 
+.nx-ml {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(340px, .9fr);
+  gap: 1rem;
+  align-items: start;
+}
+.nx-ml__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.nx-ml__card {
+  background: var(--na-surface);
+  border: 1px solid var(--na-border);
+  border-radius: var(--na-radius);
+  box-shadow: var(--na-shadow);
+  overflow: hidden;
+}
+.nx-ml__head {
+  padding: 1rem 1.15rem;
+  border-bottom: 1px solid var(--na-border);
+  background: linear-gradient(to right, #fafcff, #f5f8fd);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.nx-ml__head h3 {
+  margin: 0;
+  font-size: .82rem;
+  font-weight: 800;
+  color: var(--na-txt);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.nx-ml__head p {
+  margin: .15rem 0 0;
+  font-size: .72rem;
+  color: var(--na-muted);
+}
+.nx-ml__score-pill,
+.nx-ml__hint-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .3rem .7rem;
+  border-radius: 999px;
+  font-size: .7rem;
+  font-weight: 800;
+  border: 1px solid var(--na-border);
+  background: var(--na-bg);
+  color: var(--na-muted);
+}
+.nx-ml__table-wrap {
+  overflow-x: auto;
+}
+.nx-ml__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .8rem;
+}
+.nx-ml__table thead th {
+  padding: .7rem 1rem;
+  text-align: left;
+  font-size: .67rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--na-muted);
+  background: var(--na-bg);
+  border-bottom: 1px solid var(--na-border);
+}
+.nx-ml__table tbody td {
+  padding: .8rem 1rem;
+  border-bottom: 1px solid var(--na-border);
+  vertical-align: middle;
+}
+.nx-ml__table tbody tr {
+  cursor: pointer;
+  transition: background .2s ease;
+}
+.nx-ml__table tbody tr:hover td,
+.nx-ml__table tbody tr.is-active td {
+  background: rgba(17,183,170,.06);
+}
+.nx-ml__client {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+}
+.nx-ml__avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: .72rem;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, var(--na-teal), var(--na-blue));
+  flex-shrink: 0;
+}
+.nx-ml__client strong {
+  display: block;
+  font-size: .82rem;
+  color: var(--na-txt);
+}
+.nx-ml__client span {
+  font-size: .7rem;
+  color: var(--na-muted);
+}
+.nx-ml__money {
+  font-weight: 800;
+  color: var(--na-txt);
+  white-space: nowrap;
+}
+.nx-ml__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .24rem .62rem;
+  border-radius: 999px;
+  font-size: .7rem;
+  font-weight: 800;
+  border: 1px solid transparent;
+}
+.nx-ml__badge.is-success {
+  background: rgba(67,160,71,.12);
+  color: #2e7d32;
+  border-color: rgba(67,160,71,.25);
+}
+.nx-ml__badge.is-info {
+  background: rgba(43,125,233,.12);
+  color: #1565c0;
+  border-color: rgba(43,125,233,.2);
+}
+.nx-ml__badge.is-warning {
+  background: rgba(232,162,2,.13);
+  color: #b06e00;
+  border-color: rgba(232,162,2,.25);
+}
+.nx-ml__badge.is-danger {
+  background: rgba(229,57,53,.12);
+  color: #c62828;
+  border-color: rgba(229,57,53,.22);
+}
+.nx-ml__badge.is-premium {
+  background: rgba(17,183,170,.12);
+  color: #0d7b73;
+  border-color: rgba(17,183,170,.22);
+}
+.nx-ml__metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .75rem;
+  padding: 1rem 1.15rem;
+}
+.nx-ml__metric {
+  padding: .95rem 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--na-border);
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+}
+.nx-ml__metric span {
+  display: block;
+  font-size: .67rem;
+  font-weight: 800;
+  color: var(--na-muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.nx-ml__metric strong {
+  display: block;
+  margin-top: .4rem;
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: var(--na-txt);
+}
+.nx-ml__segment-list,
+.nx-ml__alerts,
+.nx-ml__recommendations,
+.nx-ml__client-body {
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+  padding: 1rem 1.15rem 1.15rem;
+}
+.nx-ml__segment-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: .75rem;
+  align-items: center;
+}
+.nx-ml__segment-item strong,
+.nx-ml__segment-item span {
+  font-size: .76rem;
+}
+.nx-ml__segment-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--na-bg);
+  overflow: hidden;
+}
+.nx-ml__segment-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+.nx-ml__alert,
+.nx-ml__recommendation {
+  padding: .85rem .95rem;
+  border-radius: 12px;
+  border: 1px solid var(--na-border);
+  background: var(--na-bg);
+}
+.nx-ml__alert strong,
+.nx-ml__recommendation strong {
+  display: block;
+  font-size: .78rem;
+  color: var(--na-txt);
+}
+.nx-ml__alert p,
+.nx-ml__recommendation p {
+  margin: .3rem 0 0;
+  font-size: .73rem;
+  color: var(--na-muted);
+  line-height: 1.5;
+}
+.nx-ml__alert.is-danger {
+  background: rgba(229,57,53,.08);
+  border-color: rgba(229,57,53,.18);
+}
+.nx-ml__alert.is-warning {
+  background: rgba(232,162,2,.09);
+  border-color: rgba(232,162,2,.18);
+}
+.nx-ml__alert.is-info {
+  background: rgba(43,125,233,.08);
+  border-color: rgba(43,125,233,.18);
+}
+.nx-ml__client-top {
+  display: flex;
+  align-items: center;
+  gap: .8rem;
+}
+.nx-ml__client-top h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--na-txt);
+}
+.nx-ml__client-top p {
+  margin: .2rem 0 0;
+  font-size: .72rem;
+  color: var(--na-muted);
+}
+.nx-ml__client-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .7rem;
+}
+.nx-ml__client-stat {
+  padding: .85rem .9rem;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+  border: 1px solid var(--na-border);
+}
+.nx-ml__client-stat span {
+  display: block;
+  font-size: .66rem;
+  color: var(--na-muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-weight: 800;
+}
+.nx-ml__client-stat strong {
+  display: block;
+  margin-top: .4rem;
+  font-size: .96rem;
+  color: var(--na-txt);
+}
+.nx-ml__note {
+  padding: .95rem 1rem;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(17,183,170,.08), rgba(43,125,233,.08));
+  border: 1px solid rgba(17,183,170,.15);
+}
+.nx-ml__note strong {
+  display: block;
+  font-size: .78rem;
+  color: var(--na-txt);
+}
+.nx-ml__note p {
+  margin: .35rem 0 0;
+  font-size: .73rem;
+  color: var(--na-muted);
+  line-height: 1.55;
+}
+.nx-ml__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+.nx-ml__list li {
+  font-size: .73rem;
+  color: var(--na-muted);
+  padding-left: 1rem;
+  position: relative;
+}
+.nx-ml__list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: .42rem;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--na-teal);
+}
+.nx-ml__donut-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem 1rem .35rem;
+}
+.nx-ml__donut {
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  position: relative;
+}
+.nx-ml__donut::after {
+  content: '';
+  position: absolute;
+  inset: 28px;
+  border-radius: 50%;
+  background: var(--na-surface);
+  border: 1px solid var(--na-border);
+}
+.nx-ml__donut-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .55rem;
+  padding: 0 1rem 1rem;
+}
+.nx-ml__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  font-size: .72rem;
+  color: var(--na-muted);
+}
+.nx-ml__legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.nx-ml__models {
+  padding: 1rem 1.15rem 1.15rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: .7rem;
+}
+.nx-ml__model {
+  padding: .9rem 1rem;
+  border-radius: 12px;
+  background: var(--na-bg);
+  border: 1px solid var(--na-border);
+}
+.nx-ml__model strong {
+  display: block;
+  font-size: .78rem;
+  color: var(--na-txt);
+}
+.nx-ml__model code {
+  display: block;
+  margin-top: .3rem;
+  font-size: .7rem;
+  color: var(--na-muted);
+  white-space: normal;
+  word-break: break-all;
+}
+.nx-ml__model span {
+  display: block;
+  margin-top: .25rem;
+  font-size: .7rem;
+  color: var(--na-muted);
+}
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    RESPONSIVE
 â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 @media (max-width: 1100px) {
   .nx-acc__grid { grid-template-columns: 1fr; }
+  .nx-ml { grid-template-columns: 1fr; }
 }
 @media (max-width: 760px) {
   .nx-acc__kpis { grid-template-columns: 1fr 1fr; }
+  .nx-ml__metric-grid,
+  .nx-ml__client-stats { grid-template-columns: 1fr; }
 }
 @media (max-width: 560px) {
   .nx-acc             { padding: 1rem; gap: 1rem; }
   .nx-acc__hero       { flex-direction: column; align-items: flex-start; }
   .nx-acc__kpis       { grid-template-columns: 1fr; }
   .nx-acc__tabs       { gap: .25rem; }
+  .nx-ml__table thead { display: none; }
+  .nx-ml__table,
+  .nx-ml__table tbody,
+  .nx-ml__table tr,
+  .nx-ml__table td { display: block; width: 100%; }
+  .nx-ml__table tbody tr { padding: .5rem 0; }
+  .nx-ml__table tbody td { padding: .35rem 1rem; border-bottom: none; }
 }
 </style>
 
@@ -748,21 +1154,36 @@
   <header class="nx-acc__hero">
     <div class="nx-acc__hero-left">
       <span class="nx-acc__hero-icon">
-        <i class="fa-solid fa-building-columns"></i>
+        <i class="fa-solid {{ active_panel == 'ia' ? 'fa-brain' : 'fa-building-columns' }}"></i>
       </span>
       <div class="nx-acc__hero-text">
-        <h2>Gestion Comptes Bancaires</h2>
-        <p>GÃ©rer et superviser les donnÃ©es bancaires</p>
+        {% if active_panel == 'ia' %}
+          <h2>Assistante IA Bancaire</h2>
+          <p>Analyser automatiquement les profils clients depuis les comptes, coffres et transactions</p>
+        {% else %}
+          <h2>Gestion Comptes Bancaires</h2>
+          <p>GÃ©rer et superviser les donnÃ©es bancaires</p>
+        {% endif %}
       </div>
     </div>
     <div class="nx-acc__hero-actions">
-      <a class="na-btn na-btn--ghost" id="nx-export-btn"
-         href="{{ path('admin_account_export_pdf') }}" target="_blank">
-        <i class="fa-solid fa-file-pdf"></i> Exporter
-      </a>
-      <a class="na-btn na-btn--primary" href="#nx-acc-form">
-        <i class="fa-solid fa-plus"></i> Ajouter
-      </a>
+      {% if active_panel == 'ia' %}
+        <a class="na-btn na-btn--ghost"
+           href="{{ path(route_name, { tab: 'accounts', panel: 'coffre' }) }}">
+          <i class="fa-solid fa-vault"></i> Voir coffres
+        </a>
+        <a class="na-btn na-btn--primary" href="#nx-ai-models">
+          <i class="fa-solid fa-microchip"></i> ModÃ¨les locaux
+        </a>
+      {% else %}
+        <a class="na-btn na-btn--ghost" id="nx-export-btn"
+           href="{{ path('admin_account_export_pdf') }}" target="_blank">
+          <i class="fa-solid fa-file-pdf"></i> Exporter
+        </a>
+        <a class="na-btn na-btn--primary" href="#nx-acc-form">
+          <i class="fa-solid fa-plus"></i> Ajouter
+        </a>
+      {% endif %}
     </div>
   </header>
 
@@ -775,6 +1196,10 @@
     <a class="nx-acc__tab {{ active_panel == 'coffre' ? 'is-active' : '' }}"
        href="{{ path(route_name, { tab: 'accounts', panel: 'coffre' }) }}">
       <i class="fa-solid fa-vault"></i> Coffre Virtuel
+    </a>
+    <a class="nx-acc__tab {{ active_panel == 'ia' ? 'is-active' : '' }}"
+       href="{{ path(route_name, { tab: 'accounts', panel: 'ia' }) }}">
+      <i class="fa-solid fa-brain"></i> Assistante IA
     </a>
     <span class="nx-acc__tabs-spacer"></span>
     <button class="nx-acc__stats-link" type="button" id="nx-stats-toggle"
@@ -991,7 +1416,267 @@
     makeChart('nx-chart-vaults',   vaultsData.labels,   vaultsData.data,   vaultsData.colors);
   })();
   </script>
-  {% if active_panel == 'coffre' %}
+  {% if active_panel == 'ia' %}
+
+    {% set ai_overview = ai_assistant.overview|default({}) %}
+    {% set ai_table = ai_assistant.table|default([]) %}
+    {% set ai_focus = ai_assistant.focus_client|default(null) %}
+    {% set ai_segments = ai_assistant.segments|default([]) %}
+    {% set ai_alerts = ai_assistant.alerts|default([]) %}
+    {% set ai_recommendations = ai_assistant.recommendations|default([]) %}
+    {% set ai_distribution = ai_assistant.distribution|default([]) %}
+    {% set dist_stable = ai_distribution[0].count|default(0) %}
+    {% set dist_saver = ai_distribution[1].count|default(0) %}
+    {% set dist_risk = ai_distribution[2].count|default(0) %}
+    {% set dist_total = dist_stable + dist_saver + dist_risk %}
+    {% set dist_stable_pct = dist_total > 0 ? (dist_stable / dist_total) * 100 : 0 %}
+    {% set dist_saver_pct = dist_total > 0 ? (dist_saver / dist_total) * 100 : 0 %}
+    {% set donut_style = 'conic-gradient(#2b7de9 0% ' ~ dist_stable_pct ~ '%, #11b7aa ' ~ dist_stable_pct ~ '% ' ~ (dist_stable_pct + dist_saver_pct) ~ '%, #e53935 ' ~ (dist_stable_pct + dist_saver_pct) ~ '% 100%)' %}
+
+    <div class="nx-acc__kpis">
+      <div class="nx-acc__kpi">
+        <span class="nx-acc__kpi-icon"><i class="fa-solid fa-users-viewfinder"></i></span>
+        <div class="nx-acc__kpi-body">
+          <strong>{{ ai_overview.client_count|default(0) }}</strong>
+          <small>Clients analyses</small>
+        </div>
+      </div>
+      <div class="nx-acc__kpi">
+        <span class="nx-acc__kpi-icon"><i class="fa-solid fa-shield-heart"></i></span>
+        <div class="nx-acc__kpi-body">
+          <strong>{{ ai_overview.stable_count|default(0) }}</strong>
+          <small>Profils stables</small>
+        </div>
+      </div>
+      <div class="nx-acc__kpi">
+        <span class="nx-acc__kpi-icon"><i class="fa-solid fa-triangle-exclamation"></i></span>
+        <div class="nx-acc__kpi-body">
+          <strong>{{ ai_overview.risk_count|default(0) }}</strong>
+          <small>Clients a risque</small>
+        </div>
+      </div>
+    </div>
+
+    <section class="nx-ml" id="nx-ai-dashboard">
+      <div class="nx-ml__stack">
+        <article class="nx-ml__card">
+          <div class="nx-ml__head">
+            <div>
+              <h3>Tableau intelligent - Random Forest</h3>
+              <p>Prediction du profil financier pour chaque client a partir des comptes, coffres et transactions.</p>
+            </div>
+            <span class="nx-ml__score-pill">
+              <i class="fa-solid fa-wave-square"></i>
+              Score moyen {{ ai_overview.average_score|default(0) }}/100
+            </span>
+          </div>
+          <div class="nx-ml__table-wrap">
+            <table class="nx-ml__table" id="nx-ai-client-table">
+              <thead>
+                <tr>
+                  <th>Client</th>
+                  <th>Solde</th>
+                  <th>Coffre</th>
+                  <th>Type IA</th>
+                  <th>Score</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in ai_table %}
+                  <tr class="{{ ai_focus and ai_focus.client_id == row.client_id ? 'is-active' : '' }}" data-client-id="{{ row.client_id }}">
+                    <td>
+                      <div class="nx-ml__client">
+                        <span class="nx-ml__avatar">{{ row.client_name|slice(0, 2)|upper }}</span>
+                        <div>
+                          <strong>{{ row.client_name }}</strong>
+                          <span>Confiance {{ row.confidence|default(0) }}%</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="nx-ml__money">{{ row.balance|default(0)|number_format(2, '.', ' ') }} DT</td>
+                    <td class="nx-ml__money">{{ row.vault_total|default(0)|number_format(2, '.', ' ') }} DT</td>
+                    <td>
+                      <span class="nx-ml__badge is-{{ row.badge_tone|default('info') }}">{{ row.profile_label }}</span>
+                    </td>
+                    <td class="nx-ml__money">{{ row.risk_score|default(0) }}</td>
+                  </tr>
+                {% else %}
+                  <tr>
+                    <td colspan="5" class="nx-acc__empty">
+                      <i class="fa-solid fa-brain"></i>
+                      Aucun client exploitable pour l analyse.
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="nx-ml__card">
+          <div class="nx-ml__head">
+            <div>
+              <h3>Alertes intelligentes - Isolation Forest</h3>
+              <p>Detection automatique des anomalies et des profils a surveiller en priorite.</p>
+            </div>
+            <span class="nx-ml__hint-pill">
+              <i class="fa-solid fa-bell"></i>
+              {{ ai_overview.alert_count|default(0) }} alerte{{ ai_overview.alert_count|default(0) > 1 ? 's' : '' }}
+            </span>
+          </div>
+          <div class="nx-ml__alerts">
+            {% for alert in ai_alerts %}
+              <div class="nx-ml__alert is-{{ alert.level|default('info') }}">
+                <strong>{{ alert.client|default(alert.title|default('Alerte IA')) }} - {{ alert.title|default('Signal IA') }}</strong>
+                <p>{{ alert.text|default('Aucune explication disponible.') }}</p>
+              </div>
+            {% else %}
+              <div class="nx-ml__alert is-info">
+                <strong>Aucune alerte critique</strong>
+                <p>Le moteur d anomalies ne detecte pas de comportement prioritaire sur les donnees actuelles.</p>
+              </div>
+            {% endfor %}
+          </div>
+        </article>
+
+        <article class="nx-ml__card">
+          <div class="nx-ml__head">
+            <div>
+              <h3>Recommandations IA</h3>
+              <p>Actions conseillees a l administration pour accelerer la prise de decision.</p>
+            </div>
+          </div>
+          <div class="nx-ml__recommendations">
+            {% for recommendation in ai_recommendations %}
+              <div class="nx-ml__recommendation">
+                <strong><i class="fa-solid {{ recommendation.icon|default('fa-circle-check') }}" style="margin-right:.4rem;color:var(--na-blue)"></i>{{ recommendation.text|default('Recommendation intelligente.') }}</strong>
+              </div>
+            {% else %}
+              <div class="nx-ml__recommendation">
+                <strong><i class="fa-solid fa-circle-info" style="margin-right:.4rem;color:var(--na-blue)"></i>Aucune recommendation supplementaire.</strong>
+              </div>
+            {% endfor %}
+          </div>
+        </article>
+      </div>
+
+      <div class="nx-ml__stack">
+        <article class="nx-ml__card">
+          <div class="nx-ml__head">
+            <div>
+              <h3>Segmentation K-Means</h3>
+              <p>Regroupement des clients par comportements financiers similaires.</p>
+            </div>
+          </div>
+          <div class="nx-ml__segment-list">
+            {% for segment in ai_segments %}
+              <div class="nx-ml__segment-item">
+                <strong>{{ segment.label }}</strong>
+                <div class="nx-ml__segment-bar">
+                  <span style="width:{{ segment.percent|default(0) }}%;background:{{ segment.color|default('#2b7de9') }}"></span>
+                </div>
+                <span>{{ segment.count|default(0) }}</span>
+              </div>
+            {% else %}
+              <div class="nx-ml__segment-item">
+                <strong>Aucune donnee</strong>
+                <div class="nx-ml__segment-bar"><span style="width:0%"></span></div>
+                <span>0</span>
+              </div>
+            {% endfor %}
+          </div>
+        </article>
+
+        <article class="nx-ml__card" id="nx-ai-client-card">
+          <div class="nx-ml__head">
+            <div>
+              <h3>Fiche client</h3>
+              <p>Cliquez sur une ligne pour afficher les details et recommandations du profil.</p>
+            </div>
+            {% if ai_focus %}
+              <span class="nx-ml__badge is-{{ ai_focus.badge_tone|default('info') }}" id="nx-ai-client-badge">{{ ai_focus.profile_label|default('Profil') }}</span>
+            {% endif %}
+          </div>
+          <div class="nx-ml__client-body">
+            {% if ai_focus %}
+              <div class="nx-ml__client-top">
+                <span class="nx-ml__avatar" id="nx-ai-client-avatar">{{ ai_focus.initials|default('CL') }}</span>
+                <div>
+                  <h4 id="nx-ai-client-name">{{ ai_focus.client_name|default('Client') }}</h4>
+                  <p id="nx-ai-client-subtitle">Score IA {{ ai_focus.risk_score|default(0) }}/100 - Confiance {{ ai_focus.confidence|default(0) }}%</p>
+                </div>
+              </div>
+              <div class="nx-ml__client-stats">
+                <div class="nx-ml__client-stat">
+                  <span>Solde</span>
+                  <strong id="nx-ai-client-balance">{{ ai_focus.total_balance|default(0)|number_format(2, '.', ' ') }} DT</strong>
+                </div>
+                <div class="nx-ml__client-stat">
+                  <span>Coffres</span>
+                  <strong id="nx-ai-client-vaults">{{ ai_focus.vault_count|default(0) }}</strong>
+                </div>
+                <div class="nx-ml__client-stat">
+                  <span>Retraits / debits</span>
+                  <strong id="nx-ai-client-debits">{{ ai_focus.debit_count|default(0) }}</strong>
+                </div>
+              </div>
+              <div class="nx-ml__note">
+                <strong>Analyse IA</strong>
+                <p id="nx-ai-client-analysis">{{ ai_focus.analysis|default('Analyse indisponible.') }}</p>
+              </div>
+              <div class="nx-ml__note">
+                <strong>Recommandations client</strong>
+                <ul class="nx-ml__list" id="nx-ai-client-recommendations">
+                  {% for recommendation in ai_focus.recommendations|default([]) %}
+                    <li>{{ recommendation }}</li>
+                  {% else %}
+                    <li>Aucune recommandation specifique.</li>
+                  {% endfor %}
+                </ul>
+              </div>
+              <div style="margin-top: 1rem; border-top: 1px solid var(--na-border); padding-top: 1rem; display: flex; justify-content: flex-end;">
+                <form method="post">
+                  <input type="hidden" name="tab" value="accounts">
+                  <input type="hidden" name="panel" value="ia">
+                  <input type="hidden" name="action" value="send_ai_analysis">
+                  <input type="hidden" name="userId" id="nx-ai-client-id" value="{{ ai_focus.client_id|default('') }}">
+                  <button type="submit" class="na-btn na-btn--primary">
+                    <i class="fa-solid fa-paper-plane"></i> Envoyer l'analyse au client
+                  </button>
+                </form>
+              </div>
+            {% else %}
+              <div class="nx-acc__empty">
+                <i class="fa-solid fa-user-astronaut"></i>
+                Aucune fiche client disponible.
+              </div>
+            {% endif %}
+          </div>
+        </article>
+
+        <article class="nx-ml__card">
+          <div class="nx-ml__head">
+            <div>
+              <h3>Repartition globale</h3>
+              <p>Vue agregree entre profils stables, epargnants et a risque.</p>
+            </div>
+          </div>
+          <div class="nx-ml__donut-wrap">
+            <div class="nx-ml__donut" style="background:{{ donut_style }}"></div>
+          </div>
+          <div class="nx-ml__donut-legend">
+            {% for item in ai_distribution %}
+              <span class="nx-ml__legend-item">
+                <span class="nx-ml__legend-dot" style="background:{{ item.color|default('#999') }}"></span>
+                {{ item.label }} {{ item.count|default(0) }}
+              </span>
+            {% endfor %}
+          </div>
+        </article>
+      </div>
+    </section>
+
+  {% elseif active_panel == 'coffre' %}
 
     {# KPIs #}
     {% set vstats = support.vault_stats|default({}) %}
@@ -1292,58 +1977,72 @@
           <input type="hidden" name="tab"    value="accounts">
           <input type="hidden" name="panel"  value="compte">
           <input type="hidden" name="action" value="account_save">
-          <input type="hidden" name="idCompte" id="f-idCompte" value="">
-          <input type="hidden" name="idUser" value="{{ current_user.idUser|default('') }}">
+          <input type="hidden" name="idCompte" id="f-idCompte" value="{{ compte_form_old.idCompte|default('') }}">
           <div class="nx-acc__form-label-id">
             <i class="fa-solid fa-pen-to-square"></i>
-            <span id="f-mode-label">Nouveau compte</span>
+            <span id="f-mode-label">
+              {{ compte_form_old.idCompte|default('') ? 'Modification du compte #' ~ compte_form_old.idCompte : 'Nouveau compte' }}
+            </span>
           </div>
           <div class="nx-acc__form-divider"></div>
           <label>
-            <span>Num&#233;ro de Compte</span>
-            <input type="text" name="numeroCompte" id="f-numeroCompte" placeholder="CB-123">
+            <span>Utilisateur</span>
+            <select name="idUser" id="f-idUser" class="{{ compte_form_errors.idUser is defined ? 'is-invalid' : '' }}">
+              <option value="">— Sélectionner un utilisateur —</option>
+              {% for user in users %}
+                {% set user_full_name = (user.prenom|default('') ~ ' ' ~ user.nom|default(''))|trim %}
+                <option value="{{ user.idUser }}" {{ compte_form_old.idUser|default('') == user.idUser ? 'selected' : '' }}>
+                  {{ user_full_name != '' ? user_full_name : 'Utilisateur #' ~ user.idUser }}
+                </option>
+              {% endfor %}
+            </select>
           </label>
-          <span class="nx-field-error" id="err-numeroCompte"></span>
+          <span class="nx-field-error {{ compte_form_errors.idUser is defined ? 'is-visible' : '' }}" id="err-idUser">{{ compte_form_errors.idUser|default('') }}</span>
+          <label>
+            <span>Num&#233;ro de Compte</span>
+            <input type="text" name="numeroCompte" id="f-numeroCompte" placeholder="CB-123" value="{{ compte_form_old.numeroCompte|default('') }}" class="{{ compte_form_errors.numeroCompte is defined ? 'is-invalid' : '' }}">
+          </label>
+          <span class="nx-field-error {{ compte_form_errors.numeroCompte is defined ? 'is-visible' : '' }}" id="err-numeroCompte">{{ compte_form_errors.numeroCompte|default('') }}</span>
           <label>
             <span>Solde (DT)</span>
-            <input type="number" step="0.01" name="solde" id="f-solde" placeholder="0.00">
+            <input type="number" step="0.01" name="solde" id="f-solde" placeholder="0.00" value="{{ compte_form_old.solde|default('') }}" class="{{ compte_form_errors.solde is defined ? 'is-invalid' : '' }}">
           </label>
-          <span class="nx-field-error" id="err-solde"></span>
+          <span class="nx-field-error {{ compte_form_errors.solde is defined ? 'is-visible' : '' }}" id="err-solde">{{ compte_form_errors.solde|default('') }}</span>
           <label>
             <span>Date d&#39;Ouverture</span>
-            <input type="date" name="dateOuverture" id="f-dateOuverture" value="{{ 'now'|date('Y-m-d') }}">
+            <input type="date" name="dateOuverture" id="f-dateOuverture" value="{{ compte_form_old.dateOuverture|default(current_account_date) }}" data-expected-date="{{ compte_form_old.dateOuverture|default(current_account_date) }}" max="{{ current_account_date }}" readonly aria-readonly="true" class="{{ compte_form_errors.dateOuverture is defined ? 'is-invalid' : '' }}">
           </label>
-          <span class="nx-field-error" id="err-dateOuverture"></span>
+          <span class="nx-field-error {{ compte_form_errors.dateOuverture is defined ? 'is-visible' : '' }}" id="err-dateOuverture">{{ compte_form_errors.dateOuverture|default('') }}</span>
           <label>
             <span>Statut du Compte</span>
-            <select name="statutCompte" id="f-statutCompte">
+            <select name="statutCompte" id="f-statutCompte" class="{{ compte_form_errors.statutCompte is defined ? 'is-invalid' : '' }}">
               <option value="">&#8212; S&#233;lectionner &#8212;</option>
-              <option value="Actif">Actif</option>
-              <option value="Ferm&#233;">Ferm&#233;</option>
-              <option value="Bloqu&#233;">Bloqu&#233;</option>
+              <option value="Actif" {{ compte_form_old.statutCompte|default('') == 'Actif' ? 'selected' : '' }}>Actif</option>
+              <option value="Fermé" {{ compte_form_old.statutCompte|default('') == 'Fermé' ? 'selected' : '' }}>Ferm&#233;</option>
+              <option value="Bloqué" {{ compte_form_old.statutCompte|default('') == 'Bloqué' ? 'selected' : '' }}>Bloqu&#233;</option>
             </select>
           </label>
-          <span class="nx-field-error" id="err-statutCompte"></span>
+          <span class="nx-field-error {{ compte_form_errors.statutCompte is defined ? 'is-visible' : '' }}" id="err-statutCompte">{{ compte_form_errors.statutCompte|default('') }}</span>
           <label>
             <span>Plafond Retrait (DT)</span>
-            <input type="number" step="0.01" name="plafondRetrait" id="f-plafondRetrait" placeholder="0.00">
+            <input type="number" step="0.01" min="10" max="1000" name="plafondRetrait" id="f-plafondRetrait" placeholder="10.00 à 1000.00" value="{{ compte_form_old.plafondRetrait|default('') }}" class="{{ compte_form_errors.plafondRetrait is defined ? 'is-invalid' : '' }}">
           </label>
-          <span class="nx-field-error" id="err-plafondRetrait"></span>
+          <span class="nx-field-error {{ compte_form_errors.plafondRetrait is defined ? 'is-visible' : '' }}" id="err-plafondRetrait">{{ compte_form_errors.plafondRetrait|default('') }}</span>
           <label>
             <span>Plafond Virement (DT)</span>
-            <input type="number" step="0.01" name="plafondVirement" id="f-plafondVirement" placeholder="0.00">
+            <input type="number" step="0.01" min="10" max="1000" name="plafondVirement" id="f-plafondVirement" placeholder="10.00 à 1000.00" value="{{ compte_form_old.plafondVirement|default('') }}" class="{{ compte_form_errors.plafondVirement is defined ? 'is-invalid' : '' }}">
           </label>
-          <span class="nx-field-error" id="err-plafondVirement"></span>
+          <span class="nx-field-error {{ compte_form_errors.plafondVirement is defined ? 'is-visible' : '' }}" id="err-plafondVirement">{{ compte_form_errors.plafondVirement|default('') }}</span>
           <label>
             <span>Type de Compte</span>
-            <select name="typeCompte" id="f-typeCompte">
+            <select name="typeCompte" id="f-typeCompte" class="{{ compte_form_errors.typeCompte is defined ? 'is-invalid' : '' }}">
               <option value="">&#8212; S&#233;lectionner &#8212;</option>
-              <option value="Courant">Courant</option>
-              <option value="Professionnel">Professionnel</option>
-              <option value="&#201;pargne">&#201;pargne</option>
+              <option value="Courant" {{ compte_form_old.typeCompte|default('') == 'Courant' ? 'selected' : '' }}>Courant</option>
+              <option value="Professionnel" {{ compte_form_old.typeCompte|default('') == 'Professionnel' ? 'selected' : '' }}>Professionnel</option>
+              <option value="Épargne" {{ compte_form_old.typeCompte|default('') == 'Épargne' ? 'selected' : '' }}>&#201;pargne</option>
             </select>
           </label>
-          <span class="nx-field-error" id="err-typeCompte"></span>
+          <span class="nx-field-error {{ compte_form_errors.typeCompte is defined ? 'is-visible' : '' }}" id="err-typeCompte">{{ compte_form_errors.typeCompte|default('') }}</span>
           <div class="nx-acc__form-actions">
             <button class="na-btn na-btn--save" type="submit">
               <i class="fa-solid fa-floppy-disk"></i> Enregistrer
@@ -1393,13 +2092,14 @@
           <table class="nx-acc__table" id="nx-account-table">
             <thead>
               <tr>
-                <th class="sortable" data-col="0">NÂ° Compte <i class="fa-solid fa-sort sort-icon"></i></th>
+                <th class="sortable" data-col="0">N° Compte <i class="fa-solid fa-sort sort-icon"></i></th>
                 <th class="sortable" data-col="1">Solde (DT) <i class="fa-solid fa-sort sort-icon"></i></th>
                 <th class="sortable" data-col="2">Date Ouv. <i class="fa-solid fa-sort sort-icon"></i></th>
                 <th class="sortable" data-col="3">Statut <i class="fa-solid fa-sort sort-icon"></i></th>
                 <th class="sortable" data-col="4">Plaf. Retrait <i class="fa-solid fa-sort sort-icon"></i></th>
                 <th class="sortable" data-col="5">Plaf. Virement <i class="fa-solid fa-sort sort-icon"></i></th>
                 <th class="sortable" data-col="6">Type <i class="fa-solid fa-sort sort-icon"></i></th>
+                <th>Propriétaire</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -1415,6 +2115,7 @@
                   data-plafond-virement="{{ item.plafondVirement|default('') }}"
                   data-type="{{ item.typeCompte|default('Courant') }}"
                   data-owner="{{ item.owner_name|default('') }}"
+                  data-user-id="{{ item.idUser|default('') }}"
                 >
                   <td><span class="nx-acc__num">{{ item.numeroCompte }}</span></td>
                   <td class="nx-acc__amount">
@@ -1440,6 +2141,17 @@
                     <span class="nx-acc__tag is-{{ tp }}">
                       {{ item.typeCompte|default('â€”') }}
                     </span>
+                  </td>
+                  <td>
+                    {% set owner_name = item.owner_name|default('')|trim %}
+                    <div class="nx-acc__owner">
+                      <span class="nx-acc__owner-dot">
+                        {{ owner_name != '' ? owner_name|slice(0, 2)|upper : 'NA' }}
+                      </span>
+                      <span class="nx-acc__owner-name">
+                        {{ owner_name != '' ? owner_name : 'Utilisateur non associe' }}
+                      </span>
+                    </div>
                   </td>
                   <td>
                     <div class="nx-acc__act-group">
@@ -1475,7 +2187,7 @@
                 </tr>
               {% else %}
                 <tr>
-                  <td colspan="8" class="nx-acc__empty">
+                  <td colspan="9" class="nx-acc__empty">
                     <i class="fa-solid fa-building-columns"></i>
                     Aucun compte enregistrÃ©.
                   </td>
@@ -1484,6 +2196,67 @@
             </tbody>
           </table>
         </div>
+
+        {# ── Pagination JS ── #}
+        <div id="nx-acc-pagination" style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 20px;border-top:1px solid var(--na-border);flex-wrap:wrap;">
+            <span id="nx-acc-page-info" style="font-size:13px;color:var(--na-muted);font-weight:600;"></span>
+            <div id="nx-acc-page-btns" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"></div>
+        </div>
+
+        <style>
+        .nx-pg-btn{height:36px;min-width:36px;padding:0 12px;border-radius:10px;border:1px solid var(--na-border);background:#fff;color:var(--na-txt);font:inherit;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all .18s}
+        .nx-pg-btn:hover{background:var(--na-teal);color:#fff;border-color:var(--na-teal)}
+        .nx-pg-btn.active{background:var(--na-teal);color:#fff;border-color:var(--na-teal);box-shadow:0 4px 12px rgba(17,183,170,.25)}
+        .nx-pg-btn:disabled{opacity:.4;cursor:not-allowed}
+        </style>
+
+        <script>
+        (function(){
+            const PER_PAGE = 10;
+            const tbody = document.querySelector('#nx-account-table tbody');
+            if (!tbody) return;
+            const allRows = Array.from(tbody.querySelectorAll('tr[data-id]'));
+            const total = allRows.length;
+            if (total <= PER_PAGE) { document.getElementById('nx-acc-pagination').style.display = 'none'; return; }
+            let page = 1;
+            const totalPages = () => Math.ceil(total / PER_PAGE);
+
+            function render() {
+                const start = (page - 1) * PER_PAGE;
+                allRows.forEach((r, i) => { r.style.display = (i >= start && i < start + PER_PAGE) ? '' : 'none'; });
+                const info = document.getElementById('nx-acc-page-info');
+                if (info) info.textContent = 'Affichage ' + (start + 1) + '–' + Math.min(start + PER_PAGE, total) + ' sur ' + total + ' comptes';
+                const btns = document.getElementById('nx-acc-page-btns');
+                if (!btns) return;
+                const tp = totalPages();
+                let html = '<button class="nx-pg-btn" id="nx-pg-prev" ' + (page === 1 ? 'disabled' : '') + '><i class="fa-solid fa-chevron-left"></i></button>';
+                const range = [];
+                if (tp <= 7) { for (let i = 1; i <= tp; i++) range.push(i); }
+                else {
+                    range.push(1);
+                    if (page > 3) range.push('…');
+                    for (let i = Math.max(2, page - 1); i <= Math.min(tp - 1, page + 1); i++) range.push(i);
+                    if (page < tp - 2) range.push('…');
+                    range.push(tp);
+                }
+                range.forEach(function(p) {
+                    if (p === '…') { html += '<span style="padding:0 4px;color:var(--na-muted);">…</span>'; }
+                    else { html += '<button class="nx-pg-btn' + (p === page ? ' active' : '') + '" data-p="' + p + '">' + p + '</button>'; }
+                });
+                html += '<button class="nx-pg-btn" id="nx-pg-next" ' + (page === tp ? 'disabled' : '') + '><i class="fa-solid fa-chevron-right"></i></button>';
+                btns.innerHTML = html;
+                btns.querySelectorAll('[data-p]').forEach(function(b) {
+                    b.addEventListener('click', function() { page = parseInt(b.dataset.p); render(); });
+                });
+                const prev = btns.querySelector('#nx-pg-prev');
+                const next = btns.querySelector('#nx-pg-next');
+                if (prev) prev.addEventListener('click', function() { if (page > 1) { page--; render(); } });
+                if (next) next.addEventListener('click', function() { if (page < tp) { page++; render(); } });
+            }
+            render();
+        })();
+        </script>
+
       </article>
 
     </div>
@@ -1494,6 +2267,10 @@
 {# JSON des coffres enrichis pour le drawer #}
 <script id="nx-vaults-json" type="application/json">
 {{ support.vault_data|default([])|json_encode|raw }}
+</script>
+
+<script id="nx-ai-profiles-json" type="application/json">
+{{ ai_assistant.profiles|default([])|json_encode|raw }}
 </script>
 
 {# -- Account Drawer -- #}
@@ -1852,13 +2629,16 @@ function nxEditCompte(row) {
   document.getElementById('f-idCompte').value        = d.id;
   document.getElementById('f-numeroCompte').value    = d.numero;
   document.getElementById('f-solde').value           = d.solde;
-  document.getElementById('f-dateOuverture').value   = d.date;
+  document.getElementById('f-dateOuverture').value   = d.date || document.getElementById('f-dateOuverture').dataset.expectedDate || '';
+  document.getElementById('f-dateOuverture').dataset.expectedDate = d.date || document.getElementById('f-dateOuverture').dataset.expectedDate || '';
   document.getElementById('f-plafondRetrait').value  = d.plafondRetrait;
   document.getElementById('f-plafondVirement').value = d.plafondVirement;
   const sel1 = document.getElementById('f-statutCompte');
   const sel2 = document.getElementById('f-typeCompte');
+  const sel3 = document.getElementById('f-idUser');
   [...sel1.options].forEach(o => o.selected = o.value === d.statut);
   [...sel2.options].forEach(o => o.selected = o.value === d.type);
+  if (sel3) [...sel3.options].forEach(o => o.selected = o.value === d.userId);
   document.getElementById('f-mode-label').textContent = 'Modification du compte #' + d.id;
   document.getElementById('nx-acc-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
   // Update export button
@@ -1870,8 +2650,33 @@ function nxEditCompte(row) {
 /* â”€â”€ Reset form â”€â”€ */
 function nxResetCompteForm() {
   document.getElementById('f-idCompte').value = '';
-  document.getElementById('nx-compte-form').reset();
-  document.getElementById('f-mode-label').textContent = 'Nouveau compte â€” laisser vide pour crÃ©er';
+  document.getElementById('f-idUser').value = '';
+  document.getElementById('f-numeroCompte').value = '';
+  document.getElementById('f-solde').value = '';
+  document.getElementById('f-dateOuverture').value = document.getElementById('f-dateOuverture').dataset.expectedDate || '';
+  document.getElementById('f-dateOuverture').dataset.expectedDate = document.getElementById('f-dateOuverture').dataset.expectedDate || '';
+  document.getElementById('f-statutCompte').value = '';
+  document.getElementById('f-plafondRetrait').value = '';
+  document.getElementById('f-plafondVirement').value = '';
+  document.getElementById('f-typeCompte').value = '';
+  document.getElementById('f-mode-label').textContent = 'Nouveau compte';
+
+  ['idUser','numeroCompte','solde','dateOuverture','statutCompte','plafondRetrait','plafondVirement','typeCompte'].forEach(function(field) {
+    var fieldEl = document.getElementById('f-' + field);
+    var errorEl = document.getElementById('err-' + field);
+    if (fieldEl) {
+      fieldEl.classList.remove('is-invalid');
+      fieldEl.classList.remove('is-valid');
+      fieldEl.style.borderColor = '';
+      fieldEl.style.boxShadow = '';
+    }
+    if (errorEl) {
+      errorEl.textContent = '';
+      errorEl.classList.remove('is-visible');
+      errorEl.style.display = 'none';
+    }
+  });
+
   document.querySelectorAll('#nx-account-table tbody tr').forEach(r => r.classList.remove('is-selected'));
   const exportBtn = document.getElementById('nx-export-btn');
   if (exportBtn) exportBtn.href = '{{ path('admin_account_export_pdf') }}';
@@ -2310,6 +3115,83 @@ function nxViewVault(row) {
 </script>
 
 <script>
+(() => {
+  const profilesEl = document.getElementById('nx-ai-profiles-json');
+  const table = document.getElementById('nx-ai-client-table');
+  if (!profilesEl || !table) return;
+
+  let profiles = [];
+  try {
+    profiles = JSON.parse(profilesEl.textContent || '[]');
+  } catch (error) {
+    profiles = [];
+  }
+  if (!Array.isArray(profiles) || profiles.length === 0) return;
+
+  const profilesById = {};
+  profiles.forEach((profile) => {
+    profilesById[String(profile.client_id)] = profile;
+  });
+
+  const nameEl = document.getElementById('nx-ai-client-name');
+  const avatarEl = document.getElementById('nx-ai-client-avatar');
+  const subtitleEl = document.getElementById('nx-ai-client-subtitle');
+  const balanceEl = document.getElementById('nx-ai-client-balance');
+  const vaultsEl = document.getElementById('nx-ai-client-vaults');
+  const debitsEl = document.getElementById('nx-ai-client-debits');
+  const analysisEl = document.getElementById('nx-ai-client-analysis');
+  const badgeEl = document.getElementById('nx-ai-client-badge');
+  const recommendationsEl = document.getElementById('nx-ai-client-recommendations');
+  const clientIdInput = document.getElementById('nx-ai-client-id');
+
+  const money = (value) => Number(value || 0).toLocaleString('fr-TN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }) + ' DT';
+
+  const toneClass = (tone) => 'nx-ml__badge is-' + (tone || 'info');
+
+  function renderProfile(profile) {
+    if (!profile || !nameEl) return;
+
+    if (clientIdInput) clientIdInput.value = profile.client_id || '';
+    if (avatarEl) avatarEl.textContent = profile.initials || 'CL';
+    nameEl.textContent = profile.client_name || 'Client';
+    if (subtitleEl) {
+      subtitleEl.textContent = 'Score IA ' + (profile.risk_score || 0) + '/100 - Confiance ' + (profile.confidence || 0) + '%';
+    }
+    if (balanceEl) balanceEl.textContent = money(profile.total_balance || 0);
+    if (vaultsEl) vaultsEl.textContent = String(profile.vault_count || 0);
+    if (debitsEl) debitsEl.textContent = String(profile.debit_count || 0);
+    if (analysisEl) analysisEl.textContent = profile.analysis || 'Analyse indisponible.';
+    if (badgeEl) {
+      badgeEl.className = toneClass(profile.badge_tone);
+      badgeEl.textContent = profile.profile_label || 'Profil';
+    }
+    if (recommendationsEl) {
+      const items = Array.isArray(profile.recommendations) && profile.recommendations.length
+        ? profile.recommendations
+        : ['Aucune recommandation specifique.'];
+      recommendationsEl.innerHTML = items.map((item) => '<li>' + String(item)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;') + '</li>').join('');
+    }
+  }
+
+  table.querySelectorAll('tbody tr[data-client-id]').forEach((row) => {
+    row.addEventListener('click', () => {
+      table.querySelectorAll('tbody tr').forEach((item) => item.classList.remove('is-active'));
+      row.classList.add('is-active');
+      renderProfile(profilesById[row.dataset.clientId]);
+    });
+  });
+})();
+</script>
+
+<script>
 /* ══════════════════════════════════════
    VALIDATION — Compte Bancaire
 ══════════════════════════════════════ */
@@ -2334,13 +3216,20 @@ function nxClearError(fieldId, errId) {
 
 function nxValidateCompte(e) {
   var ok = true;
-  var today = new Date(); today.setHours(0,0,0,0);
+  var dateField = document.getElementById('f-dateOuverture');
+  var expectedDate = dateField ? (dateField.dataset.expectedDate || '') : '';
+
+  // idUser
+  var idUser = document.getElementById('f-idUser')?.value;
+  if (!idUser) {
+    nxSetError('f-idUser','err-idUser','Veuillez selectionner un utilisateur.'); ok = false;
+  } else { nxClearError('f-idUser','err-idUser'); }
 
   // numeroCompte
   var num = (document.getElementById('f-numeroCompte')?.value || '').trim();
   if (num === '') {
     nxSetError('f-numeroCompte','err-numeroCompte','Le numéro de compte est obligatoire.'); ok = false;
-  } else if (!/^CB-\d{3}$/.test(num)) {
+  } else if (!/^CB-\d{3,}$/.test(num)) {
     nxSetError('f-numeroCompte','err-numeroCompte','Le numéro de compte doit être au format CB-XXX (ex : CB-123).'); ok = false;
   } else { nxClearError('f-numeroCompte','err-numeroCompte'); }
 
@@ -2353,14 +3242,14 @@ function nxValidateCompte(e) {
   } else { nxClearError('f-solde','err-solde'); }
 
   // dateOuverture
-  var dateVal = document.getElementById('f-dateOuverture')?.value;
+  var dateVal = dateField?.value;
   if (!dateVal) {
     nxSetError('f-dateOuverture','err-dateOuverture',"La date d'ouverture est obligatoire."); ok = false;
+  } else if (dateVal !== expectedDate) {
+    dateField.value = expectedDate;
+    nxSetError('f-dateOuverture','err-dateOuverture',"La date d'ouverture est fixée automatiquement au " + expectedDate + '.'); ok = false;
   } else {
-    var d = new Date(dateVal); d.setHours(0,0,0,0);
-    if (d > today) {
-      nxSetError('f-dateOuverture','err-dateOuverture',"La date d'ouverture ne doit pas être supérieure à la date actuelle."); ok = false;
-    } else { nxClearError('f-dateOuverture','err-dateOuverture'); }
+    nxClearError('f-dateOuverture','err-dateOuverture');
   }
 
   // statutCompte
@@ -2373,16 +3262,16 @@ function nxValidateCompte(e) {
   var retrait = document.getElementById('f-plafondRetrait')?.value;
   if (retrait === '' || retrait === null || retrait === undefined) {
     nxSetError('f-plafondRetrait','err-plafondRetrait','Le plafond de retrait est obligatoire.'); ok = false;
-  } else if (parseFloat(retrait) <= 0) {
-    nxSetError('f-plafondRetrait','err-plafondRetrait','Le plafond de retrait doit être un nombre supérieur à 0.'); ok = false;
+  } else if (parseFloat(retrait) < 10 || parseFloat(retrait) > 1000) {
+    nxSetError('f-plafondRetrait','err-plafondRetrait','Le plafond de retrait doit être compris entre 10 DT et 1000 DT.'); ok = false;
   } else { nxClearError('f-plafondRetrait','err-plafondRetrait'); }
 
   // plafondVirement
   var virement = document.getElementById('f-plafondVirement')?.value;
   if (virement === '' || virement === null || virement === undefined) {
     nxSetError('f-plafondVirement','err-plafondVirement','Le plafond de virement est obligatoire.'); ok = false;
-  } else if (parseFloat(virement) <= 0) {
-    nxSetError('f-plafondVirement','err-plafondVirement','Le plafond de virement doit être un nombre supérieur à 0.'); ok = false;
+  } else if (parseFloat(virement) < 10 || parseFloat(virement) > 1000) {
+    nxSetError('f-plafondVirement','err-plafondVirement','Le plafond de virement doit être compris entre 10 DT et 1000 DT.'); ok = false;
   } else { nxClearError('f-plafondVirement','err-plafondVirement'); }
 
   // typeCompte
@@ -2396,7 +3285,7 @@ function nxValidateCompte(e) {
 }
 
 /* Live validation on input */
-['f-numeroCompte','f-solde','f-dateOuverture','f-statutCompte','f-plafondRetrait','f-plafondVirement','f-typeCompte'].forEach(function(id) {
+['f-idUser','f-numeroCompte','f-solde','f-dateOuverture','f-statutCompte','f-plafondRetrait','f-plafondVirement','f-typeCompte'].forEach(function(id) {
   var el = document.getElementById(id);
   if (el) el.addEventListener('input', function() { nxValidateCompte(null); });
   if (el) el.addEventListener('change', function() { nxValidateCompte(null); });

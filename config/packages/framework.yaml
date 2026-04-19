@@ -7,6 +7,12 @@ framework:
     session:
         save_path: '%kernel.project_dir%/var/sessions/%kernel.environment%'
 
+    http_client:
+        default_options:
+            verify_peer: false
+            verify_host: false
+            timeout: 30
+
     #esi: true
     #fragments: true
 

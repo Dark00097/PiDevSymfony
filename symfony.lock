@@ -35,16 +35,19 @@
             "./migrations/.gitignore"
         ]
     },
-    "php-http/discovery": {
-        "version": "1.20",
+    "knplabs/knp-paginator-bundle": {
+        "version": "v6.10.0"
+    },
+    "knplabs/knp-snappy-bundle": {
+        "version": "1.10",
         "recipe": {
-            "repo": "github.com/symfony/recipes",
+            "repo": "github.com/symfony/recipes-contrib",
             "branch": "main",
-            "version": "1.18",
-            "ref": "f45b5dd173a27873ab19f5e3180b2f661c21de02"
+            "version": "1.5",
+            "ref": "c81bdcf4a9d4e7b1959071457f9608631865d381"
         },
         "files": [
-            "./config/packages/http_discovery.yaml"
+            "./config/packages/knp_snappy.yaml"
         ]
     },
     "phpunit/phpunit": {

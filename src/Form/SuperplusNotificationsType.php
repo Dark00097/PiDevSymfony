@@ -13,7 +13,7 @@ use Symfony\Component\Form\Extension\Core\Type\PasswordType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 
-final class SurplusNotificationsType extends BaseCrudFormType
+final class SuperplusNotificationsType extends BaseCrudFormType
 {
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {

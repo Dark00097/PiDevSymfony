@@ -4,27 +4,79 @@ namespace App\Controller\Sections;
 
 use App\Service\ActivityService;
 use App\Service\BankingService;
+use App\Service\BankingMlAssistantService;
 use App\Service\GamificationService;
+use App\Service\NotificationService;
 use Symfony\Component\HttpFoundation\Request;
 
 final class AccountsController
 {
+    private const ACCOUNT_LIMIT_MIN = 10.0;
+    private const ACCOUNT_LIMIT_MAX = 1000.0;
+
+    public function __construct(
+        private readonly BankingMlAssistantService $bankingMlAssistantService,
+        private readonly NotificationService $notificationService
+    )
+    {
+    }
+
     public function buildAdminData(BankingService $bankingService, ?Request $request = null, ?int $filterUserId = null): array
     {
         $accounts  = $bankingService->listAccounts($filterUserId);
         $vaults    = $bankingService->listVaults($filterUserId);
         $vaultData = $this->buildVaultData($vaults);
 
+        // FIX PRINCIPAL : lire le panel depuis query string (GET ?panel=ia)
+        // Le lien Twig génère : href="...?tab=accounts&panel=ia"
+        // On lit UNIQUEMENT $request->query->get('panel') pour être sûr.
+        $activePanel = 'compte';
+        if ($request !== null) {
+            $fromQuery   = trim((string) ($request->query->get('panel', '') ?? ''));
+            $fromPost    = trim((string) ($request->request->get('panel', '') ?? ''));
+            $activePanel = $fromQuery !== '' ? $fromQuery : ($fromPost !== '' ? $fromPost : 'compte');
+        }
+
+        // FIX : normaliser — seulement les valeurs attendues sont acceptées
+        if (!in_array($activePanel, ['compte', 'coffre', 'ia'], true)) {
+            $activePanel = 'compte';
+        }
+
+        $isIaPanel = ($activePanel === 'ia');
+
+        $formErrorsCompte = $request !== null ? $this->getFormErrors($request, 'compte') : [];
+        $formDataCompte   = $request !== null ? $this->getFormData($request, 'compte') : [];
+
+        if ($request !== null) {
+            $request->getSession()->remove('nexora.form_errors.compte');
+            $request->getSession()->remove('nexora.form_data.compte');
+        }
+
+        // FIX : construire les données ML SEULEMENT quand le panel IA est actif.
+        // Ainsi : cliquer sur "Assistante IA" → déclenche Python → log dans dev.log.
+        // Les autres panels (compte, coffre) ne lancent PAS Python.
+        $aiAssistant = [];
+        if ($isIaPanel) {
+            $aiAssistant = $this->bankingMlAssistantService->buildAdminAssistantData($filterUserId);
+        }
+
         return [
-            'items' => $accounts,
+            'items'   => $accounts,
             'support' => [
-                'users'           => $bankingService->listUsers(),
-                'accounts'        => $accounts,
-                'all_accounts'    => $accounts,
-                'account_stats'   => $this->buildAccountStats($accounts),
-                'account_history' => $request !== null ? $this->getHistory($request) : [],
-                'vault_data'      => $vaultData,
-                'vault_stats'     => $this->buildVaultStats($vaultData),
+                'users'              => $bankingService->listUsers(),
+                'accounts'           => $accounts,
+                'all_accounts'       => $accounts,
+                'account_stats'      => $this->buildAccountStats($accounts),
+                'account_history'    => $request !== null ? $this->getHistory($request) : [],
+                'form_errors_compte' => $formErrorsCompte,
+                'form_data_compte'   => $formDataCompte,
+                'vault_data'         => $vaultData,
+                'vault_stats'        => $this->buildVaultStats($vaultData),
+                'ai_assistant'       => $aiAssistant,
+                'pending_accounts'   => $bankingService->listPendingAccounts(),
+                // FIX : exposer active_panel pour que le twig puisse le lire
+                // depuis support.active_panel (utilisé ligne 1 du twig)
+                'active_panel'       => $activePanel,
             ],
         ];
     }
@@ -40,26 +92,26 @@ final class AccountsController
         $result = [];
         foreach ($vaults as $v) {
             $objectif = (float) ($v['objectifMontant'] ?? 0);
-            $actuel   = (float) ($v['montantActuel']   ?? 0);
+            $actuel   = (float) ($v['montantActuel'] ?? 0);
 
             $pct = $objectif > 0 ? min(round(($actuel / $objectif) * 100, 1), 100) : 0;
 
             $barColor = match (true) {
-                $pct >= 100 => '#22c55e',   // vert
-                $pct >= 50  => '#f97316',   // orange
-                default     => '#ef4444',   // rouge
+                $pct >= 100 => '#22c55e',
+                $pct >= 50  => '#f97316',
+                default     => '#ef4444',
             };
 
-            $locked   = $pct >= 100;
-            $lockIcon = $locked ? 'fa-lock' : 'fa-lock-open';
-            $lockColor= $locked ? '#ef4444' : '#22c55e';
+            $locked    = $pct >= 100;
+            $lockIcon  = $locked ? 'fa-lock' : 'fa-lock-open';
+            $lockColor = $locked ? '#ef4444' : '#22c55e';
 
             $result[] = array_merge($v, [
-                'progression'  => $pct,
-                'bar_color'    => $barColor,
-                'is_locked'    => $locked,
-                'lock_icon'    => $lockIcon,
-                'lock_color'   => $lockColor,
+                'progression' => $pct,
+                'bar_color'   => $barColor,
+                'is_locked'   => $locked,
+                'lock_icon'   => $lockIcon,
+                'lock_color'  => $lockColor,
             ]);
         }
 
@@ -76,9 +128,9 @@ final class AccountsController
         $total       = count($vaultData);
         $totalStored = 0.0;
         $actifs      = 0;
-        $rouge       = 0; // 0–49%
-        $orange      = 0; // 50–99%
-        $vert        = 0; // 100%
+        $rouge       = 0;
+        $orange      = 0;
+        $vert        = 0;
 
         foreach ($vaultData as $v) {
             $totalStored += (float) ($v['montantActuel'] ?? 0);
@@ -106,22 +158,23 @@ final class AccountsController
             'vert'         => $vert,
         ];
     }
+
     /**
      * Computes per-status statistics for the pie chart.
      */
     public function buildAccountStats(array $accounts): array
     {
-        $total   = count($accounts);
-        $counts  = ['Actif' => 0, 'Fermé' => 0, 'Bloqué' => 0];
-        $soldes  = ['Actif' => 0.0, 'Fermé' => 0.0, 'Bloqué' => 0.0];
+        $total  = count($accounts);
+        $counts = ['Actif' => 0, 'Fermé' => 0, 'Bloqué' => 0];
+        $soldes = ['Actif' => 0.0, 'Fermé' => 0.0, 'Bloqué' => 0.0];
 
         foreach ($accounts as $a) {
             $raw    = (string) ($a['statutCompte'] ?? '');
             $statut = match (strtolower(trim($raw))) {
-                'actif'          => 'Actif',
-                'fermé', 'ferme' => 'Fermé',
+                'actif'            => 'Actif',
+                'fermé', 'ferme'   => 'Fermé',
                 'bloqué', 'bloque' => 'Bloqué',
-                default          => null,
+                default            => null,
             };
             if ($statut !== null) {
                 $counts[$statut]++;
@@ -148,41 +201,48 @@ final class AccountsController
         int $userId,
         ?Request $request = null
     ): array {
-        $allAccounts = $bankingService->listAccounts($userId);
+        $allAccounts  = $bankingService->listAccounts($userId);
         $accountsQuery = $this->resolvePortalAccountQuery($request);
-        $accounts = $this->filterAndSortPortalAccounts($allAccounts, $accountsQuery);
-        $vaults   = $bankingService->listVaults($userId);
-        $vaultData = $this->buildVaultData($vaults);
+        $accounts     = $this->filterAndSortPortalAccounts($allAccounts, $accountsQuery);
+        $vaults       = $bankingService->listVaults($userId);
+        $vaultData    = $this->buildVaultData($vaults);
 
         $formErrorsCompte = $request !== null ? $this->getFormErrors($request, 'compte') : [];
         $formDataCompte   = $request !== null ? $this->getFormData($request, 'compte') : [];
         $formErrorsVault  = $request !== null ? $this->getFormErrors($request, 'vault') : [];
         $formDataVault    = $request !== null ? $this->getFormData($request, 'vault') : [];
+        $wheelFeedback    = $request !== null
+            ? (array) $request->getSession()->get('nexora.wheel_feedback', ['type' => '', 'message' => ''])
+            : ['type' => '', 'message' => ''];
 
-        // Clear errors after reading
         if ($request !== null) {
             $request->getSession()->remove('nexora.form_errors.compte');
             $request->getSession()->remove('nexora.form_data.compte');
             $request->getSession()->remove('nexora.form_errors.vault');
             $request->getSession()->remove('nexora.form_data.vault');
+            $request->getSession()->remove('nexora.wheel_feedback');
         }
 
         return [
-            'items' => $accounts,
+            'items'   => $accounts,
             'support' => [
-                'wheel'              => $gamificationService->getWheelStatus($userId),
-                'activity'           => $activityService->listRecent($userId, 40),
-                'account_history'    => $request !== null ? $this->getHistory($request) : [],
-                'all_accounts'       => $allAccounts,
-                'account_query'      => $accountsQuery,
-                'account_filter_counts' => $this->buildPortalAccountTypeCounts($allAccounts),
+                'wheel'                  => $gamificationService->getWheelStatus($userId),
+                'wheel_security'         => $request !== null
+                    ? (array) $request->getSession()->get('nexora.wheel_security', ['locked' => false, 'message' => ''])
+                    : ['locked' => false, 'message' => ''],
+                'wheel_feedback'         => $wheelFeedback,
+                'activity'               => $activityService->listRecent($userId, 40),
+                'account_history'        => $request !== null ? $this->getHistory($request) : [],
+                'all_accounts'           => $allAccounts,
+                'account_query'          => $accountsQuery,
+                'account_filter_counts'  => $this->buildPortalAccountTypeCounts($allAccounts),
                 'filtered_account_count' => count($accounts),
-                'vaults'             => $vaultData,
-                'vault_data'         => $vaultData,
-                'form_errors_compte' => $formErrorsCompte,
-                'form_data_compte'   => $formDataCompte,
-                'form_errors_vault'  => $formErrorsVault,
-                'form_data_vault'    => $formDataVault,
+                'vaults'                 => $vaultData,
+                'vault_data'             => $vaultData,
+                'form_errors_compte'     => $formErrorsCompte,
+                'form_data_compte'       => $formDataCompte,
+                'form_errors_vault'      => $formErrorsVault,
+                'form_data_vault'        => $formDataVault,
             ],
         ];
     }
@@ -193,14 +253,14 @@ final class AccountsController
     private function resolvePortalAccountQuery(?Request $request): array
     {
         $allowedSearchFields = ['all', 'id', 'numero', 'solde', 'date', 'statut', 'retrait', 'virement', 'type'];
-        $allowedFilters = ['all', 'courant', 'professionnel', 'epargne'];
-        $allowedSorts = ['id', 'numero', 'solde', 'date', 'statut', 'retrait', 'virement', 'type'];
+        $allowedFilters      = ['all', 'courant', 'professionnel', 'epargne'];
+        $allowedSorts        = ['id', 'numero', 'solde', 'date', 'statut', 'retrait', 'virement', 'type'];
 
-        $query = trim((string) ($request?->query->get('q') ?? ''));
+        $query    = trim((string) ($request?->query->get('q') ?? ''));
         $searchIn = strtolower(trim((string) ($request?->query->get('search_in') ?? 'all')));
-        $filter = strtolower(trim((string) ($request?->query->get('filter') ?? 'all')));
-        $sort = strtolower(trim((string) ($request?->query->get('sort') ?? '')));
-        $dir = strtolower(trim((string) ($request?->query->get('dir') ?? 'asc')));
+        $filter   = strtolower(trim((string) ($request?->query->get('filter') ?? 'all')));
+        $sort     = strtolower(trim((string) ($request?->query->get('sort') ?? '')));
+        $dir      = strtolower(trim((string) ($request?->query->get('dir') ?? 'asc')));
 
         if (!in_array($searchIn, $allowedSearchFields, true)) {
             $searchIn = 'all';
@@ -216,11 +276,11 @@ final class AccountsController
         }
 
         return [
-            'q' => $query,
+            'q'         => $query,
             'search_in' => $searchIn,
-            'filter' => $filter,
-            'sort' => $sort,
-            'dir' => $dir,
+            'filter'    => $filter,
+            'sort'      => $sort,
+            'dir'       => $dir,
         ];
     }
 
@@ -273,10 +333,10 @@ final class AccountsController
         $type = $this->normalizePortalAccountText((string) ($account['typeCompte'] ?? ''));
 
         return match ($filter) {
-            'courant' => str_contains($type, 'cour'),
+            'courant'       => str_contains($type, 'cour'),
             'professionnel' => str_contains($type, 'prof'),
-            'epargne' => str_contains($type, 'epa'),
-            default => true,
+            'epargne'       => str_contains($type, 'epa'),
+            default         => true,
         };
     }
 
@@ -328,7 +388,7 @@ final class AccountsController
      */
     private function portalAccountDateValue(array $account): int
     {
-        $rawDate = (string) ($account['dateOuverture'] ?? '');
+        $rawDate   = (string) ($account['dateOuverture'] ?? '');
         $timestamp = strtotime($rawDate);
 
         return $timestamp !== false ? $timestamp : 0;
@@ -357,10 +417,10 @@ final class AccountsController
     private function buildPortalAccountTypeCounts(array $accounts): array
     {
         $counts = [
-            'all' => count($accounts),
-            'courant' => 0,
+            'all'           => count($accounts),
+            'courant'       => 0,
             'professionnel' => 0,
-            'epargne' => 0,
+            'epargne'       => 0,
         ];
 
         foreach ($accounts as $account) {
@@ -379,16 +439,28 @@ final class AccountsController
 
     public function handleAdminAction(string $action, Request $request, BankingService $bankingService, ?array $currentUser = null): ?array
     {
-        $connectedUserId = $currentUser !== null ? (int) ($currentUser['idUser'] ?? 0) : null;
-
         switch ($action) {
             case 'account_save':
-                $data = $request->request->all();
-                // Auto-assign idUser if not set in form and user is connected
-                if (($data['idUser'] ?? '') === '' && $connectedUserId !== null && $connectedUserId > 0) {
-                    $data['idUser'] = (string) $connectedUserId;
+                $data   = $request->request->all();
+                $errors = $this->validateCompte($data, $bankingService);
+                if ($errors !== []) {
+                    $request->getSession()->set('nexora.form_errors.compte', $errors);
+                    $request->getSession()->set('nexora.form_data.compte', $data);
+
+                    return ['type' => 'error', 'message' => 'Veuillez corriger les erreurs du formulaire de compte.'];
                 }
-                $bankingService->saveAccount($data, $this->requestInt($request, 'idCompte'));
+
+                $request->getSession()->remove('nexora.form_errors.compte');
+                $request->getSession()->remove('nexora.form_data.compte');
+
+                try {
+                    $bankingService->saveAccount($data, $this->requestInt($request, 'idCompte'));
+                } catch (\Throwable $exception) {
+                    $request->getSession()->set('nexora.form_data.compte', $data);
+
+                    return ['type' => 'error', 'message' => $exception->getMessage()];
+                }
+
                 $this->logHistory($request, 'account_save', $data);
 
                 return ['type' => 'success', 'message' => 'Account saved.'];
@@ -399,17 +471,88 @@ final class AccountsController
                 $this->logHistory($request, 'account_delete', ['idCompte' => $id]);
 
                 return ['type' => 'success', 'message' => 'Account deleted.'];
+
+            case 'account_accept':
+                $id = $this->requestInt($request, 'idCompte') ?? 0;
+                $bankingService->validateAccount($id, true);
+                $this->logHistory($request, 'account_accept', ['idCompte' => $id]);
+
+                return ['type' => 'success', 'message' => 'Compte accepté et client notifié.'];
+
+            case 'account_refuse':
+                $id = $this->requestInt($request, 'idCompte') ?? 0;
+                $bankingService->validateAccount($id, false);
+                $this->logHistory($request, 'account_refuse', ['idCompte' => $id]);
+
+                return ['type' => 'success', 'message' => 'Compte refusé et client notifié.'];
+
+            case 'send_ai_analysis':
+                $clientId = $this->requestInt($request, 'userId');
+                if ($clientId === null || $clientId <= 0) {
+                    return ['type' => 'error', 'message' => 'Utilisateur invalide.'];
+                }
+
+                $aiData = $this->bankingMlAssistantService->buildAdminAssistantData($clientId);
+                $profile = null;
+                foreach ($aiData['profiles'] ?? [] as $p) {
+                    if ((int)$p['client_id'] === $clientId) {
+                        $profile = $p;
+                        break;
+                    }
+                }
+
+                if (!$profile) {
+                    return ['type' => 'error', 'message' => 'Aucune donnée IA disponible pour ce client.'];
+                }
+
+                $name = $profile['client_name'] ?? 'Client';
+                $score = $profile['risk_score'] ?? 0;
+                $label = $profile['profile_label'] ?? 'Profil';
+                $analysis = $profile['analysis'] ?? 'Analyse indisponible.';
+                $recommendations = $profile['recommendations'] ?? [];
+                $alerts = $profile['alerts'] ?? [];
+
+                $message = "### Analyse de votre profil financier par NEXORA AI\n\n";
+                $message .= "**Segment :** $label\n";
+                $message .= "**Score de risque :** $score/100\n\n";
+                $message .= "#### Analyse détaillée\n$analysis\n\n";
+
+                if (!empty($alerts)) {
+                    $message .= "#### Alertes de sécurité & fraude\n";
+                    foreach ($alerts as $a) {
+                        $message .= "- **" . ($a['title'] ?? 'Alerte') . " :** " . ($a['text'] ?? '') . "\n";
+                    }
+                    $message .= "\n";
+                }
+
+                if (!empty($recommendations)) {
+                    $message .= "#### Recommandations personnalisées\n";
+                    foreach ($recommendations as $r) {
+                        $message .= "- $r\n";
+                    }
+                    $message .= "\n";
+                }
+
+                $message .= "Ces recommandations sont générées automatiquement pour vous aider à mieux gérer votre situation financière.";
+
+                $this->notificationService->createNotification(
+                    $clientId,
+                    null,
+                    $clientId,
+                    'AI_ANALYSIS',
+                    'Analyse IA de votre compte',
+                    $message,
+                    true
+                );
+
+                return ['type' => 'success', 'message' => "L'analyse IA a été envoyée avec succès à $name."];
         }
 
         return null;
     }
 
-    /**
-     * Builds the detailed view data for a single account (with its vaults).
-     */
     public function buildAccountDetail(BankingService $bankingService, int $idCompte): ?array
     {
-        // Find the account
         $accounts = $bankingService->listAccounts();
         $account  = null;
         foreach ($accounts as $a) {
@@ -423,30 +566,22 @@ final class AccountsController
             return null;
         }
 
-        // Get vaults linked to this account
         $allVaults    = $bankingService->listVaults();
         $linkedVaults = array_values(array_filter(
             $allVaults,
             fn ($v) => (int) ($v['idCompte'] ?? 0) === $idCompte
         ));
 
-        // Enrich vaults with progression data
         $enrichedVaults = $this->buildVaultData($linkedVaults);
-
-        // Compute vault stats for this account
-        $vaultStats = $this->buildVaultStats($enrichedVaults);
+        $vaultStats     = $this->buildVaultStats($enrichedVaults);
 
         return [
-            'account'      => $account,
-            'vaults'       => $enrichedVaults,
-            'vault_stats'  => $vaultStats,
+            'account'     => $account,
+            'vaults'      => $enrichedVaults,
+            'vault_stats' => $vaultStats,
         ];
     }
 
-    /**
-     * Builds the PDF content for account export.
-     * Returns [string $pdfContent, string $filename].
-     */
     public function buildAccountPdf(BankingService $bankingService, \App\Service\ExportService $exportService, ?int $idCompte): array
     {
         if ($idCompte !== null) {
@@ -463,23 +598,23 @@ final class AccountsController
                 return ['', ''];
             }
 
-            $headers = ['Champ', 'Valeur'];
-            $rows    = [
+            $headers  = ['Champ', 'Valeur'];
+            $rows     = [
                 ['ID Compte',         (string) ($account['idCompte'] ?? '—')],
                 ['Numéro de Compte',  (string) ($account['numeroCompte'] ?? '—')],
-                ['Solde',             number_format((float) ($account['solde'] ?? 0), 2, '.', ' ').' DT'],
+                ['Solde',             number_format((float) ($account['solde'] ?? 0), 2, '.', ' ') . ' DT'],
                 ['Date d\'Ouverture', (string) ($account['dateOuverture'] ?? '—')],
                 ['Statut',            (string) ($account['statutCompte'] ?? '—')],
-                ['Plafond Retrait',   number_format((float) ($account['plafondRetrait'] ?? 0), 2, '.', ' ').' DT'],
-                ['Plafond Virement',  number_format((float) ($account['plafondVirement'] ?? 0), 2, '.', ' ').' DT'],
+                ['Plafond Retrait',   number_format((float) ($account['plafondRetrait'] ?? 0), 2, '.', ' ') . ' DT'],
+                ['Plafond Virement',  number_format((float) ($account['plafondVirement'] ?? 0), 2, '.', ' ') . ' DT'],
                 ['Type de Compte',    (string) ($account['typeCompte'] ?? '—')],
             ];
-            $stats = [
+            $stats    = [
                 ['label' => 'N° Compte', 'value' => (string) ($account['numeroCompte'] ?? '—')],
-                ['label' => 'Solde',     'value' => number_format((float) ($account['solde'] ?? 0), 2, '.', ' ').' DT'],
+                ['label' => 'Solde',     'value' => number_format((float) ($account['solde'] ?? 0), 2, '.', ' ') . ' DT'],
                 ['label' => 'Statut',    'value' => (string) ($account['statutCompte'] ?? '—')],
             ];
-            $title    = sprintf('Fiche Compte — %s', (string) ($account['numeroCompte'] ?? '#'.$idCompte));
+            $title    = sprintf('Fiche Compte — %s', (string) ($account['numeroCompte'] ?? '#' . $idCompte));
             $subtitle = sprintf('Détail complet du compte bancaire #%d exporté depuis Nexora.', $idCompte);
             $filename = sprintf('nexora-compte-%d.pdf', $idCompte);
         } else {
@@ -500,11 +635,11 @@ final class AccountsController
                     (string) ($a['typeCompte'] ?? ''),
                 ];
             }
-            $actifs = count(array_filter($accounts, fn ($a) => strtolower((string) ($a['statutCompte'] ?? '')) === 'actif'));
-            $stats  = [
+            $actifs   = count(array_filter($accounts, fn ($a) => strtolower((string) ($a['statutCompte'] ?? '')) === 'actif'));
+            $stats    = [
                 ['label' => 'Total comptes',  'value' => (string) count($accounts)],
                 ['label' => 'Comptes actifs', 'value' => (string) $actifs],
-                ['label' => 'Solde total',    'value' => number_format($totalSolde, 2, '.', ' ').' DT'],
+                ['label' => 'Solde total',    'value' => number_format($totalSolde, 2, '.', ' ') . ' DT'],
             ];
             $title    = 'Rapport Comptes Bancaires';
             $subtitle = 'Export complet de tous les comptes bancaires depuis Nexora.';
@@ -525,10 +660,14 @@ final class AccountsController
                 if (($data['idUser'] ?? '') === '') {
                     $data['idUser'] = (string) $userId;
                 }
+                if (($data['idCompte'] ?? '') === '') {
+                    $data['statutCompte'] = 'En attente';
+                }
                 $errors = $this->validateCompte($data, $bankingService);
                 if ($errors !== []) {
                     $request->getSession()->set('nexora.form_errors.compte', $errors);
                     $request->getSession()->set('nexora.form_data.compte', $data);
+
                     return ['type' => 'validation_error', 'message' => 'Veuillez corriger les erreurs du formulaire.'];
                 }
                 $request->getSession()->remove('nexora.form_errors.compte');
@@ -548,17 +687,22 @@ final class AccountsController
                     }
 
                     $data['idUser'] = (string) $userId;
-                    $bankingService->saveAccount($data, $accountId, null);
+                    $savedAccountId = $bankingService->saveAccount($data, $accountId, null);
                 } else {
-                    $bankingService->saveAccount($data, null, $userId);
+                    $savedAccountId = $bankingService->saveAccount($data, null, $userId);
                 }
+                $request->getSession()->set('nexora.last_saved_account_id', $savedAccountId);
                 $this->logHistory($request, 'account_save', $data);
-                return ['type' => 'success', 'message' => 'Compte enregistré avec succès.'];
+
+                return $accountId !== null
+                    ? ['type' => 'success', 'message' => 'Compte mis à jour avec succès.']
+                    : ['type' => 'success', 'message' => 'Demande de création envoyée à l\'administration avec succès.'];
 
             case 'account_delete':
                 $id = $this->requestInt($request, 'idCompte') ?? 0;
                 $bankingService->deleteAccount($id, $userId);
                 $this->logHistory($request, 'account_delete', ['idCompte' => $id]);
+
                 return ['type' => 'success', 'message' => 'Compte supprimé.'];
 
             case 'vault_save':
@@ -570,6 +714,7 @@ final class AccountsController
                 if ($errors !== []) {
                     $request->getSession()->set('nexora.form_errors.vault', $errors);
                     $request->getSession()->set('nexora.form_data.vault', $data);
+
                     return ['type' => 'validation_error', 'message' => 'Veuillez corriger les erreurs du formulaire coffre.'];
                 }
                 $request->getSession()->remove('nexora.form_errors.vault');
@@ -593,13 +738,12 @@ final class AccountsController
                         $data['idCompte'] = (string) ($existingVault['idCompte'] ?? '');
                     }
 
-                    // Legacy rows can miss idUser, so updates are secured by the ownership lookup above,
-                    // then executed without the stricter idUser criterion.
                     $bankingService->saveVault($data, $vaultId, null);
                 } else {
                     $bankingService->saveVault($data, null, $userId);
                 }
                 $this->logHistory($request, 'vault_save', $data);
+
                 return ['type' => 'success', 'message' => 'Coffre enregistré avec succès.'];
 
             case 'vault_delete':
@@ -617,10 +761,10 @@ final class AccountsController
                         return ['type' => 'error', 'message' => 'Coffre introuvable ou inaccessible.'];
                     }
 
-                    // Legacy rows can miss idUser, so deletion is authorized by the ownership lookup above.
                     $bankingService->deleteVault($id, null);
                 }
                 $this->logHistory($request, 'vault_delete', ['idCoffre' => $id]);
+
                 return ['type' => 'success', 'message' => 'Coffre supprimé.'];
         }
 
@@ -628,22 +772,48 @@ final class AccountsController
     }
 
     /**
-     * Validates compte data. Returns field-keyed error messages.
      * @param array<string, mixed> $data
      * @return array<string, string>
      */
     public function validateCompte(array $data, BankingService $bankingService): array
     {
-        $errors = [];
-        $today  = new \DateTimeImmutable('today');
+        $errors          = [];
+        $today           = new \DateTimeImmutable('today');
+        $userId          = (int) ($data['idUser'] ?? 0);
+        $editId          = (int) ($data['idCompte'] ?? 0);
+        $existingAccount = null;
+
+        if ($editId > 0) {
+            foreach ($bankingService->listAccounts() as $account) {
+                if ((int) ($account['idCompte'] ?? 0) === $editId) {
+                    $existingAccount = $account;
+                    break;
+                }
+            }
+        }
+
+        if ($userId <= 0) {
+            $errors['idUser'] = 'Veuillez selectionner un utilisateur.';
+        } else {
+            $userExists = false;
+            foreach ($bankingService->listUsers() as $user) {
+                if ((int) ($user['idUser'] ?? 0) === $userId) {
+                    $userExists = true;
+                    break;
+                }
+            }
+
+            if (!$userExists) {
+                $errors['idUser'] = 'Utilisateur selectionne introuvable.';
+            }
+        }
 
         $num = trim((string) ($data['numeroCompte'] ?? ''));
         if ($num === '') {
             $errors['numeroCompte'] = 'Le numéro de compte est obligatoire.';
-        } elseif (!preg_match('/^CB-\d{3}$/', $num)) {
+        } elseif (!preg_match('/^CB-\d{3,}$/', $num)) {
             $errors['numeroCompte'] = 'Le numéro de compte doit être au format CB-XXX (ex : CB-123).';
         } else {
-            $editId = (int) ($data['idCompte'] ?? 0);
             foreach ($bankingService->listAccounts() as $a) {
                 if ((string) ($a['numeroCompte'] ?? '') === $num && (int) ($a['idCompte'] ?? 0) !== $editId) {
                     $errors['numeroCompte'] = 'Ce numéro de compte existe déjà.';
@@ -660,35 +830,50 @@ final class AccountsController
         }
 
         $dateVal = trim((string) ($data['dateOuverture'] ?? ''));
-        if ($dateVal === '') {
-            $errors['dateOuverture'] = "La date d'ouverture est obligatoire.";
-        } else {
-            try {
-                if ((new \DateTimeImmutable($dateVal)) > $today) {
-                    $errors['dateOuverture'] = "La date d'ouverture ne doit pas être supérieure à la date actuelle.";
+        if ($dateVal !== '' && !$this->isValidDateValue($dateVal)) {
+            $errors['dateOuverture'] = "La date d'ouverture est invalide.";
+        } elseif ($dateVal !== '') {
+            if ($existingAccount !== null) {
+                $expectedDate = trim((string) ($existingAccount['dateOuverture'] ?? ''));
+                if ($expectedDate === '') {
+                    $expectedDate = $today->format('Y-m-d');
                 }
-            } catch (\Exception) {
-                $errors['dateOuverture'] = "La date d'ouverture est invalide.";
+
+                if ($dateVal !== $expectedDate) {
+                    $errors['dateOuverture'] = sprintf(
+                        "La date d'ouverture est fixee automatiquement au %s et ne peut pas etre modifiee.",
+                        $expectedDate
+                    );
+                }
+            } else {
+                $submittedDate = new \DateTimeImmutable($dateVal);
+                if ($submittedDate > $today) {
+                    $errors['dateOuverture'] = "La date d'ouverture ne peut pas etre dans le futur.";
+                }
             }
         }
 
         $statut = trim((string) ($data['statutCompte'] ?? ''));
-        if ($statut === '') {
+        if ($statut === '' && $editId > 0) {
             $errors['statutCompte'] = 'Veuillez sélectionner un statut.';
         }
 
         $retrait = $data['plafondRetrait'] ?? '';
-        if ($retrait === '' || $retrait === null) {
-            $errors['plafondRetrait'] = 'Le plafond de retrait est obligatoire.';
-        } elseif ((float) $retrait <= 0) {
-            $errors['plafondRetrait'] = 'Le plafond de retrait doit être un nombre supérieur à 0.';
+        if ($retrait !== '' && $retrait !== null && !$this->isWithinAccountLimitRange((float) $retrait)) {
+            $errors['plafondRetrait'] = sprintf(
+                'Le plafond de retrait doit etre compris entre %.0f DT et %.0f DT.',
+                self::ACCOUNT_LIMIT_MIN,
+                self::ACCOUNT_LIMIT_MAX
+            );
         }
 
         $virement = $data['plafondVirement'] ?? '';
-        if ($virement === '' || $virement === null) {
-            $errors['plafondVirement'] = 'Le plafond de virement est obligatoire.';
-        } elseif ((float) $virement <= 0) {
-            $errors['plafondVirement'] = 'Le plafond de virement doit être un nombre supérieur à 0.';
+        if ($virement !== '' && $virement !== null && !$this->isWithinAccountLimitRange((float) $virement)) {
+            $errors['plafondVirement'] = sprintf(
+                'Le plafond de virement doit etre compris entre %.0f DT et %.0f DT.',
+                self::ACCOUNT_LIMIT_MIN,
+                self::ACCOUNT_LIMIT_MAX
+            );
         }
 
         $type = trim((string) ($data['typeCompte'] ?? ''));
@@ -699,15 +884,26 @@ final class AccountsController
         return $errors;
     }
 
+    private function isValidDateValue(string $value): bool
+    {
+        $date = \DateTimeImmutable::createFromFormat('Y-m-d', $value);
+
+        return $date !== false && $date->format('Y-m-d') === $value;
+    }
+
+    private function isWithinAccountLimitRange(float $value): bool
+    {
+        return $value >= self::ACCOUNT_LIMIT_MIN && $value <= self::ACCOUNT_LIMIT_MAX;
+    }
+
     /**
-     * Validates vault data. Returns field-keyed error messages.
      * @param array<string, mixed> $data
      * @return array<string, string>
      */
     public function validateVault(array $data): array
     {
-        $errors = [];
-        $today  = new \DateTimeImmutable('today');
+        $errors       = [];
+        $today        = new \DateTimeImmutable('today');
         $dateCreation = null;
 
         $nom = trim((string) ($data['nom'] ?? ''));
@@ -777,21 +973,19 @@ final class AccountsController
     }
 
     /**
-     * Returns form errors stored in session.
      * @return array<string, string>
      */
     public function getFormErrors(Request $request, string $formKey): array
     {
-        return (array) $request->getSession()->get('nexora.form_errors.'.$formKey, []);
+        return (array) $request->getSession()->get('nexora.form_errors.' . $formKey, []);
     }
 
     /**
-     * Returns previously submitted form data stored in session.
      * @return array<string, mixed>
      */
     public function getFormData(Request $request, string $formKey): array
     {
-        return (array) $request->getSession()->get('nexora.form_data.'.$formKey, []);
+        return (array) $request->getSession()->get('nexora.form_data.' . $formKey, []);
     }
 
     private function requestInt(Request $request, string $key): ?int
@@ -806,9 +1000,6 @@ final class AccountsController
         return $intValue > 0 ? $intValue : null;
     }
 
-    /**
-     * Records an action in the session history (max 50 entries).
-     */
     private function logHistory(Request $request, string $action, array $data): void
     {
         $session = $request->getSession();
@@ -824,7 +1015,6 @@ final class AccountsController
             'vault_delete'   => 'Supprimer coffre',
         ];
 
-        // Distinguish add vs edit based on presence of idCompte
         $resolvedAction = $action;
         if ($action === 'account_save') {
             $resolvedAction = ($data['idCompte'] ?? '') !== '' ? 'account_edit' : 'account_add';
@@ -832,41 +1022,41 @@ final class AccountsController
             $resolvedAction = ($data['idCoffre'] ?? '') !== '' ? 'vault_edit' : 'vault_add';
         }
 
-        $idCompte = (string) ($data['idCompte'] ?? '—');
-        $idCoffre = (string) ($data['idCoffre'] ?? '—');
-        $numero   = (string) ($data['numeroCompte'] ?? '');
-        $statut   = (string) ($data['statutCompte'] ?? '');
-        $type     = (string) ($data['typeCompte'] ?? '');
-        $solde    = isset($data['solde']) ? number_format((float) $data['solde'], 2, '.', ' ').' DT' : '—';
-        $vaultNom = (string) ($data['nom'] ?? '');
-        $vaultStatus = (string) ($data['status'] ?? '');
-        $vaultCurrent = isset($data['montantActuel']) ? number_format((float) $data['montantActuel'], 2, '.', ' ').' DT' : '—';
-        $vaultTarget = isset($data['objectifMontant']) ? number_format((float) $data['objectifMontant'], 2, '.', ' ').' DT' : '—';
+        $idCompte     = (string) ($data['idCompte'] ?? '—');
+        $idCoffre     = (string) ($data['idCoffre'] ?? '—');
+        $numero       = (string) ($data['numeroCompte'] ?? '');
+        $statut       = (string) ($data['statutCompte'] ?? '');
+        $type         = (string) ($data['typeCompte'] ?? '');
+        $solde        = isset($data['solde']) ? number_format((float) $data['solde'], 2, '.', ' ') . ' DT' : '—';
+        $vaultNom     = (string) ($data['nom'] ?? '');
+        $vaultStatus  = (string) ($data['status'] ?? '');
+        $vaultCurrent = isset($data['montantActuel']) ? number_format((float) $data['montantActuel'], 2, '.', ' ') . ' DT' : '—';
+        $vaultTarget  = isset($data['objectifMontant']) ? number_format((float) $data['objectifMontant'], 2, '.', ' ') . ' DT' : '—';
 
         if (str_contains($resolvedAction, 'vault')) {
-            $detail = $vaultNom !== '' ? $vaultNom : ($idCoffre !== '—' ? 'Coffre #'.$idCoffre : 'Coffre');
+            $detail = $vaultNom !== '' ? $vaultNom : ($idCoffre !== '—' ? 'Coffre #' . $idCoffre : 'Coffre');
             if ($vaultStatus !== '') {
-                $detail .= ' · '.$vaultStatus;
+                $detail .= ' · ' . $vaultStatus;
             }
             if ($idCompte !== '—') {
-                $detail .= ' · Compte #'.$idCompte;
+                $detail .= ' · Compte #' . $idCompte;
             }
             if ($vaultCurrent !== '—') {
-                $detail .= ' · Actuel '.$vaultCurrent;
+                $detail .= ' · Actuel ' . $vaultCurrent;
             }
             if ($vaultTarget !== '—') {
-                $detail .= ' / Obj. '.$vaultTarget;
+                $detail .= ' / Obj. ' . $vaultTarget;
             }
         } else {
-            $detail = $numero !== '' ? $numero : ($idCompte !== '—' ? '#'.$idCompte : '—');
+            $detail = $numero !== '' ? $numero : ($idCompte !== '—' ? '#' . $idCompte : '—');
             if ($statut !== '') {
-                $detail .= ' · '.$statut;
+                $detail .= ' · ' . $statut;
             }
             if ($type !== '') {
-                $detail .= ' · '.$type;
+                $detail .= ' · ' . $type;
             }
             if ($solde !== '—') {
-                $detail .= ' · '.$solde;
+                $detail .= ' · ' . $solde;
             }
         }
 
@@ -879,13 +1069,10 @@ final class AccountsController
             'type'      => str_contains($resolvedAction, 'delete') ? 'delete' : (str_contains($resolvedAction, 'vault') ? 'vault' : 'save'),
         ]);
 
-        // Keep only the last 50 entries
         $session->set('nexora.accounts_history', array_slice($history, 0, 50));
     }
 
     /**
-     * Returns the action history from the session.
-     *
      * @return array<int, array<string, mixed>>
      */
     public function getHistory(Request $request): array
