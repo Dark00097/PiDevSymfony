@@ -12,6 +12,7 @@ final class PaymentService
     private const SESSION_PAYMENT_OTP = 'nexora.payment_otp';
     private const SESSION_PAYMENT_OTP_VERIFIED = 'nexora.payment_otp_verified';
     private const SIMULATED_STORAGE = __DIR__.'/../../var/data/stripe_simulation.json';
+    private const LEGACY_FROM_NUMBER = '+16812908687';
 
     public function __construct(
         private readonly Connection $connection,
@@ -22,11 +23,33 @@ final class PaymentService
     ) {
     }
 
-    public function sendPaymentOtp(int $userId, string $phone, SessionInterface $session): ?string
+    public function sendPaymentOtp(int $userId, string $phone, SessionInterface $session, ?string $channel = null): ?string
     {
-        $normalizedPhone = trim($phone);
+        $normalizedPhone = $this->normalizePhoneNumber($phone);
         if ($normalizedPhone === '') {
             throw new \InvalidArgumentException('A phone number is required for payment verification.');
+        }
+
+        $channel = $this->resolveOtpChannel($channel);
+        if ($this->hasTwilioVerifyConfig()) {
+            $payload = $session->get(self::SESSION_PAYMENT_OTP, []);
+            $payload[$userId] = [
+                'phone' => $normalizedPhone,
+                'channel' => $channel,
+                'expires_at' => time() + 300,
+            ];
+            $session->set(self::SESSION_PAYMENT_OTP, $payload);
+            $session->remove(self::SESSION_PAYMENT_OTP_VERIFIED);
+
+            if (!$this->sendTwilioOtp($normalizedPhone, $channel)) {
+                throw new \RuntimeException('Unable to send OTP through Twilio Verify.');
+            }
+
+            return null;
+        }
+
+        if (!$this->isLocalOtpFallbackEnabled()) {
+            throw new \RuntimeException('Twilio Verify is not configured. Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_SERVICE_SID.');
         }
 
         $otp = (string) random_int(100000, 999999);
@@ -34,24 +57,27 @@ final class PaymentService
         $payload[$userId] = [
             'code' => $otp,
             'phone' => $normalizedPhone,
+            'channel' => $channel,
             'expires_at' => time() + 300,
         ];
         $session->set(self::SESSION_PAYMENT_OTP, $payload);
         $session->remove(self::SESSION_PAYMENT_OTP_VERIFIED);
-
-        if ($this->sendTwilioOtp($normalizedPhone, $otp)) {
-            return null;
-        }
 
         return $otp;
     }
 
     public function verifyPaymentOtp(int $userId, string $phone, string $otp, SessionInterface $session): bool
     {
-        if ($this->verifyTwilioOtp(trim($phone), trim($otp))) {
+        $normalizedPhone = $this->normalizePhoneNumber($phone);
+
+        if ($this->hasTwilioVerifyConfig() && $this->verifyTwilioOtp($normalizedPhone, trim($otp))) {
             $session->set(self::SESSION_PAYMENT_OTP_VERIFIED, ['user_id' => $userId, 'verified_at' => time()]);
 
             return true;
+        }
+
+        if (!$this->isLocalOtpFallbackEnabled()) {
+            return false;
         }
 
         $payload = $session->get(self::SESSION_PAYMENT_OTP, []);
@@ -60,7 +86,7 @@ final class PaymentService
             return false;
         }
 
-        $valid = trim((string) ($entry['phone'] ?? '')) === trim($phone)
+        $valid = trim((string) ($entry['phone'] ?? '')) === $normalizedPhone
             && (int) ($entry['expires_at'] ?? 0) >= time()
             && trim((string) ($entry['code'] ?? '')) === trim($otp);
 
@@ -71,6 +97,36 @@ final class PaymentService
         }
 
         return $valid;
+    }
+
+    public function getPortalPaymentConfig(): array
+    {
+        return [
+            'twilio_configured' => $this->hasTwilioVerifyConfig(),
+            'twilio_from_number' => $this->getTwilioFromNumber(),
+            'stripe_configured' => $this->getStripeClient() !== null,
+            'otp_default_channel' => $this->resolveOtpChannel(null),
+            'otp_fallback_enabled' => $this->isLocalOtpFallbackEnabled(),
+            'otp_default_country_code' => $this->getDefaultCountryCode(),
+            'stripe_charge_currency' => $this->getStripeChargeCurrency(),
+            'stripe_tnd_to_charge_rate' => $this->getStripeTndToChargeRate(),
+        ];
+    }
+
+    public function getPaymentVerificationState(int $userId, SessionInterface $session): array
+    {
+        $otpPayload = $session->get(self::SESSION_PAYMENT_OTP, []);
+        $otpEntry = $otpPayload[$userId] ?? null;
+        $verified = $session->get(self::SESSION_PAYMENT_OTP_VERIFIED, []);
+        $isVerified = (int) ($verified['user_id'] ?? 0) === $userId
+            && (int) ($verified['verified_at'] ?? 0) >= (time() - 900);
+
+        return [
+            'otp_sent' => is_array($otpEntry) && (int) ($otpEntry['expires_at'] ?? 0) >= time(),
+            'otp_verified' => $isVerified,
+            'phone' => is_array($otpEntry) ? (string) ($otpEntry['phone'] ?? '') : '',
+            'channel' => is_array($otpEntry) ? (string) ($otpEntry['channel'] ?? $this->resolveOtpChannel(null)) : $this->resolveOtpChannel(null),
+        ];
     }
 
     public function createCustomer(int $userId, string $name, string $email): array
@@ -185,13 +241,181 @@ final class PaymentService
             throw new \InvalidArgumentException('Payment amount must be greater than zero.');
         }
 
+        $providerResult = $this->chargeProvider($userId, $amount, $mode, $paymentMethod);
+        $this->recordCreditPayment($userId, $creditId, $accountId, $amount, $providerResult);
+
+        return [
+            'provider' => $providerResult['provider'],
+            'reference' => $providerResult['reference'],
+            'status' => $providerResult['status'],
+            'amount' => $amount,
+        ];
+    }
+
+    public function createCreditCheckoutSession(
+        int $userId,
+        int $creditId,
+        int $accountId,
+        float $amount,
+        SessionInterface $session,
+        string $successUrl,
+        string $cancelUrl,
+        string $customerEmail = '',
+        string $customerName = ''
+    ): array {
+        $stripe = $this->getStripeClient();
+        if ($stripe === null) {
+            throw new \RuntimeException('Stripe is not configured. Add STRIPE_SECRET_KEY in your environment.');
+        }
+
+        $amount = round(max(0, $amount), 2);
+        if ($amount <= 0) {
+            throw new \InvalidArgumentException('Payment amount must be greater than zero.');
+        }
+
         $credit = $this->connection->fetchAssociative('SELECT * FROM credit WHERE idCredit = ? AND idUser = ? LIMIT 1', [$creditId, $userId]);
         $account = $this->connection->fetchAssociative('SELECT * FROM compte WHERE idCompte = ? AND idUser = ? LIMIT 1', [$accountId, $userId]);
         if (!$credit || !$account) {
             throw new \RuntimeException('The selected credit or payment account was not found.');
         }
 
-        $providerResult = $this->chargeProvider($userId, $amount, $mode, $paymentMethod);
+        $charge = $this->convertAmountForStripe($amount);
+        $sessionData = [
+            'mode' => 'payment',
+            'success_url' => $successUrl,
+            'cancel_url' => $cancelUrl,
+            'client_reference_id' => sprintf('credit-%d-user-%d', $creditId, $userId),
+            'payment_method_types' => ['card'],
+            'line_items' => [[
+                'quantity' => 1,
+                'price_data' => [
+                    'currency' => $charge['currency'],
+                    'unit_amount' => $charge['amount_minor'],
+                    'product_data' => [
+                        'name' => sprintf('Mensualite credit #%d', $creditId),
+                        'description' => sprintf('Paiement Stripe de la mensualite pour le credit %s.', (string) ($credit['typeCredit'] ?? '#'.$creditId)),
+                    ],
+                ],
+            ]],
+            'metadata' => [
+                'user_id' => (string) $userId,
+                'credit_id' => (string) $creditId,
+                'account_id' => (string) $accountId,
+                'amount_tnd' => number_format($amount, 2, '.', ''),
+                'charge_currency' => $charge['currency'],
+                'charge_amount' => number_format($charge['amount'], 2, '.', ''),
+                'source' => 'nexora-credit-installment',
+            ],
+        ];
+
+        if (trim($customerEmail) !== '') {
+            $sessionData['customer_email'] = trim($customerEmail);
+        }
+
+        $checkoutSession = $stripe->checkout->sessions->create($sessionData);
+
+        return [
+            'id' => (string) $checkoutSession->id,
+            'url' => (string) $checkoutSession->url,
+            'currency' => $charge['currency'],
+            'amount' => $charge['amount'],
+        ];
+    }
+
+    public function finalizeCreditCheckoutSession(int $userId, string $checkoutSessionId): array
+    {
+        $sessionId = trim($checkoutSessionId);
+        if ($sessionId === '') {
+            throw new \InvalidArgumentException('Missing Stripe Checkout session id.');
+        }
+
+        $stripe = $this->getStripeClient();
+        if ($stripe === null) {
+            throw new \RuntimeException('Stripe is not configured.');
+        }
+
+        $checkoutSession = $stripe->checkout->sessions->retrieve($sessionId, []);
+        if ((string) ($checkoutSession->payment_status ?? '') !== 'paid') {
+            throw new \RuntimeException('Stripe payment is not completed yet.');
+        }
+
+        $metadata = is_array($checkoutSession->metadata) ? $checkoutSession->metadata : $checkoutSession->metadata?->toArray();
+        $metadata = is_array($metadata) ? $metadata : [];
+
+        $sessionUserId = (int) ($metadata['user_id'] ?? 0);
+        if ($sessionUserId !== $userId) {
+            throw new \RuntimeException('Stripe session access denied.');
+        }
+
+        $creditId = (int) ($metadata['credit_id'] ?? 0);
+        $accountId = (int) ($metadata['account_id'] ?? 0);
+        $amountTnd = (float) ($metadata['amount_tnd'] ?? 0);
+
+        $providerResult = [
+            'provider' => 'stripe_checkout',
+            'reference' => $sessionId,
+            'status' => (string) ($checkoutSession->payment_status ?? 'paid'),
+        ];
+
+        $recorded = $this->recordCreditPayment($userId, $creditId, $accountId, $amountTnd, $providerResult);
+
+        return [
+            'recorded' => $recorded,
+            'credit_id' => $creditId,
+            'account_id' => $accountId,
+            'amount_tnd' => $amountTnd,
+            'reference' => $sessionId,
+            'status' => (string) ($checkoutSession->payment_status ?? 'paid'),
+        ];
+    }
+
+    public function getPaymentHistory(int $userId, ?int $creditId = null): array
+    {
+        $rows = $this->connection->fetchAllAssociative(
+            'SELECT * FROM transactions
+             WHERE idUser = ?
+               AND categorie = ?
+             ORDER BY idTransaction DESC',
+            [$userId, 'Paiement credit']
+        );
+
+        $history = [];
+        foreach ($rows as $row) {
+            if ($creditId !== null && !str_contains((string) ($row['description'] ?? ''), '#'.$creditId)) {
+                continue;
+            }
+
+            $history[] = [
+                'idTransaction' => $row['idTransaction'],
+                'dateTransaction' => $row['dateTransaction'],
+                'amount' => (float) ($this->security->decryptAmount((string) ($row['montant'] ?? '')) ?? 0.0),
+                'description' => (string) ($row['description'] ?? ''),
+                'status' => (string) ($row['statutTransaction'] ?? ''),
+            ];
+        }
+
+        return $history;
+    }
+
+    public function calculateTotalPaid(int $userId, ?int $creditId = null): float
+    {
+        $history = $this->getPaymentHistory($userId, $creditId);
+
+        return round(array_sum(array_column($history, 'amount')), 2);
+    }
+
+    private function recordCreditPayment(int $userId, int $creditId, int $accountId, float $amount, array $providerResult): bool
+    {
+        $reference = trim((string) ($providerResult['reference'] ?? ''));
+        if ($reference !== '' && $this->hasRecordedPaymentReference($userId, $reference)) {
+            return false;
+        }
+
+        $credit = $this->connection->fetchAssociative('SELECT * FROM credit WHERE idCredit = ? AND idUser = ? LIMIT 1', [$creditId, $userId]);
+        $account = $this->connection->fetchAssociative('SELECT * FROM compte WHERE idCompte = ? AND idUser = ? LIMIT 1', [$accountId, $userId]);
+        if (!$credit || !$account) {
+            throw new \RuntimeException('The selected credit or payment account was not found.');
+        }
 
         $this->connection->transactional(function () use ($userId, $creditId, $accountId, $amount, $account, $credit, $providerResult): void {
             $newBalance = round(((float) $account['solde']) - $amount, 2);
@@ -209,20 +433,20 @@ final class PaymentService
             $description = sprintf(
                 'Paiement mensualite credit #%d via %s (%s)',
                 $creditId,
-                strtoupper($providerResult['provider']),
-                $providerResult['reference']
+                strtoupper((string) ($providerResult['provider'] ?? 'payment')),
+                (string) ($providerResult['reference'] ?? 'N/A')
             );
 
             $this->connection->insert('transactions', [
-                'idCompte'        => $accountId,
-                'idUser'          => $userId,
-                'categorie'       => 'Paiement credit',
+                'idCompte' => $accountId,
+                'idUser' => $userId,
+                'categorie' => 'Paiement credit',
                 'dateTransaction' => date('Y-m-d'),
-                'montant'         => $amount,
+                'montant' => $this->security->encryptAmount($amount),
                 'typeTransaction' => 'DEBIT',
-                'soldeApres'      => $newBalance,
-                'description'     => $description,
-                'montantPaye'     => $amount,
+                'soldeApres' => $newBalance,
+                'description' => $description,
+                'montantPaye' => $this->security->encryptAmount($amount),
             ]);
 
             $totalPaid = $this->calculateTotalPaid($userId, $creditId) + $amount;
@@ -250,47 +474,21 @@ final class PaymentService
             sprintf('A payment of %.2f DT was registered for credit #%d.', $amount, $creditId)
         );
 
-        return [
-            'provider' => $providerResult['provider'],
-            'reference' => $providerResult['reference'],
-            'status' => $providerResult['status'],
-            'amount' => $amount,
-        ];
+        return true;
     }
 
-    public function getPaymentHistory(int $userId, ?int $creditId = null): array
+    private function hasRecordedPaymentReference(int $userId, string $reference): bool
     {
-        $rows = $this->connection->fetchAllAssociative(
-            'SELECT * FROM transactions
-             WHERE idUser = ?
-               AND categorie = ?
-             ORDER BY idTransaction DESC',
-            [$userId, 'Paiement credit']
-        );
-
-        $history = [];
-        foreach ($rows as $row) {
-            if ($creditId !== null && !str_contains((string) ($row['description'] ?? ''), '#'.$creditId)) {
-                continue;
-            }
-
-            $history[] = [
-                'idTransaction' => $row['idTransaction'],
-                'dateTransaction' => $row['dateTransaction'],
-                'amount' => (float) ($row['montant'] ?? 0.0),
-                'description' => (string) ($row['description'] ?? ''),
-                'type' => (string) ($row['typeTransaction'] ?? ''),
-            ];
+        if (trim($reference) === '') {
+            return false;
         }
 
-        return $history;
-    }
+        $count = (int) $this->connection->fetchOne(
+            'SELECT COUNT(*) FROM transactions WHERE idUser = ? AND categorie = ? AND description LIKE ?',
+            [$userId, 'Paiement credit', '%('.trim($reference).')%']
+        );
 
-    public function calculateTotalPaid(int $userId, ?int $creditId = null): float
-    {
-        $history = $this->getPaymentHistory($userId, $creditId);
-
-        return round(array_sum(array_column($history, 'amount')), 2);
+        return $count > 0;
     }
 
     public function getWeatherRisk(string $city): array
@@ -388,16 +586,18 @@ final class PaymentService
     {
         $stripe = $this->getStripeClient();
         $mode = strtolower(trim($mode));
+        $charge = $this->convertAmountForStripe($amount);
 
         if ($stripe !== null && $mode === 'stripe' && trim($paymentMethod) !== '') {
             $intent = $stripe->paymentIntents->create([
-                'amount' => max(1, (int) round($amount * 100)),
-                'currency' => 'usd',
+                'amount' => $charge['amount_minor'],
+                'currency' => $charge['currency'],
                 'payment_method' => trim($paymentMethod),
                 'confirm' => true,
                 'metadata' => [
                     'user_id' => (string) $userId,
                     'source' => 'nexora-symfony',
+                    'amount_tnd' => number_format($amount, 2, '.', ''),
                 ],
             ]);
 
@@ -415,7 +615,7 @@ final class PaymentService
         ];
     }
 
-    private function sendTwilioOtp(string $phone, string $otp): bool
+    private function sendTwilioOtp(string $phone, string $channel): bool
     {
         $serviceSid = trim((string) ($_ENV['TWILIO_SERVICE_SID'] ?? $_SERVER['TWILIO_SERVICE_SID'] ?? ''));
         $accountSid = trim((string) ($_ENV['TWILIO_ACCOUNT_SID'] ?? $_SERVER['TWILIO_ACCOUNT_SID'] ?? ''));
@@ -430,7 +630,7 @@ final class PaymentService
                 'auth_basic' => [$accountSid, $authToken],
                 'body' => [
                     'To' => $phone,
-                    'Channel' => 'sms',
+                    'Channel' => $this->resolveOtpChannel($channel),
                 ],
             ])->getStatusCode();
 
@@ -463,6 +663,98 @@ final class PaymentService
         } catch (\Throwable) {
             return false;
         }
+    }
+
+    private function hasTwilioVerifyConfig(): bool
+    {
+        return trim((string) ($_ENV['TWILIO_SERVICE_SID'] ?? $_SERVER['TWILIO_SERVICE_SID'] ?? '')) !== ''
+            && trim((string) ($_ENV['TWILIO_ACCOUNT_SID'] ?? $_SERVER['TWILIO_ACCOUNT_SID'] ?? '')) !== ''
+            && trim((string) ($_ENV['TWILIO_AUTH_TOKEN'] ?? $_SERVER['TWILIO_AUTH_TOKEN'] ?? '')) !== '';
+    }
+
+    private function getTwilioFromNumber(): string
+    {
+        $configured = trim((string) ($_ENV['TWILIO_FROM_NUMBER'] ?? $_SERVER['TWILIO_FROM_NUMBER'] ?? ''));
+
+        return $configured !== '' ? $configured : self::LEGACY_FROM_NUMBER;
+    }
+
+    private function resolveOtpChannel(?string $channel): string
+    {
+        $resolved = strtolower(trim((string) ($channel ?? $_ENV['TWILIO_VERIFY_CHANNEL_DEFAULT'] ?? $_SERVER['TWILIO_VERIFY_CHANNEL_DEFAULT'] ?? 'sms')));
+
+        return in_array($resolved, ['sms', 'whatsapp'], true) ? $resolved : 'sms';
+    }
+
+    private function isLocalOtpFallbackEnabled(): bool
+    {
+        return trim((string) ($_ENV['PAYMENT_OTP_ALLOW_LOCAL_FALLBACK'] ?? $_SERVER['PAYMENT_OTP_ALLOW_LOCAL_FALLBACK'] ?? '0')) === '1';
+    }
+
+    private function normalizePhoneNumber(string $phone): string
+    {
+        $raw = trim($phone);
+        if ($raw === '') {
+            return '';
+        }
+
+        $hasLeadingPlus = str_starts_with($raw, '+');
+        $digits = preg_replace('/\D+/', '', $raw) ?? '';
+        if ($digits === '') {
+            return '';
+        }
+        if (strlen($digits) < 8 || strlen($digits) > 15) {
+            throw new \InvalidArgumentException('Phone number must contain between 8 and 15 digits.');
+        }
+
+        if ($hasLeadingPlus) {
+            return '+'.$digits;
+        }
+
+        $defaultCountryCode = $this->getDefaultCountryCode();
+        if ($defaultCountryCode !== '' && strlen($digits) <= 10) {
+            return '+'.$defaultCountryCode.$digits;
+        }
+
+        return '+'.$digits;
+    }
+
+    private function getDefaultCountryCode(): string
+    {
+        return preg_replace('/\D+/', '', (string) ($_ENV['OTP_DEFAULT_COUNTRY_CODE'] ?? $_SERVER['OTP_DEFAULT_COUNTRY_CODE'] ?? '216')) ?? '216';
+    }
+
+    private function getStripeChargeCurrency(): string
+    {
+        $currency = strtolower(trim((string) ($_ENV['STRIPE_CHARGE_CURRENCY'] ?? $_SERVER['STRIPE_CHARGE_CURRENCY'] ?? 'eur')));
+
+        return $currency !== '' ? $currency : 'eur';
+    }
+
+    private function getStripeTndToChargeRate(): float
+    {
+        $rate = (float) ($_ENV['STRIPE_TND_TO_CHARGE_RATE'] ?? $_SERVER['STRIPE_TND_TO_CHARGE_RATE'] ?? 0.30);
+
+        return $rate > 0 ? $rate : 0.30;
+    }
+
+    private function convertAmountForStripe(float $amountTnd): array
+    {
+        $currency = $this->getStripeChargeCurrency();
+        if ($currency === 'tnd') {
+            throw new \RuntimeException('Stripe does not support TND. Configure STRIPE_CHARGE_CURRENCY with a supported currency such as eur or usd.');
+        }
+
+        $converted = round(max(0, $amountTnd) * $this->getStripeTndToChargeRate(), 2);
+        if ($converted <= 0) {
+            throw new \RuntimeException('Stripe charge amount is invalid after currency conversion.');
+        }
+
+        return [
+            'currency' => $currency,
+            'amount' => $converted,
+            'amount_minor' => max(1, (int) round($converted * 100)),
+        ];
     }
 
     private function getStripeClient(): ?StripeClient

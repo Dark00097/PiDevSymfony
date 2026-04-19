@@ -5,1812 +5,1433 @@
 {% set accounts = support.accounts|default([]) %}
 {% set credit_type_stats = support.credit_type_stats|default([]) %}
 {% set garantie_type_stats = support.garantie_type_stats|default([]) %}
+{% set credit_stats = support.credit_stats|default({'total': 0, 'counts': {}, 'amounts': {}, 'colors': {}}) %}
+{% set garantie_stats = support.garantie_stats|default({'total': 0, 'counts': {}, 'amounts': {}, 'total_estimee': 0, 'colors': {}}) %}
 {% set current_date = 'now'|date('Y-m-d') %}
 {% set stats_section_id = active_panel == 'garantie' ? 'nx-garantie-analytics' : 'nx-credit-analytics' %}
 
 <style>
-/* ═══════════════════════════════════════════════════════════════
-   NX CREDITS MODULE — CLEAN WHITE INTERFACE
-   ═══════════════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   NEXORA Â· Accounts Module  (nx-acc)
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 :root {
-    --nx-primary:        #6c63ff;
-    --nx-primary-dark:   #4f46e5;
-    --nx-primary-glow:   rgba(108, 99, 255, 0.10);
-    --nx-accent:         #00b894;
-    --nx-danger:         #e84545;
-    --nx-danger-dark:    #c0392b;
-    --nx-warning:        #f39c12;
-    --nx-purple:         #a855f7;
-    --nx-purple-dark:    #7c3aed;
-
-    --nx-bg:             #f4f6fb;
-    --nx-bg-card:        #ffffff;
-    --nx-bg-card2:       #f9fafc;
-    --nx-bg-hover:       #f0f2ff;
-    --nx-border:         rgba(108, 99, 255, 0.13);
-    --nx-border-light:   rgba(0, 0, 0, 0.07);
-
-    --nx-text:           #1a1f36;
-    --nx-text-muted:     #5a6282;
-    --nx-text-faint:     #9aa0b8;
-
-    --nx-radius-sm:      8px;
-    --nx-radius:         14px;
-    --nx-radius-lg:      20px;
-    --nx-radius-xl:      28px;
-
-    --nx-shadow:         0 2px 12px rgba(108,99,255,0.07);
-    --nx-shadow-card:    0 4px 24px rgba(108,99,255,0.10);
-    --nx-transition:     0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* ── RESET ── */
-.nx-module-screen *,
-.nx-module-screen *::before,
-.nx-module-screen *::after {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-}
-
-/* ── SCREEN WRAPPER ── */
-.nx-module-screen {
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-    padding: 32px 28px;
-    background: var(--nx-bg);
-    min-height: 100vh;
-    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
-    color: var(--nx-text);
-    position: relative;
-    overflow-x: hidden;
-}
-
-.nx-module-screen::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background:
-        radial-gradient(ellipse 80% 60% at 20% 10%, rgba(108,99,255,0.04) 0%, transparent 60%),
-        radial-gradient(ellipse 60% 50% at 80% 80%, rgba(0,184,148,0.03) 0%, transparent 55%);
-    pointer-events: none;
-    z-index: 0;
-}
-
-.nx-module-screen > * { position: relative; z-index: 1; }
-
-/* ══════════════════════════════════════════
-   MODULE HEADER
-══════════════════════════════════════════ */
-.nx-module-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 20px;
-    background: linear-gradient(135deg, #ffffff 0%, #f5f3ff 50%, #ffffff 100%);
-    border: 1px solid rgba(108,99,255,0.13);
-    border-radius: var(--nx-radius-xl);
-    padding: 28px 32px;
-    position: relative;
-    overflow: hidden;
-    box-shadow: var(--nx-shadow-card);
-    flex-wrap: wrap;
-}
-
-.nx-module-head::before {
-    content: '';
-    position: absolute;
-    top: -50px; right: -50px;
-    width: 220px; height: 220px;
-    background: radial-gradient(circle, rgba(108,99,255,0.07) 0%, transparent 70%);
-    border-radius: 50%;
-    pointer-events: none;
-}
-
-.nx-module-head::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image:
-        linear-gradient(rgba(108,99,255,0.025) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(108,99,255,0.025) 1px, transparent 1px);
-    background-size: 40px 40px;
-    pointer-events: none;
-}
-
-.nx-module-title {
-    display: flex;
-    align-items: center;
-    gap: 18px;
-    position: relative;
-    z-index: 2;
-}
-
-.nx-module-icon {
-    width: 56px; height: 56px;
-    background: linear-gradient(135deg, var(--nx-primary), var(--nx-purple));
-    border-radius: var(--nx-radius);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 22px;
-    color: #fff;
-    flex-shrink: 0;
-    box-shadow: 0 6px 20px rgba(108,99,255,0.25);
-}
-
-.nx-module-title h2 {
-    font-size: 22px;
-    font-weight: 800;
-    letter-spacing: -0.4px;
-    background: linear-gradient(135deg, #1a1f36 30%, var(--nx-primary) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    line-height: 1.2;
-}
-
-.nx-module-title p {
-    font-size: 13px;
-    color: var(--nx-text-muted);
-    margin-top: 3px;
-}
-
-.nx-module-head-actions {
-    display: flex;
-    gap: 10px;
-    position: relative;
-    z-index: 2;
-    flex-wrap: wrap;
-}
-
-/* ══════════════════════════════════════════
-   SUBTABS NAV
-══════════════════════════════════════════ */
-.nx-module-subtabs {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px;
-    background: var(--nx-bg-card);
-    border: 1px solid var(--nx-border-light);
-    border-radius: var(--nx-radius-lg);
-    box-shadow: var(--nx-shadow);
-    flex-wrap: wrap;
-}
-
-.nx-module-tab {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 9px 20px;
-    border-radius: var(--nx-radius-sm);
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--nx-text-muted);
-    text-decoration: none;
-    transition: var(--nx-transition);
-    letter-spacing: 0.2px;
-    white-space: nowrap;
-}
-
-.nx-module-tab:hover {
-    background: var(--nx-bg-hover);
-    color: var(--nx-primary);
-}
-
-.nx-module-tab.is-active {
-    background: linear-gradient(135deg, var(--nx-primary), var(--nx-primary-dark));
-    color: #fff;
-    box-shadow: 0 4px 14px rgba(108,99,255,0.25);
-}
-
-.nx-module-stats-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 9px 18px;
-    border-radius: var(--nx-radius-sm);
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--nx-text-muted);
-    text-decoration: none;
-    transition: var(--nx-transition);
-    margin-left: auto;
-    background: rgba(108,99,255,0.06);
-    border: 1px solid rgba(108,99,255,0.12);
-}
-
-.nx-module-stats-btn:hover {
-    background: var(--nx-primary-glow);
-    border-color: rgba(108,99,255,0.25);
-    color: var(--nx-primary);
-    transform: translateY(-1px);
-}
-
-.nx-module-stats-btn i { font-size: 14px; }
-
-/* ══════════════════════════════════════════
-   KPI STRIP
-══════════════════════════════════════════ */
-.nx-crud-kpis {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-}
-
-.nx-crud-kpi {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    background: var(--nx-bg-card);
-    border: 1px solid var(--nx-border-light);
-    border-radius: var(--nx-radius-lg);
-    padding: 20px 22px;
-    box-shadow: var(--nx-shadow);
-    transition: var(--nx-transition);
-    position: relative;
-    overflow: hidden;
-    cursor: default;
-}
-
-.nx-crud-kpi::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, var(--nx-primary), var(--nx-purple));
-    opacity: 0;
-    transition: var(--nx-transition);
-}
-
-.nx-crud-kpi:hover {
-    transform: translateY(-3px);
-    box-shadow: var(--nx-shadow-card);
-    border-color: rgba(108,99,255,0.18);
-}
-
-.nx-crud-kpi:hover::before { opacity: 1; }
-
-.nx-crud-kpi-icon {
-    width: 48px; height: 48px;
-    border-radius: var(--nx-radius-sm);
-    background: linear-gradient(135deg, rgba(108,99,255,0.12), rgba(108,99,255,0.05));
-    border: 1px solid rgba(108,99,255,0.15);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    color: var(--nx-primary);
-    flex-shrink: 0;
-    transition: var(--nx-transition);
-}
-
-.nx-crud-kpi:hover .nx-crud-kpi-icon {
-    transform: scale(1.08);
-    box-shadow: 0 4px 14px rgba(108,99,255,0.15);
-}
-
-.nx-crud-kpi > div { flex: 1; min-width: 0; }
-
-.nx-crud-kpi strong {
-    display: block;
-    font-size: 28px;
-    font-weight: 800;
-    color: var(--nx-text);
-    letter-spacing: -0.8px;
-    line-height: 1;
-}
-
-.nx-crud-kpi small {
-    display: block;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.6px;
-    text-transform: uppercase;
-    color: var(--nx-text-muted);
-    margin-top: 4px;
-}
-
-/* ══════════════════════════════════════════
-   MAIN GRID
-══════════════════════════════════════════ */
-.nx-analytics-grid {
-    display: grid;
-    grid-template-columns: 1.4fr 1fr;
-    gap: 16px;
-    align-items: stretch;
-}
-
-.nx-analytics-grid.is-empty {
-    display: none;
-}
-
-.nx-analytics-grid.has-single {
-    grid-template-columns: 1fr;
-}
-
-.nx-analytics-card,
-.nx-export-card {
-    background: var(--nx-bg-card);
-    border: 1px solid var(--nx-border-light);
-    border-radius: var(--nx-radius-lg);
-    box-shadow: var(--nx-shadow);
-    padding: 20px 22px;
-}
-
-.nx-analytics-card.is-collapsed,
-.nx-export-card.is-collapsed {
-    display: none;
-}
-
-.nx-analytics-card h3,
-.nx-export-card h3 {
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--nx-text);
-}
-
-.nx-analytics-card p,
-.nx-export-card p {
-    font-size: 12px;
-    color: var(--nx-text-muted);
-    margin-top: 4px;
-}
-
-.nx-analytics-layout {
-    margin-top: 14px;
-    display: grid;
-    grid-template-columns: 220px 1fr;
-    gap: 18px;
-    align-items: center;
-}
-
-.nx-donut-shell {
-    width: 220px;
-    height: 220px;
-    border-radius: 999px;
-    display: grid;
-    place-items: center;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    position: relative;
-}
-
-.nx-donut {
-    width: 180px;
-    height: 180px;
-    transform: rotate(-90deg);
-}
-
-.nx-donut-track {
-    fill: transparent;
-    stroke: #e2e8f0;
-    stroke-width: 4.5;
-}
-
-.nx-donut-segment {
-    fill: transparent;
-    stroke-width: 4.5;
-}
-
-.nx-donut-total {
-    position: absolute;
-    text-align: center;
-}
-
-.nx-donut-total strong {
-    display: block;
-    font-size: 30px;
-    line-height: 1;
-    color: var(--nx-text);
-}
-
-.nx-donut-total span {
-    font-size: 11px;
-    color: var(--nx-text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
-}
-
-.nx-type-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.nx-type-row {
-    border: 1px solid #edf2f7;
-    border-radius: 10px;
-    padding: 8px 10px;
-    background: #fbfcff;
-}
-
-.nx-type-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    margin-bottom: 6px;
-}
-
-.nx-type-title {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--nx-text);
-    font-size: 12px;
-    font-weight: 700;
-}
-
-.nx-type-dot {
-    width: 9px;
-    height: 9px;
-    border-radius: 999px;
-    flex-shrink: 0;
-}
-
-.nx-type-head small {
-    font-size: 11px;
-    color: var(--nx-text-muted);
-}
-
-.nx-type-track {
-    height: 7px;
-    border-radius: 999px;
-    background: #e2e8f0;
-    overflow: hidden;
-}
-
-.nx-type-fill {
-    display: block;
-    height: 100%;
-    width: var(--fill, 0%);
-    border-radius: 999px;
-}
-
-.nx-type-empty {
-    padding: 14px;
-    border: 1px dashed #cbd5e1;
-    border-radius: 10px;
-    color: var(--nx-text-faint);
-    font-size: 12px;
-    text-align: center;
-    background: #f8fafc;
-}
-
-.nx-export-form {
-    margin-top: 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.nx-export-form label {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.nx-export-form label span {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.6px;
-    text-transform: uppercase;
-    color: var(--nx-text-muted);
-}
-
-.nx-export-form select {
-    background: #f8f9fe;
-    border: 1px solid rgba(0,0,0,0.09);
-    border-radius: var(--nx-radius-sm);
-    color: var(--nx-text);
-    font-size: 13px;
-    padding: 9px 12px;
-    outline: none;
-    transition: var(--nx-transition);
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%235a6282' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 12px center;
-    padding-right: 32px;
-}
-
-.nx-export-form select:focus {
-    border-color: var(--nx-primary);
-    box-shadow: 0 0 0 3px var(--nx-primary-glow);
-    background-color: #fff;
-}
-
-.nx-crud-grid {
-    display: grid;
-    grid-template-columns: 380px 1fr;
-    gap: 20px;
-    align-items: start;
-}
-
-/* ══════════════════════════════════════════
-   CARDS (form + table)
-══════════════════════════════════════════ */
-.nx-crud-form-card,
-.nx-crud-table-card {
-    background: var(--nx-bg-card);
-    border: 1px solid var(--nx-border-light);
-    border-radius: var(--nx-radius-lg);
-    overflow: hidden;
-    box-shadow: var(--nx-shadow);
-    transition: var(--nx-transition);
-}
-
-.nx-crud-form-card:hover,
-.nx-crud-table-card:hover {
-    border-color: rgba(108,99,255,0.18);
-    box-shadow: var(--nx-shadow-card);
-}
-
-.nx-crud-card-head {
-    padding: 20px 24px;
-    border-bottom: 1px solid var(--nx-border-light);
-    background: linear-gradient(135deg, rgba(108,99,255,0.03), transparent);
-}
-
-.nx-crud-card-head--with-tools {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
-}
-
-.nx-crud-card-head-copy {
-    min-width: 220px;
-}
-
-.nx-crud-card-head h3 {
-    font-size: 15px;
-    font-weight: 700;
-    color: var(--nx-text);
-    letter-spacing: -0.2px;
-}
-
-.nx-crud-card-head p {
-    font-size: 12px;
-    color: var(--nx-text-muted);
-    margin-top: 3px;
-}
-
-.nx-table-tools {
-    display: grid;
-    grid-template-columns: minmax(280px, 1fr) 220px;
-    align-items: center;
-    gap: 10px;
-    margin-left: auto;
-    width: min(100%, 560px);
-}
-
-.nx-table-search {
-    position: relative;
-    min-width: 0;
-}
-
-.nx-table-search i {
-    position: absolute;
-    left: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--nx-text-faint);
-    font-size: 13px;
-}
-
-.nx-table-search input,
-.nx-table-sort {
-    min-height: 40px;
-    border-radius: 12px;
-    border: 1px solid rgba(108,99,255,0.12);
-    background: #f8f9fe;
-    color: var(--nx-text);
-    font-size: 13px;
-    transition: var(--nx-transition);
-    font-family: inherit;
-}
-
-.nx-table-search input {
-    width: 100%;
-    padding: 0 14px 0 38px;
-}
-
-.nx-table-sort {
-    width: 100%;
-    min-width: 0;
-    padding: 0 38px 0 14px;
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%235a6282' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 12px center;
-    cursor: pointer;
-}
-
-.nx-table-search input:focus,
-.nx-table-sort:focus {
-    outline: none;
-    border-color: var(--nx-primary);
-    box-shadow: 0 0 0 3px var(--nx-primary-glow);
-    background: #fff;
-}
-
-/* ══════════════════════════════════════════
-   FORM
-══════════════════════════════════════════ */
-.nx-crud-form {
-    display: flex;
-    flex-direction: column;
-    gap: 13px;
-    padding: 22px 24px;
-}
-
-.nx-crud-form label {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-}
-
-.nx-crud-form label span {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.6px;
-    text-transform: uppercase;
-    color: var(--nx-text-muted);
-}
-
-.nx-crud-form input,
-.nx-crud-form select,
-.nx-crud-form textarea {
-    background: #f8f9fe;
-    border: 1px solid rgba(0,0,0,0.09);
-    border-radius: var(--nx-radius-sm);
-    color: var(--nx-text);
-    font-size: 13px;
-    padding: 9px 13px;
-    outline: none;
-    transition: var(--nx-transition);
-    font-family: inherit;
-    width: 100%;
-}
-
-.nx-crud-form input:focus,
-.nx-crud-form select:focus,
-.nx-crud-form textarea:focus {
-    border-color: var(--nx-primary);
-    box-shadow: 0 0 0 3px var(--nx-primary-glow);
-    background: #fff;
-}
-
-.nx-crud-form input::placeholder,
-.nx-crud-form textarea::placeholder {
-    color: var(--nx-text-faint);
-}
-
-.nx-crud-form select {
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%235a6282' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 12px center;
-    padding-right: 32px;
-    cursor: pointer;
-}
-
-.nx-crud-form-actions {
-    display: flex;
-    gap: 10px;
-    padding-top: 4px;
-    flex-wrap: wrap;
-}
-
-/* ══════════════════════════════════════════
-   TABLE
-══════════════════════════════════════════ */
-.table-wrap {
-    overflow-x: auto;
-    overflow-y: auto;
-    max-height: 560px;
-}
-
-.table-wrap::-webkit-scrollbar { width: 5px; height: 5px; }
-.table-wrap::-webkit-scrollbar-track { background: #f4f6fb; }
-.table-wrap::-webkit-scrollbar-thumb {
-    background: rgba(108,99,255,0.18);
-    border-radius: 3px;
-}
-.table-wrap::-webkit-scrollbar-thumb:hover { background: var(--nx-primary); }
-
-.nx-crud-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-}
-
-.nx-crud-table thead {
-    position: sticky;
-    top: 0;
-    z-index: 5;
-}
-
-.nx-crud-table thead tr {
-    background: #f8f9fe;
-    border-bottom: 2px solid rgba(108,99,255,0.10);
-}
-
-.nx-crud-table th {
-    padding: 12px 15px;
-    text-align: left;
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    color: var(--nx-text-muted);
-    white-space: nowrap;
-    user-select: none;
-}
-
-.nx-crud-table th:first-child { padding-left: 20px; }
-.nx-crud-table th:last-child  { padding-right: 20px; }
-
-.nx-crud-table tbody tr {
-    border-bottom: 1px solid rgba(0,0,0,0.05);
-    transition: var(--nx-transition);
-}
-
-.nx-crud-table tbody tr:last-child { border-bottom: none; }
-
-.nx-crud-table tbody tr:hover {
-    background: #f5f3ff;
-}
-
-.nx-crud-table tbody tr:hover td { color: var(--nx-text); }
-
-.nx-crud-table td {
-    padding: 12px 15px;
-    color: var(--nx-text-muted);
-    vertical-align: middle;
-    white-space: normal;
-}
-
-.nx-crud-table td:first-child {
-    padding-left: 20px;
-    font-weight: 700;
-    color: var(--nx-text-faint);
-    font-size: 11px;
-}
-
-.nx-crud-table td:last-child { padding-right: 20px; }
-
-.nx-cell-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: nowrap;
-}
-
-.nx-cell-actions form {
-    display: inline-flex;
-}
-
-.nx-cell-actions .btn {
-    min-width: 42px;
-    width: 42px;
-    height: 42px;
-    padding: 0;
-    justify-content: center;
-}
-
-.nx-cell-actions .btn i {
-    margin: 0;
-}
-
-.nx-table-pagination {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 14px 18px 18px;
-    border-top: 1px solid rgba(108,99,255,0.08);
-    flex-wrap: wrap;
-}
-
-.nx-table-pagination[hidden] {
-    display: none;
-}
-
-.nx-table-pagination-info {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--nx-text-muted);
-}
-
-.nx-table-pagination-controls {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-
-.nx-table-pagination-pages {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
-}
-
-.nx-page-btn,
-.nx-page-nav {
-    min-width: 36px;
-    height: 36px;
-    padding: 0 12px;
-    border-radius: 10px;
-    border: 1px solid rgba(108,99,255,0.15);
-    background: #fff;
-    color: var(--nx-text-muted);
-    font-size: 12px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: var(--nx-transition);
-}
-
-.nx-page-btn:hover,
-.nx-page-nav:hover {
-    background: var(--nx-bg-hover);
-    color: var(--nx-primary);
-    border-color: rgba(108,99,255,0.26);
-}
-
-.nx-page-btn.is-active {
-    background: linear-gradient(135deg, var(--nx-primary), var(--nx-primary-dark));
-    color: #fff;
-    border-color: transparent;
-    box-shadow: 0 4px 12px rgba(108,99,255,0.22);
-}
-
-.nx-page-btn[disabled],
-.nx-page-nav[disabled] {
-    opacity: 0.45;
-    cursor: not-allowed;
-    background: #f8f9fe;
-    color: var(--nx-text-faint);
-    box-shadow: none;
-}
-
-.nx-page-ellipsis {
-    color: var(--nx-text-faint);
-    font-size: 12px;
-    font-weight: 700;
-    padding: 0 2px;
-}
-
-/* ── Empty row ── */
-.nx-crud-table tbody tr td[colspan] {
-    text-align: center;
-    padding: 48px 24px;
-    color: var(--nx-text-faint);
-    font-size: 13px;
-}
-
-.nx-crud-row-count {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 86px;
-    padding: 8px 14px;
-    border-radius: 999px;
-    background: rgba(108,99,255,0.08);
-    border: 1px solid rgba(108,99,255,0.14);
-    color: var(--nx-primary-dark);
-    font-size: 12px;
-    font-weight: 700;
-}
-
-.nx-crud-id-pill {
-    display: inline-flex;
-    align-items: center;
-    padding: 6px 12px;
-    border-radius: 10px;
-    background: #eef3fb;
-    color: #6b85a0;
-    font-size: 12px;
-    font-weight: 800;
-    line-height: 1;
-}
-
-.nx-crud-code {
-    color: #2b7de9;
-    font-size: 13px;
-    font-weight: 800;
-    letter-spacing: 0.2px;
-}
-
-.nx-crud-meta {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.nx-crud-meta small {
-    font-size: 11px;
-    color: var(--nx-text-faint);
-    line-height: 1.35;
-}
-
-.nx-crud-money {
-    font-size: 14px;
-    font-weight: 800;
-    color: var(--nx-text);
-}
-
-.nx-crud-money em {
-    font-style: normal;
-    font-size: 12px;
-    color: #5f83b1;
-    font-weight: 700;
-}
-
-.nx-crud-tag {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 7px 14px;
-    border-radius: 999px;
-    font-size: 11px;
-    font-weight: 800;
-    line-height: 1;
-    border: 1px solid transparent;
-    white-space: nowrap;
-}
-
-.nx-crud-tag--type {
-    background: rgba(43,125,233,0.08);
-    border-color: rgba(43,125,233,0.20);
-    color: #2b7de9;
-}
-
-.nx-crud-tag--pending {
-    background: #eef2f7;
-    border-color: #dce6f2;
-    color: #5c7fa8;
-}
-
-.nx-crud-tag--success {
-    background: rgba(67,160,71,0.10);
-    border-color: rgba(67,160,71,0.22);
-    color: #2e7d32;
-}
-
-.nx-crud-tag--danger {
-    background: rgba(229,57,53,0.10);
-    border-color: rgba(229,57,53,0.22);
-    color: #d84315;
-}
-
-.nx-crud-tag--progress {
-    background: rgba(43,125,233,0.08);
-    border-color: rgba(43,125,233,0.20);
-    color: #2b7de9;
-}
-
-.nx-crud-tag--closed {
-    background: #eef2f7;
-    border-color: #dce6f2;
-    color: #7a8ca3;
-}
-
-.nx-crud-tag--neutral {
-    background: #f4f6fb;
-    border-color: #e1e7f0;
-    color: #74839a;
-}
-
-.nx-crud-owner {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;
-}
-
-.nx-crud-owner-dot {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #11b7aa, #2b7de9);
-    color: #fff;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 13px;
-    font-weight: 800;
-    flex-shrink: 0;
-}
-
-.nx-crud-owner-name {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-width: 0;
-}
-
-.nx-crud-owner-name strong {
-    font-size: 13px;
-    color: var(--nx-text);
-    font-weight: 700;
-    line-height: 1.25;
-}
-
-.nx-crud-owner-name small {
-    font-size: 11px;
-    color: var(--nx-text-faint);
-    line-height: 1.3;
-}
-
-.nx-crud-risk {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 80px;
-    padding: 7px 12px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 800;
-    border: 1px solid transparent;
-}
-
-.nx-crud-risk--low {
-    background: rgba(67,160,71,0.10);
-    border-color: rgba(67,160,71,0.22);
-    color: #2e7d32;
-}
-
-.nx-crud-risk--medium {
-    background: rgba(243,156,18,0.10);
-    border-color: rgba(243,156,18,0.22);
-    color: #c27c0e;
-}
-
-.nx-crud-risk--high {
-    background: rgba(229,57,53,0.10);
-    border-color: rgba(229,57,53,0.22);
-    color: #d84315;
-}
-
-/* ══════════════════════════════════════════
-   BUTTONS
-══════════════════════════════════════════ */
-.btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    padding: 9px 18px;
-    border-radius: var(--nx-radius-sm);
-    font-size: 12.5px;
-    font-weight: 600;
-    letter-spacing: 0.3px;
-    cursor: pointer;
-    transition: var(--nx-transition);
-    border: none;
-    text-decoration: none;
-    white-space: nowrap;
-    font-family: inherit;
-    position: relative;
-    overflow: hidden;
-}
-
-.btn-primary {
-    background: linear-gradient(135deg, var(--nx-primary), var(--nx-primary-dark));
-    color: #fff;
-    box-shadow: 0 4px 14px rgba(108,99,255,0.28);
-}
-
-.btn-primary:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 20px rgba(108,99,255,0.38);
-}
-
-.btn-primary:active { transform: translateY(0); }
-
-.btn-secondary {
-    background: #f4f6fb;
-    color: var(--nx-text-muted);
-    border: 1px solid rgba(0,0,0,0.08);
-    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-}
-
-.btn-secondary:hover {
-    background: var(--nx-primary-glow);
-    border-color: rgba(108,99,255,0.25);
-    color: var(--nx-primary);
-    transform: translateY(-1px);
-}
-
-.btn-danger {
-    background: linear-gradient(135deg, var(--nx-danger), var(--nx-danger-dark));
-    color: #fff;
-    box-shadow: 0 4px 14px rgba(232,69,69,0.22);
-}
-
-.btn-danger:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 20px rgba(232,69,69,0.32);
-}
-
-.btn-sm {
-    padding: 6px 12px;
-    font-size: 11.5px;
-}
-
-/* ══════════════════════════════════════════
+  --na-bg:        #f0f4f9;
+  --na-surface:   #ffffff;
+  --na-border:    #e4ecf4;
+  --na-txt:       #1a2b3c;
+  --na-muted:     #6b85a0;
+  --na-radius:    14px;
+  --na-shadow:    0 2px 16px rgba(0,0,0,.07);
+  --na-shadow-lg: 0 6px 32px rgba(0,0,0,.10);
+  --na-teal:      #11b7aa;
+  --na-teal-dk:   #0d9e93;
+  --na-blue:      #2b7de9;
+  --na-blue-dk:   #1f6cd6;
+  --na-gold:      #e8a202;
+  --na-purple:    #7c4dff;
+  --na-red:       #e53935;
+  --na-green:     #43a047;
+}
+
+/* â”€â”€ Shell â”€â”€ */
+.nx-acc {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.75rem 2rem;
+  background: var(--na-bg);
+  min-height: 100%;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--na-txt);
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   HERO HEADER
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.nx-acc__hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  background: linear-gradient(135deg, #1a2b3c 0%, #1e3448 60%, #1a3050 100%);
+  border-radius: var(--na-radius);
+  padding: 1.5rem 1.8rem;
+  box-shadow: var(--na-shadow-lg);
+  flex-wrap: wrap;
+  position: relative;
+  overflow: hidden;
+}
+.nx-acc__hero::before {
+  content: '';
+  position: absolute;
+  width: 260px; height: 260px;
+  top: -80px; right: -50px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(17,183,170,.22) 0%, transparent 70%);
+  pointer-events: none;
+}
+.nx-acc__hero::after {
+  content: '';
+  position: absolute;
+  width: 160px; height: 160px;
+  bottom: -60px; left: 30%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(43,125,233,.18) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.nx-acc__hero-left {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  position: relative;
+  z-index: 1;
+}
+
+.nx-acc__hero-icon {
+  width: 50px; height: 50px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, var(--na-teal), var(--na-teal-dk));
+  display: grid;
+  place-items: center;
+  font-size: 1.3rem;
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(17,183,170,.4);
+  flex-shrink: 0;
+}
+
+.nx-acc__hero-text h2 {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0 0 .25rem;
+}
+.nx-acc__hero-text p {
+  font-size: .76rem;
+  color: rgba(255,255,255,.5);
+  margin: 0;
+}
+
+.nx-acc__hero-actions {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  position: relative;
+  z-index: 1;
+  flex-wrap: wrap;
+}
+
+/* â”€â”€ Shared buttons â”€â”€ */
+.na-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .52rem 1.1rem;
+  border-radius: 9px;
+  font-size: .82rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all .2s ease;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.na-btn--primary {
+  background: linear-gradient(135deg, var(--na-teal), var(--na-teal-dk));
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(17,183,170,.35);
+}
+.na-btn--primary:hover {
+  box-shadow: 0 5px 18px rgba(17,183,170,.5);
+  transform: translateY(-1px);
+}
+.na-btn--ghost {
+  background: rgba(255,255,255,.1);
+  color: rgba(255,255,255,.85);
+  border: 1px solid rgba(255,255,255,.18);
+  backdrop-filter: blur(4px);
+}
+.na-btn--ghost:hover {
+  background: rgba(255,255,255,.18);
+  color: #fff;
+}
+.na-btn--ghost-dark {
+  background: transparent;
+  color: var(--na-teal);
+  border: 1px solid rgba(17,183,170,.3);
+  font-size: .78rem;
+}
+.na-btn--ghost-dark:hover { background: rgba(17,183,170,.06); }
+.na-btn--danger {
+  background: rgba(229,57,53,.09);
+  color: var(--na-red);
+  border: 1px solid rgba(229,57,53,.22);
+  font-size: .76rem;
+  padding: .38rem .8rem;
+}
+.na-btn--danger:hover { background: rgba(229,57,53,.18); }
+.na-btn--save {
+  background: linear-gradient(135deg, var(--na-teal), var(--na-teal-dk));
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(17,183,170,.3);
+}
+.na-btn--save:hover {
+  box-shadow: 0 5px 16px rgba(17,183,170,.45);
+  transform: translateY(-1px);
+}
+.na-btn--reset {
+  background: var(--na-bg);
+  color: var(--na-muted);
+  border: 1px solid var(--na-border);
+}
+.na-btn--reset:hover { background: var(--na-border); color: var(--na-txt); }
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   SUBTABS
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.nx-acc__tabs {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  background: var(--na-surface);
+  border: 1px solid var(--na-border);
+  border-radius: var(--na-radius);
+  padding: .55rem .65rem;
+  box-shadow: var(--na-shadow);
+  flex-wrap: wrap;
+}
+
+.nx-acc__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  padding: .5rem 1.1rem;
+  border-radius: 9px;
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--na-muted);
+  text-decoration: none;
+  transition: all .2s ease;
+  border: 1px solid transparent;
+}
+.nx-acc__tab i { font-size: .85rem; }
+.nx-acc__tab:hover {
+  background: var(--na-bg);
+  color: var(--na-txt);
+}
+.nx-acc__tab.is-active {
+  background: linear-gradient(135deg, var(--na-teal), var(--na-teal-dk));
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(17,183,170,.3);
+}
+
+.nx-acc__tabs-spacer { flex: 1; }
+
+.nx-acc__stats-link {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .5rem 1rem;
+  border-radius: 9px;
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--na-blue);
+  text-decoration: none;
+  background: rgba(43,125,233,.07);
+  border: 1px solid rgba(43,125,233,.18);
+  transition: all .2s;
+}
+.nx-acc__stats-link:hover { background: rgba(43,125,233,.14); }
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   KPI ROW
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.nx-acc__kpis {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.nx-acc__kpi {
+  background: var(--na-surface);
+  border: 1px solid var(--na-border);
+  border-radius: var(--na-radius);
+  padding: 1.1rem 1.25rem;
+  box-shadow: var(--na-shadow);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: transform .2s, box-shadow .2s;
+  position: relative;
+  overflow: hidden;
+}
+.nx-acc__kpi:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--na-shadow-lg);
+}
+.nx-acc__kpi::after {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+}
+.nx-acc__kpi:nth-child(1)::after { background: var(--na-teal); }
+.nx-acc__kpi:nth-child(2)::after { background: var(--na-blue); }
+.nx-acc__kpi:nth-child(3)::after { background: var(--na-gold); }
+
+.nx-acc__kpi-icon {
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+.nx-acc__kpi:nth-child(1) .nx-acc__kpi-icon {
+  background: rgba(17,183,170,.1); color: var(--na-teal);
+}
+.nx-acc__kpi:nth-child(2) .nx-acc__kpi-icon {
+  background: rgba(43,125,233,.1); color: var(--na-blue);
+}
+.nx-acc__kpi:nth-child(3) .nx-acc__kpi-icon {
+  background: rgba(232,162,2,.1); color: var(--na-gold);
+}
+
+.nx-acc__kpi-body strong {
+  display: block;
+  font-size: 1.55rem;
+  font-weight: 800;
+  color: var(--na-txt);
+  line-height: 1;
+  margin-bottom: .2rem;
+}
+.nx-acc__kpi-body small {
+  font-size: .74rem;
+  color: var(--na-muted);
+  font-weight: 500;
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   CONTENT GRID
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.nx-acc__grid {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+/* â”€â”€ Panel card shared â”€â”€ */
+.nx-acc__panel {
+  background: var(--na-surface);
+  border: 1px solid var(--na-border);
+  border-radius: var(--na-radius);
+  box-shadow: var(--na-shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.nx-acc__panel-head {
+  padding: 1.1rem 1.3rem;
+  border-bottom: 1px solid var(--na-border);
+  background: linear-gradient(to right, #fafcff, #f5f8fd);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.nx-acc__panel-head-left h3 {
+  font-size: .9rem;
+  font-weight: 700;
+  color: var(--na-txt);
+  margin: 0 0 .15rem;
+}
+.nx-acc__panel-head-left p {
+  font-size: .73rem;
+  color: var(--na-muted);
+  margin: 0;
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   FORM PANEL
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.nx-acc__form {
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+  padding: 1.2rem 1.3rem;
+}
+
+.nx-acc__form label {
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+}
+.nx-acc__form label span {
+  font-size: .71rem;
+  font-weight: 700;
+  color: var(--na-muted);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+
+.nx-acc__form input[type="text"],
+.nx-acc__form input[type="number"],
+.nx-acc__form input[type="date"],
+.nx-acc__form select {
+  height: 38px;
+  padding: 0 .8rem;
+  border: 1px solid var(--na-border);
+  border-radius: 9px;
+  font-size: .82rem;
+  color: var(--na-txt);
+  background: var(--na-bg);
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: border-color .2s, box-shadow .2s;
+}
+.nx-acc__form input:focus,
+.nx-acc__form select:focus {
+  border-color: var(--na-teal);
+  box-shadow: 0 0 0 3px rgba(17,183,170,.12);
+  background: #fff;
+}
+
+.nx-acc__form-divider {
+  height: 1px;
+  background: var(--na-border);
+  margin: .2rem 0;
+}
+
+.nx-acc__form-label-id {
+  font-size: .7rem;
+  color: var(--na-muted);
+  background: rgba(43,125,233,.06);
+  border: 1px solid rgba(43,125,233,.15);
+  border-radius: 7px;
+  padding: .5rem .7rem;
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  margin-bottom: .1rem;
+}
+.nx-acc__form-label-id i { color: var(--na-blue); }
+
+.nx-acc__form-actions {
+  display: flex;
+  gap: .55rem;
+  padding-top: .4rem;
+  border-top: 1px solid var(--na-border);
+}
+.nx-acc__form-actions .na-btn { flex: 1; justify-content: center; }
+
+/* ── Validation errors ── */
+.nx-field-error {
+  display: none;
+  color: #dc2626 !important;
+  font-size: .75rem;
+  font-weight: 500;
+  margin-top: .3rem;
+  padding: 0;
+  background: none !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+}
+.nx-field-error.is-visible { display: block; }
+.nx-acc__form label .nx-field-error {
+  color: #dc2626 !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  font-weight: 500 !important;
+  background: transparent !important;
+}
+.nx-acc__form input.is-invalid,
+.nx-acc__form select.is-invalid {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 2px rgba(220,38,38,.15) !important;
+}
+.nx-acc__form input.is-valid,
+.nx-acc__form select.is-valid {
+  border-color: #16a34a !important;
+  box-shadow: none !important;
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   TABLE PANEL
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.nx-acc__table-wrap { overflow-x: auto; }
+
+.nx-acc__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .81rem;
+}
+
+.nx-acc__table thead th {
+  padding: .65rem 1rem;
+  text-align: left;
+  font-size: .7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--na-muted);
+  background: var(--na-bg);
+  border-bottom: 1px solid var(--na-border);
+  white-space: nowrap;
+}
+.nx-acc__table thead th:first-child { border-radius: 8px 0 0 8px; }
+.nx-acc__table thead th:last-child  { border-radius: 0 8px 8px 0; }
+
+.nx-acc__table tbody td {
+  padding: .75rem 1rem;
+  border-bottom: 1px solid var(--na-border);
+  vertical-align: middle;
+  color: var(--na-txt);
+}
+.nx-acc__table tbody tr:last-child td { border-bottom: none; }
+.nx-acc__table tbody tr:hover td     { background: rgba(17,183,170,.03); }
+
+.nx-acc__tid {
+  font-family: monospace;
+  font-size: .76rem;
+  background: var(--na-bg);
+  padding: .18rem .5rem;
+  border-radius: 5px;
+  color: var(--na-muted);
+  font-weight: 600;
+}
+
+.nx-acc__num {
+  font-family: monospace;
+  font-size: .78rem;
+  color: var(--na-blue);
+  font-weight: 600;
+  letter-spacing: .3px;
+}
+
+.nx-acc__amount {
+  font-weight: 700;
+  color: var(--na-txt);
+}
+.nx-acc__amount em {
+  font-style: normal;
+  font-size: .72rem;
+  color: var(--na-muted);
+  margin-left: .15rem;
+}
+
+.nx-acc__tag {
+  display: inline-block;
+  padding: .2rem .6rem;
+  border-radius: 20px;
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .3px;
+  background: var(--na-bg);
+  color: var(--na-muted);
+  border: 1px solid var(--na-border);
+  text-transform: capitalize;
+}
+/* Statut */
+.nx-acc__tag.is-actif   { background: rgba(67,160,71,.12);  color: #2e7d32; border-color: rgba(67,160,71,.3); }
+.nx-acc__tag.is-fermÃ©,
+.nx-acc__tag.is-ferme   { background: rgba(229,57,53,.12);  color: #c62828; border-color: rgba(229,57,53,.3); }
+.nx-acc__tag.is-bloquÃ©,
+.nx-acc__tag.is-bloque  { background: rgba(245,124,0,.12);  color: #e65100; border-color: rgba(245,124,0,.3); }
+/* Type */
+.nx-acc__tag.is-courant       { background: rgba(43,125,233,.1);  color: #1565c0; border-color: rgba(43,125,233,.25); }
+.nx-acc__tag.is-professionnel { background: rgba(0,150,136,.1);   color: #00695c; border-color: rgba(0,150,136,.25); }
+.nx-acc__tag.is-Ã©pargne,
+.nx-acc__tag.is-epargne       { background: rgba(124,77,255,.1);  color: #6a1b9a; border-color: rgba(124,77,255,.25); }
+
+.nx-acc__owner {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+}
+.nx-acc__owner-dot {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--na-teal), var(--na-blue));
+  color: #fff;
+  font-size: .62rem;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.nx-acc__owner-name {
+  font-size: .8rem;
+  font-weight: 500;
+}
+
+/* vault progress */
+.nx-acc__progress-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  min-width: 120px;
+}
+.nx-acc__progress-bar {
+  height: 6px;
+  background: var(--na-bg);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.nx-acc__progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--na-teal), var(--na-blue));
+  border-radius: 6px;
+  transition: width .4s ease;
+}
+.nx-acc__progress-label {
+  font-size: .68rem;
+  color: var(--na-muted);
+  font-weight: 600;
+}
+
+.nx-acc__empty {
+  text-align: center;
+  color: var(--na-muted);
+  font-size: .82rem;
+  padding: 2.5rem 1rem;
+}
+.nx-acc__empty i {
+  display: block;
+  font-size: 2rem;
+  opacity: .25;
+  margin-bottom: .6rem;
+}
+
+/* search bar */
+.nx-acc__search {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .8rem 1rem;
+  border-bottom: 1px solid var(--na-border);
+}
+.nx-acc__search-wrap {
+  position: relative;
+  flex: 1;
+}
+.nx-acc__search-wrap i {
+  position: absolute;
+  left: .75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--na-muted);
+  font-size: .8rem;
+  pointer-events: none;
+}
+.nx-acc__search-input {
+  width: 100%;
+  height: 36px;
+  padding: 0 .85rem 0 2.1rem;
+  border: 1px solid var(--na-border);
+  border-radius: 8px;
+  font-size: .81rem;
+  color: var(--na-txt);
+  background: var(--na-bg);
+  outline: none;
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: border-color .2s, box-shadow .2s;
+}
+.nx-acc__search-input:focus {
+  border-color: var(--na-teal);
+  box-shadow: 0 0 0 3px rgba(17,183,170,.1);
+  background: #fff;
+}
+.nx-acc__row-count {
+  font-size: .72rem;
+  color: var(--na-muted);
+  background: var(--na-bg);
+  border: 1px solid var(--na-border);
+  border-radius: 20px;
+  padding: .22rem .65rem;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+/* â”€â”€ Sort dropdown â”€â”€ */
+.nx-acc__sort-select {
+  height: 36px;
+  padding: 0 .7rem;
+  border: 1px solid var(--na-border);
+  border-radius: 8px;
+  font-size: .8rem;
+  color: var(--na-txt);
+  background: var(--na-bg);
+  outline: none;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color .2s;
+  flex-shrink: 0;
+}
+.nx-acc__sort-select:focus { border-color: var(--na-teal); }
+
+.nx-acc__sort-dir {
+  width: 36px; height: 36px;
+  border: 1px solid var(--na-border);
+  border-radius: 8px;
+  background: var(--na-bg);
+  color: var(--na-muted);
+  font-size: .85rem;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: all .2s;
+}
+.nx-acc__sort-dir:hover { background: var(--na-teal); color: #fff; border-color: var(--na-teal); }
+
+/* â”€â”€ Action icon buttons â”€â”€ */
+.nx-acc__act-group {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+}
+.nx-acc__act-btn {
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  border: none;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  font-size: .78rem;
+  transition: all .15s;
+  text-decoration: none;
+  background: transparent;
+}
+.nx-acc__act-btn:hover { transform: scale(1.12); }
+.nx-acc__act-btn.edit  { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+.nx-acc__act-btn.edit:hover  { background: #2e7d32; color: #fff; border-color: transparent; }
+.nx-acc__act-btn.del   { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+.nx-acc__act-btn.del:hover   { background: #c62828; color: #fff; border-color: transparent; }
+.nx-acc__act-btn.view  { background: #fff8e1; color: #e65100; border: 1px solid #ffcc80; }
+.nx-acc__act-btn.view:hover  { background: #e65100; color: #fff; border-color: transparent; }
+
+/* â”€â”€ Clickable row â”€â”€ */
+.nx-acc__table tbody tr { cursor: pointer; }
+.nx-acc__table tbody tr.is-selected td { background: rgba(17,183,170,.07); }
+.nx-acc__table tbody tr:hover td { background: rgba(17,183,170,.04); }
+.nx-acc__table thead th.sortable { cursor: pointer; user-select: none; }
+.nx-acc__table thead th.sortable:hover { color: var(--na-teal); }
+.nx-acc__table thead th .sort-icon { margin-left: .3rem; opacity: .4; font-size: .65rem; }
+.nx-acc__table thead th.sort-asc .sort-icon,
+.nx-acc__table thead th.sort-desc .sort-icon { opacity: 1; color: var(--na-teal); }
+
+.nx-table-pager {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin: 1rem 0 0;
+  flex-wrap: wrap;
+}
+
+.nx-table-pager[hidden] {
+  display: none !important;
+}
+
+.nx-table-pager-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--na-border);
+  background: #fff;
+  color: var(--na-muted);
+  font-size: .9rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.nx-table-pager-btn.is-active {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--na-teal), var(--na-blue));
+  color: #fff;
+}
+
+.nx-table-pager-btn:disabled {
+  opacity: .45;
+  cursor: default;
+}
+
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    RESPONSIVE
-══════════════════════════════════════════ */
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 @media (max-width: 1100px) {
-    .nx-analytics-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .nx-analytics-layout {
-        grid-template-columns: 1fr;
-        justify-items: center;
-    }
-
-    .nx-crud-grid {
-        grid-template-columns: 1fr;
-    }
+  .nx-acc__grid { grid-template-columns: 1fr; }
 }
-
-@media (max-width: 900px) {
-    .nx-module-screen { padding: 20px 14px; gap: 16px; }
-    .nx-module-head   { padding: 22px 20px; }
-    .nx-crud-kpis     { grid-template-columns: 1fr; }
-    .nx-crud-card-head--with-tools { align-items: stretch; }
-    .nx-table-tools { width: 100%; margin-left: 0; grid-template-columns: 1fr; }
-    .nx-table-search { min-width: 100%; }
-    .nx-table-sort { width: 100%; min-width: 100%; }
+@media (max-width: 760px) {
+  .nx-acc__kpis { grid-template-columns: 1fr 1fr; }
 }
-
-@media (max-width: 640px) {
-    .nx-module-title h2 { font-size: 18px; }
-    .nx-module-head-actions { width: 100%; }
-    .nx-module-subtabs { gap: 4px; }
-    .nx-donut-shell { width: 190px; height: 190px; }
-    .nx-donut { width: 160px; height: 160px; }
+@media (max-width: 560px) {
+  .nx-acc             { padding: 1rem; gap: 1rem; }
+  .nx-acc__hero       { flex-direction: column; align-items: flex-start; }
+  .nx-acc__kpis       { grid-template-columns: 1fr; }
+  .nx-acc__tabs       { gap: .25rem; }
 }
-
-/* ── SCROLLBAR GLOBAL ── */
-.nx-module-screen ::-webkit-scrollbar { width: 4px; }
-.nx-module-screen ::-webkit-scrollbar-track { background: #f4f6fb; }
-.nx-module-screen ::-webkit-scrollbar-thumb {
-    background: rgba(108,99,255,0.18);
-    border-radius: 2px;
-}
-
-/* ── ENTRY ANIMATIONS ── */
-@keyframes nx-fadeUp {
-    from { opacity: 0; transform: translateY(14px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
-
-.nx-module-head    { animation: nx-fadeUp 0.45s ease both; }
-.nx-module-subtabs { animation: nx-fadeUp 0.45s 0.08s ease both; }
-.nx-crud-kpis      { animation: nx-fadeUp 0.45s 0.14s ease both; }
-.nx-crud-grid      { animation: nx-fadeUp 0.45s 0.20s ease both; }
 </style>
 
-<section class="panel-card nx-crud-screen nx-module-screen" data-active-panel="{{ active_panel }}" data-current-date="{{ current_date }}">
+
+<section class="nx-acc" data-active-panel="{{ active_panel }}" data-current-date="{{ current_date }}">
 
     <!-- ══ HEADER ══ -->
-    <header class="nx-module-head">
-        <div class="nx-module-title">
-            <span class="nx-module-icon">
+    <header class="nx-acc__hero">
+        <div class="nx-acc__hero-left">
+            <div class="nx-acc__hero-icon">
                 <i class="fa-solid fa-folder-open"></i>
-            </span>
-            <div>
+            </div>
+            <div class="nx-acc__hero-text">
                 <h2>Gestion des Crédits</h2>
-                <p>Gérer et superviser les données</p>
+                <p>Gérer et superviser les données de crédits et garanties</p>
             </div>
         </div>
 
-        <div class="nx-module-head-actions">
-            <a class="btn btn-primary" href="#nx-credits-form" id="nx-header-add-btn">
+        <div class="nx-acc__hero-actions">
+            <a class="na-btn na-btn--primary" href="#nx-credits-form" id="nx-header-add-btn">
                 <i class="fa-solid fa-plus"></i>
                 <span>Ajouter</span>
+            </a>
+            <a class="na-btn na-btn--ghost" href="{{ path('admin_credits_export_pdf', { kind: 'credits' }) }}">
+                <i class="fa-solid fa-file-export"></i> Exporter
             </a>
         </div>
     </header>
 
     <!-- ══ SUBTABS ══ -->
-    <nav class="nx-module-subtabs">
-        <a class="nx-module-tab {{ active_panel == 'credit' ? 'is-active' : '' }}"
+    <nav class="nx-acc__tabs">
+        <a class="nx-acc__tab {{ active_panel == 'credit' ? 'is-active' : '' }}"
            href="{{ path(route_name, { tab: 'credits', panel: 'credit' }) }}">
             <i class="fa-solid fa-credit-card"></i>
             Crédit
         </a>
-        <a class="nx-module-tab {{ active_panel == 'garantie' ? 'is-active' : '' }}"
+        <a class="nx-acc__tab {{ active_panel == 'garantie' ? 'is-active' : '' }}"
            href="{{ path(route_name, { tab: 'credits', panel: 'garantie' }) }}">
             <i class="fa-solid fa-shield-halved"></i>
             Garantie
         </a>
-        <a class="nx-module-stats-btn" id="nx-module-stats-btn" aria-expanded="false"
-           href="#{{ stats_section_id }}">
+        <div class="nx-acc__tabs-spacer"></div>
+        <a class="nx-acc__stats-link" id="nx-module-stats-btn" aria-expanded="false" href="#{{ stats_section_id }}">
             <i class="fa-solid fa-chart-pie"></i>
             <span>Statistiques</span>
         </a>
+
+
     </nav>
+    <!-- STATS PANEL INJECTED -->
+    <div class="nx-stats-panel" id="nx-admin-stats-panel">
+      <div class="nx-stats-inner">
+        <div class="nx-stats-header">
+          <span class="nx-stats-header-icon"><i class="fa-solid fa-chart-pie"></i></span>
+          <div>
+            <h3>Statistiques des Crédits & Garanties</h3>
+            <p id="stat-main-subtitle">Chargement...</p>
+          </div>
+          <button class="nx-stats-close" type="button"
+                  onclick="document.getElementById('nx-admin-stats-panel').classList.remove('is-open')">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <div class="nx-stats-charts-row">
+          
+          <div class="nx-chart-card">
+            <div class="nx-chart-card-head">
+              <span class="nx-chart-dot" style="background:#00B4A0"></span>
+              <strong>Crédits par Statut</strong>
+            </div>
+            <div class="nx-chart-wrap">
+              <canvas id="nx-chart-status-canvas" width="200" height="200"></canvas>
+            </div>
+            <div class="nx-chart-legend" id="stat-credit-status"></div>
+          </div>
+
+          <div class="nx-chart-card">
+            <div class="nx-chart-card-head">
+              <span class="nx-chart-dot" style="background:#e8a202"></span>
+              <strong>Garanties par Statut</strong>
+            </div>
+            <div class="nx-chart-wrap">
+              <canvas id="nx-chart-garantie-status-canvas" width="200" height="200"></canvas>
+            </div>
+            <div class="nx-chart-legend" id="stat-garantie-status"></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+    <style>
+      .nx-stats-panel {
+        display: none;
+        background: var(--na-surface);
+        border: 1px solid var(--na-border);
+        border-radius: var(--na-radius);
+        box-shadow: var(--na-shadow-lg);
+        overflow: hidden;
+        animation: nx-slide-down .25s ease;
+        margin-bottom: 2rem;
+      }
+      .nx-stats-panel.is-open { display: block; }
+      @keyframes nx-slide-down {
+        from { opacity: 0; transform: translateY(-10px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+      .nx-stats-inner { padding: 1.4rem 1.6rem; }
+      .nx-stats-header {
+        display: flex; align-items: center; gap: 1rem;
+        margin-bottom: 1.4rem; padding-bottom: 1rem;
+        border-bottom: 1px solid var(--na-border);
+      }
+      .nx-stats-header-icon {
+        width: 42px; height: 42px; border-radius: 12px;
+        background: linear-gradient(135deg, #00B4A0, #0d9e93);
+        display: grid; place-items: center; color: #fff; font-size: 1.1rem; flex-shrink: 0;
+      }
+      .nx-stats-header h3 { font-size: .95rem; font-weight: 800; color: var(--na-txt); margin: 0 0 .15rem; }
+      .nx-stats-header p  { font-size: .73rem; color: var(--na-muted); margin: 0; }
+      .nx-stats-close {
+        margin-left: auto; background: var(--na-bg); border: 1px solid var(--na-border);
+        border-radius: 8px; width: 32px; height: 32px;
+        display: grid; place-items: center; cursor: pointer; color: var(--na-muted); font-size: .85rem; transition: all .2s;
+      }
+      .nx-stats-close:hover { background: var(--na-red); color: #fff; border-color: transparent; }
+
+      .nx-stats-charts-row {
+        display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;
+      }
+      .nx-chart-card {
+        background: var(--na-bg); border: 1px solid var(--na-border);
+        border-radius: 12px; padding: 1.1rem 1.2rem;
+        display: flex; flex-direction: column; gap: .85rem;
+      }
+      .nx-chart-card-head {
+        display: flex; align-items: center; gap: .55rem;
+        font-size: .85rem; font-weight: 700; color: var(--na-txt);
+      }
+      .nx-chart-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+      .nx-chart-wrap {
+        display: flex; justify-content: center;
+        height: 200px;
+      }
+      .nx-chart-wrap canvas { max-height: 200px; }
+      
+      .nx-chart-legend { display: flex; flex-direction: column; gap: .45rem; }
+      .nx-chart-legend-row {
+        display: flex; align-items: center; gap: .55rem;
+        padding: .5rem .75rem; border-radius: 8px;
+        background: var(--na-surface); border: 1px solid var(--na-border);
+        font-size: .78rem; transition: transform .15s;
+      }
+      .nx-chart-legend-row:hover { transform: translateX(4px); border-color: var(--lc); }
+      .nx-chart-legend-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--lc); flex-shrink: 0; }
+      .nx-chart-legend-label { flex: 1; color: var(--na-txt); font-weight: 600; }
+      .nx-chart-legend-row strong { font-size: .9rem; font-weight: 900; color: var(--lc); }
+      .nx-chart-legend-pct { font-size: .72rem; color: var(--na-muted); background: var(--na-bg); border-radius: 20px; padding: .1rem .5rem; }
+      .nx-chart-legend-val { font-size: .72rem; color: var(--na-muted); margin-left: auto; }
+    </style>
+    <!-- END STATS PANEL -->
+    
+    
+    
 
     <!-- ══════════════════════════════════
          GARANTIE PANEL
     ══════════════════════════════════ -->
     {% if active_panel == 'garantie' %}
 
-        <div class="nx-crud-kpis">
-            <article class="nx-crud-kpi">
-                <span class="nx-crud-kpi-icon">
+        <div class="nx-acc__kpis">
+            <article class="nx-acc__kpi">
+                <span class="nx-acc__kpi-icon">
                     <i class="fa-solid fa-shield-halved"></i>
                 </span>
-                <div>
+                <div class="nx-acc__kpi-body">
                     <strong>{{ garantie_items|length }}</strong>
                     <small>Garanties enregistrées</small>
                 </div>
             </article>
-            <article class="nx-crud-kpi">
-                <span class="nx-crud-kpi-icon">
+            <article class="nx-acc__kpi">
+                <span class="nx-acc__kpi-icon">
                     <i class="fa-solid fa-file-invoice-dollar"></i>
                 </span>
-                <div>
+                <div class="nx-acc__kpi-body">
                     <strong>{{ credit_items|length }}</strong>
                     <small>Crédits reliés</small>
                 </div>
             </article>
-            <article class="nx-crud-kpi">
-                <span class="nx-crud-kpi-icon">
+            <article class="nx-acc__kpi">
+                <span class="nx-acc__kpi-icon">
                     <i class="fa-solid fa-hourglass-half"></i>
                 </span>
-                <div>
+                <div class="nx-acc__kpi-body">
                     <strong>{{ summary.credits_pending|default(0) }}</strong>
                     <small>Crédits en attente</small>
                 </div>
             </article>
         </div>
 
-        <div class="nx-analytics-grid" id="nx-garantie-analytics">
-            <article class="nx-analytics-card is-collapsed" id="nx-stats-panel">
-                <h3>Types de Garanties</h3>
-                <p>Repartition chargee automatiquement, comme le module JavaFX.</p>
-                <div class="nx-analytics-layout">
-                    <div class="nx-donut-shell">
-                        {% set garantie_donut_offset = 25 %}
-                        <svg viewBox="0 0 42 42" class="nx-donut" aria-label="Repartition des types de garanties">
-                            <circle class="nx-donut-track" cx="21" cy="21" r="15.915"></circle>
-                            {% for stat in garantie_type_stats %}
-                                <circle
-                                    class="nx-donut-segment"
-                                    cx="21"
-                                    cy="21"
-                                    r="15.915"
-                                    stroke="{{ stat.color }}"
-                                    stroke-dasharray="{{ stat.percent }} {{ 100 - stat.percent }}"
-                                    stroke-dashoffset="{{ garantie_donut_offset }}"
-                                ></circle>
-                                {% set garantie_donut_offset = garantie_donut_offset - stat.percent %}
-                            {% endfor %}
-                        </svg>
-                        <div class="nx-donut-total">
-                            <strong>{{ garantie_items|length }}</strong>
-                            <span>Garanties</span>
-                        </div>
-                    </div>
-                    <div class="nx-type-list">
-                        {% for stat in garantie_type_stats %}
-                            <div class="nx-type-row">
-                                <div class="nx-type-head">
-                                    <div class="nx-type-title">
-                                        <span class="nx-type-dot" style="background: {{ stat.color }};"></span>
-                                        <span>{{ stat.label }}</span>
-                                    </div>
-                                    <small>{{ stat.count }} ({{ stat.percent|number_format(1, '.', '') }}%)</small>
-                                </div>
-                                <div class="nx-type-track">
-                                    <span class="nx-type-fill" style="--fill: {{ stat.percent }}%; background: {{ stat.color }};"></span>
-                                </div>
-                            </div>
-                        {% else %}
-                            <div class="nx-type-empty">Aucune donnee de type disponible.</div>
-                        {% endfor %}
+        <!-- GARANTIE CONTENT -->
+        <div class="nx-acc__grid">
+            <article class="nx-acc__panel" id="nx-garanties-form">
+                <div class="nx-acc__panel-head">
+                    <div class="nx-acc__panel-head-left">
+                        <h3>Garantie</h3>
+                        <p>Ajouter ou modifier une garantie</p>
                     </div>
                 </div>
-            </article>
-
-        </div>
-
-        <div class="nx-crud-grid">
-
-            <!-- Form -->
-            <article class="nx-crud-form-card" id="nx-credits-form">
-                <div class="nx-crud-card-head">
-                    <h3>Garantie Crédit</h3>
-                    <p>Ajouter ou modifier une garantie</p>
-                </div>
-
-                <form method="post" class="nx-crud-form" id="nx-garantie-form">
-                    <input type="hidden" name="tab"    value="credits">
-                    <input type="hidden" name="panel"  value="garantie">
+                <form method="post" id="nx-garantie-form" class="nx-acc__form" enctype="multipart/form-data" novalidate>
+                    <input type="hidden" name="tab" value="credits">
+                    <input type="hidden" name="panel" value="garantie">
                     <input type="hidden" name="action" value="garantie_save">
 
-                    <input type="hidden" name="idGarantie" value="" id="nx-garantie-id">
-                    <label>
-                        <span>ID garantie</span>
-                        <input type="text" value="Automatique" readonly>
+                    <label class="nx-acc__form-label-id">
+                        <i class="fa-solid fa-hashtag"></i>
+                        <input type="number" name="idGarantie" id="nx-garantie-id" placeholder="ID (Auto)" readonly 
+                               style="background:transparent; border:none; color:inherit; font-weight:700; width:100%; height:auto; padding:0; box-shadow:none;">
                     </label>
+
                     <label>
-                        <span>Crédit associé</span>
-                        <select name="idCredit" id="nx-garantie-credit" required>
+                        <span>Crédit Associé *</span>
+                        <select name="idCredit" id="nx-garantie-credit">
+                            <option value="">Sélectionner un crédit</option>
                             {% for credit in credit_items %}
-                                <option value="{{ credit.idCredit }}">
-                                    #{{ credit.idCredit }} — {{ credit.typeCredit }}
-                                </option>
+                                <option value="{{ credit.idCredit }}">#{{ credit.idCredit }} - {{ credit.user_name|default('Inconnu') }} ({{ credit.typeCredit|default('Sans type') }})</option>
                             {% endfor %}
                         </select>
+                        <span id="cr-err-garantie-idCredit" class="nx-field-error"></span>
                     </label>
+
                     <label>
-                        <span>Type *</span>
-                        <select name="typeGarantie" id="nx-garantie-type" required>
-                            {% for type in ['Hypothèque immobilière', 'Titre véhicule', 'Caution personnelle', 'Garantie bancaire', 'Police assurance', 'Nantissement', 'Autre garantie'] %}
-                                <option value="{{ type }}">{{ type }}</option>
-                            {% endfor %}
+                        <span>Type de Garantie *</span>
+                        <select name="typeGarantie" id="nx-garantie-type">
+                            <option value="">Sélectionner un type</option>
+                            <option value="Hypothèque immobilière">Hypothèque immobilière</option>
+                            <option value="Hypotheque immobiliere">Hypotheque immobiliere (alt)</option>
+                            <option value="Gage de véhicule">Gage de véhicule</option>
+                            <option value="Gage de vehicule">Gage de vehicule (alt)</option>
+                            <option value="Caution solidaire">Caution solidaire</option>
+                            <option value="Nantissement de fonds de commerce">Nantissement de fonds de commerce</option>
+                            <option value="Dépôt au comptant">Dépôt au comptant</option>
+                            <option value="Depot au comptant">Depot au comptant (alt)</option>
+                            <option value="Garantie bancaire">Garantie bancaire</option>
+                            <option value="Assurance crédit">Assurance crédit</option>
+                            <option value="Assurance credit">Assurance credit (alt)</option>
+                            <option value="Autres">Autres</option>
                         </select>
+                        <span id="cr-err-garantie-typeGarantie" class="nx-field-error"></span>
                     </label>
+
                     <label>
-                        <span>Description</span>
-                        <input type="text" name="description" id="nx-garantie-description"
-                               placeholder="Description courte">
+                        <span>Description *</span>
+                        <input type="text" name="description" id="nx-garantie-desc" placeholder="Détails de la garantie">
+                        <span id="cr-err-garantie-description" class="nx-field-error"></span>
                     </label>
+
                     <label>
-                        <span>Adresse du bien</span>
-                        <input type="text" name="adresseBien" id="nx-garantie-address"
-                               placeholder="Adresse complète">
+                        <span>Adresse du Bien *</span>
+                        <input type="text" name="adresseBien" id="nx-garantie-address" placeholder="Ville, quartier, etc.">
+                        <span id="cr-err-garantie-adresseBien" class="nx-field-error"></span>
                     </label>
+
                     <label>
-                        <span>Valeur estimée (DT)</span>
-                        <input type="number" step="0.01" min="0.01" name="valeurEstimee" id="nx-garantie-estimated"
-                               placeholder="0.00">
+                        <span>Valeur Estimée (DT) *</span>
+                        <input type="number" step="0.01" name="valeurEstimee" id="nx-garantie-estimated" placeholder="0.00">
+                        <span id="cr-err-garantie-valeurEstimee" class="nx-field-error"></span>
                     </label>
+
                     <label>
-                        <span>Valeur retenue (DT)</span>
-                        <input type="number" step="0.01" min="0.01" name="valeurRetenue" id="nx-garantie-retained"
-                               placeholder="Auto (80% de l'estimee)">
+                        <span>Valeur Retenue (DT) *</span>
+                        <input type="number" step="0.01" name="valeurRetenue" id="nx-garantie-retained" placeholder="0.00" data-manual="0">
+                        <span id="cr-err-garantie-valeurRetenue" class="nx-field-error"></span>
                     </label>
+
                     <label>
-                        <span>Date d'Ã©valuation</span>
-                        <input type="date" name="dateEvaluation" id="nx-garantie-date" value="{{ current_date }}">
+                        <span>Date d'Évaluation *</span>
+                        <input type="date" name="dateEvaluation" value="{{ current_date }}" max="{{ current_date }}" id="nx-garantie-date">
+                        <span id="cr-err-garantie-dateEvaluation" class="nx-field-error"></span>
                     </label>
+
                     <label>
-                        <span>Document justificatif</span>
-                        <input type="text" name="documentJustificatif" id="nx-garantie-document"
-                               placeholder="Reference document">
+                        <span>Nom du Garant *</span>
+                        <input type="text" name="nomGarant" id="nx-garantie-guarantor" placeholder="Prénom Nom" value="N/A">
+                        <span id="cr-err-garantie-nomGarant" class="nx-field-error"></span>
                     </label>
+
                     <label>
                         <span>Statut</span>
                         <select name="statut" id="nx-garantie-status">
-                            {% for status in ['En attente', 'Acceptee', 'Validee', 'Rejetee'] %}
-                                <option value="{{ status }}"{{ status == 'En attente' ? ' selected' : '' }}>{{ status }}</option>
+                            {% for status in ['Soumise', 'En cours_verification', 'Acceptee', 'Rejetee', 'Restituee'] %}
+                                <option value="{{ status }}"{{ status == 'Soumise' ? ' selected' : '' }}>{{ status }}</option>
                             {% endfor %}
                         </select>
                     </label>
+
                     <label>
-                        <span>Nom du garant</span>
-                        <input type="text" name="nomGarant" id="nx-garantie-guarantor"
-                               placeholder="Nom complet">
+                        <span>Justificatif (Image) *</span>
+                        <input type="file" name="documentJustificatif" id="nx-garantie-file" accept="image/jpeg,image/png,image/webp,image/gif">
+                        <input type="hidden" name="existing_document" id="nx-garantie-file-existing">
+                        <span id="cr-err-garantie-documentJustificatif" class="nx-field-error"></span>
                     </label>
-                    <div class="nx-crud-form-actions">
-                        <button class="btn btn-primary" type="submit">
-                            <i class="fa-solid fa-floppy-disk"></i>
-                            Enregistrer
+
+                    <div class="nx-acc__form-actions">
+                        <button class="na-btn na-btn--save" type="submit">
+                            <i class="fa-solid fa-floppy-disk"></i> Enregistrer
                         </button>
-                        <button class="btn btn-secondary" type="reset">
-                            <i class="fa-solid fa-xmark"></i>
-                            Annuler
+                        <button class="na-btn na-btn--reset" type="reset">
+                            <i class="fa-solid fa-rotate-left"></i> Annuler
                         </button>
                     </div>
                 </form>
             </article>
 
             <!-- Table -->
-            <article class="nx-crud-table-card">
-                <div class="nx-crud-card-head nx-crud-card-head--with-tools">
-                    <div class="nx-crud-card-head-copy">
+            <article class="nx-acc__panel nx-acc__table-wrap">
+                <div class="nx-acc__panel-head">
+                    <div class="nx-acc__panel-head-left">
                         <h3>Liste des Garanties</h3>
-                        <p>Suivi complet des garanties associées aux crédits</p>
-                    </div>
-                    <span class="nx-crud-row-count">
-                        {{ garantie_items|length }} garantie{{ garantie_items|length != 1 ? 's' : '' }}
-                    </span>
-                    <div class="nx-table-tools">
-                        <label class="nx-table-search" for="nx-garantie-search">
-                            <i class="fa-solid fa-magnifying-glass"></i>
-                            <input type="search" id="nx-garantie-search" placeholder="Rechercher ID, type, description, statut...">
-                        </label>
-                        <select class="nx-table-sort" id="nx-garantie-sort" aria-label="Trier les garanties">
-                            <option value="default">Trier: ordre initial</option>
-                            <option value="id-desc">ID plus recent</option>
-                            <option value="id-asc">ID croissant</option>
-                            <option value="credit-asc">Credit associe</option>
-                            <option value="type-asc">Type A-Z</option>
-                            <option value="value-desc">Valeur la plus elevee</option>
-                            <option value="status-asc">Statut A-Z</option>
-                        </select>
+                        <p>Gestion complète des garanties</p>
                     </div>
                 </div>
-
-                <div class="table-wrap">
-                    <table class="nx-crud-table">
-                        <thead>
-                            <tr>
-                                <th>#Identifiant</th>
-                                <th>Crédit</th>
-                                <th>Type</th>
-                                <th>Valeur</th>
-                                <th>Statut</th>
-                                <th>Propriétaire</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="nx-garantie-tbody">
+                <div style="padding: 1rem 1.3rem; border-bottom: 1px solid var(--na-border); display: flex; align-items: center; gap: .75rem;">
+                    <div style="flex:1; position: relative;">
+                         <input type="search" id="nx-garantie-search" placeholder="Rechercher ID, type, garant, adresse..." 
+                            style="width: 100%; height: 38px; border: 1px solid var(--na-border); border-radius: 9px; padding: 0 1rem 0 2rem; outline: none; font-size: .8rem;">
+                         <i class="fa-solid fa-search" style="position: absolute; left: .7rem; top: 12px; color: var(--na-muted);"></i>
+                    </div>
+                    <select id="nx-garantie-sort" style="height: 38px; border: 1px solid var(--na-border); border-radius: 9px; padding: 0 1rem; outline: none; font-size: .8rem; background: var(--na-bg);">
+                        <option value="default">Trier: ordre initial</option>
+                        <option value="id-desc">ID plus récent</option>
+                        <option value="id-asc">ID croissant</option>
+                        <option value="credit-asc">ID Crédit</option>
+                        <option value="type-asc">Type A-Z</option>
+                        <option value="value-desc">Valeur la plus élevée</option>
+                        <option value="status-asc">Statut A-Z</option>
+                    </select>
+                </div>
+                <table class="nx-acc__table">
+                    <thead>
+                        <tr>
+                            <th>N° Garantie</th>
+                            <th>Crédit</th>
+                            <th>Valeur Evaluée</th>
+                            <th>Garant / Date</th>
+                            <th>Type</th>
+                            <th>Statut</th>
+                            <th>Couverture</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="nx-garantie-tbody">
                         {% for item in garantie_items %}
-                            <tr
+                        <tr
                                 class="nx-garantie-row"
                                 data-garantie-id="{{ item.idGarantie }}"
-                                data-garantie-credit-id="{{ item.idCredit }}"
+                                data-garantie-credit-id="{{ item.idCredit|default('') }}"
                                 data-garantie-type="{{ item.typeGarantie|default('')|e('html_attr') }}"
                                 data-garantie-description="{{ item.description|default('')|e('html_attr') }}"
                                 data-garantie-address="{{ item.adresseBien|default('')|e('html_attr') }}"
                                 data-garantie-estimated="{{ item.valeurEstimee|default('') }}"
                                 data-garantie-retained="{{ item.valeurRetenue|default('') }}"
-                                data-garantie-document="{{ item.documentJustificatif|default('')|e('html_attr') }}"
                                 data-garantie-date="{{ item.dateEvaluation|default(current_date)|slice(0, 10) }}"
                                 data-garantie-guarantor="{{ item.nomGarant|default('')|e('html_attr') }}"
                                 data-garantie-status="{{ item.statut|default('')|e('html_attr') }}"
-                                data-search-index="{{ (item.idGarantie ~ ' ' ~ item.idCredit ~ ' ' ~ item.typeGarantie|default('') ~ ' ' ~ item.description|default('') ~ ' ' ~ item.statut|default('') ~ ' ' ~ item.nomGarant|default(''))|lower|e('html_attr') }}"
+                                data-garantie-document="{{ item.documentJustificatif|default('')|e('html_attr') }}"
+                                data-search-index="{{ (item.idGarantie ~ ' ' ~ item.idCredit ~ ' ' ~ item.typeGarantie ~ ' ' ~ item.description ~ ' ' ~ item.statut|default('') ~ ' ' ~ item.nomGarant|default('') ~ ' ' ~ item.adresseBien|default(''))|lower|e('html_attr') }}"
                             >
-                                {% set garantieStatus = item.statut|default('En attente')|lower %}
-                                {% set garantieStatusClass = 'nx-crud-tag--neutral' %}
-                                {% if 'attente' in garantieStatus %}
-                                    {% set garantieStatusClass = 'nx-crud-tag--pending' %}
-                                {% elseif 'accept' in garantieStatus or 'valid' in garantieStatus %}
-                                    {% set garantieStatusClass = 'nx-crud-tag--success' %}
-                                {% elseif 'rejet' in garantieStatus or 'refus' in garantieStatus %}
-                                    {% set garantieStatusClass = 'nx-crud-tag--danger' %}
+                                {% set statusHtml = item.statut|default('Soumise')|lower %}
+                                {% set statusCls = 'is-neutral' %}
+                                {% if 'soumise' in statusHtml or 'attente' in statusHtml %} {% set statusCls = 'is-bloqué' %}
+                                {% elseif 'cours' in statusHtml %} {% set statusCls = 'is-courant' %}
+                                {% elseif 'accep' in statusHtml %} {% set statusCls = 'is-actif' %}
+                                {% elseif 'rejet' in statusHtml %} {% set statusCls = 'is-fermé' %}
                                 {% endif %}
-                                {% set garantieOwner = item.nomGarant|default('')|trim != '' ? item.nomGarant|trim : item.user_name|default('—') %}
-                                <td><span class="nx-crud-id-pill">#{{ item.idGarantie }}</span></td>
+                                {% set rat = item.valeurEstimee > 0 ? (item.valeurRetenue / item.valeurEstimee * 100)|round : 0 %}
+
+                                <td><span class="nx-acc__num">#{{ item.idGarantie }}</span></td>
                                 <td>
-                                    <div class="nx-crud-meta">
-                                        <span class="nx-crud-code">#{{ item.idCredit }}</span>
-                                        <small>{{ item.typeCredit|default('Crédit associé') }}</small>
+                                    <div style="font-weight: 600; color: var(--na-blue);">Crédit #{{ item.idCredit }}</div>
+                                    <small style="color: var(--na-muted);">{{ item.credit_type|default('—') }}</small>
+                                </td>
+                                <td>
+                                    <div class="nx-acc__amount">{{ item.valeurEstimee|number_format(2, '.', ' ') }} <em>DT</em></div>
+                                    <small style="color:var(--na-muted); font-size:11px;">Retenue: {{ item.valeurRetenue|number_format(2, '.', ' ') }} DT</small>
+                                </td>
+                                <td>
+                                    <div class="nx-acc__owner">
+                                        <div class="nx-acc__owner-dot">{{ item.nomGarant|default('?')|first|upper }}</div>
+                                        <div class="nx-acc__owner-name" style="display:flex;flex-direction:column;">
+                                            <span>{{ item.nomGarant|default('—') }}</span>
+                                            <span style="font-size:11px;color:var(--na-muted);">{{ item.dateEvaluation|default('—') }}</span>
+                                        </div>
                                     </div>
                                 </td>
-                                <td><span class="nx-crud-tag nx-crud-tag--type">{{ item.typeGarantie|default('—') }}</span></td>
-                                <td class="nx-crud-money">
-                                    {{ item.valeurEstimee|default(0)|number_format(2, '.', ' ') }}
-                                    <em>DT</em>
-                                </td>
+                                <td><span class="nx-acc__tag is-épargne">{{ item.typeGarantie|default('—') }}</span></td>
+                                <td><span class="nx-acc__tag {{ statusCls }}">{{ item.statut|default('—') }}</span></td>
                                 <td>
-                                    <span class="nx-crud-tag {{ garantieStatusClass }}">{{ item.statut|default('—') }}</span>
-                                </td>
-                                <td>
-                                    <div class="nx-crud-owner">
-                                        <span class="nx-crud-owner-dot">{{ garantieOwner|default('?')|first|upper }}</span>
-                                        <span class="nx-crud-owner-name">
-                                            <strong>{{ garantieOwner }}</strong>
-                                            <small>{{ item.description|default(item.adresseBien|default('Aucune information complémentaire')) }}</small>
-                                        </span>
+                                    <div class="nx-acc__progress-wrap">
+                                        <div class="nx-acc__progress-bar">
+                                            <div class="nx-acc__progress-fill" style="width: {{ rat > 100 ? 100 : rat }}%;"></div>
+                                        </div>
+                                        <span class="nx-acc__progress-label">{{ rat }}% couvert</span>
                                     </div>
                                 </td>
-                                <td class="nx-cell-actions">
-                                    {% set garantieUserId = item.resolved_user_id|default(item.idUser|default(null)) %}
-                                    <button
-                                        class="btn btn-secondary btn-sm nx-garantie-edit-btn"
-                                        type="button"
-                                        title="Modifier cette garantie"
-                                        aria-label="Modifier cette garantie"
-                                    >
-                                        <i class="fa-solid fa-pen-to-square"></i>
-                                    </button>
-                                    {% if garantieUserId %}
-                                        <a
-                                            class="btn btn-secondary btn-sm"
-                                            href="{{ path('admin_credits_export_pdf', { kind: 'garanties' }) ~ '?userId=' ~ garantieUserId }}"
-                                            target="_blank"
-                                            rel="noopener"
-                                            title="Exporter PDF de cet utilisateur"
-                                            aria-label="Exporter PDF de cet utilisateur"
-                                        >
-                                            <i class="fa-solid fa-file-pdf"></i>
-                                        </a>
-                                    {% endif %}
-                                    <form method="post">
-                                        <input type="hidden" name="tab"
-                                               value="credits">
-                                        <input type="hidden" name="panel"
-                                               value="garantie">
-                                        <input type="hidden" name="action"
-                                               value="garantie_delete">
-                                        <input type="hidden" name="idGarantie"
-                                               value="{{ item.idGarantie }}">
-                                        <button class="btn btn-danger btn-sm"
-                                                type="submit"
-                                                aria-label="Supprimer cette garantie"
-                                                onclick="return confirm('Supprimer cette garantie ?')">
-                                            <i class="fa-solid fa-trash-can"></i>
-                                        </button>
-                                    </form>
+                                <td>
+                                    <div style="display:flex;gap:4px;">
+                                        <button class="na-btn na-btn--ghost-dark nx-garantie-edit-btn" type="button" aria-label="Modifier"><i class="fa-solid fa-pen"></i></button>
+                                        <form method="post" style="margin:0;">
+                                            <input type="hidden" name="tab" value="credits">
+                                            <input type="hidden" name="panel" value="garantie">
+                                            <input type="hidden" name="action" value="garantie_delete">
+                                            <input type="hidden" name="idGarantie" value="{{ item.idGarantie }}">
+                                            <button class="na-btn na-btn--danger" type="submit" onclick="return confirm('Confirmer la suppression ?')"><i class="fa-solid fa-trash"></i></button>
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                         {% else %}
-                            <tr class="nx-empty-row">
-                                <td colspan="7">
-                                    Aucune garantie enregistrée.
-                                </td>
-                            </tr>
+                            <tr><td colspan="8" class="nx-acc__empty"><i class="fa-solid fa-folder-open fa-2x"></i><br>Aucune garantie.</td></tr>
                         {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+                    </tbody>
+                </table>
+                <div class="nx-table-pager" id="nx-garantie-pager" hidden></div>
             </article>
         </div>
 
     <!-- ══════════════════════════════════
-         CREDIT PANEL
+         CREDITS PANEL 
     ══════════════════════════════════ -->
     {% else %}
 
-        <div class="nx-crud-kpis">
-            <article class="nx-crud-kpi">
-                <span class="nx-crud-kpi-icon">
-                    <i class="fa-solid fa-check-circle"></i>
+        <div class="nx-acc__kpis">
+            <article class="nx-acc__kpi">
+                <span class="nx-acc__kpi-icon">
+                    <i class="fa-solid fa-credit-card"></i>
                 </span>
-                <div>
-                    <strong>{{ summary.credits_total|default(credit_items|length) }}</strong>
-                    <small>Crédits total</small>
-                </div>
-            </article>
-            <article class="nx-crud-kpi">
-                <span class="nx-crud-kpi-icon">
-                    <i class="fa-solid fa-file-invoice-dollar"></i>
-                </span>
-                <div>
+                <div class="nx-acc__kpi-body">
                     <strong>{{ credit_items|length }}</strong>
-                    <small>Dossiers affichés</small>
+                    <small>Crédits Totaux</small>
                 </div>
             </article>
-            <article class="nx-crud-kpi">
-                <span class="nx-crud-kpi-icon">
-                    <i class="fa-solid fa-wallet"></i>
+            <article class="nx-acc__kpi">
+                <span class="nx-acc__kpi-icon">
+                    <i class="fa-solid fa-hourglass-half"></i>
                 </span>
-                <div>
-                    <strong>{{ accounts|length }}</strong>
-                    <small>Comptes reliés</small>
+                <div class="nx-acc__kpi-body">
+                    <strong>{{ summary.credits_pending|default(0) }}</strong>
+                    <small>Crédits En Attente</small>
+                </div>
+            </article>
+            <article class="nx-acc__kpi">
+                <span class="nx-acc__kpi-icon">
+                    <i class="fa-solid fa-users"></i>
+                </span>
+                <div class="nx-acc__kpi-body">
+                    <strong>{{ users|length }}</strong>
+                    <small>Utilisateurs Actifs</small>
                 </div>
             </article>
         </div>
 
-        <div class="nx-analytics-grid" id="nx-credit-analytics">
-            <article class="nx-analytics-card is-collapsed" id="nx-stats-panel">
-                <h3>Types de Credits</h3>
-                <p>Repartition par type, equivalente a la statistique JavaFX.</p>
-                <div class="nx-analytics-layout">
-                    <div class="nx-donut-shell">
-                        {% set credit_donut_offset = 25 %}
-                        <svg viewBox="0 0 42 42" class="nx-donut" aria-label="Repartition des types de credits">
-                            <circle class="nx-donut-track" cx="21" cy="21" r="15.915"></circle>
-                            {% for stat in credit_type_stats %}
-                                <circle
-                                    class="nx-donut-segment"
-                                    cx="21"
-                                    cy="21"
-                                    r="15.915"
-                                    stroke="{{ stat.color }}"
-                                    stroke-dasharray="{{ stat.percent }} {{ 100 - stat.percent }}"
-                                    stroke-dashoffset="{{ credit_donut_offset }}"
-                                ></circle>
-                                {% set credit_donut_offset = credit_donut_offset - stat.percent %}
-                            {% endfor %}
-                        </svg>
-                        <div class="nx-donut-total">
-                            <strong>{{ credit_items|length }}</strong>
-                            <span>Credits</span>
-                        </div>
-                    </div>
-                    <div class="nx-type-list">
-                        {% for stat in credit_type_stats %}
-                            <div class="nx-type-row">
-                                <div class="nx-type-head">
-                                    <div class="nx-type-title">
-                                        <span class="nx-type-dot" style="background: {{ stat.color }};"></span>
-                                        <span>{{ stat.label }}</span>
-                                    </div>
-                                    <small>{{ stat.count }} ({{ stat.percent|number_format(1, '.', '') }}%)</small>
-                                </div>
-                                <div class="nx-type-track">
-                                    <span class="nx-type-fill" style="--fill: {{ stat.percent }}%; background: {{ stat.color }};"></span>
-                                </div>
-                            </div>
-                        {% else %}
-                            <div class="nx-type-empty">Aucune donnee de type disponible.</div>
-                        {% endfor %}
+        <!-- CREDIT CONTENT -->
+        <div class="nx-acc__grid">
+            <article class="nx-acc__panel" id="nx-credits-form">
+                <div class="nx-acc__panel-head">
+                    <div class="nx-acc__panel-head-left">
+                        <h3>Crédit</h3>
+                        <p>Ajouter ou modifier un crédit</p>
                     </div>
                 </div>
-            </article>
-
-        </div>
-
-        <div class="nx-crud-grid">
-
-            <!-- Form -->
-            <article class="nx-crud-form-card" id="nx-credits-form">
-                <div class="nx-crud-card-head">
-                    <h3>Crédit</h3>
-                    <p>Ajouter ou modifier un crédit</p>
-                </div>
-
-                <form method="post" class="nx-crud-form" id="nx-credit-form">
-                    <input type="hidden" name="tab"    value="credits">
-                    <input type="hidden" name="panel"  value="credit">
+                <form method="post" id="nx-credit-form" class="nx-acc__form" novalidate>
+                    <input type="hidden" name="tab" value="credits">
+                    <input type="hidden" name="panel" value="credit">
                     <input type="hidden" name="action" value="credit_save">
 
-                    <input type="hidden" name="idCredit" value="" id="nx-credit-id">
-                    <label>
-                        <span>ID crédit</span>
-                        <input type="text" value="Automatique" readonly>
+                    <label class="nx-acc__form-label-id">
+                        <i class="fa-solid fa-hashtag"></i>
+                        <input type="number" name="idCredit" id="nx-credit-id" placeholder="ID (Auto)" readonly 
+                               style="background:transparent; border:none; color:inherit; font-weight:700; width:100%; height:auto; padding:0; box-shadow:none;">
                     </label>
+
                     <label>
-                        <span>Utilisateur</span>
-                        <select name="idUser" id="nx-credit-user" required>
-                            <option value="">Selectionner un utilisateur</option>
-                            {% for u in users %}
-                                <option value="{{ u.idUser }}">
-                                    {{ u.idUser }} — {{ u.prenom }} {{ u.nom }}
-                                </option>
+                        <span>Utilisateur *</span>
+                        <select name="idUser" id="nx-credit-user">
+                            <option value="">Sélectionner un utilisateur</option>
+                            {% for user in users %}
+                                <option value="{{ user.idUser }}">{{ user.nom }} {{ user.prenom }} ({{ user.email }})</option>
                             {% endfor %}
                         </select>
+                        <span id="cr-err-idUser" class="nx-field-error"></span>
                     </label>
+
                     <label>
-                        <span>Compte</span>
-                        <select name="idCompte" id="nx-credit-account" required>
-                            <option value="">Selectionner un compte</option>
+                        <span>Compte Rattaché *</span>
+                        <select name="idCompte" id="nx-credit-account">
+                            <option value="">Sélectionner un compte</option>
                             {% for account in accounts %}
-                                <option value="{{ account.idCompte }}" data-user-id="{{ account.idUser|default('') }}">
-                                    {{ account.idCompte }} — {{ account.numeroCompte }}{% if account.owner_name|default('')|trim != '' %} ({{ account.owner_name|trim }}){% endif %}
-                                </option>
+                                <option value="{{ account.idCompte }}" data-user-id="{{ account.idUser|default('') }}">{{ account.numeroCompte }} (Solde: {{ account.solde }} DT)</option>
                             {% endfor %}
                         </select>
+                        <span id="cr-err-idCompte" class="nx-field-error"></span>
                     </label>
+
                     <label>
                         <span>Type de Crédit *</span>
-                        <select name="typeCredit" id="nx-credit-type" required>
-                            {% for type in ['Hypotheque', 'Pret auto', 'Personnel', 'Professionnel', 'Education', 'Sante', 'Immobilier', 'Consommation', 'Autre'] %}
+                        <select name="typeCredit" id="nx-credit-type">
+                            <option value="">Sélectionner un type</option>
+                            {% for type in ['Professionnel', 'Immobilier', 'Consommation', 'Automobile', 'Etudiant', 'Renouvelable'] %}
                                 <option value="{{ type }}">{{ type }}</option>
                             {% endfor %}
                         </select>
+                        <span id="cr-err-typeCredit" class="nx-field-error"></span>
                     </label>
+
                     <label>
                         <span>Montant Demandé (DT) *</span>
-                        <input type="number" step="0.01" name="montantDemande" id="nx-credit-amount"
-                               placeholder="0.00" required>
+                        <input type="number" step="0.01" name="montantDemande" id="nx-credit-amount" placeholder="0.00">
+                        <span id="cr-err-montantDemande" class="nx-field-error"></span>
                     </label>
-                    <label>
-                        <span>Durée (mois)</span>
-                        <input type="number" name="duree" min="1" value="12" id="nx-credit-duration" required>
-                    </label>
-                    <label>
-                        <span>Taux d'Intérêt (%)</span>
-                        <input type="number" step="0.01" name="tauxInteret" id="nx-credit-rate"
-                               min="0" value="8" required>
-                    </label>
+
+                    <div style="display:flex;gap:1rem;">
+                        <label style="flex:1;">
+                            <span>Durée (Mois) *</span>
+                            <input type="number" name="duree" id="nx-credit-duration" value="12">
+                            <span id="cr-err-duree" class="nx-field-error"></span>
+                        </label>
+                        <label style="flex:1;">
+                            <span>Taux/An (%) *</span>
+                            <input type="number" step="0.01" name="tauxInteret" id="nx-credit-rate" value="8">
+                            <span id="cr-err-tauxInteret" class="nx-field-error"></span>
+                        </label>
+                    </div>
+
                     <label>
                         <span>Autofinancement (DT)</span>
-                        <input type="number" step="0.01" min="0" name="autofinancement" id="nx-credit-autofinancement"
-                               placeholder="0.00">
+                        <input type="number" step="0.01" name="autofinancement" id="nx-credit-autofinancement" placeholder="0.00">
+                        <span id="cr-err-autofinancement" class="nx-field-error"></span>
                     </label>
+
                     <label>
-                        <span>Mensualite (DT)</span>
-                        <input type="number" step="0.01" min="0" name="mensualite" id="nx-credit-mensualite"
-                               placeholder="Calcule auto si vide">
+                        <span>Mensualité (DT) *</span>
+                        <input type="number" step="0.01" name="mensualite" id="nx-credit-mensualite" placeholder="Calcule auto">
+                        <span id="cr-err-mensualite" class="nx-field-error"></span>
                     </label>
+
+                    <div class="nx-acc__form-divider"></div>
+
                     <label>
-                        <span>Montant Accorde (DT)</span>
-                        <input type="number" step="0.01" min="0" name="montantAccorde" id="nx-credit-approved"
-                               placeholder="Montant demande par defaut">
+                        <span>Montant Accordé (DT)</span>
+                        <input type="number" step="0.01" name="montantAccorde" id="nx-credit-approved" placeholder="Laisser vide = montant demandé">
+                        <span id="cr-err-montantAccorde" class="nx-field-error"></span>
                     </label>
+
                     <label>
-                        <span>Date Demande</span>
-                        <input type="date" name="dateDemande" value="{{ current_date }}" id="nx-credit-date" required>
+                        <span>Date Demande *</span>
+                        <input type="date" name="dateDemande" id="nx-credit-date" value="{{ current_date }}" max="{{ current_date }}">
+                        <span id="cr-err-dateDemande" class="nx-field-error"></span>
                     </label>
+
+                    <div style="display:flex;gap:1rem;">
+                        <label style="flex:1;">
+                            <span>Salaire Mensuel *</span>
+                            <input type="number" step="0.01" name="salaire" id="nx-credit-salary" value="2000">
+                            <span id="cr-err-salaire" class="nx-field-error"></span>
+                        </label>
+                        <label style="flex:1;">
+                            <span>Ancienneté (Ans)</span>
+                            <input type="number" name="ancienneteAnnees" id="nx-credit-seniority" value="2">
+                            <span id="cr-err-ancienneteAnnees" class="nx-field-error"></span>
+                        </label>
+                    </div>
+
                     <label>
-                        <span>Statut</span>
+                        <span>Type de Contrat *</span>
+                        <select name="typeContrat" id="nx-credit-contract">
+                            <option value="">Sélectionner un contrat</option>
+                            <option value="CDI">CDI</option>
+                            <option value="CDD">CDD</option>
+                            <option value="Fonctionnaire">Fonctionnaire</option>
+                            <option value="Freelance">Freelance</option>
+                            <option value="SVP">SVP</option>
+                            <option value="Autre">Autre</option>
+                        </select>
+                        <span id="cr-err-typeContrat" class="nx-field-error"></span>
+                    </label>
+
+                    <div class="nx-acc__form-divider"></div>
+
+                    <label>
+                        <span>Statut du Crédit</span>
                         <select name="statut" id="nx-credit-status">
                             {% for status in ['En attente', 'Accepte', 'En cours', 'Rejete', 'Cloture'] %}
                                 <option value="{{ status }}"{{ status == 'En attente' ? ' selected' : '' }}>{{ status }}</option>
                             {% endfor %}
                         </select>
                     </label>
-                    <label>
-                        <span>Salaire (DT)</span>
-                        <input type="number" step="0.01" name="salaire" id="nx-credit-salary"
-                               min="0" value="2000">
-                    </label>
-                    <label>
-                        <span>Type de Contrat</span>
-                        <input type="text" name="typeContrat" value="CDI" id="nx-credit-contract" required>
-                    </label>
-                    <label>
-                        <span>Ancienneté (années)</span>
-                        <input type="number" name="ancienneteAnnees" min="0" value="2" id="nx-credit-seniority">
-                    </label>
-                    <div class="nx-crud-form-actions">
-                        <button class="btn btn-primary" type="submit">
-                            <i class="fa-solid fa-floppy-disk"></i>
-                            Enregistrer
+
+                    <div class="nx-acc__form-actions">
+                        <button class="na-btn na-btn--save" type="submit">
+                            <i class="fa-solid fa-floppy-disk"></i> Enregistrer
                         </button>
-                        <button class="btn btn-secondary" type="reset">
-                            <i class="fa-solid fa-xmark"></i>
-                            Annuler
+                        <button class="na-btn na-btn--reset" type="reset">
+                            <i class="fa-solid fa-rotate-left"></i> Annuler
                         </button>
                     </div>
                 </form>
             </article>
 
             <!-- Table -->
-            <article class="nx-crud-table-card">
-                <div class="nx-crud-card-head nx-crud-card-head--with-tools">
-                    <div class="nx-crud-card-head-copy">
+            <article class="nx-acc__panel nx-acc__table-wrap">
+                <div class="nx-acc__panel-head">
+                    <div class="nx-acc__panel-head-left">
                         <h3>Liste des Crédits</h3>
                         <p>Gestion de toutes les demandes de crédit</p>
                     </div>
-                    <span class="nx-crud-row-count">
-                        {{ credit_items|length }} crédit{{ credit_items|length != 1 ? 's' : '' }}
-                    </span>
-                    <div class="nx-table-tools">
-                        <label class="nx-table-search" for="nx-credit-search">
-                            <i class="fa-solid fa-magnifying-glass"></i>
-                            <input type="search" id="nx-credit-search" placeholder="Rechercher ID, utilisateur, compte, type, statut...">
-                        </label>
-                        <select class="nx-table-sort" id="nx-credit-sort" aria-label="Trier les credits">
-                            <option value="default">Trier: ordre initial</option>
-                            <option value="id-desc">ID plus recent</option>
-                            <option value="id-asc">ID croissant</option>
-                            <option value="amount-desc">Montant le plus eleve</option>
-                            <option value="monthly-desc">Mensualite la plus elevee</option>
-                            <option value="risk-desc">Risque le plus eleve</option>
-                            <option value="user-asc">Utilisateur A-Z</option>
-                            <option value="status-asc">Statut A-Z</option>
-                        </select>
-                    </div>
                 </div>
-
-                <div class="table-wrap">
-                    <table class="nx-crud-table">
-                        <thead>
-                            <tr>
-                                <th>#Identifiant</th>
-                                <th>N° Compte</th>
-                                <th>Montant</th>
-                                <th>Demande</th>
-                                <th>Statut</th>
-                                <th>Type</th>
-                                <th>Propriétaire</th>
-                                <th>Risque</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="nx-credit-tbody">
+                <div style="padding: 1rem 1.3rem; border-bottom: 1px solid var(--na-border); display: flex; align-items: center; gap: .75rem;">
+                    <div style="flex:1; position: relative;">
+                         <input type="search" id="nx-credit-search" placeholder="Rechercher ID, utilisateur, compte, type, statut..." 
+                            style="width: 100%; height: 38px; border: 1px solid var(--na-border); border-radius: 9px; padding: 0 1rem 0 2rem; outline: none; font-size: .8rem;">
+                         <i class="fa-solid fa-search" style="position: absolute; left: .7rem; top: 12px; color: var(--na-muted);"></i>
+                    </div>
+                    <select id="nx-credit-sort" style="height: 38px; border: 1px solid var(--na-border); border-radius: 9px; padding: 0 1rem; outline: none; font-size: .8rem; background: var(--na-bg);">
+                        <option value="default">Trier: ordre initial</option>
+                        <option value="id-desc">ID plus récent</option>
+                        <option value="id-asc">ID croissant</option>
+                        <option value="amount-desc">Montant le plus élevé</option>
+                        <option value="monthly-desc">Mensualité la plus élevée</option>
+                        <option value="risk-desc">Risque le plus élevé</option>
+                        <option value="user-asc">Utilisateur A-Z</option>
+                        <option value="status-asc">Statut A-Z</option>
+                    </select>
+                </div>
+                <table class="nx-acc__table">
+                    <thead>
+                        <tr>
+                            <th>#Identifiant</th>
+                            <th>N° Compte</th>
+                            <th>Montant</th>
+                            <th>Demande</th>
+                            <th>Statut</th>
+                            <th>Type</th>
+                            <th>Propriétaire</th>
+                            <th>Score Risque</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="nx-credit-tbody">
                         {% for item in credit_items %}
-                            <tr
+                        <tr
                                 class="nx-credit-row"
                                 data-credit-id="{{ item.idCredit }}"
                                 data-credit-user-id="{{ item.idUser|default('') }}"
@@ -1831,812 +1452,867 @@
                                 data-search-index="{{ (item.idCredit ~ ' ' ~ item.user_name|default('') ~ ' ' ~ item.idCompte|default('') ~ ' ' ~ item.compte_numero|default('') ~ ' ' ~ item.typeCredit|default('') ~ ' ' ~ item.statut|default(''))|lower|e('html_attr') }}"
                             >
                                 {% set creditStatus = item.statut|default('En attente')|lower %}
-                                {% set creditStatusClass = 'nx-crud-tag--neutral' %}
+                                {% set creditStatusClass = 'nx-acc__tag is-bloqué' %}
                                 {% if 'attente' in creditStatus %}
-                                    {% set creditStatusClass = 'nx-crud-tag--pending' %}
+                                    {% set creditStatusClass = 'nx-acc__tag is-bloqué' %}
                                 {% elseif 'cours' in creditStatus %}
-                                    {% set creditStatusClass = 'nx-crud-tag--progress' %}
+                                    {% set creditStatusClass = 'nx-acc__tag is-courant' %}
                                 {% elseif 'accept' in creditStatus %}
-                                    {% set creditStatusClass = 'nx-crud-tag--success' %}
+                                    {% set creditStatusClass = 'nx-acc__tag is-actif' %}
                                 {% elseif 'rejet' in creditStatus or 'refus' in creditStatus %}
-                                    {% set creditStatusClass = 'nx-crud-tag--danger' %}
+                                    {% set creditStatusClass = 'nx-acc__tag is-fermé' %}
                                 {% elseif 'clot' in creditStatus %}
-                                    {% set creditStatusClass = 'nx-crud-tag--closed' %}
+                                    {% set creditStatusClass = 'nx-acc__tag' %}
                                 {% endif %}
-                                {% set creditRiskClass = item.risk_score > 70 ? 'nx-crud-risk--high' : (item.risk_score > 40 ? 'nx-crud-risk--medium' : 'nx-crud-risk--low') %}
-                                <td><span class="nx-crud-id-pill">#{{ item.idCredit }}</span></td>
+
+                                {% set risk = item.risk_score|default(0) %}
+                                {% set riskColor = 'var(--na-green)' %}
+                                {% if risk > 70 %}{% set riskColor = 'var(--na-red)' %}
+                                {% elseif risk > 40 %}{% set riskColor = 'var(--na-gold)' %}{% endif %}
+
+                                <td><span class="nx-acc__num">#{{ item.idCredit }}</span></td>
                                 <td>
-                                    <div class="nx-crud-meta">
-                                        <span class="nx-crud-code">{{ item.compte_numero|default('—') }}</span>
-                                        <small>#{{ item.idCompte|default('—') }}</small>
-                                    </div>
-                                </td>
-                                <td class="nx-crud-money">
-                                    {{ item.montantDemande|number_format(2, '.', ' ') }}
-                                    <em>DT</em>
+                                    <div style="font-weight: 600; color: var(--na-blue);">{{ item.compte_numero|default('—') }}</div>
+                                    <small style="color: var(--na-muted);">#C-{{ item.idCompte|default('—') }}</small>
                                 </td>
                                 <td>
-                                    <div class="nx-crud-meta">
+                                    <div class="nx-acc__amount">{{ item.montantDemande|number_format(2, '.', ' ') }} <em>DT</em></div>
+                                </td>
+                                <td>
+                                    <div style="display:flex;flex-direction:column;gap:3px;">
                                         <span>{{ item.dateDemande|default('—') }}</span>
-                                        <small>{{ item.duree|default('—') }} mois · Mensualité {{ item.mensualite|default(0)|number_format(2, '.', ' ') }} DT</small>
+                                        <small style="color:var(--na-muted);">{{ item.duree|default('—') }} mois · {{ item.mensualite|default(0)|number_format(2, '.', ' ') }} DT/m</small>
+                                    </div>
+                                </td>
+                                <td><span class="{{ creditStatusClass }}">{{ item.statut|default('—') }}</span></td>
+                                <td><span class="nx-acc__tag is-épargne">{{ item.typeCredit|default('—') }}</span></td>
+                                <td>
+                                    <div class="nx-acc__owner">
+                                        <div class="nx-acc__owner-dot">{{ item.user_name|default('?')|first|upper }}</div>
+                                        <div class="nx-acc__owner-name" style="display:flex;flex-direction:column;">
+                                            <span>{{ item.user_name|default('—') }}</span>
+                                            <span style="font-size:11px;color:var(--na-muted);">Salaire {{ item.salaire|default(0)|number_format(2, '.', ' ') }} DT</span>
+                                        </div>
                                     </div>
                                 </td>
                                 <td>
-                                    <span class="nx-crud-tag {{ creditStatusClass }}">{{ item.statut|default('—') }}</span>
-                                </td>
-                                <td><span class="nx-crud-tag nx-crud-tag--type">{{ item.typeCredit|default('—') }}</span></td>
-                                <td>
-                                    <div class="nx-crud-owner">
-                                        <span class="nx-crud-owner-dot">{{ item.user_name|default('?')|first|upper }}</span>
-                                        <span class="nx-crud-owner-name">
-                                            <strong>{{ item.user_name|default('—') }}</strong>
-                                            <small>Salaire {{ item.salaire|default(0)|number_format(2, '.', ' ') }} DT</small>
+                                    <div class="nx-acc__progress-wrap">
+                                        <div class="nx-acc__progress-bar">
+                                            <div class="nx-acc__progress-fill" style="width: {{ risk }}%; background: {{ riskColor }};"></div>
+                                        </div>
+                                        <span class="nx-acc__progress-label" style="display:flex;justify-content:space-between;width:100%;">
+                                           <span>Score</span>
+                                           <span>{{ risk }}/100</span>
                                         </span>
                                     </div>
                                 </td>
-                                <td><span class="nx-crud-risk {{ creditRiskClass }}">{{ item.risk_score }}/100</span></td>
-                                <td class="nx-cell-actions">
-                                    {% set creditUserId = item.idUser|default(null) %}
-                                    <button
-                                        class="btn btn-secondary btn-sm nx-credit-edit-btn"
-                                        type="button"
-                                        title="Modifier ce credit"
-                                        aria-label="Modifier ce credit"
-                                    >
-                                        <i class="fa-solid fa-pen-to-square"></i>
-                                    </button>
-                                    {% if creditUserId %}
-                                        <a
-                                            class="btn btn-secondary btn-sm"
-                                            href="{{ path('admin_credits_export_pdf', { kind: 'credits' }) ~ '?userId=' ~ creditUserId }}"
-                                            target="_blank"
-                                            rel="noopener"
-                                            title="Exporter PDF de cet utilisateur"
-                                            aria-label="Exporter PDF de cet utilisateur"
-                                        >
-                                            <i class="fa-solid fa-file-pdf"></i>
-                                        </a>
-                                    {% endif %}
-                                    <form method="post">
-                                        <input type="hidden" name="tab" value="credits">
-                                        <input type="hidden" name="panel" value="credit">
-                                        <input type="hidden" name="action" value="credit_delete">
-                                        <input type="hidden" name="idCredit" value="{{ item.idCredit }}">
-                                        <button class="btn btn-danger btn-sm"
-                                                type="submit"
-                                                aria-label="Supprimer ce credit"
-                                                onclick="return confirm('Supprimer ce crédit ?')">
-                                            <i class="fa-solid fa-trash-can"></i>
-                                        </button>
-                                    </form>
+                                <td>
+                                    <div style="display:flex;gap:4px;">
+                                        <button class="na-btn na-btn--ghost-dark nx-credit-edit-btn" type="button" aria-label="Modifier"><i class="fa-solid fa-pen"></i></button>
+                                        {% if item.idUser|default(null) %}
+                                            <a class="na-btn na-btn--ghost-dark" href="{{ path('admin_credits_export_pdf', { kind: 'credits' }) ~ '?userId=' ~ item.idUser }}" target="_blank"><i class="fa-solid fa-file-pdf"></i></a>
+                                        {% endif %}
+                                        <form method="post" style="margin:0;">
+                                            <input type="hidden" name="tab" value="credits">
+                                            <input type="hidden" name="panel" value="credit">
+                                            <input type="hidden" name="action" value="credit_delete">
+                                            <input type="hidden" name="idCredit" value="{{ item.idCredit }}">
+                                            <button class="na-btn na-btn--danger" type="submit" onclick="return confirm('Confirmer la suppression ?')"><i class="fa-solid fa-trash"></i></button>
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                         {% else %}
-                            <tr class="nx-empty-row">
-                                <td colspan="9">
-                                    Aucun crédit enregistré.
-                                </td>
-                            </tr>
+                            <tr><td colspan="9" class="nx-acc__empty"><i class="fa-solid fa-folder-open fa-2x"></i><br>Aucun crédit.</td></tr>
                         {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+                    </tbody>
+                </table>
+                <div class="nx-table-pager" id="nx-credit-pager" hidden></div>
             </article>
         </div>
     {% endif %}
 
 </section>
-
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 (() => {
-    const moduleRoot = document.querySelector('.nx-module-screen');
-    if (!(moduleRoot instanceof HTMLElement)) {
-        return;
-    }
+    const moduleRoot = document.querySelector('.nx-module-screen') || document.querySelector('.nx-acc');
+    if (!moduleRoot) return;
 
-    const currentDate = (moduleRoot.dataset.currentDate ?? '').trim();
-    const activePanel = (moduleRoot.dataset.activePanel ?? 'credit').trim();
+    const currentDate = (moduleRoot.dataset.currentDate || '').trim();
 
     const parseNumber = (value) => {
-        const normalized = String(value ?? '').replace(',', '.').trim();
-        if (normalized === '') {
-            return Number.NaN;
-        }
-
+        const normalized = String(value || '').replace(',', '.').trim();
+        if (normalized === '') return Number.NaN;
         const parsed = Number(normalized);
-
         return Number.isFinite(parsed) ? parsed : Number.NaN;
     };
 
     const normalizeIsoDate = (value) => {
-        const raw = String(value ?? '').trim();
-        if (raw === '') {
-            return '';
-        }
-
+        const raw = String(value || '').trim();
+        if (raw === '') return '';
         const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
-        if (isoMatch) {
-            return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
-        }
-
-        const frMatch = raw.match(/^(\d{2})[/-](\d{2})[/-](\d{4})$/);
-        if (frMatch) {
-            return `${frMatch[3]}-${frMatch[2]}-${frMatch[1]}`;
-        }
-
+        if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+        const frMatch = raw.match(/^(\d{2})[\/-](\d{2})[\/-](\d{4})$/);
+        if (frMatch) return `${frMatch[3]}-${frMatch[2]}-${frMatch[1]}`;
         return raw.length >= 10 ? raw.slice(0, 10) : raw;
     };
 
     const setFieldValue = (form, fieldName, value) => {
-        if (!(form instanceof HTMLFormElement)) {
-            return;
-        }
-
+        if (!form) return;
         const field = form.querySelector(`[name="${fieldName}"]`);
-        if (!(field instanceof HTMLInputElement) && !(field instanceof HTMLSelectElement) && !(field instanceof HTMLTextAreaElement)) {
-            return;
-        }
-
-        field.value = value ?? '';
+        if (field) field.value = value || '';
     };
 
     const scrollToForm = (form) => {
-        const card = form?.closest('.nx-crud-form-card');
-        if (card instanceof HTMLElement) {
-            card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        const card = form?.closest('.nx-acc__panel');
+        if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
-    const creditForm = document.getElementById('nx-credit-form');
-    const creditIdInput = document.getElementById('nx-credit-id');
-    const userSelect = document.getElementById('nx-credit-user');
-    const accountSelect = document.getElementById('nx-credit-account');
-    const creditAmountInput = document.getElementById('nx-credit-amount');
-    const creditDurationInput = document.getElementById('nx-credit-duration');
-    const creditRateInput = document.getElementById('nx-credit-rate');
-    const creditMonthlyInput = document.getElementById('nx-credit-mensualite');
-    const creditApprovedInput = document.getElementById('nx-credit-approved');
-    const creditDateInput = document.getElementById('nx-credit-date');
+    /* Validation Display Logic */
+    const setFieldError = (field, messageElement, errorText) => {
+        if (field) { field.classList.add('is-invalid'); field.classList.remove('is-valid'); }
+        if (messageElement) {
+            messageElement.textContent = errorText;
+            messageElement.classList.add('is-visible');
+        }
+        return false;
+    };
+    const setFieldOk = (field, messageElement) => {
+        if (field) { field.classList.remove('is-invalid'); field.classList.add('is-valid'); }
+        if (messageElement) { messageElement.classList.remove('is-visible'); messageElement.textContent = ''; }
+        return true;
+    };
+    const clearFieldValidation = (field, messageElement) => {
+        if (field) { field.classList.remove('is-invalid', 'is-valid'); }
+        if (messageElement) { messageElement.classList.remove('is-visible'); messageElement.textContent = ''; }
+    };
 
+    // ────────────────────────────────────────────────────────────────────────
+    // CREDITS FORM & VALIDATION
+    // ────────────────────────────────────────────────────────────────────────
+    const creditForm = document.getElementById('nx-credit-form');
     let templateAccountOptions = [];
 
+    const getField = (id) => document.getElementById(id);
+    const getErrMsg = (id) => document.getElementById(`cr-err-${id}`);
+
+    const crFields = {
+        amount: getField('nx-credit-amount'),
+        duration: getField('nx-credit-duration'),
+        rate: getField('nx-credit-rate'),
+        monthly: getField('nx-credit-mensualite'),
+        approved: getField('nx-credit-approved'),
+        autofinanc: getField('nx-credit-autofinancement'),
+        date: getField('nx-credit-date'),
+        salary: getField('nx-credit-salary'),
+        seniority: getField('nx-credit-seniority'),
+        user: getField('nx-credit-user'),
+        account: getField('nx-credit-account'),
+        type: getField('nx-credit-type'),
+        contract: getField('nx-credit-contract')
+    };
+
     const renderAccountOptions = (preferredValue = null) => {
-        if (!(userSelect instanceof HTMLSelectElement) || !(accountSelect instanceof HTMLSelectElement)) {
-            return;
-        }
-
-        const selectedUserId = userSelect.value;
-        const previousValue = preferredValue ?? accountSelect.value;
-
-        accountSelect.innerHTML = '';
-
+        if (!crFields.user || !crFields.account) return;
+        const selectedUserId = crFields.user.value;
+        const previousValue = preferredValue || crFields.account.value;
+        crFields.account.innerHTML = '';
         const placeholder = document.createElement('option');
         placeholder.value = '';
-        placeholder.textContent = 'Selectionner un compte';
-        accountSelect.appendChild(placeholder);
-
+        placeholder.textContent = 'Sélectionner un compte';
+        crFields.account.appendChild(placeholder);
+        
         let visibleCount = 0;
         templateAccountOptions.forEach((opt) => {
-            if (opt.value === '') {
-                return;
-            }
-
-            const allowed = selectedUserId === '' || opt.userId === '' || opt.userId === selectedUserId;
-            if (!allowed) {
-                return;
-            }
-
+            if (opt.value === '') return;
+            if (selectedUserId !== '' && opt.userId !== '' && opt.userId !== selectedUserId) return;
             const option = document.createElement('option');
             option.value = opt.value;
             option.textContent = opt.label;
             option.dataset.userId = opt.userId;
-            accountSelect.appendChild(option);
-            visibleCount += 1;
+            crFields.account.appendChild(option);
+            visibleCount++;
         });
 
         if (visibleCount === 0) {
-            placeholder.textContent = selectedUserId === '' ? 'Aucun compte disponible' : 'Aucun compte pour cet utilisateur';
-            placeholder.selected = true;
-            accountSelect.disabled = true;
-            return;
+            placeholder.textContent = selectedUserId === '' ? 'Aucun compte' : 'Aucun compte pour cet utilisateur';
+            crFields.account.disabled = true;
+        } else {
+            crFields.account.disabled = false;
         }
-
-        accountSelect.disabled = false;
-        const hasPrevious = Array.from(accountSelect.options).some((option) => option.value === previousValue);
-        accountSelect.value = hasPrevious ? previousValue : '';
+        crFields.account.value = Array.from(crFields.account.options).some(o => o.value === previousValue) ? previousValue : '';
     };
 
     const recalculateCreditFields = () => {
-        if (!(creditAmountInput instanceof HTMLInputElement)
-            || !(creditDurationInput instanceof HTMLInputElement)
-            || !(creditRateInput instanceof HTMLInputElement)
-            || !(creditMonthlyInput instanceof HTMLInputElement)
-            || !(creditApprovedInput instanceof HTMLInputElement)) {
-            return;
-        }
-
-        const amount = parseNumber(creditAmountInput.value);
-        const duration = parseNumber(creditDurationInput.value);
-        const rate = parseNumber(creditRateInput.value);
+        if (!crFields.amount || !crFields.duration || !crFields.rate || !crFields.monthly || !crFields.approved) return;
+        const amount = parseNumber(crFields.amount.value);
+        const duration = parseNumber(crFields.duration.value);
+        const rate = parseNumber(crFields.rate.value);
 
         if (!(amount > 0) || !(duration > 0)) {
-            if (creditMonthlyInput.dataset.manual !== '1') {
-                creditMonthlyInput.value = '';
-            }
-            if (creditApprovedInput.dataset.manual !== '1') {
-                creditApprovedInput.value = '';
-            }
+            if (crFields.monthly.dataset.manual !== '1') crFields.monthly.value = '';
+            if (crFields.approved.dataset.manual !== '1') crFields.approved.value = '';
             return;
         }
 
         const monthlyRate = Math.max(0, rate) / 100 / 12;
-        const mensualite = monthlyRate <= 0
-            ? amount / duration
-            : (amount * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -duration));
+        const mensualite = monthlyRate <= 0 ? amount / duration : (amount * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -duration));
 
-        if (creditMonthlyInput.dataset.manual !== '1' || creditMonthlyInput.value.trim() === '') {
-            creditMonthlyInput.value = mensualite.toFixed(2);
+        if (crFields.monthly.dataset.manual !== '1' || crFields.monthly.value.trim() === '') {
+            crFields.monthly.value = mensualite.toFixed(2);
         }
-        if (creditApprovedInput.dataset.manual !== '1' || creditApprovedInput.value.trim() === '') {
-            creditApprovedInput.value = amount.toFixed(2);
+        if (crFields.approved.dataset.manual !== '1' || crFields.approved.value.trim() === '') {
+            crFields.approved.value = amount.toFixed(2);
         }
     };
 
-    if (creditForm instanceof HTMLFormElement
-        && userSelect instanceof HTMLSelectElement
-        && accountSelect instanceof HTMLSelectElement) {
-        templateAccountOptions = Array.from(accountSelect.options).map((option) => ({
-            value: option.value,
-            label: option.textContent ?? '',
-            userId: option.dataset.userId ?? '',
-        }));
-
-        userSelect.addEventListener('change', () => {
-            renderAccountOptions();
-            const creditExportSelect = document.getElementById('nx-export-credit-user');
-            if (creditExportSelect instanceof HTMLSelectElement) {
-                creditExportSelect.value = userSelect.value;
-            }
-        });
-
-        renderAccountOptions();
-    }
-
-    if (creditMonthlyInput instanceof HTMLInputElement) {
-        creditMonthlyInput.dataset.manual = '0';
-        creditMonthlyInput.addEventListener('input', () => {
-            if (creditForm?.dataset.filling !== '1') {
-                creditMonthlyInput.dataset.manual = '1';
-            }
-        });
-    }
-    if (creditApprovedInput instanceof HTMLInputElement) {
-        creditApprovedInput.dataset.manual = '0';
-        creditApprovedInput.addEventListener('input', () => {
-            if (creditForm?.dataset.filling !== '1') {
-                creditApprovedInput.dataset.manual = '1';
-            }
-        });
-    }
-
-    [creditAmountInput, creditDurationInput, creditRateInput].forEach((input) => {
-        if (input instanceof HTMLInputElement) {
-            input.addEventListener('input', recalculateCreditFields);
-            input.addEventListener('change', recalculateCreditFields);
+    const validateCreditField = (fieldName) => {
+        let field = null, err = null, val = '';
+        switch(fieldName) {
+            case 'idUser': field = crFields.user; err = getErrMsg('idUser'); break;
+            case 'idCompte': field = crFields.account; err = getErrMsg('idCompte'); break;
+            case 'typeCredit': field = crFields.type; err = getErrMsg('typeCredit'); break;
+            case 'montantDemande': field = crFields.amount; err = getErrMsg('montantDemande'); break;
+            case 'duree': field = crFields.duration; err = getErrMsg('duree'); break;
+            case 'tauxInteret': field = crFields.rate; err = getErrMsg('tauxInteret'); break;
+            case 'autofinancement': field = crFields.autofinanc; err = getErrMsg('autofinancement'); break;
+            case 'mensualite': field = crFields.monthly; err = getErrMsg('mensualite'); break;
+            case 'montantAccorde': field = crFields.approved; err = getErrMsg('montantAccorde'); break;
+            case 'dateDemande': field = crFields.date; err = getErrMsg('dateDemande'); break;
+            case 'salaire': field = crFields.salary; err = getErrMsg('salaire'); break;
+            case 'typeContrat': field = crFields.contract; err = getErrMsg('typeContrat'); break;
         }
-    });
+        if (!field) return true;
+        val = field.value.trim();
 
-    if (creditForm instanceof HTMLFormElement) {
+        if (fieldName === 'idUser') {
+            if (!val) return setFieldError(field, err, 'L\'utilisateur est requis.');
+            return setFieldOk(field, err);
+        }
+        if (fieldName === 'idCompte') {
+            if (!val) return setFieldError(field, err, 'Le compte est requis.');
+            return setFieldOk(field, err);
+        }
+        if (fieldName === 'typeCredit') {
+            if (!val) return setFieldError(field, err, 'Le type de crédit est requis.');
+            return setFieldOk(field, err);
+        }
+        if (fieldName === 'typeContrat') {
+            if (!val) return setFieldError(field, err, 'Le type de contrat est requis.');
+            return setFieldOk(field, err);
+        }
+        if (fieldName === 'montantDemande') {
+            const num = parseNumber(val);
+            if (!val) return setFieldError(field, err, 'Le montant est requis.');
+            if (num <= 0) return setFieldError(field, err, 'Le montant doit être positif.');
+            if (num < 100 || num > 500000) return setFieldError(field, err, 'Le montant doit être entre 100 et 500k DT.');
+            return setFieldOk(field, err);
+        }
+        if (fieldName === 'duree') {
+            const num = parseNumber(val);
+            if (!val) return setFieldError(field, err, 'La durée est requise.');
+            if (num <= 0 || num > 360 || !Number.isInteger(num)) return setFieldError(field, err, 'Durée invalide (1-360 mois).');
+            return setFieldOk(field, err);
+        }
+        if (fieldName === 'tauxInteret') {
+            const num = parseNumber(val);
+            if (!val) return setFieldError(field, err, 'Le taux est requis.');
+            if (num < 0 || num > 30) return setFieldError(field, err, 'Taux invalide (0-30%).');
+            return setFieldOk(field, err);
+        }
+        if (fieldName === 'mensualite' || fieldName === 'montantAccorde' || fieldName === 'autofinancement') {
+             if (val && parseNumber(val) < 0) return setFieldError(field, err, 'La valeur ne peut pas être négative.');
+             return setFieldOk(field, err);
+        }
+        if (fieldName === 'salaire') {
+            const num = parseNumber(val);
+            if (!val) return setFieldError(field, err, 'Le salaire est requis.');
+            if (num <= 0) return setFieldError(field, err, 'Le salaire doit être positif.');
+            return setFieldOk(field, err);
+        }
+        if (fieldName === 'dateDemande') {
+            if (!val) return setFieldError(field, err, 'Date requise.');
+            return setFieldOk(field, err);
+        }
+        return true;
+    };
+
+    if (creditForm) {
+        if (crFields.account) {
+            templateAccountOptions = Array.from(crFields.account.options).map(o => ({ value: o.value, label: o.textContent, userId: o.dataset.userId || '' }));
+            crFields.user?.addEventListener('change', () => { renderAccountOptions(); validateCreditField('idUser'); });
+            crFields.account?.addEventListener('change', () => { validateCreditField('idCompte'); });
+            renderAccountOptions();
+        }
+
+        ['amount', 'duration', 'rate'].forEach(key => {
+            crFields[key]?.addEventListener('input', () => { recalculateCreditFields(); validateCreditField('montantDemande'); validateCreditField('duree'); validateCreditField('tauxInteret'); });
+        });
+
+        ['monthly', 'approved'].forEach(key => {
+            if (crFields[key]) {
+                crFields[key].dataset.manual = '0';
+                crFields[key].addEventListener('input', () => { if (creditForm.dataset.filling !== '1') crFields[key].dataset.manual = '1'; validateCreditField(key === 'monthly' ? 'mensualite' : 'montantAccorde'); });
+            }
+        });
+
+        Object.keys(crFields).forEach(key => {
+            if (crFields[key] && !['amount','duration','rate','monthly','approved','user','account'].includes(key)) {
+                crFields[key].addEventListener('input', () => validateCreditField(crFields[key].name));
+            }
+        });
+
+        creditForm.addEventListener('submit', (e) => {
+            recalculateCreditFields();
+            const fields = ['idUser', 'idCompte', 'typeCredit', 'montantDemande', 'duree', 'tauxInteret', 'mensualite', 'dateDemande', 'salaire', 'typeContrat'];
+            const valid = fields.map(validateCreditField).every(r => r);
+            if (!valid) e.preventDefault();
+        });
+
         creditForm.addEventListener('reset', () => {
-            window.setTimeout(() => {
-                if (creditIdInput instanceof HTMLInputElement) {
-                    creditIdInput.value = '';
-                }
-                if (creditMonthlyInput instanceof HTMLInputElement) {
-                    creditMonthlyInput.dataset.manual = '0';
-                }
-                if (creditApprovedInput instanceof HTMLInputElement) {
-                    creditApprovedInput.dataset.manual = '0';
-                }
-                if (creditDateInput instanceof HTMLInputElement && creditDateInput.value === '' && currentDate !== '') {
-                    creditDateInput.value = currentDate;
-                }
+            setTimeout(() => {
+                getField('nx-credit-id').value = '';
+                crFields.monthly.dataset.manual = '0';
+                crFields.approved.dataset.manual = '0';
+                if (crFields.date && crFields.date.value === '') crFields.date.value = currentDate;
                 setFieldValue(creditForm, 'statut', 'En attente');
                 renderAccountOptions();
                 recalculateCreditFields();
+                Object.keys(crFields).forEach(k => { if(crFields[k]) clearFieldValidation(crFields[k], getErrMsg(crFields[k].name)); });
             }, 0);
-        });
-
-        creditForm.addEventListener('submit', (event) => {
-            const monthly = parseNumber(creditMonthlyInput instanceof HTMLInputElement ? creditMonthlyInput.value : '');
-            if (!Number.isFinite(monthly) || monthly <= 0) {
-                event.preventDefault();
-                if (creditMonthlyInput instanceof HTMLInputElement) {
-                    creditMonthlyInput.focus();
-                }
-                window.alert('Mensualite invalide. Verifiez le montant, la duree et le taux.');
-            }
         });
     }
 
-    document.querySelectorAll('.nx-credit-edit-btn').forEach((button) => {
-        button.addEventListener('click', () => {
-            if (!(creditForm instanceof HTMLFormElement)) {
-                return;
-            }
-
-            const row = button.closest('.nx-credit-row');
-            if (!(row instanceof HTMLElement)) {
-                return;
-            }
+    document.querySelectorAll('.nx-credit-edit-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (!creditForm) return;
+            const row = btn.closest('.nx-credit-row');
+            if (!row) return;
 
             creditForm.dataset.filling = '1';
-            setFieldValue(creditForm, 'idCredit', row.dataset.creditId ?? '');
-            setFieldValue(creditForm, 'idUser', row.dataset.creditUserId ?? '');
-            setFieldValue(creditForm, 'typeCredit', row.dataset.creditType ?? '');
-            setFieldValue(creditForm, 'montantDemande', row.dataset.creditAmount ?? '');
-            setFieldValue(creditForm, 'autofinancement', row.dataset.creditAutofinancement ?? '');
-            setFieldValue(creditForm, 'duree', row.dataset.creditDuration ?? '');
-            setFieldValue(creditForm, 'tauxInteret', row.dataset.creditRate ?? '');
-            setFieldValue(creditForm, 'mensualite', row.dataset.creditMonthly ?? '');
-            setFieldValue(creditForm, 'montantAccorde', row.dataset.creditApproved ?? '');
-            setFieldValue(creditForm, 'dateDemande', normalizeIsoDate(row.dataset.creditDate ?? ''));
-            setFieldValue(creditForm, 'statut', row.dataset.creditStatus ?? 'En attente');
-            setFieldValue(creditForm, 'salaire', row.dataset.creditSalary ?? '');
-            setFieldValue(creditForm, 'typeContrat', row.dataset.creditContract ?? '');
-            setFieldValue(creditForm, 'ancienneteAnnees', row.dataset.creditSeniority ?? '');
+            setFieldValue(creditForm, 'idCredit', row.dataset.creditId);
+            setFieldValue(creditForm, 'idUser', row.dataset.creditUserId);
+            setFieldValue(creditForm, 'typeCredit', row.dataset.creditType);
+            setFieldValue(creditForm, 'montantDemande', row.dataset.creditAmount);
+            setFieldValue(creditForm, 'autofinancement', row.dataset.creditAutofinancement);
+            setFieldValue(creditForm, 'duree', row.dataset.creditDuration);
+            setFieldValue(creditForm, 'tauxInteret', row.dataset.creditRate);
+            setFieldValue(creditForm, 'mensualite', row.dataset.creditMonthly);
+            setFieldValue(creditForm, 'montantAccorde', row.dataset.creditApproved);
+            setFieldValue(creditForm, 'dateDemande', normalizeIsoDate(row.dataset.creditDate));
+            setFieldValue(creditForm, 'statut', row.dataset.creditStatus || 'En attente');
+            setFieldValue(creditForm, 'salaire', row.dataset.creditSalary);
+            setFieldValue(creditForm, 'typeContrat', row.dataset.creditContract);
+            setFieldValue(creditForm, 'ancienneteAnnees', row.dataset.creditSeniority);
 
-            if (userSelect instanceof HTMLSelectElement) {
-                userSelect.value = row.dataset.creditUserId ?? '';
-            }
-            renderAccountOptions(row.dataset.creditAccountId ?? '');
+            if (crFields.user) crFields.user.value = row.dataset.creditUserId || '';
+            renderAccountOptions(row.dataset.creditAccountId || '');
 
-            if (creditMonthlyInput instanceof HTMLInputElement) {
-                creditMonthlyInput.dataset.manual = '1';
-            }
-            if (creditApprovedInput instanceof HTMLInputElement) {
-                creditApprovedInput.dataset.manual = '1';
-            }
+            if (crFields.monthly) crFields.monthly.dataset.manual = '1';
+            if (crFields.approved) crFields.approved.dataset.manual = '1';
 
             delete creditForm.dataset.filling;
+            Object.keys(crFields).forEach(k => { if(crFields[k]) clearFieldValidation(crFields[k], getErrMsg(crFields[k].name)); });
+            // validate valid fields to show green
+            ['idUser', 'idCompte', 'typeCredit', 'montantDemande', 'duree', 'tauxInteret', 'salaire', 'typeContrat'].forEach(validateCreditField);
+
             scrollToForm(creditForm);
         });
     });
 
+    // ────────────────────────────────────────────────────────────────────────
+    // GARANTIE FORM & VALIDATION
+    // ────────────────────────────────────────────────────────────────────────
     const garantieForm = document.getElementById('nx-garantie-form');
-    const garantieIdInput = document.getElementById('nx-garantie-id');
-    const garantieEstimatedInput = document.getElementById('nx-garantie-estimated');
-    const garantieRetainedInput = document.getElementById('nx-garantie-retained');
-    const garantieDateInput = document.getElementById('nx-garantie-date');
+    
+    // Check if garantie variables are present
+    const gCredit = getField('nx-garantie-credit');
+    const gType = getField('nx-garantie-type');
+    const gEstimated = getField('nx-garantie-estimated');
+    const gRetained = getField('nx-garantie-retained');
+    const gGuarantor = getField('nx-garantie-guarantor');
+    const gAddress = getField('nx-garantie-address');
+    const gDesc = getField('nx-garantie-desc');
+    const gDate = getField('nx-garantie-date');
+    const gDoc = getField('nx-garantie-file');
+    const gDocExisting = getField('nx-garantie-file-existing');
 
-    const validateGarantieValues = () => {
-        if (!(garantieEstimatedInput instanceof HTMLInputElement) || !(garantieRetainedInput instanceof HTMLInputElement)) {
-            return true;
+    const validateGarantieField = (fieldName) => {
+        let field = null, err = null, val = '';
+        switch(fieldName) {
+            case 'idCredit': field = gCredit; err = getErrMsg('garantie-idCredit'); break;
+            case 'typeGarantie': field = gType; err = getErrMsg('garantie-typeGarantie'); break;
+            case 'valeurEstimee': field = gEstimated; err = getErrMsg('garantie-valeurEstimee'); break;
+            case 'valeurRetenue': field = gRetained; err = getErrMsg('garantie-valeurRetenue'); break;
+            case 'nomGarant': field = gGuarantor; err = getErrMsg('garantie-nomGarant'); break;
+            case 'adresseBien': field = gAddress; err = getErrMsg('garantie-adresseBien'); break;
+            case 'description': field = gDesc; err = getErrMsg('garantie-description'); break;
+            case 'dateEvaluation': field = gDate; err = getErrMsg('garantie-dateEvaluation'); break;
+            case 'documentJustificatif': field = gDoc; err = getErrMsg('garantie-documentJustificatif'); break;
         }
+        if (!field && fieldName !== 'documentJustificatif') return true;
+        if (field) val = field.value.trim();
 
-        garantieEstimatedInput.setCustomValidity('');
-        garantieRetainedInput.setCustomValidity('');
-
-        const estimated = parseNumber(garantieEstimatedInput.value);
-        const retained = parseNumber(garantieRetainedInput.value);
-
-        if (!Number.isFinite(estimated) || estimated <= 0) {
-            garantieEstimatedInput.setCustomValidity('Valeur estimee invalide.');
-            return false;
+        if (fieldName === 'idCredit') {
+            if (!val) return setFieldError(field, err, 'Veuillez sélectionner un crédit associé.');
+            return setFieldOk(field, err);
         }
-
-        if (!Number.isFinite(retained) || retained <= 0) {
-            garantieRetainedInput.setCustomValidity('Valeur retenue invalide.');
-            return false;
+        if (fieldName === 'typeGarantie') {
+            if (!val) return setFieldError(field, err, 'Veuillez sélectionner un type.');
+            return setFieldOk(field, err);
         }
-
-        if (retained > estimated) {
-            garantieRetainedInput.setCustomValidity('La valeur retenue ne peut pas depasser la valeur estimee.');
-            return false;
+        if (fieldName === 'valeurEstimee') {
+            const num = parseNumber(val);
+            if (!val) return setFieldError(field, err, 'Valeur estimée requise.');
+            if (num <= 0) return setFieldError(field, err, 'La valeur doit être positive.');
+            return setFieldOk(field, err);
         }
-
+        if (fieldName === 'valeurRetenue') {
+            const rnum = parseNumber(val);
+            const enum_ = gEstimated ? parseNumber(gEstimated.value) : 0;
+            if (!val) return setFieldError(field, err, 'Valeur retenue requise.');
+            if (rnum <= 0) return setFieldError(field, err, 'La valeur doit être positive.');
+            if (enum_ > 0 && rnum > enum_) return setFieldError(field, err, 'Ne doit pas dépasser l\'estimée.');
+            return setFieldOk(field, err);
+        }
+        if (fieldName === 'description') {
+            if (!val) return setFieldError(field, err, 'Description requise.');
+            if (val.length < 5) return setFieldError(field, err, 'Description trop courte.');
+            return setFieldOk(field, err);
+        }
+        if (fieldName === 'adresseBien') {
+            if (!val) return setFieldError(field, err, 'Adresse requise.');
+            if (val.length < 5) return setFieldError(field, err, 'Adresse trop courte.');
+            return setFieldOk(field, err);
+        }
+        if (fieldName === 'nomGarant') {
+            if (!val) return setFieldError(field, err, 'Garant requis.');
+            return setFieldOk(field, err);
+        }
+        if (fieldName === 'dateEvaluation') {
+             if (!val) return setFieldError(field, err, 'Date requise.');
+             return setFieldOk(field, err);
+        }
+        if (fieldName === 'documentJustificatif') {
+            const existingPath = gDocExisting ? gDocExisting.value.trim() : '';
+            const file = gDoc?.files?.[0];
+            const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+            if (file && !allowed.includes(file.type)) return setFieldError(gDoc, err, 'Image invalide.');
+            if (!file && !existingPath) return setFieldError(gDoc, err, 'Justificatif requis.');
+            return setFieldOk(gDoc, err);
+        }
         return true;
     };
 
     const syncRetainedValue = () => {
-        if (!(garantieEstimatedInput instanceof HTMLInputElement) || !(garantieRetainedInput instanceof HTMLInputElement)) {
-            return;
-        }
-
-        const estimated = parseNumber(garantieEstimatedInput.value);
-        if (!Number.isFinite(estimated) || estimated <= 0) {
-            return;
-        }
-
-        if (garantieRetainedInput.dataset.manual !== '1' || garantieRetainedInput.value.trim() === '') {
-            garantieRetainedInput.value = (estimated * 0.8).toFixed(2);
+        if (!gEstimated || !gRetained) return;
+        const est = parseNumber(gEstimated.value);
+        if (est > 0 && gRetained.dataset.manual !== '1') {
+            gRetained.value = (est * 0.8).toFixed(2);
         }
     };
 
-    if (garantieRetainedInput instanceof HTMLInputElement) {
-        garantieRetainedInput.dataset.manual = '0';
-        garantieRetainedInput.addEventListener('input', () => {
-            if (garantieForm?.dataset.filling !== '1') {
-                garantieRetainedInput.dataset.manual = '1';
-            }
-            validateGarantieValues();
-        });
-    }
+    if (garantieForm) {
+        const hooks = [
+            { id: 'idCredit', f: gCredit },
+            { id: 'typeGarantie', f: gType },
+            { id: 'nomGarant', f: gGuarantor },
+            { id: 'adresseBien', f: gAddress },
+            { id: 'description', f: gDesc },
+            { id: 'dateEvaluation', f: gDate }
+        ];
 
-    if (garantieEstimatedInput instanceof HTMLInputElement) {
-        garantieEstimatedInput.addEventListener('input', () => {
+        hooks.forEach(h => {
+            if (h.f) h.f.addEventListener('input', () => validateGarantieField(h.id));
+        });
+
+        if (gEstimated) gEstimated.addEventListener('input', () => { syncRetainedValue(); validateGarantieField('valeurEstimee'); validateGarantieField('valeurRetenue'); });
+        if (gRetained) gRetained.addEventListener('input', () => { gRetained.dataset.manual = '1'; validateGarantieField('valeurRetenue'); });
+        if (gDoc) gDoc.addEventListener('change', () => validateGarantieField('documentJustificatif'));
+
+        garantieForm.addEventListener('submit', (e) => {
             syncRetainedValue();
-            validateGarantieValues();
+            const fields = ['idCredit', 'typeGarantie', 'valeurEstimee', 'valeurRetenue', 'nomGarant', 'adresseBien', 'description', 'dateEvaluation', 'documentJustificatif'];
+            const valid = fields.map(validateGarantieField).every(v => v);
+            if (!valid) e.preventDefault();
         });
-    }
 
-    if (garantieForm instanceof HTMLFormElement) {
         garantieForm.addEventListener('reset', () => {
-            window.setTimeout(() => {
-                if (garantieIdInput instanceof HTMLInputElement) {
-                    garantieIdInput.value = '';
-                }
-                if (garantieRetainedInput instanceof HTMLInputElement) {
-                    garantieRetainedInput.dataset.manual = '0';
-                }
-                if (garantieDateInput instanceof HTMLInputElement && garantieDateInput.value === '' && currentDate !== '') {
-                    garantieDateInput.value = currentDate;
-                }
-                setFieldValue(garantieForm, 'statut', 'En attente');
+            setTimeout(() => {
+                getField('nx-garantie-id').value = '';
+                if (gRetained) gRetained.dataset.manual = '0';
+                if (gDate && gDate.value === '') gDate.value = currentDate;
+                setFieldValue(garantieForm, 'statut', 'Soumise');
+                if (gDocExisting) gDocExisting.value = '';
+                hooks.forEach(h => clearFieldValidation(h.f, getErrMsg(`garantie-${h.id}`)));
+                clearFieldValidation(gEstimated, getErrMsg('garantie-valeurEstimee'));
+                clearFieldValidation(gRetained, getErrMsg('garantie-valeurRetenue'));
+                clearFieldValidation(gDoc, getErrMsg('garantie-documentJustificatif'));
                 syncRetainedValue();
-                validateGarantieValues();
             }, 0);
         });
-
-        garantieForm.addEventListener('submit', (event) => {
-            syncRetainedValue();
-            if (!validateGarantieValues()) {
-                event.preventDefault();
-                if (garantieEstimatedInput instanceof HTMLInputElement && !garantieEstimatedInput.checkValidity()) {
-                    garantieEstimatedInput.reportValidity();
-                    garantieEstimatedInput.focus();
-                    return;
-                }
-                if (garantieRetainedInput instanceof HTMLInputElement) {
-                    garantieRetainedInput.reportValidity();
-                    garantieRetainedInput.focus();
-                }
-            }
-        });
     }
 
-    document.querySelectorAll('.nx-garantie-edit-btn').forEach((button) => {
-        button.addEventListener('click', () => {
-            if (!(garantieForm instanceof HTMLFormElement)) {
-                return;
-            }
+    document.querySelectorAll('.nx-garantie-edit-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (!garantieForm) return;
+            const row = btn.closest('.nx-garantie-row');
+            if (!row) return;
 
-            const row = button.closest('.nx-garantie-row');
-            if (!(row instanceof HTMLElement)) {
-                return;
-            }
+            setFieldValue(garantieForm, 'idGarantie', row.dataset.garantieId);
+            setFieldValue(garantieForm, 'idCredit', row.dataset.garantieCreditId);
+            setFieldValue(garantieForm, 'typeGarantie', row.dataset.garantieType);
+            setFieldValue(garantieForm, 'description', row.dataset.garantieDescription);
+            setFieldValue(garantieForm, 'adresseBien', row.dataset.garantieAddress);
+            setFieldValue(garantieForm, 'valeurEstimee', row.dataset.garantieEstimated);
+            setFieldValue(garantieForm, 'valeurRetenue', row.dataset.garantieRetained);
+            setFieldValue(garantieForm, 'dateEvaluation', normalizeIsoDate(row.dataset.garantieDate));
+            setFieldValue(garantieForm, 'nomGarant', row.dataset.garantieGuarantor);
+            setFieldValue(garantieForm, 'statut', row.dataset.garantieStatus || 'Soumise');
 
-            garantieForm.dataset.filling = '1';
-            setFieldValue(garantieForm, 'idGarantie', row.dataset.garantieId ?? '');
-            setFieldValue(garantieForm, 'idCredit', row.dataset.garantieCreditId ?? '');
-            setFieldValue(garantieForm, 'typeGarantie', row.dataset.garantieType ?? '');
-            setFieldValue(garantieForm, 'description', row.dataset.garantieDescription ?? '');
-            setFieldValue(garantieForm, 'adresseBien', row.dataset.garantieAddress ?? '');
-            setFieldValue(garantieForm, 'valeurEstimee', row.dataset.garantieEstimated ?? '');
-            setFieldValue(garantieForm, 'valeurRetenue', row.dataset.garantieRetained ?? '');
-            setFieldValue(garantieForm, 'documentJustificatif', row.dataset.garantieDocument ?? '');
-            setFieldValue(garantieForm, 'dateEvaluation', normalizeIsoDate(row.dataset.garantieDate ?? ''));
-            setFieldValue(garantieForm, 'nomGarant', row.dataset.garantieGuarantor ?? '');
-            setFieldValue(garantieForm, 'statut', row.dataset.garantieStatus ?? 'En attente');
-            delete garantieForm.dataset.filling;
+            if (gRetained && (row.dataset.garantieRetained || '').trim() !== '') gRetained.dataset.manual = '1';
+            if (gDocExisting) gDocExisting.value = row.dataset.garantieDocument || '';
+            if (gDoc) gDoc.value = '';
 
-            if (garantieRetainedInput instanceof HTMLInputElement) {
-                garantieRetainedInput.dataset.manual = '1';
-            }
-
-            validateGarantieValues();
+            // Run validation passively
+            ['idCredit', 'typeGarantie', 'description', 'adresseBien', 'valeurEstimee', 'valeurRetenue', 'dateEvaluation', 'nomGarant', 'documentJustificatif'].forEach(validateGarantieField);
             scrollToForm(garantieForm);
         });
     });
 
-    const setupTableTools = ({
-        tbodyId,
-        rowSelector,
-        emptyColspan,
-        searchId,
-        sortId,
-        emptyMessage,
-        comparators,
-        pageSize = 5,
-    }) => {
+    // ────────────────────────────────────────────────────────────────────────
+    // FILTER / SEARCH UTILITIES
+    // ────────────────────────────────────────────────────────────────────────
+    const filterTable = (searchInputId, selectSortId, tbodyId, rowClass, pagerId) => {
+        const searchInput = document.getElementById(searchInputId);
+        const sortSelect = document.getElementById(selectSortId);
         const tbody = document.getElementById(tbodyId);
-        const searchInput = document.getElementById(searchId);
-        const sortSelect = document.getElementById(sortId);
-        if (!(tbody instanceof HTMLTableSectionElement)) {
-            return;
-        }
-
-        const tableWrap = tbody.closest('.table-wrap');
+        const pager = document.getElementById(pagerId);
+        const pageSize = 8;
         let currentPage = 1;
+        if (!tbody || (!searchInput && !sortSelect)) return;
 
-        const pagination = document.createElement('div');
-        pagination.className = 'nx-table-pagination';
-        pagination.hidden = true;
+        const renderPager = (totalItems) => {
+            if (!(pager instanceof HTMLElement)) return;
 
-        const paginationInfo = document.createElement('div');
-        paginationInfo.className = 'nx-table-pagination-info';
+            const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+            currentPage = Math.min(Math.max(1, currentPage), totalPages);
+            pager.innerHTML = '';
+            pager.hidden = totalItems === 0;
+            if (pager.hidden) return;
 
-        const paginationControls = document.createElement('div');
-        paginationControls.className = 'nx-table-pagination-controls';
-
-        const prevButton = document.createElement('button');
-        prevButton.type = 'button';
-        prevButton.className = 'nx-page-nav';
-        prevButton.textContent = 'Precedent';
-
-        const pagesWrap = document.createElement('div');
-        pagesWrap.className = 'nx-table-pagination-pages';
-
-        const nextButton = document.createElement('button');
-        nextButton.type = 'button';
-        nextButton.className = 'nx-page-nav';
-        nextButton.textContent = 'Suivant';
-
-        paginationControls.appendChild(prevButton);
-        paginationControls.appendChild(pagesWrap);
-        paginationControls.appendChild(nextButton);
-        pagination.appendChild(paginationInfo);
-        pagination.appendChild(paginationControls);
-
-        if (tableWrap instanceof HTMLElement) {
-            tableWrap.insertAdjacentElement('afterend', pagination);
-        }
-
-        const getRows = () => Array.from(tbody.querySelectorAll(rowSelector));
-        const serverEmptyRow = tbody.querySelector('.nx-empty-row');
-        if (serverEmptyRow instanceof HTMLTableRowElement && getRows().length > 0) {
-            serverEmptyRow.remove();
-        }
-
-        let dynamicEmptyRow = null;
-
-        const ensureEmptyState = (shouldShow) => {
-            if (!shouldShow) {
-                if (dynamicEmptyRow instanceof HTMLTableRowElement) {
-                    dynamicEmptyRow.remove();
-                    dynamicEmptyRow = null;
-                }
-                return;
-            }
-
-            pagination.hidden = true;
-
-            if (!(dynamicEmptyRow instanceof HTMLTableRowElement)) {
-                dynamicEmptyRow = document.createElement('tr');
-                dynamicEmptyRow.className = 'nx-empty-row';
-                dynamicEmptyRow.innerHTML = `<td colspan="${emptyColspan}">${emptyMessage}</td>`;
-            }
-
-            if (!tbody.contains(dynamicEmptyRow)) {
-                tbody.appendChild(dynamicEmptyRow);
-            }
-        };
-
-        const normalizeText = (value) => String(value ?? '').toLowerCase().trim();
-        const normalizeNumber = (value) => {
-            const parsed = Number.parseFloat(String(value ?? '').replace(',', '.'));
-            return Number.isFinite(parsed) ? parsed : 0;
-        };
-
-        const createPageButton = (page, isActive) => {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = `nx-page-btn${isActive ? ' is-active' : ''}`;
-            button.textContent = String(page);
-            button.addEventListener('click', () => {
-                currentPage = page;
-                apply();
-            });
-            return button;
-        };
-
-        const createEllipsis = () => {
-            const ellipsis = document.createElement('span');
-            ellipsis.className = 'nx-page-ellipsis';
-            ellipsis.textContent = '...';
-            return ellipsis;
-        };
-
-        const renderPagination = (totalVisible) => {
-            const totalPages = totalVisible > 0 ? Math.ceil(totalVisible / pageSize) : 0;
-            pagesWrap.innerHTML = '';
-
-            if (totalPages <= 1) {
-                pagination.hidden = true;
-                return;
-            }
-
-            pagination.hidden = false;
-            paginationInfo.textContent = `Page ${currentPage} / ${totalPages} • ${totalVisible} resultat${totalVisible > 1 ? 's' : ''}`;
-            prevButton.disabled = currentPage <= 1;
-            nextButton.disabled = currentPage >= totalPages;
-
-            prevButton.onclick = () => {
-                if (currentPage > 1) {
-                    currentPage -= 1;
-                    apply();
-                }
+            const appendButton = (label, page, { icon = '', disabled = false, active = false, ariaLabel = '' } = {}) => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'nx-table-pager-btn';
+                btn.disabled = disabled;
+                btn.setAttribute('aria-label', ariaLabel || String(label));
+                btn.innerHTML = icon ? `<i class="${icon}"></i>` : String(label);
+                if (active) btn.classList.add('is-active');
+                btn.addEventListener('click', () => {
+                    if (disabled || page === currentPage) return;
+                    currentPage = page;
+                    applyState();
+                });
+                pager.appendChild(btn);
             };
 
-            nextButton.onclick = () => {
-                if (currentPage < totalPages) {
-                    currentPage += 1;
-                    apply();
-                }
-            };
-
-            const pages = [];
-            for (let page = 1; page <= totalPages; page += 1) {
-                if (page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1) {
-                    pages.push(page);
-                }
+            appendButton('Prev', Math.max(1, currentPage - 1), { icon: 'fa-solid fa-chevron-left', disabled: currentPage === 1, ariaLabel: 'Page precedente' });
+            const windowStart = Math.max(1, currentPage - 2);
+            const windowEnd = Math.min(totalPages, windowStart + 4);
+            for (let page = windowStart; page <= windowEnd; page += 1) {
+                appendButton(String(page), page, { active: page === currentPage });
             }
-
-            let previousPage = 0;
-            pages.forEach((page) => {
-                if (previousPage > 0 && page - previousPage > 1) {
-                    pagesWrap.appendChild(createEllipsis());
-                }
-                pagesWrap.appendChild(createPageButton(page, page === currentPage));
-                previousPage = page;
-            });
+            appendButton('Next', Math.min(totalPages, currentPage + 1), { icon: 'fa-solid fa-chevron-right', disabled: currentPage === totalPages, ariaLabel: 'Page suivante' });
         };
 
-        const apply = () => {
-            const rows = getRows();
-            const query = normalizeText(searchInput instanceof HTMLInputElement ? searchInput.value : '');
-            const sortKey = sortSelect instanceof HTMLSelectElement ? sortSelect.value : 'default';
-
-            if (rows.length === 0) {
-                ensureEmptyState(false);
-                pagination.hidden = true;
-                return;
-            }
+        const applyState = () => {
+            const query = (searchInput?.value || '').toLowerCase().trim();
+            const sortKey = sortSelect?.value || 'default';
+            const rows = Array.from(tbody.querySelectorAll(`.${rowClass}`));
 
             rows.forEach((row, index) => {
-                if (!row.dataset.originalIndex) {
-                    row.dataset.originalIndex = String(index);
-                }
-
-                const haystack = normalizeText(row.dataset.searchIndex || row.textContent || '');
-                row.hidden = !(query === '' || haystack.includes(query));
+                if (!row.dataset.originalIndex) row.dataset.originalIndex = index;
+                const indexText = (row.dataset.searchIndex || '').toLowerCase();
+                row.hidden = query !== '' && !indexText.includes(query);
             });
 
-            const visibleRows = rows.filter((row) => !row.hidden);
-            visibleRows.sort((left, right) => {
-                const comparator = comparators[sortKey];
-                if (typeof comparator === 'function') {
-                    return comparator(left, right, normalizeText, normalizeNumber);
+            const visibleRows = rows.filter(r => !r.hidden);
+            visibleRows.sort((a,b) => {
+                const idA = parseNumber(a.dataset.creditId || a.dataset.garantieId);
+                const idB = parseNumber(b.dataset.creditId || b.dataset.garantieId);
+
+                if (rowClass === 'nx-credit-row') {
+                    const amA = parseNumber(a.dataset.creditAmount);
+                    const amB = parseNumber(b.dataset.creditAmount);
+                    const moA = parseNumber(a.dataset.creditMonthly);
+                    const moB = parseNumber(b.dataset.creditMonthly);
+                    const rkA = parseNumber(a.dataset.creditRisk);
+                    const rkB = parseNumber(b.dataset.creditRisk);
+                    const statA = (a.dataset.creditStatus||'').toLowerCase();
+                    const statB = (b.dataset.creditStatus||'').toLowerCase();
+                    const usA = (a.querySelector('.nx-acc__owner-name span')?.textContent||'').toLowerCase();
+                    const usB = (b.querySelector('.nx-acc__owner-name span')?.textContent||'').toLowerCase();
+
+                    switch(sortKey) {
+                        case 'id-desc': return idB - idA;
+                        case 'id-asc': return idA - idB;
+                        case 'amount-desc': return amB - amA || idB - idA;
+                        case 'monthly-desc': return moB - moA || idB - idA;
+                        case 'risk-desc': return rkB - rkA || idB - idA;
+                        case 'user-asc': return usA.localeCompare(usB);
+                        case 'status-asc': return statA.localeCompare(statB);
+                    }
+                } else {
+                    const valA = parseNumber(a.dataset.garantieEstimated);
+                    const valB = parseNumber(b.dataset.garantieEstimated);
+                    const statA = (a.dataset.garantieStatus||'').toLowerCase();
+                    const statB = (b.dataset.garantieStatus||'').toLowerCase();
+                    const cIdA = parseNumber(a.dataset.garantieCreditId);
+                    const cIdB = parseNumber(b.dataset.garantieCreditId);
+                    const tyA = (a.dataset.garantieType||'').toLowerCase();
+                    const tyB = (b.dataset.garantieType||'').toLowerCase();
+                    
+                    switch(sortKey) {
+                        case 'id-desc': return idB - idA;
+                        case 'id-asc': return idA - idB;
+                        case 'value-desc': return valB - valA || idB - idA;
+                        case 'credit-asc': return cIdA - cIdB;
+                        case 'type-asc': return tyA.localeCompare(tyB);
+                        case 'status-asc': return statA.localeCompare(statB);
+                    }
                 }
+                return parseNumber(a.dataset.originalIndex) - parseNumber(b.dataset.originalIndex);
+            }).forEach(r => tbody.appendChild(r));
 
-                return normalizeNumber(left.dataset.originalIndex) - normalizeNumber(right.dataset.originalIndex);
-            });
-
-            visibleRows.forEach((row) => tbody.appendChild(row));
-
-            const totalPages = visibleRows.length > 0 ? Math.ceil(visibleRows.length / pageSize) : 0;
-            currentPage = totalPages > 0 ? Math.min(currentPage, totalPages) : 1;
-            const startIndex = (currentPage - 1) * pageSize;
-            const endIndex = startIndex + pageSize;
-
+            const totalPages = Math.max(1, Math.ceil(visibleRows.length / pageSize));
+            currentPage = Math.min(Math.max(1, currentPage), totalPages);
+            const start = (currentPage - 1) * pageSize;
+            const end = start + pageSize;
             visibleRows.forEach((row, index) => {
-                row.hidden = index < startIndex || index >= endIndex;
+                row.hidden = index < start || index >= end;
             });
-
-            ensureEmptyState(visibleRows.length === 0);
-            renderPagination(visibleRows.length);
+            renderPager(visibleRows.length);
         };
-
-        searchInput?.addEventListener('input', () => {
-            currentPage = 1;
-            apply();
-        });
-        sortSelect?.addEventListener('change', () => {
-            currentPage = 1;
-            apply();
-        });
-        apply();
+        
+        if (searchInput) searchInput.addEventListener('input', () => { currentPage = 1; applyState(); });
+        if (sortSelect) sortSelect.addEventListener('change', () => { currentPage = 1; applyState(); });
+        
+        applyState();
     };
 
-    setupTableTools({
-        tbodyId: 'nx-credit-tbody',
-        rowSelector: '.nx-credit-row',
-        emptyColspan: 9,
-        searchId: 'nx-credit-search',
-        sortId: 'nx-credit-sort',
-        emptyMessage: 'Aucun credit ne correspond a la recherche.',
-        comparators: {
-            default: (a, b, _text, num) => num(a.dataset.originalIndex) - num(b.dataset.originalIndex),
-            'id-desc': (a, b, _text, num) => num(b.dataset.creditId) - num(a.dataset.creditId),
-            'id-asc': (a, b, _text, num) => num(a.dataset.creditId) - num(b.dataset.creditId),
-            'amount-desc': (a, b, _text, num) => num(b.dataset.creditAmount) - num(a.dataset.creditAmount),
-            'monthly-desc': (a, b, _text, num) => num(b.dataset.creditMonthly) - num(a.dataset.creditMonthly),
-            'risk-desc': (a, b, _text, num) => num(b.dataset.creditRisk) - num(a.dataset.creditRisk),
-            'user-asc': (a, b, text) => text(a.children[1]?.textContent).localeCompare(text(b.children[1]?.textContent), 'fr'),
-            'status-asc': (a, b, text) => text(a.dataset.creditStatus).localeCompare(text(b.dataset.creditStatus), 'fr'),
-        },
-        pageSize: 5,
-    });
+    filterTable('nx-credit-search', 'nx-credit-sort', 'nx-credit-tbody', 'nx-credit-row', 'nx-credit-pager');
+    filterTable('nx-garantie-search', 'nx-garantie-sort', 'nx-garantie-tbody', 'nx-garantie-row', 'nx-garantie-pager');
 
-    setupTableTools({
-        tbodyId: 'nx-garantie-tbody',
-        rowSelector: '.nx-garantie-row',
-        emptyColspan: 7,
-        searchId: 'nx-garantie-search',
-        sortId: 'nx-garantie-sort',
-        emptyMessage: 'Aucune garantie ne correspond a la recherche.',
-        comparators: {
-            default: (a, b, _text, num) => num(a.dataset.originalIndex) - num(b.dataset.originalIndex),
-            'id-desc': (a, b, _text, num) => num(b.dataset.garantieId) - num(a.dataset.garantieId),
-            'id-asc': (a, b, _text, num) => num(a.dataset.garantieId) - num(b.dataset.garantieId),
-            'credit-asc': (a, b, _text, num) => num(a.dataset.garantieCreditId) - num(b.dataset.garantieCreditId),
-            'type-asc': (a, b, text) => text(a.dataset.garantieType).localeCompare(text(b.dataset.garantieType), 'fr'),
-            'value-desc': (a, b, _text, num) => num(b.dataset.garantieEstimated) - num(a.dataset.garantieEstimated),
-            'status-asc': (a, b, text) => text(a.dataset.garantieStatus).localeCompare(text(b.dataset.garantieStatus), 'fr'),
-        },
-        pageSize: 5,
-    });
+    
+    
+    /* ========================================================= */
+    /* LOGIQUE STATISTIQUES ADMIN                                */
+    /* ========================================================= */
+    const statsBtn = document.getElementById('nx-module-stats-btn');
+    const statsPanel = document.getElementById('nx-admin-stats-panel');
+    const serverCreditStats = {{ credit_stats|json_encode|raw }};
+    const serverGarantieStats = {{ garantie_stats|json_encode|raw }};
+    let chart1 = null, chart3 = null;
 
-    const headerAddBtn = document.getElementById('nx-header-add-btn');
-    if (headerAddBtn instanceof HTMLAnchorElement) {
-        headerAddBtn.addEventListener('click', () => {
-            const targetForm = activePanel === 'garantie' ? garantieForm : creditForm;
-            if (targetForm instanceof HTMLFormElement) {
-                targetForm.reset();
+    if (statsBtn && statsPanel) {
+        // Change default behavior if needed
+        statsBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const isOpen = statsPanel.classList.contains('is-open');
+            if (isOpen) {
+                statsPanel.classList.remove('is-open');
+                return;
+            }
+            statsPanel.classList.add('is-open');
+            
+            const creditRows = Array.from(document.querySelectorAll('.nx-credit-row'));
+            const garantieRows = Array.from(document.querySelectorAll('.nx-garantie-row'));
+            
+            const cTotal = creditRows.length || Number(serverCreditStats.total || 0);
+            const gTotal = garantieRows.length || Number(serverGarantieStats.total || 0);
+            document.getElementById('stat-main-subtitle').textContent = `${cTotal} crédit${cTotal!=1?'s':''} · ${gTotal} garantie${gTotal!=1?'s':''} enregistrée${gTotal!=1?'s':''}`;
+
+            const countBy = (rows, datasetKey) => rows.reduce((acc, row) => {
+                let val = row.dataset[datasetKey];
+                if (!val || val.trim() === '') val = 'Non spécifié';
+                acc[val] = (acc[val] || 0) + 1;
+                return acc;
+            }, {});
+
+            const sumBy = (rows, groupKey, sumKey) => rows.reduce((acc, row) => {
+                 let val = row.dataset[groupKey];
+                 if (!val || val.trim() === '') val = 'Non spécifié';
+                 let amount = Number(row.dataset[sumKey] || 0);
+                 acc[val] = (acc[val] || 0) + amount;
+                 return acc;
+            }, {});
+
+            const resolveStats = (rows, groupKey, sumKey, fallbackCounts, fallbackAmounts) => {
+                if (rows.length > 0) {
+                    return {
+                        counts: countBy(rows, groupKey),
+                        amounts: sumBy(rows, groupKey, sumKey)
+                    };
+                }
+
+                return {
+                    counts: fallbackCounts || {},
+                    amounts: fallbackAmounts || {}
+                };
+            };
+
+            const buildDataset = (counts, amounts, emptyLabel) => {
+                const labels = Object.keys(counts).filter((label) => Number(counts[label] || 0) > 0);
+
+                if (!labels.length) {
+                    return {
+                        labels: [emptyLabel],
+                        data: [1],
+                        amounts: { [emptyLabel]: 0 },
+                        isEmpty: true
+                    };
+                }
+
+                return {
+                    labels,
+                    data: labels.map((label) => Number(counts[label] || 0)),
+                    amounts,
+                    isEmpty: false
+                };
+            };
+
+            const statusStats = resolveStats(
+                creditRows,
+                'creditStatus',
+                'creditAmount',
+                serverCreditStats.counts,
+                serverCreditStats.amounts
+            );
+            const garantieStatusStats = resolveStats(
+                garantieRows,
+                'garantieStatus',
+                'garantieEstimated',
+                serverGarantieStats.counts,
+                serverGarantieStats.amounts
+            );
+
+            const cTotalAmount = creditRows.length > 0
+                ? creditRows.reduce((a,b)=>a+Number(b.dataset.creditAmount||0),0)
+                : Object.values(statusStats.amounts || {}).reduce((a, b) => a + Number(b || 0), 0);
+            const gTotalAmount = garantieRows.length > 0
+                ? garantieRows.reduce((a,b)=>a+Number(b.dataset.garantieEstimated||0),0)
+                : Number(serverGarantieStats.total_estimee || 0);
+            const unsecuredAmount = Math.max(0, cTotalAmount - gTotalAmount);
+
+            // Exactly matching account colors: #00B4A0 for Active, #0A2540 for Fermé, #B8860B for Bloqué...
+            // Let's use a nice mapped palette
+            const colorsPalette = ['#00B4A0', '#0A2540', '#B8860B', '#ef4444', '#f97316'];
+            
+            // Chart Status
+            const creditDataset = buildDataset(statusStats.counts, statusStats.amounts, 'Aucune donnee');
+            const sLabels = creditDataset.labels;
+            const sData = creditDataset.data;
+            const sColors = sLabels.map((l,i) => {
+                let lb = l.toLowerCase();
+                if (creditDataset.isEmpty) return '#d6dee8';
+                if(lb.includes('accept') || lb.includes('actif')) return '#00B4A0';
+                if(lb.includes('rejet') || lb.includes('refus')) return '#ef4444';
+                if(lb.includes('attente')) return '#0A2540';
+                if(lb.includes('cours')) return '#B8860B';
+                return colorsPalette[i % colorsPalette.length];
+            });
+            
+            const buildLegend = (labels, data, amounts, total, colors, containerId, isEmpty = false) => {
+                const container = document.getElementById(containerId);
+                if(!container) return;
+                container.innerHTML = '';
+                labels.forEach((lbl, i) => {
+                    let pct = isEmpty ? '0.0' : (total > 0 ? ((data[i] / total) * 100).toFixed(1) : 0);
+                    let color = colors[i];
+                    if (amounts) amounts[lbl] = Number(amounts[lbl] || 0);
+                    let valStr = amounts ? amounts[lbl].toLocaleString('fr-FR', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' DT' : data[i] + ' unités';
+                    
+                    // Same as .nx-chart-legend-row
+                    container.innerHTML += `
+                        <div class="nx-chart-legend-row" style="--lc:${color}">
+                            <span class="nx-chart-legend-dot"></span>
+                            <span class="nx-chart-legend-label">${lbl}</span>
+                            <strong>${isEmpty ? 0 : data[i]}</strong>
+                            <span class="nx-chart-legend-pct">${pct}%</span>
+                            <span class="nx-chart-legend-val">${valStr}</span>
+                        </div>
+                    `;
+                });
+            };
+
+            buildLegend(sLabels, sData, creditDataset.amounts, cTotal, sColors, 'stat-credit-status', creditDataset.isEmpty);
+
+            if (window.Chart) {
+                if(chart1) chart1.destroy();
+                chart1 = new Chart(document.getElementById('nx-chart-status-canvas'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: sLabels,
+                        datasets: [{
+                            data: sData,
+                            backgroundColor: sColors,
+                            borderColor: '#fff',
+                            borderWidth: 3,
+                            hoverOffset: 12
+                        }]
+                    },
+                    options: { 
+                        cutout: '62%', 
+                        responsive: true, 
+                        maintainAspectRatio: false, 
+                        plugins: { legend: { display: false }, tooltip: { enabled: true } },
+                        animation: { animateRotate: true, duration: 700 } 
+                    }
+                });
+            }
+
+            // Chart 3 (Garanties par Statut)
+            const garantieDataset = buildDataset(garantieStatusStats.counts, garantieStatusStats.amounts, 'Aucune garantie');
+            const gsLabels = garantieDataset.labels;
+            const gsData = garantieDataset.data;
+            const gsColors = gsLabels.map((l, i) => {
+                let lb = l.toLowerCase();
+                if (garantieDataset.isEmpty) return '#d6dee8';
+                if(lb.includes('accep') || lb.includes('valid') || lb.includes('actif')) return '#00B4A0';
+                if(lb.includes('rejet') || lb.includes('refus')) return '#ef4444';
+                if(lb.includes('attente') || lb.includes('soumis')) return '#0A2540';
+                if(lb.includes('cours')) return '#B8860B';
+                return colorsPalette[i % colorsPalette.length];
+            });
+
+            buildLegend(gsLabels, gsData, garantieDataset.amounts, gTotal, gsColors, 'stat-garantie-status', garantieDataset.isEmpty);
+
+            if (window.Chart) {
+                if(chart3) chart3.destroy();
+                chart3 = new Chart(document.getElementById('nx-chart-garantie-status-canvas'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: gsLabels,
+                        datasets: [{
+                            data: gsData,
+                            backgroundColor: gsColors,
+                            borderColor: '#fff',
+                            borderWidth: 3,
+                            hoverOffset: 12
+                        }]
+                    },
+                    options: {
+                        cutout: '62%',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false }, tooltip: { enabled: true } },
+                        animation: { animateRotate: true, duration: 700 }
+                    }
+                });
             }
         });
     }
-
-    const analyticsGrid = document.querySelector('.nx-analytics-grid');
-    const statsPanel = document.getElementById('nx-stats-panel');
-    const statsBtn = document.getElementById('nx-module-stats-btn');
-
-    const isPanelOpen = (panel) =>
-        panel instanceof HTMLElement && !panel.classList.contains('is-collapsed');
-
-    const syncAnalyticsLayout = () => {
-        if (!(analyticsGrid instanceof HTMLElement)) {
-            return;
-        }
-
-        const openCount = [statsPanel].filter(isPanelOpen).length;
-        analyticsGrid.classList.toggle('is-empty', openCount === 0);
-        analyticsGrid.classList.toggle('has-single', openCount === 1);
-    };
-
-    const togglePanel = (panel, control) => {
-        if (!(panel instanceof HTMLElement)) {
-            return;
-        }
-
-        panel.classList.toggle('is-collapsed');
-        const expanded = isPanelOpen(panel);
-        if (control instanceof HTMLElement) {
-            control.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-        }
-        syncAnalyticsLayout();
-        if (expanded) {
-            panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-    };
-
-    if (statsBtn instanceof HTMLAnchorElement) {
-        statsBtn.addEventListener('click', (event) => {
-            event.preventDefault();
-            togglePanel(statsPanel, statsBtn);
-        });
-    }
-
-    syncAnalyticsLayout();
 })();
 </script>
