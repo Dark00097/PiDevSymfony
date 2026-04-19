@@ -1,4 +1,6 @@
 {% set total_users = summary.users_total|default(items|length) %}
+{% set ai_assistant = support.ai_assistant|default({}) %}
+{% set gemini_enabled = support.gemini_enabled|default(false) %}
 {% set active_users = 0 %}
 {% set admin_users = 0 %}
 {% for item in items %}
@@ -1157,6 +1159,19 @@
             </div>
             <span class="nx-users-hero-badge">ADMIN</span>
         </div>
+
+        <div class="nx-users-hero-actions">
+            <a class="nx-users-icon-btn"
+               href="{{ path('admin_features', { section: 'statistics' }) }}"
+               title="Exporter PDF">
+                <i class="fa-solid fa-file-pdf"></i>
+            </a>
+            <a class="nx-users-icon-btn"
+               href="{{ path(route_name, { tab: 'notifications' }) }}"
+               title="Notifications">
+                <i class="fa-solid fa-bell"></i>
+            </a>
+        </div>
     </header>
 
     <!-- ══ STATS ══ -->
@@ -1216,13 +1231,11 @@
                                id="nx-user-search"
                                placeholder="Rechercher un utilisateur…">
                     </label>
-                    <button class="btn btn-secondary btn-sm"
-                            id="nx-users-export-btn"
-                            type="button"
-                            data-export-url="{{ path('admin_users_export_pdf') }}">
+                    <a class="btn btn-secondary btn-sm"
+                       href="{{ path('admin_features', { section: 'statistics' }) }}">
                         <i class="fa-solid fa-file-export"></i>
                         Export
-                    </button>
+                    </a>
                 </div>
             </header>
 
@@ -1451,6 +1464,99 @@
                     </button>
                 </div>
             </form>
+
+            <!-- Quick actions -->
+            <div class="nx-users-secondary-actions">
+                <form method="post" class="nx-users-inline-form">
+                    <input type="hidden" name="tab"    value="users">
+                    <input type="hidden" name="action" value="user_status">
+                    <input type="hidden" name="status" value="ACTIVE">
+                    <input type="number" name="idUser"
+                           placeholder="ID utilisateur" required>
+                    <button class="btn btn-secondary btn-sm" type="submit">
+                        <i class="fa-solid fa-circle-check"></i> Approuver
+                    </button>
+                </form>
+                <form method="post" class="nx-users-inline-form">
+                    <input type="hidden" name="tab"    value="users">
+                    <input type="hidden" name="action" value="user_status">
+                    <input type="hidden" name="status" value="DECLINED">
+                    <input type="number" name="idUser"
+                           placeholder="ID utilisateur" required>
+                    <button class="btn btn-secondary btn-sm" type="submit">
+                        <i class="fa-solid fa-circle-xmark"></i> Refuser
+                    </button>
+                </form>
+                <form method="post" class="nx-users-inline-form">
+                    <input type="hidden" name="tab"    value="users">
+                    <input type="hidden" name="action" value="user_delete">
+                    <input type="number" name="idUser"
+                           placeholder="ID utilisateur" required>
+                    <button class="btn btn-danger btn-sm" type="submit">
+                        <i class="fa-solid fa-trash-can"></i> Supprimer
+                    </button>
+                </form>
+            </div>
+
+            <!-- AI Assistant -->
+            <div class="nx-users-ai-assistant">
+                <header>
+                    <h4>Assistant IA Utilisateurs</h4>
+                    <span>
+                        {{ gemini_enabled
+                            ? 'Gemini · actif'
+                            : 'Fallback · ajoutez GEMINI_API_KEY' }}
+                    </span>
+                </header>
+
+                <form method="post" class="nx-users-ai-form">
+                    <input type="hidden" name="tab"    value="users">
+                    <input type="hidden" name="action" value="user_ai_assist">
+
+                    <label>
+                        <span>Nom</span>
+                        <input type="text" name="nom" placeholder="Nom">
+                    </label>
+                    <label>
+                        <span>Prénom</span>
+                        <input type="text" name="prenom" placeholder="Prénom">
+                    </label>
+                    <label>
+                        <span>Rôle</span>
+                        <select name="role">
+                            <option value="ROLE_USER">ROLE_USER</option>
+                            <option value="ROLE_ADMIN">ROLE_ADMIN</option>
+                        </select>
+                    </label>
+                    <label>
+                        <span>Statut</span>
+                        <select name="status">
+                            {% for status in ['PENDING','ACTIVE','DECLINED','INACTIVE','BANNED'] %}
+                                <option value="{{ status }}">{{ status }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label class="nx-users-col-full">
+                        <span>Contexte / Motif</span>
+                        <textarea name="reason" rows="2"
+                            placeholder="Ex : suspicion, inactivité, demande client…"></textarea>
+                    </label>
+                    <button class="btn btn-primary" type="submit">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        Générer recommandation IA
+                    </button>
+                </form>
+
+                {% if ai_assistant.text|default('') %}
+                    <article class="nx-users-ai-result">
+                        <small>
+                            <i class="fa-solid fa-microchip"></i>
+                            Provider : {{ ai_assistant.provider|default('Fallback') }}
+                        </small>
+                        <p>{{ ai_assistant.text }}</p>
+                    </article>
+                {% endif %}
+            </div>
         </article>
     </div>
 
@@ -1518,94 +1624,16 @@
 <!-- ── LIVE SEARCH ── -->
 <script>
 (function () {
+    const input = document.getElementById('nx-user-search');
     const tbody = document.querySelector('#nx-user-table tbody');
-    if (!tbody) return;
+    if (!input || !tbody) return;
 
-    const localInput = document.getElementById('nx-user-search');
-    const globalInput = document.getElementById('nx-global-search');
-    const inputs = [localInput, globalInput].filter(Boolean);
-    if (!inputs.length) return;
-
-    const applyFilter = (rawQuery) => {
-        const q = String(rawQuery || '').toLowerCase().trim();
-        tbody.querySelectorAll('tr').forEach((row) => {
-            const txt = String(row.textContent || '').toLowerCase();
+    input.addEventListener('input', function () {
+        const q = this.value.toLowerCase().trim();
+        tbody.querySelectorAll('tr').forEach(function (row) {
+            const txt = row.textContent.toLowerCase();
             row.style.display = (!q || txt.includes(q)) ? '' : 'none';
         });
-    };
-
-    const syncInputs = (origin, value) => {
-        inputs.forEach((inputEl) => {
-            if (inputEl === origin) return;
-            if (inputEl.value !== value) {
-                inputEl.value = value;
-            }
-        });
-    };
-
-    inputs.forEach((inputEl) => {
-        inputEl.addEventListener('input', function () {
-            syncInputs(this, this.value);
-            applyFilter(this.value);
-        });
-    });
-
-    const initialQuery = (localInput && localInput.value.trim() !== '')
-        ? localInput.value
-        : (globalInput ? globalInput.value : '');
-    if (initialQuery !== '') {
-        syncInputs(null, initialQuery);
-    }
-    applyFilter(initialQuery);
-})();
-
-(function () {
-    const exportBtn = document.getElementById('nx-users-export-btn');
-    if (!exportBtn) return;
-    const exportUrl = exportBtn.dataset.exportUrl || '';
-    if (!exportUrl) return;
-    let pending = false;
-    const initialLabel = exportBtn.innerHTML;
-    const extractFilename = (disposition) => {
-        if (!disposition) return 'nexora-users-all.pdf';
-        const match = disposition.match(/filename=\"?([^\";]+)\"?/i);
-        return match && match[1] ? match[1] : 'nexora-users-all.pdf';
-    };
-    exportBtn.addEventListener('click', async () => {
-        if (pending) return;
-        pending = true;
-        exportBtn.disabled = true;
-        exportBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Export...';
-        try {
-            const response = await fetch(exportUrl, {
-                method: 'GET',
-                credentials: 'same-origin',
-                headers: { 'X-Requested-With': 'XMLHttpRequest' },
-            });
-            if (!response.ok) {
-                throw new Error('Export failed');
-            }
-            const contentType = response.headers.get('Content-Type') || '';
-            if (!contentType.toLowerCase().includes('application/pdf')) {
-                throw new Error('Unexpected export payload');
-            }
-            const blob = await response.blob();
-            const downloadUrl = window.URL.createObjectURL(blob);
-            const filename = extractFilename(response.headers.get('Content-Disposition'));
-            const link = document.createElement('a');
-            link.href = downloadUrl;
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            window.URL.revokeObjectURL(downloadUrl);
-        } catch (_error) {
-            alert("Impossible de telecharger le PDF pour le moment.");
-        } finally {
-            pending = false;
-            exportBtn.disabled = false;
-            exportBtn.innerHTML = initialLabel;
-        }
     });
 })();
 

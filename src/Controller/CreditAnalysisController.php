@@ -81,7 +81,7 @@ final class CreditAnalysisController extends AbstractController
         $risk = $riskService->analyze($credit, $score);
         $restructuration = $restructurationService->propose($credit, $risk);
 
-        // ── Scoring IA (Gemini)
+        // ── Scoring IA (OpenRouter)
         $aiScore = $scoringService->calculateAiScore($credit);
 
         return $this->render('credit/dashboard.html.twig', [

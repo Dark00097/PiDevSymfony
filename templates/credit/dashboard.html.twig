@@ -439,7 +439,7 @@
                     {% else %}
                         <h2 class="fw-bold mb-2">Scoring IA non disponible</h2>
                         <p class="ca-subtle mb-0">
-                            {{ ai_score.ai_justification|default('Configurez GEMINI_API_KEY dans votre fichier .env pour activer le scoring par intelligence artificielle.') }}
+                            {{ ai_score.ai_justification|default('Configurez OPENROUTER_API_KEY dans votre fichier .env pour activer le scoring par intelligence artificielle.') }}
                         </p>
                     {% endif %}
                 </div>

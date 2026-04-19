@@ -24,7 +24,6 @@ final class AuthService
     private const FACE_DESCRIPTOR_MAX_SIZE = 256;
 
     private ?bool $biometricFaceColumnsAvailable = null;
-    private ?bool $loginLocationColumnsAvailable = null;
 
     public function __construct(
         private readonly Connection $connection,
@@ -309,31 +308,10 @@ final class AuthService
     public function markUserOnline(int $userId, Request $request): void
     {
         $context = $this->resolveClientContext($request);
-        $payload = [
+        $this->connection->update('users', [
             'last_online_at' => (new \DateTimeImmutable())->format('Y-m-d H:i:s'),
             'last_online_from' => $context,
-        ];
-
-        $lat = $this->parseCoordinate($request->request->get('login_lat'), -90.0, 90.0);
-        $lng = $this->parseCoordinate($request->request->get('login_lng'), -180.0, 180.0);
-        $location = $this->parseLocationLabel($request->request->get('login_location'));
-
-        if ($this->ensureLoginLocationColumns()) {
-            if ($lat !== null && $lng !== null) {
-                $payload['last_login_lat'] = round($lat, 7);
-                $payload['last_login_lng'] = round($lng, 7);
-            }
-
-            if ($location === null && $lat !== null && $lng !== null) {
-                $location = sprintf('%.5f, %.5f', $lat, $lng);
-            }
-
-            if ($location !== null) {
-                $payload['last_login_location'] = $location;
-            }
-        }
-
-        $this->connection->update('users', $payload, [
+        ], [
             'idUser' => $userId,
         ]);
         $this->activityService->log($userId, 'LOGIN', $context, 'User login recorded.');
@@ -633,45 +611,6 @@ final class AuthService
         return $this->biometricFaceColumnsAvailable;
     }
 
-    private function ensureLoginLocationColumns(): bool
-    {
-        if ($this->loginLocationColumnsAvailable !== null) {
-            return $this->loginLocationColumnsAvailable;
-        }
-
-        try {
-            $columns = $this->connection->fetchFirstColumn(
-                "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users'"
-            );
-            $normalizedColumns = array_map(static fn (mixed $value): string => strtolower((string) $value), $columns);
-
-            if (!in_array('last_login_location', $normalizedColumns, true)) {
-                $this->connection->executeStatement('ALTER TABLE users ADD last_login_location VARCHAR(200) NULL AFTER last_online_from');
-            }
-            if (!in_array('last_login_lat', $normalizedColumns, true)) {
-                $this->connection->executeStatement('ALTER TABLE users ADD last_login_lat DECIMAL(10,7) NULL AFTER last_login_location');
-            }
-            if (!in_array('last_login_lng', $normalizedColumns, true)) {
-                $this->connection->executeStatement('ALTER TABLE users ADD last_login_lng DECIMAL(10,7) NULL AFTER last_login_lat');
-            }
-
-            $columns = $this->connection->fetchFirstColumn(
-                "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users'"
-            );
-            $normalizedColumns = array_map(static fn (mixed $value): string => strtolower((string) $value), $columns);
-            $this->loginLocationColumnsAvailable = in_array('last_login_location', $normalizedColumns, true)
-                && in_array('last_login_lat', $normalizedColumns, true)
-                && in_array('last_login_lng', $normalizedColumns, true);
-        } catch (\Throwable $exception) {
-            $this->loginLocationColumnsAvailable = false;
-            $this->logger->warning('Unable to ensure last-login location columns.', [
-                'exception' => $exception->getMessage(),
-            ]);
-        }
-
-        return $this->loginLocationColumnsAvailable;
-    }
-
     private function parseFaceDescriptor(string $descriptorJson): ?array
     {
         $trimmed = trim($descriptorJson);
@@ -735,33 +674,6 @@ final class AuthService
         $value = is_numeric($raw) ? (float) $raw : 0.55;
 
         return max(0.35, min(0.85, $value));
-    }
-
-    private function parseCoordinate(mixed $raw, float $min, float $max): ?float
-    {
-        $normalized = trim((string) ($raw ?? ''));
-        if ($normalized === '' || !is_numeric($normalized)) {
-            return null;
-        }
-
-        $value = (float) $normalized;
-        if (!is_finite($value) || $value < $min || $value > $max) {
-            return null;
-        }
-
-        return $value;
-    }
-
-    private function parseLocationLabel(mixed $raw): ?string
-    {
-        $value = trim((string) ($raw ?? ''));
-        if ($value === '') {
-            return null;
-        }
-
-        $value = preg_replace('/\s+/', ' ', $value) ?? $value;
-
-        return mb_substr($value, 0, 200);
     }
 
     private function resolveClientContext(Request $request): string

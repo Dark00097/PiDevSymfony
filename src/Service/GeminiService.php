@@ -7,7 +7,6 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 final class GeminiService
 {
     private ?string $lastGeminiError = null;
-    private ?string $lastSuccessfulProvider = null;
 
     public function __construct(
         private readonly HttpClientInterface $httpClient,
@@ -16,7 +15,7 @@ final class GeminiService
 
     public function isConfigured(): bool
     {
-        return $this->openRouterApiKey() !== '' || $this->geminiApiKey() !== '';
+        return $this->apiKey() !== '';
     }
 
     public function generateUserManagementAdvice(array $context): array
@@ -26,7 +25,7 @@ final class GeminiService
 
         if ($responseText !== null) {
             return [
-                'provider' => $this->lastSuccessfulProvider ?? 'OpenRouter',
+                'provider' => 'OpenRouter',
                 'text' => $responseText,
             ];
         }
@@ -38,7 +37,7 @@ final class GeminiService
     }
 
     /**
-     * Génère un scoring IA pour un dossier de crédit via Gemini.
+     * Genere un scoring IA pour un dossier de credit via OpenRouter.
      *
      * @return array{provider: string, text: string}
      */
@@ -48,7 +47,7 @@ final class GeminiService
 
         if ($responseText !== null) {
             return [
-                'provider' => $this->lastSuccessfulProvider ?? 'OpenRouter',
+                'provider' => 'OpenRouter',
                 'text' => $responseText,
             ];
         }
@@ -97,7 +96,7 @@ final class GeminiService
             return $fallback;
         }
 
-        $normalized['provider'] = $this->lastSuccessfulProvider ?? 'OpenRouter';
+        $normalized['provider'] = 'OpenRouter';
 
         return $normalized;
     }
@@ -144,7 +143,139 @@ final class GeminiService
         }
 
         $normalized = $this->normalizeProfileCoachResult($decoded, $fallback);
-        $normalized['provider'] = $this->lastSuccessfulProvider ?? 'OpenRouter';
+        $normalized['provider'] = 'OpenRouter';
+
+        return $normalized;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{provider: string, text: string}
+     */
+    public function generateGuaranteeDescription(array $payload): array
+    {
+        $fallback = $this->buildFallbackGuaranteeDescription($payload);
+        $prompt = $this->buildGuaranteeDescriptionPrompt($payload);
+
+        $responseText = $this->requestGeminiWithModelFallback(
+            $prompt,
+            [
+                'temperature' => 0.45,
+                'maxOutputTokens' => 180,
+            ],
+            15
+        );
+
+        if ($responseText === null) {
+            return [
+                'provider' => 'Fallback',
+                'text' => $fallback,
+            ];
+        }
+
+        $normalized = trim(preg_replace('/\s+/', ' ', strip_tags($responseText)) ?? '');
+        if ($normalized === '') {
+            return [
+                'provider' => 'Fallback',
+                'text' => $fallback,
+            ];
+        }
+
+        return [
+            'provider' => 'OpenRouter',
+            'text' => mb_substr($normalized, 0, 240, 'UTF-8'),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{provider: string, text: string}
+     */
+    public function generateGuaranteeDescriptionOpenRouter(array $payload): array
+    {
+        $prompt = $this->buildGuaranteeDescriptionPrompt($payload);
+
+        $responseText = $this->requestGeminiWithModelFallback(
+            $prompt,
+            [
+                'temperature' => 0.45,
+                'maxOutputTokens' => 180,
+            ],
+            15
+        );
+
+        if ($responseText === null) {
+            throw new \RuntimeException($this->lastGeminiError !== null && trim($this->lastGeminiError) !== ''
+                ? 'OpenRouter indisponible: '.$this->lastGeminiError
+                : 'OpenRouter indisponible pour la generation.');
+        }
+
+        $normalized = trim(preg_replace('/\s+/', ' ', strip_tags($responseText)) ?? '');
+        if ($normalized === '') {
+            throw new \RuntimeException('OpenRouter a renvoye une reponse vide pour la generation.');
+        }
+
+        return [
+            'provider' => 'OpenRouter',
+            'text' => mb_substr($normalized, 0, 240, 'UTF-8'),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     * @return array{
+     *   provider: string,
+     *   intent: string,
+     *   title: string,
+     *   answer: string,
+     *   decision: string,
+     *   score: float,
+     *   risk_level: string,
+     *   metrics: array<int, array{label: string, value: string}>,
+     *   recommendations: array<int, string>,
+     *   offers: array<int, array{
+     *     bank: string,
+     *     rate: string,
+     *     monthly: string,
+     *     total_cost: string,
+     *     interest: string,
+     *     status: string,
+     *     reason: string
+     *   }>,
+     *   best_offer: array<string, string>,
+     *   constraints: array<int, array{label: string, status: string, detail: string}>
+     * }
+     */
+    public function generateCreditAssistant(array $context): array
+    {
+        $fallback = $this->buildFallbackCreditAssistant($context);
+
+        $prompt = $this->buildCreditAssistantPrompt($context, $fallback);
+        $responseText = $this->requestGeminiWithModelFallback(
+            $prompt,
+            [
+                'temperature' => 0.35,
+                'maxOutputTokens' => 700,
+                'responseMimeType' => 'application/json',
+            ],
+            25
+        );
+
+        if ($responseText === null) {
+            if ($this->lastGeminiError !== null && $this->isQuotaError($this->lastGeminiError)) {
+                $fallback['provider'] = 'Fallback (quota exceeded)';
+            }
+
+            return $fallback;
+        }
+
+        $decoded = $this->extractJsonObject($responseText);
+        if ($decoded === null) {
+            return $fallback;
+        }
+
+        $normalized = $this->normalizeCreditAssistantResult($decoded, $fallback);
+        $normalized['provider'] = 'OpenRouter';
 
         return $normalized;
     }
@@ -254,6 +385,856 @@ final class GeminiService
 
     /**
      * @param array<string, mixed> $payload
+     */
+    private function buildFallbackGuaranteeDescription(array $payload): string
+    {
+        $type = trim((string) ($payload['typeGarantie'] ?? 'garantie'));
+        $owner = trim((string) ($payload['nomGarant'] ?? 'le garant'));
+        $address = trim((string) ($payload['adresseBien'] ?? 'adresse non precisee'));
+        $estimated = max(0.0, (float) ($payload['valeurEstimee'] ?? 0));
+        $retained = max(0.0, (float) ($payload['valeurRetenue'] ?? 0));
+
+        $description = sprintf(
+            'Garantie de type %s appartenant a %s, localisee a %s, evaluee a %.2f DT avec une valeur retenue de %.2f DT pour etude bancaire.',
+            $type !== '' ? $type : 'garantie',
+            $owner !== '' ? $owner : 'le garant',
+            $address !== '' ? $address : 'adresse non precisee',
+            $estimated,
+            $retained
+        );
+
+        return mb_substr($description, 0, 240, 'UTF-8');
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function buildGuaranteeDescriptionPrompt(array $payload): string
+    {
+        return sprintf(
+            "Tu es un assistant bancaire francophone. Redige une description professionnelle et concise pour un dossier de garantie bancaire.\n".
+            "Contraintes:\n".
+            "- une seule phrase\n".
+            "- ton professionnel\n".
+            "- maximum 240 caracteres\n".
+            "- sans markdown, sans liste, sans guillemets\n".
+            "Donnees:\n".
+            "Type de garantie: %s\n".
+            "Valeur estimee: %.2f DT\n".
+            "Valeur retenue: %.2f DT\n".
+            "Date d'evaluation: %s\n".
+            "Nom du garant: %s\n".
+            "Adresse du bien: %s\n".
+            "Reponse attendue: une description finale directement exploitable dans le formulaire.",
+            trim((string) ($payload['typeGarantie'] ?? 'Garantie')),
+            max(0.0, (float) ($payload['valeurEstimee'] ?? 0)),
+            max(0.0, (float) ($payload['valeurRetenue'] ?? 0)),
+            trim((string) ($payload['dateEvaluation'] ?? 'Non precisee')),
+            trim((string) ($payload['nomGarant'] ?? 'Garant non precise')),
+            trim((string) ($payload['adresseBien'] ?? 'Adresse non precisee'))
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     * @return array{
+     *   provider: string,
+     *   intent: string,
+     *   title: string,
+     *   answer: string,
+     *   decision: string,
+     *   score: float,
+     *   risk_level: string,
+     *   metrics: array<int, array{label: string, value: string}>,
+     *   recommendations: array<int, string>,
+     *   offers: array<int, array{
+     *     bank: string,
+     *     rate: string,
+     *     monthly: string,
+     *     total_cost: string,
+     *     interest: string,
+     *     status: string,
+     *     reason: string
+     *   }>,
+     *   best_offer: array<string, string>,
+     *   constraints: array<int, array{label: string, status: string, detail: string}>
+     * }
+     */
+    private function buildFallbackCreditAssistant(array $context): array
+    {
+        $intent = $this->resolveCreditAssistantIntent($context);
+        $candidate = $this->resolveCreditAssistantCandidate($context);
+        $portfolio = is_array($context['portfolio'] ?? null) ? $context['portfolio'] : [];
+        $selectedGuarantee = is_array($candidate['garantie'] ?? null) ? $candidate['garantie'] : [];
+        $eligibility = $this->buildFallbackEligibility($candidate);
+
+        $amount = max(0.0, (float) ($candidate['montantDemande'] ?? 0));
+        $autoFunding = max(0.0, (float) ($candidate['autofinancement'] ?? 0));
+        $duration = max(0, (int) ($candidate['duree'] ?? 0));
+        $rate = max(0.0, (float) ($candidate['tauxInteret'] ?? 0));
+        $salary = max(0.0, (float) ($candidate['salaire'] ?? 0));
+        $monthly = max(0.0, (float) ($candidate['mensualite'] ?? 0));
+        $retained = max(0.0, (float) ($selectedGuarantee['valeurRetenue'] ?? 0));
+        $estimated = max(0.0, (float) ($selectedGuarantee['valeurEstimee'] ?? 0));
+        $coverage = $amount > 0 ? round(($retained / $amount) * 100, 1) : 0.0;
+        $retainedRatio = $estimated > 0 ? round(($retained / $estimated) * 100, 1) : 0.0;
+        $monthlyEstimate = $monthly > 0 ? $monthly : $this->estimateMonthlyPayment($amount, $autoFunding, $duration, $rate);
+        $offers = $this->buildCreditAssistantOffers($candidate, $eligibility, $portfolio);
+        $bestOffer = $this->resolveBestCreditAssistantOffer($offers);
+        $constraints = $this->buildCreditAssistantConstraints($candidate, $portfolio, $monthlyEstimate, $coverage);
+        $decision = $this->resolveCreditAssistantDecision((string) ($eligibility['suggested_status'] ?? 'En attente'), $constraints);
+
+        $title = 'Assistant credit';
+        $answer = 'Je peux vous aider a analyser un dossier de credit ou votre portefeuille.';
+        $metrics = [];
+        $recommendations = [];
+
+        switch ($intent) {
+            case 'simulate':
+                $title = 'Simulation de credit';
+                if ($amount <= 0 || $duration <= 0) {
+                    $answer = 'Renseignez au minimum le montant et la duree du credit ou choisissez un credit cible pour lancer une simulation fiable et afficher le comparatif des vraies banques.';
+                    $recommendations = [
+                        'Choisissez un credit cible dans le chatbot pour reutiliser automatiquement un dossier existant.',
+                        'Saisissez le montant et la duree pour comparer NEXORA Bank, BIAT, Amen Bank, Attijari bank et UIB.',
+                    ];
+                } else {
+                    $monthly = $monthlyEstimate;
+                    $principal = max(0.0, $amount - $autoFunding);
+                    $totalRepayment = $monthly * $duration;
+                    $interestCost = max(0.0, $totalRepayment - $principal);
+                    $answer = sprintf(
+                        'Pour un montant de %.2f DT sur %d mois, la mensualite estimee est de %.2f DT et les interets autour de %.2f DT. La meilleure offre identifiee est %s.',
+                        $amount,
+                        $duration,
+                        $monthly,
+                        $interestCost,
+                        (string) ($bestOffer['bank'] ?? 'NEXORA Bank')
+                    );
+                    $metrics = [
+                        ['label' => 'Montant demande', 'value' => number_format($amount, 2, '.', ' ').' DT'],
+                        ['label' => 'Autofinancement', 'value' => number_format($autoFunding, 2, '.', ' ').' DT'],
+                        ['label' => 'Mensualite estimee', 'value' => number_format($monthly, 2, '.', ' ').' DT'],
+                        ['label' => 'Interets estimes', 'value' => number_format($interestCost, 2, '.', ' ').' DT'],
+                    ];
+                    $recommendations = [
+                        'Gardez une mensualite idealement sous 35% de votre revenu mensuel.',
+                        'Augmenter l autofinancement reduit le cout global et le risque.',
+                        (string) ($bestOffer['reason'] ?? 'Comparez plusieurs durees avant de valider la demande.'),
+                    ];
+                }
+                break;
+
+            case 'score':
+                $title = 'Score de credit';
+                $answer = sprintf(
+                    'Le dossier ressort avec un score estime de %.1f/100 et un risque %s. %s',
+                    (float) ($eligibility['score'] ?? 0),
+                    (string) ($eligibility['risk_level'] ?? 'Moyen'),
+                    (string) ($eligibility['explanation'] ?? '')
+                );
+                $metrics = [
+                    ['label' => 'Score', 'value' => number_format((float) ($eligibility['score'] ?? 0), 1, '.', ' ').' /100'],
+                    ['label' => 'Prob. acceptation', 'value' => number_format((float) ($eligibility['approval_probability'] ?? 0), 1, '.', ' ').' %'],
+                    ['label' => 'Prob. refus', 'value' => number_format((float) ($eligibility['failure_probability'] ?? 0), 1, '.', ' ').' %'],
+                    ['label' => 'Risque', 'value' => (string) ($eligibility['risk_level'] ?? 'Moyen')],
+                ];
+                $recommendations = [
+                    'Renforcez la stabilite du dossier avec des revenus justificatifs recents.',
+                    'Limitez le ratio d endettement avant de soumettre la demande.',
+                    'Ajoutez une garantie retenue suffisante pour ameliorer le scoring.',
+                    (string) ($bestOffer['reason'] ?? 'Conservez l offre au cout global le plus faible.'),
+                ];
+                break;
+
+            case 'garantie':
+                $title = 'Analyse des garanties';
+                if ($selectedGuarantee === []) {
+                    $answer = sprintf(
+                        'Vous avez %d garantie(s) en portefeuille. Selectionnez ou associez une garantie a un credit pour obtenir une analyse plus precise.',
+                        (int) ($portfolio['garanties_total'] ?? 0)
+                    );
+                    $metrics = [
+                        ['label' => 'Garanties total', 'value' => (string) ((int) ($portfolio['garanties_total'] ?? 0))],
+                        ['label' => 'Credits couverts', 'value' => (string) ((int) ($portfolio['credits_total'] ?? 0))],
+                    ];
+                    $recommendations = [
+                        'Associez les garanties les plus solides aux credits les plus eleves.',
+                        'Mettez a jour les valeurs retenues si les estimations ont change.',
+                    ];
+                } else {
+                    $answer = sprintf(
+                        'La garantie %s couvre %.1f%% du montant du credit avec une retention de %.1f%% de sa valeur estimee.',
+                        trim((string) ($selectedGuarantee['typeGarantie'] ?? 'selectionnee')) !== '' ? (string) $selectedGuarantee['typeGarantie'] : 'selectionnee',
+                        $coverage,
+                        $retainedRatio
+                    );
+                    $metrics = [
+                        ['label' => 'Valeur estimee', 'value' => number_format($estimated, 2, '.', ' ').' DT'],
+                        ['label' => 'Valeur retenue', 'value' => number_format($retained, 2, '.', ' ').' DT'],
+                        ['label' => 'Couverture credit', 'value' => number_format($coverage, 1, '.', ' ').' %'],
+                        ['label' => 'Retention', 'value' => number_format($retainedRatio, 1, '.', ' ').' %'],
+                    ];
+                    $recommendations = [
+                        $coverage >= 60.0 ? 'La couverture est rassurante pour le dossier.' : 'Essayez d augmenter la couverture retenue de la garantie.',
+                        'Verifiez que les justificatifs et la date d evaluation sont a jour.',
+                        'Croisez la garantie avec le niveau de risque du credit associe.',
+                    ];
+                }
+                break;
+
+            case 'decision':
+                $title = 'Decision automatique';
+                $answer = sprintf(
+                    'Decision proposee: %s. Le score estime est de %.1f/100 avec un risque %s.',
+                    $decision,
+                    (float) ($eligibility['score'] ?? 0),
+                    (string) ($eligibility['risk_level'] ?? 'Moyen')
+                );
+                $metrics = [
+                    ['label' => 'Decision', 'value' => $decision],
+                    ['label' => 'Score', 'value' => number_format((float) ($eligibility['score'] ?? 0), 1, '.', ' ').' /100'],
+                    ['label' => 'Risque', 'value' => (string) ($eligibility['risk_level'] ?? 'Moyen')],
+                    ['label' => 'Mensualite', 'value' => number_format($monthly, 2, '.', ' ').' DT'],
+                ];
+                $recommendations = [
+                    $decision === 'Accepte' ? 'Le dossier peut passer en validation finale.' : 'Ajoutez des pieces ou garanties avant une decision definitive.',
+                    $salary > 0 && $monthly > 0 && ($monthly / max(1.0, $salary)) > 0.4 ? 'Le ratio mensualite / salaire reste a surveiller.' : 'Le ratio de charge reste compatible avec une etude favorable.',
+                    'Documentez la justification de decision dans le dossier client.',
+                    (string) ($bestOffer['reason'] ?? 'La meilleure offre reste celle au cout global le plus bas.'),
+                ];
+                break;
+
+            case 'recommend':
+            default:
+                $title = 'Recommandations personnalisees';
+                $answer = sprintf(
+                    'Vous avez %d credit(s), %d garantie(s) et un risque moyen de %.1f/100. Voici les priorites conseillees.',
+                    (int) ($portfolio['credits_total'] ?? 0),
+                    (int) ($portfolio['garanties_total'] ?? 0),
+                    (float) ($portfolio['average_risk'] ?? 0)
+                );
+                $metrics = [
+                    ['label' => 'Credits actifs', 'value' => (string) ((int) ($portfolio['credits_total'] ?? 0))],
+                    ['label' => 'Garanties', 'value' => (string) ((int) ($portfolio['garanties_total'] ?? 0))],
+                    ['label' => 'Risque moyen', 'value' => number_format((float) ($portfolio['average_risk'] ?? 0), 1, '.', ' ').' /100'],
+                    ['label' => 'Mensualites totales', 'value' => number_format((float) ($portfolio['total_monthly'] ?? 0), 2, '.', ' ').' DT'],
+                ];
+                $recommendations = [
+                    'Priorisez les credits en attente avec la meilleure couverture de garantie.',
+                    'Reduisez les mensualites cumulees si le portefeuille devient trop charge.',
+                    'Mettez a jour les garanties anciennes avant une nouvelle demande.',
+                    (string) ($bestOffer['reason'] ?? 'Arbitrez vos dossiers selon le meilleur couple mensualite / cout total.'),
+                ];
+                break;
+        }
+
+        return [
+            'provider' => 'Fallback',
+            'intent' => $intent,
+            'title' => $title,
+            'answer' => $answer,
+            'decision' => $decision,
+            'score' => round((float) ($eligibility['score'] ?? 0), 1),
+            'risk_level' => (string) ($eligibility['risk_level'] ?? 'Moyen'),
+            'metrics' => array_values(array_slice($metrics, 0, 4)),
+            'recommendations' => array_values(array_slice(array_filter($recommendations, static fn ($item): bool => trim((string) $item) !== ''), 0, 4)),
+            'offers' => $offers,
+            'best_offer' => $bestOffer,
+            'constraints' => $constraints,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     * @param array{
+     *   intent: string,
+     *   title: string,
+     *   answer: string,
+     *   decision: string,
+     *   score: float,
+     *   risk_level: string,
+     *   metrics: array<int, array{label: string, value: string}>,
+     *   recommendations: array<int, string>,
+     *   offers: array<int, array{
+     *     bank: string,
+     *     rate: string,
+     *     monthly: string,
+     *     total_cost: string,
+     *     interest: string,
+     *     status: string,
+     *     reason: string
+     *   }>,
+     *   best_offer: array<string, string>,
+     *   constraints: array<int, array{label: string, status: string, detail: string}>
+     * } $fallback
+     */
+    private function buildCreditAssistantPrompt(array $context, array $fallback): string
+    {
+        return sprintf(
+            "Tu es un chatbot bancaire intelligent integre a une application de credits. Reponds STRICTEMENT en JSON pur, sans markdown.\n".
+            "Schema JSON attendu:\n".
+            "{\n".
+            "  \"intent\": \"simulate|score|garantie|decision|recommend\",\n".
+            "  \"title\": \"titre court\",\n".
+            "  \"answer\": \"reponse utile en francais, 2 a 5 phrases\",\n".
+            "  \"decision\": \"Accepte|Refuse|A etudier\",\n".
+            "  \"score\": number,\n".
+            "  \"risk_level\": \"Faible|Moyen|Eleve\",\n".
+            "  \"metrics\": [{\"label\": \"...\", \"value\": \"...\"}],\n".
+            "  \"recommendations\": [\"...\", \"...\", \"...\"],\n".
+            "  \"offers\": [{\"bank\": \"...\", \"rate\": \"...\", \"teg\": \"...\", \"monthly\": \"...\", \"total_cost\": \"...\", \"interest\": \"...\", \"status\": \"...\", \"reason\": \"...\", \"feature\": \"...\", \"condition\": \"...\"}],\n".
+            "  \"best_offer\": {\"bank\": \"...\", \"rate\": \"...\", \"teg\": \"...\", \"monthly\": \"...\", \"total_cost\": \"...\", \"interest\": \"...\", \"status\": \"...\", \"reason\": \"...\", \"feature\": \"...\", \"condition\": \"...\"},\n".
+            "  \"constraints\": [{\"label\": \"...\", \"status\": \"ok|warn|block\", \"detail\": \"...\"}]\n".
+            "}\n".
+            "Regles:\n".
+            "- appuie-toi sur le contexte donne, pas sur des generalites\n".
+            "- si selected_credit ou selected_garantie sont renseignes, focalise toute reponse sur cette cible\n".
+            "- metrics: 2 a 4 elements maximum\n".
+            "- recommendations: 2 a 4 actions concretes maximum\n".
+            "- compare au moins 3 offres bancaires quand l intent concerne la simulation, la decision ou les recommandations\n".
+            "- choisis best_offer selon le meilleur cout global si le dossier est viable\n".
+            "- constraints doit refleter les vraies contraintes metier du contexte\n".
+            "- decision doit etre cohérente avec score et risque\n".
+            "- answer doit etre directement exploitable par un utilisateur final\n".
+            "Contexte applicatif:\n%s\n".
+            "Reference fallback locale:\n%s",
+            json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            json_encode($fallback, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     * @param array{
+     *   provider: string,
+     *   intent: string,
+     *   title: string,
+     *   answer: string,
+     *   decision: string,
+     *   score: float,
+     *   risk_level: string,
+     *   metrics: array<int, array{label: string, value: string}>,
+     *   recommendations: array<int, string>,
+     *   offers: array<int, array{
+     *     bank: string,
+     *     rate: string,
+     *     monthly: string,
+     *     total_cost: string,
+     *     interest: string,
+     *     status: string,
+     *     reason: string
+     *   }>,
+     *   best_offer: array<string, string>,
+     *   constraints: array<int, array{label: string, status: string, detail: string}>
+     * } $fallback
+     * @return array{
+     *   provider: string,
+     *   intent: string,
+     *   title: string,
+     *   answer: string,
+     *   decision: string,
+     *   score: float,
+     *   risk_level: string,
+     *   metrics: array<int, array{label: string, value: string}>,
+     *   recommendations: array<int, string>,
+     *   offers: array<int, array{
+     *     bank: string,
+     *     rate: string,
+     *     monthly: string,
+     *     total_cost: string,
+     *     interest: string,
+     *     status: string,
+     *     reason: string
+     *   }>,
+     *   best_offer: array<string, string>,
+     *   constraints: array<int, array{label: string, status: string, detail: string}>
+     * }
+     */
+    private function normalizeCreditAssistantResult(array $data, array $fallback): array
+    {
+        $intent = $this->normalizeCreditAssistantIntent((string) ($data['intent'] ?? $fallback['intent']));
+        $title = trim((string) ($data['title'] ?? ''));
+        $answer = trim((string) ($data['answer'] ?? ''));
+        $decision = $this->normalizeAssistantDecision((string) ($data['decision'] ?? $fallback['decision']));
+        $score = $this->numberFromMixed($data['score'] ?? null);
+        $riskLevel = $this->normalizeRiskLabel((string) ($data['risk_level'] ?? $fallback['risk_level']));
+
+        $metrics = [];
+        foreach ((array) ($data['metrics'] ?? []) as $metric) {
+            if (!is_array($metric)) {
+                continue;
+            }
+            $label = trim((string) ($metric['label'] ?? ''));
+            $value = trim((string) ($metric['value'] ?? ''));
+            if ($label === '' || $value === '') {
+                continue;
+            }
+            $metrics[] = ['label' => $label, 'value' => $value];
+            if (count($metrics) >= 4) {
+                break;
+            }
+        }
+
+        $recommendations = [];
+        foreach ((array) ($data['recommendations'] ?? []) as $item) {
+            $value = trim((string) $item);
+            if ($value === '') {
+                continue;
+            }
+            $recommendations[] = $value;
+            if (count($recommendations) >= 4) {
+                break;
+            }
+        }
+
+        $offers = [];
+        foreach ((array) ($data['offers'] ?? []) as $offer) {
+            if (!is_array($offer)) {
+                continue;
+            }
+            $bank = trim((string) ($offer['bank'] ?? ''));
+            if ($bank === '') {
+                continue;
+            }
+            $offers[] = [
+                'bank' => $bank,
+                'rate' => trim((string) ($offer['rate'] ?? '')),
+                'teg' => trim((string) ($offer['teg'] ?? '')),
+                'monthly' => trim((string) ($offer['monthly'] ?? '')),
+                'total_cost' => trim((string) ($offer['total_cost'] ?? '')),
+                'interest' => trim((string) ($offer['interest'] ?? '')),
+                'status' => trim((string) ($offer['status'] ?? '')),
+                'reason' => trim((string) ($offer['reason'] ?? '')),
+                'feature' => trim((string) ($offer['feature'] ?? '')),
+                'condition' => trim((string) ($offer['condition'] ?? '')),
+            ];
+            if (count($offers) >= 5) {
+                break;
+            }
+        }
+
+        $bestOffer = [];
+        if (is_array($data['best_offer'] ?? null)) {
+            foreach (['bank', 'rate', 'teg', 'monthly', 'total_cost', 'interest', 'status', 'reason', 'feature', 'condition'] as $field) {
+                $value = trim((string) (($data['best_offer'][$field] ?? '')));
+                if ($value !== '') {
+                    $bestOffer[$field] = $value;
+                }
+            }
+        }
+
+        $constraints = [];
+        foreach ((array) ($data['constraints'] ?? []) as $constraint) {
+            if (!is_array($constraint)) {
+                continue;
+            }
+            $label = trim((string) ($constraint['label'] ?? ''));
+            $detail = trim((string) ($constraint['detail'] ?? ''));
+            if ($label === '' || $detail === '') {
+                continue;
+            }
+            $constraints[] = [
+                'label' => $label,
+                'status' => $this->normalizeConstraintStatus((string) ($constraint['status'] ?? 'warn')),
+                'detail' => $detail,
+            ];
+            if (count($constraints) >= 5) {
+                break;
+            }
+        }
+
+        return [
+            'provider' => 'OpenRouter',
+            'intent' => $intent,
+            'title' => $title !== '' ? $title : $fallback['title'],
+            'answer' => $answer !== '' ? $answer : $fallback['answer'],
+            'decision' => $decision,
+            'score' => round($this->clamp($score ?? (float) $fallback['score'], 0.0, 100.0), 1),
+            'risk_level' => $riskLevel,
+            'metrics' => $metrics !== [] ? $metrics : $fallback['metrics'],
+            'recommendations' => $recommendations !== [] ? $recommendations : $fallback['recommendations'],
+            'offers' => $offers !== [] ? $offers : $fallback['offers'],
+            'best_offer' => $bestOffer !== [] ? $bestOffer : $fallback['best_offer'],
+            'constraints' => $constraints !== [] ? $constraints : $fallback['constraints'],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     * @return array<string, mixed>
+     */
+    private function resolveCreditAssistantCandidate(array $context): array
+    {
+        $draft = is_array($context['draft'] ?? null) ? $context['draft'] : [];
+        $selectedCredit = is_array($context['selected_credit'] ?? null) ? $context['selected_credit'] : [];
+        $selectedGuarantee = is_array($context['selected_garantie'] ?? null) ? $context['selected_garantie'] : [];
+        $hasSelectedCredit = $selectedCredit !== [];
+
+        $candidate = $selectedCredit !== [] ? $selectedCredit : [];
+        foreach ([
+            'idCredit',
+            'typeCredit',
+            'montantDemande',
+            'autofinancement',
+            'duree',
+            'tauxInteret',
+            'mensualite',
+            'montantAccorde',
+            'salaire',
+            'typeContrat',
+            'ancienneteAnnees',
+            'statut',
+            'risk_score',
+            'garantie',
+        ] as $field) {
+            if ($hasSelectedCredit) {
+                continue;
+            }
+
+            if (array_key_exists($field, $draft) && $draft[$field] !== '' && $draft[$field] !== null) {
+                $candidate[$field] = $draft[$field];
+            }
+        }
+
+        if ($selectedGuarantee !== []) {
+            $candidate['garantie'] = $selectedGuarantee;
+        } elseif (!isset($candidate['garantie']) && is_array($selectedCredit['garantie'] ?? null)) {
+            $candidate['garantie'] = $selectedCredit['garantie'];
+        }
+
+        return $candidate;
+    }
+
+    private function resolveCreditAssistantIntent(array $context): string
+    {
+        $raw = trim((string) ($context['intent'] ?? ''));
+        if ($raw !== '') {
+            return $this->normalizeCreditAssistantIntent($raw);
+        }
+
+        $text = $this->normalizeText(trim((string) ($context['message'] ?? '')));
+
+        return match (true) {
+            str_contains($text, 'simul') => 'simulate',
+            str_contains($text, 'score') || str_contains($text, 'scoring') => 'score',
+            str_contains($text, 'garant') => 'garantie',
+            str_contains($text, 'decision') || str_contains($text, 'accepte') || str_contains($text, 'refuse') => 'decision',
+            default => 'recommend',
+        };
+    }
+
+    private function normalizeCreditAssistantIntent(string $value): string
+    {
+        $normalized = $this->normalizeText($value);
+
+        return match (true) {
+            str_contains($normalized, 'simul') => 'simulate',
+            str_contains($normalized, 'score') => 'score',
+            str_contains($normalized, 'garant') => 'garantie',
+            str_contains($normalized, 'decision') => 'decision',
+            default => 'recommend',
+        };
+    }
+
+    private function normalizeAssistantDecision(string $value): string
+    {
+        $normalized = $this->normalizeText($value);
+
+        return match (true) {
+            str_contains($normalized, 'accept') || str_contains($normalized, 'accepte') => 'Accepte',
+            str_contains($normalized, 'refuse') || str_contains($normalized, 'reject') => 'Refuse',
+            default => 'A etudier',
+        };
+    }
+
+    private function mapAssistantDecision(string $status): string
+    {
+        return match ($this->normalizeStatusLabel($status)) {
+            'Accepte' => 'Accepte',
+            'Refuse' => 'Refuse',
+            default => 'A etudier',
+        };
+    }
+
+    /**
+     * @param array<string, mixed> $candidate
+     * @param array{
+     *   provider: string,
+     *   approval_probability: float,
+     *   failure_probability: float,
+     *   score: float,
+     *   risk_level: string,
+     *   suggested_status: string,
+     *   explanation: string
+     * } $eligibility
+     * @param array<string, mixed> $portfolio
+     * @return array<int, array{
+     *   bank: string,
+     *   rate: string,
+     *   monthly: string,
+     *   total_cost: string,
+     *   interest: string,
+     *   status: string,
+     *   reason: string
+     * }>
+     */
+    private function buildCreditAssistantOffers(array $candidate, array $eligibility, array $portfolio): array
+    {
+        $amount = max(0.0, (float) ($candidate['montantDemande'] ?? 0));
+        $autoFunding = max(0.0, (float) ($candidate['autofinancement'] ?? 0));
+        $duration = max(0, (int) ($candidate['duree'] ?? 0));
+        $salary = max(0.0, (float) ($candidate['salaire'] ?? 0));
+        $score = (float) ($eligibility['score'] ?? 0);
+        $baseRate = (float) ($candidate['tauxInteret'] ?? 0);
+        if ($baseRate <= 0.0) {
+            $baseRate = $this->defaultAssistantBaseRate((string) ($candidate['typeCredit'] ?? ''));
+        }
+
+        if ($amount <= 0.0 || $duration <= 0) {
+            return [];
+        }
+
+        $principal = max(0.0, $amount - $autoFunding);
+        $discount = $score >= 80.0 ? -0.60 : ($score >= 65.0 ? -0.25 : ($score < 45.0 ? 0.55 : 0.15));
+        $definitions = [
+            [
+                'bank' => 'NEXORA Bank',
+                'spread' => -0.42,
+                'teg_spread' => 0.30,
+                'fee' => 60.0,
+                'feature' => 'Partenaire privilegie · Deblocage 48h · Sans frais dossier',
+                'condition' => 'Domiciliation salaire requise',
+            ],
+            [
+                'bank' => 'BIAT',
+                'spread' => -0.12,
+                'teg_spread' => 0.33,
+                'fee' => 210.0,
+                'feature' => 'Traitement prioritaire et suivi conseiller',
+                'condition' => 'Justificatif de revenu recent requis',
+            ],
+            [
+                'bank' => 'Amen Bank',
+                'spread' => 0.04,
+                'teg_spread' => 0.36,
+                'fee' => 165.0,
+                'feature' => 'Assurance incluse et mensualite stable',
+                'condition' => 'Anciennete professionnelle souhaitee',
+            ],
+            [
+                'bank' => 'Attijari bank',
+                'spread' => -0.03,
+                'teg_spread' => 0.34,
+                'fee' => 185.0,
+                'feature' => 'Souplesse de remboursement anticipe',
+                'condition' => 'Dossier complet avant validation finale',
+            ],
+            [
+                'bank' => 'UIB',
+                'spread' => 0.11,
+                'teg_spread' => 0.38,
+                'fee' => 175.0,
+                'feature' => 'Offre standard avec accompagnement agence',
+                'condition' => 'Capacite d endettement a confirmer',
+            ],
+        ];
+
+        $offers = [];
+        foreach ($definitions as $definition) {
+            $annualRate = max(0.1, $baseRate + (float) $definition['spread'] + $discount);
+            $tegRate = $annualRate + (float) ($definition['teg_spread'] ?? 0.35);
+            $monthly = $this->estimateMonthlyPayment($amount, $autoFunding, $duration, $annualRate);
+            $totalRepayment = round(($monthly * $duration) + (float) $definition['fee'], 2);
+            $interest = round(max(0.0, $totalRepayment - $principal), 2);
+            $debtRatio = $salary > 0 ? ($monthly / $salary) : 1.0;
+            $status = $debtRatio > 0.55 || ((int) ($portfolio['open_credits'] ?? 0)) >= ((int) ($portfolio['max_active_credits'] ?? 3))
+                ? 'Non recommande'
+                : ($debtRatio > 0.40 ? 'A etudier' : 'Eligible');
+            $reason = match ($status) {
+                'Eligible' => (string) $definition['bank'] === 'NEXORA Bank'
+                    ? 'Offre maison competitive avec frais dossier reduits et mensualite soutenable.'
+                    : 'Mensualite soutenable avec cout global competitif.',
+                'A etudier' => (string) $definition['bank'] === 'NEXORA Bank'
+                    ? 'Offre Nexora interessante mais ratio d endettement a surveiller.'
+                    : 'Mensualite acceptable mais ratio d endettement a surveiller.',
+                default => 'Charge mensuelle ou regle metier trop restrictive pour cette offre.',
+            };
+
+            $offers[] = [
+                'bank' => (string) $definition['bank'],
+                'rate' => number_format($annualRate, 2, '.', ' ').' %',
+                'teg' => number_format($tegRate, 2, '.', ' ').' %',
+                'monthly' => number_format($monthly, 2, '.', ' ').' DT',
+                'total_cost' => number_format($totalRepayment, 2, '.', ' ').' DT',
+                'interest' => number_format($interest, 2, '.', ' ').' DT',
+                'status' => $status,
+                'reason' => $reason,
+                'feature' => (string) ($definition['feature'] ?? ''),
+                'condition' => (string) ($definition['condition'] ?? ''),
+            ];
+        }
+
+        return $offers;
+    }
+
+    /**
+     * @param array<int, array{
+     *   bank: string,
+     *   rate: string,
+     *   monthly: string,
+     *   total_cost: string,
+     *   interest: string,
+     *   status: string,
+     *   reason: string
+     * }> $offers
+     * @return array<string, string>
+     */
+    private function resolveBestCreditAssistantOffer(array $offers): array
+    {
+        if ($offers === []) {
+            return [];
+        }
+
+        $eligible = array_values(array_filter(
+            $offers,
+            static fn (array $offer): bool => ($offer['status'] ?? '') !== 'Non recommande'
+        ));
+        $pool = $eligible !== [] ? $eligible : $offers;
+
+        usort($pool, function (array $left, array $right): int {
+            $costComparison = $this->numberFromMixed($left['total_cost'] ?? '0') <=> $this->numberFromMixed($right['total_cost'] ?? '0');
+            if ($costComparison !== 0) {
+                return $costComparison;
+            }
+
+            $leftIsNexora = trim((string) ($left['bank'] ?? '')) === 'NEXORA Bank';
+            $rightIsNexora = trim((string) ($right['bank'] ?? '')) === 'NEXORA Bank';
+
+            return $leftIsNexora === $rightIsNexora ? 0 : ($leftIsNexora ? -1 : 1);
+        });
+
+        $best = $pool[0] ?? [];
+        if ($best === []) {
+            return [];
+        }
+
+        if (trim((string) ($best['reason'] ?? '')) === '') {
+            $best['reason'] = 'Offre retenue pour son cout global le plus faible.';
+        }
+
+        return $best;
+    }
+
+    /**
+     * @param array<string, mixed> $candidate
+     * @param array<string, mixed> $portfolio
+     * @return array<int, array{label: string, status: string, detail: string}>
+     */
+    private function buildCreditAssistantConstraints(array $candidate, array $portfolio, float $monthly, float $coverage): array
+    {
+        $amount = max(0.0, (float) ($candidate['montantDemande'] ?? 0));
+        $autoFunding = max(0.0, (float) ($candidate['autofinancement'] ?? 0));
+        $salary = max(0.0, (float) ($candidate['salaire'] ?? 0));
+        $openCredits = (int) ($portfolio['open_credits'] ?? 0);
+        $maxCredits = max(1, (int) ($portfolio['max_active_credits'] ?? 3));
+        $debtRatio = $salary > 0 ? round(($monthly / $salary) * 100, 1) : 100.0;
+        $contributionRatio = $amount > 0 ? round(($autoFunding / $amount) * 100, 1) : 0.0;
+
+        return [
+            [
+                'label' => 'Nombre max de credits',
+                'status' => $openCredits >= $maxCredits ? 'block' : ($openCredits === ($maxCredits - 1) ? 'warn' : 'ok'),
+                'detail' => sprintf('%d credit(s) ouvert(s) sur un maximum de %d.', $openCredits, $maxCredits),
+            ],
+            [
+                'label' => 'Ratio d endettement',
+                'status' => $debtRatio > 55.0 ? 'block' : ($debtRatio > 40.0 ? 'warn' : 'ok'),
+                'detail' => sprintf('Le ratio mensualite / salaire est estime a %.1f%%.', $debtRatio),
+            ],
+            [
+                'label' => 'Apport minimum',
+                'status' => $contributionRatio < 10.0 ? 'warn' : 'ok',
+                'detail' => sprintf('L apport personnel represente %.1f%% du montant demande.', $contributionRatio),
+            ],
+            [
+                'label' => 'Couverture de garantie',
+                'status' => $coverage > 0 && $coverage < 50.0 ? 'warn' : ($coverage <= 0 ? 'warn' : 'ok'),
+                'detail' => $coverage > 0
+                    ? sprintf('La garantie couvre environ %.1f%% du financement.', $coverage)
+                    : 'Aucune garantie suffisamment couverte n est associee au dossier.',
+            ],
+        ];
+    }
+
+    /**
+     * @param array<int, array{label: string, status: string, detail: string}> $constraints
+     */
+    private function resolveCreditAssistantDecision(string $status, array $constraints): string
+    {
+        $normalized = $this->mapAssistantDecision($status);
+        $hasBlocker = false;
+        $hasWarn = false;
+
+        foreach ($constraints as $constraint) {
+            $state = $this->normalizeConstraintStatus((string) ($constraint['status'] ?? 'warn'));
+            if ($state === 'block') {
+                $hasBlocker = true;
+            } elseif ($state === 'warn') {
+                $hasWarn = true;
+            }
+        }
+
+        if ($hasBlocker) {
+            return 'Refuse';
+        }
+
+        if ($hasWarn && $normalized === 'Accepte') {
+            return 'A etudier';
+        }
+
+        return $normalized;
+    }
+
+    private function normalizeConstraintStatus(string $value): string
+    {
+        $normalized = $this->normalizeText($value);
+
+        return match (true) {
+            str_contains($normalized, 'block') || str_contains($normalized, 'bloqu') => 'block',
+            str_contains($normalized, 'ok') || str_contains($normalized, 'valid') => 'ok',
+            default => 'warn',
+        };
+    }
+
+    private function defaultAssistantBaseRate(string $creditType): float
+    {
+        $normalized = $this->normalizeText($creditType);
+
+        return match (true) {
+            str_contains($normalized, 'immob') => 6.8,
+            str_contains($normalized, 'auto') || str_contains($normalized, 'vehicule') => 7.4,
+            str_contains($normalized, 'pro') => 8.3,
+            default => 8.9,
+        };
+    }
+
+    private function estimateMonthlyPayment(float $amount, float $autoFunding, int $duration, float $rate): float
+    {
+        $principal = max(0.0, $amount - $autoFunding);
+        if ($principal <= 0.0 || $duration <= 0) {
+            return 0.0;
+        }
+
+        $monthlyRate = $rate / 100 / 12;
+
+        return $monthlyRate <= 0
+            ? round($principal / $duration, 2)
+            : round(($principal * $monthlyRate) / (1 - pow(1 + $monthlyRate, -$duration)), 2);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
      * @param array{
      *   approval_probability: float,
      *   failure_probability: float,
@@ -356,7 +1337,7 @@ final class GeminiService
         $explanation = trim((string) ($data['explanation'] ?? ''));
 
         return [
-            'provider' => 'Gemini',
+            'provider' => 'OpenRouter',
             'approval_probability' => round($approval, 1),
             'failure_probability' => round($failure, 1),
             'score' => round($score, 1),
@@ -597,7 +1578,7 @@ final class GeminiService
     }
 
     /**
-     * Appel Gemini spécifique au scoring crédit avec des paramètres optimisés.
+     * Appel OpenRouter specifique au scoring credit avec des parametres optimises.
      */
     private function requestGeminiForCredit(string $prompt): ?string
     {
@@ -631,40 +1612,14 @@ final class GeminiService
     private function requestGeminiWithModelFallback(string $prompt, array $generationConfig, int $timeout): ?string
     {
         $this->lastGeminiError = null;
-        $this->lastSuccessfulProvider = null;
 
-        if ($this->openRouterApiKey() !== '') {
-            $openRouterText = $this->requestViaOpenRouter($prompt, $generationConfig, $timeout);
-            if ($openRouterText !== null) {
-                return $openRouterText;
-            }
-        }
-
-        if ($this->geminiApiKey() !== '') {
-            $geminiText = $this->requestViaNativeGemini($prompt, $generationConfig, $timeout);
-            if ($geminiText !== null) {
-                return $geminiText;
-            }
-        }
-
-        if ($this->lastGeminiError === null) {
-            $this->lastGeminiError = 'Missing OPENROUTER_API_KEY and GEMINI_API_KEY';
-        }
-
-        return null;
-    }
-
-    /**
-     * @param array<string, mixed> $generationConfig
-     */
-    private function requestViaOpenRouter(string $prompt, array $generationConfig, int $timeout): ?string
-    {
-        $apiKey = $this->openRouterApiKey();
+        $apiKey = $this->apiKey();
         if ($apiKey === '') {
+            $this->lastGeminiError = 'Missing OPENROUTER_API_KEY';
             return null;
         }
 
-        foreach ($this->openRouterCandidateModelNames() as $model) {
+        foreach ($this->candidateModelNames() as $model) {
             try {
                 $responseFormat = (string) ($generationConfig['responseMimeType'] ?? '') === 'application/json'
                     ? ['type' => 'json_object']
@@ -684,9 +1639,6 @@ final class GeminiService
                 ];
                 if ($responseFormat !== null) {
                     $body['response_format'] = $responseFormat;
-                }
-                if (str_contains($model, 'nemotron-3-super-120b-a12b:free')) {
-                    $body['reasoning'] = ['enabled' => true];
                 }
 
                 $response = $this->httpClient->request('POST', $this->openRouterEndpoint(), [
@@ -709,12 +1661,8 @@ final class GeminiService
 
                 $candidateText = $this->normalizeOpenRouterContent($data['choices'][0]['message']['content'] ?? null);
                 if ($candidateText !== '') {
-                    $this->lastSuccessfulProvider = 'OpenRouter';
-                    $this->lastGeminiError = null;
-
                     return $candidateText;
                 }
-
                 $this->lastGeminiError = 'Empty OpenRouter response.';
             } catch (\Throwable $exception) {
                 $this->lastGeminiError = 'OpenRouter request failed: '.$exception->getMessage();
@@ -728,110 +1676,17 @@ final class GeminiService
     /**
      * @return array<int, string>
      */
-    private function openRouterCandidateModelNames(): array
+    private function candidateModelNames(): array
     {
-        $configured = $this->openRouterModelName();
+        $configured = $this->modelName();
         $fallbacks = [
             'openai/gpt-oss-120b:free',
-            'nvidia/nemotron-3-super-120b-a12b:free',
             'openai/gpt-oss-20b:free',
         ];
 
         $models = array_values(array_filter(array_unique(array_merge([$configured], $fallbacks))));
 
         return $models;
-    }
-
-    /**
-     * @param array<string, mixed> $generationConfig
-     */
-    private function requestViaNativeGemini(string $prompt, array $generationConfig, int $timeout): ?string
-    {
-        $apiKey = $this->geminiApiKey();
-        if ($apiKey === '') {
-            return null;
-        }
-
-        $model = $this->geminiModelName();
-        $endpoint = sprintf(
-            'https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s',
-            rawurlencode($model),
-            rawurlencode($apiKey)
-        );
-
-        $config = [
-            'temperature' => (float) ($generationConfig['temperature'] ?? 0.2),
-            'maxOutputTokens' => max(16, (int) ($generationConfig['maxOutputTokens'] ?? 300)),
-            'thinkingConfig' => [
-                'thinkingBudget' => 0,
-            ],
-        ];
-        if (($generationConfig['responseMimeType'] ?? null) === 'application/json') {
-            $config['responseMimeType'] = 'application/json';
-        }
-
-        try {
-            $response = $this->httpClient->request('POST', $endpoint, [
-                'headers' => [
-                    'Content-Type' => 'application/json',
-                ],
-                'json' => [
-                    'contents' => [
-                        [
-                            'parts' => [
-                                ['text' => $prompt],
-                            ],
-                        ],
-                    ],
-                    'generationConfig' => $config,
-                ],
-                'timeout' => $timeout,
-            ]);
-
-            $statusCode = $response->getStatusCode();
-            $data = $response->toArray(false);
-            if ($statusCode >= 400) {
-                $this->lastGeminiError = trim((string) ($data['error']['message'] ?? ('HTTP '.$statusCode)));
-
-                return null;
-            }
-
-            $candidateText = $this->normalizeGeminiContent($data);
-            if ($candidateText === '') {
-                $this->lastGeminiError = 'Empty Gemini response.';
-
-                return null;
-            }
-
-            $this->lastSuccessfulProvider = 'Gemini';
-            $this->lastGeminiError = null;
-
-            return $candidateText;
-        } catch (\Throwable $exception) {
-            $this->lastGeminiError = 'Gemini request failed: '.$exception->getMessage();
-
-            return null;
-        }
-    }
-
-    /**
-     * @param array<string, mixed> $data
-     */
-    private function normalizeGeminiContent(array $data): string
-    {
-        $parts = $data['candidates'][0]['content']['parts'] ?? null;
-        if (!is_array($parts)) {
-            return '';
-        }
-
-        $buffer = [];
-        foreach ($parts as $part) {
-            if (is_array($part) && isset($part['text']) && is_string($part['text'])) {
-                $buffer[] = $part['text'];
-            }
-        }
-
-        return trim(implode('', $buffer));
     }
 
     private function normalizeOpenRouterContent(mixed $content): string
@@ -910,89 +1765,67 @@ final class GeminiService
         return implode(' ', $lines);
     }
 
-    private function openRouterApiKey(): string
+    private function apiKey(): string
     {
-        return $this->firstNonEmpty([
-            $_ENV['OPENROUTER_API_KEY'] ?? null,
-            $_SERVER['OPENROUTER_API_KEY'] ?? null,
-            getenv('OPENROUTER_API_KEY'),
-        ]);
+        return trim((string) (
+            $_ENV['OPENROUTER_API_KEY']
+            ?? $_SERVER['OPENROUTER_API_KEY']
+            ?? getenv('OPENROUTER_API_KEY')
+            ?? $_ENV['NEXORA_GEMINI_API_KEY']
+            ?? $_SERVER['NEXORA_GEMINI_API_KEY']
+            ?? getenv('NEXORA_GEMINI_API_KEY')
+            ?? $_ENV['GEMINI_API_KEY']
+            ?? $_SERVER['GEMINI_API_KEY']
+            ?? getenv('GEMINI_API_KEY')
+            ?? ''
+        ));
     }
 
-    private function geminiApiKey(): string
+    private function modelName(): string
     {
-        return $this->firstNonEmpty([
-            $_ENV['NEXORA_GEMINI_API_KEY'] ?? null,
-            $_SERVER['NEXORA_GEMINI_API_KEY'] ?? null,
-            getenv('NEXORA_GEMINI_API_KEY'),
-            $_ENV['GEMINI_API_KEY'] ?? null,
-            $_SERVER['GEMINI_API_KEY'] ?? null,
-            getenv('GEMINI_API_KEY'),
-        ]);
-    }
+        $model = trim((string) (
+            $_ENV['OPENROUTER_MODEL']
+            ?? $_SERVER['OPENROUTER_MODEL']
+            ?? getenv('OPENROUTER_MODEL')
+            ?? $_ENV['GEMINI_MODEL']
+            ?? $_SERVER['GEMINI_MODEL']
+            ?? getenv('GEMINI_MODEL')
+            ?? ''
+        ));
 
-    private function openRouterModelName(): string
-    {
-        return $this->firstNonEmpty([
-            $_ENV['OPENROUTER_MODEL'] ?? null,
-            $_SERVER['OPENROUTER_MODEL'] ?? null,
-            getenv('OPENROUTER_MODEL'),
-        ], 'openai/gpt-oss-120b:free');
-    }
-
-    private function geminiModelName(): string
-    {
-        return $this->firstNonEmpty([
-            $_ENV['GEMINI_MODEL'] ?? null,
-            $_SERVER['GEMINI_MODEL'] ?? null,
-            getenv('GEMINI_MODEL'),
-        ], 'gemini-2.5-flash');
+        return $model !== '' ? $model : 'openai/gpt-oss-120b:free';
     }
 
     private function openRouterEndpoint(): string
     {
-        return $this->firstNonEmpty([
-            $_ENV['OPENROUTER_BASE_URL'] ?? null,
-            $_SERVER['OPENROUTER_BASE_URL'] ?? null,
-            getenv('OPENROUTER_BASE_URL'),
-        ], 'https://openrouter.ai/api/v1/chat/completions');
+        $endpoint = trim((string) (
+            $_ENV['OPENROUTER_BASE_URL']
+            ?? $_SERVER['OPENROUTER_BASE_URL']
+            ?? getenv('OPENROUTER_BASE_URL')
+            ?? ''
+        ));
+
+        return $endpoint !== '' ? $endpoint : 'https://openrouter.ai/api/v1/chat/completions';
     }
 
     private function openRouterReferer(): string
     {
-        return $this->firstNonEmpty([
-            $_ENV['OPENROUTER_HTTP_REFERER'] ?? null,
-            $_SERVER['OPENROUTER_HTTP_REFERER'] ?? null,
-            getenv('OPENROUTER_HTTP_REFERER'),
-        ], 'http://127.0.0.1:8001');
+        return trim((string) (
+            $_ENV['OPENROUTER_HTTP_REFERER']
+            ?? $_SERVER['OPENROUTER_HTTP_REFERER']
+            ?? getenv('OPENROUTER_HTTP_REFERER')
+            ?? 'http://127.0.0.1:8001'
+        ));
     }
 
     private function openRouterAppName(): string
     {
-        return $this->firstNonEmpty([
-            $_ENV['OPENROUTER_APP_NAME'] ?? null,
-            $_SERVER['OPENROUTER_APP_NAME'] ?? null,
-            getenv('OPENROUTER_APP_NAME'),
-        ], 'Nexora Portal');
-    }
-
-    /**
-     * @param array<int, mixed> $values
-     */
-    private function firstNonEmpty(array $values, string $default = ''): string
-    {
-        foreach ($values as $value) {
-            if (!is_scalar($value)) {
-                continue;
-            }
-
-            $normalized = trim((string) $value);
-            if ($normalized !== '') {
-                return $normalized;
-            }
-        }
-
-        return $default;
+        return trim((string) (
+            $_ENV['OPENROUTER_APP_NAME']
+            ?? $_SERVER['OPENROUTER_APP_NAME']
+            ?? getenv('OPENROUTER_APP_NAME')
+            ?? 'Nexora Portal'
+        ));
     }
 
     private function isQuotaError(string $message): bool

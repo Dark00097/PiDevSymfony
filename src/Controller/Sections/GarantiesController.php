@@ -5,10 +5,17 @@ namespace App\Controller\Sections;
 use App\Service\ActivityService;
 use App\Service\BankingService;
 use App\Service\ExportService;
+use App\Service\FraudDetectionService;
+use Symfony\Component\HttpFoundation\File\Exception\FileException;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 
 final class GarantiesController
 {
+    public function __construct(
+        private readonly FraudDetectionService $fraudDetectionService,
+    ) {
+    }
     // -------------------------------------------------------------------------
     // Admin
     // -------------------------------------------------------------------------
@@ -55,7 +62,7 @@ final class GarantiesController
 
     public function buildPortalData(BankingService $bankingService, int $userId, ?Request $request = null): array
     {
-        $allGaranties    = $bankingService->listGaranties($userId);
+        $allGaranties    = $this->enrichGarantiesWithFraudData($bankingService->listGaranties($userId), $userId);
         $garantieQuery   = $this->resolvePortalGarantieQuery($request);
         $garanties       = $this->filterAndSortPortalGaranties($allGaranties, $garantieQuery);
 
@@ -78,6 +85,8 @@ final class GarantiesController
                 'filtered_garantie_count'  => count($garanties),
                 'garantie_history'         => $request !== null ? $this->getHistory($request) : [],
                 'garantie_stats'           => $this->buildGarantieStats($allGaranties),
+                'garantie_fraud_stats'     => $this->buildFraudStats($allGaranties),
+                'garantie_fraud_history'   => $this->extractFraudHistoryMap($allGaranties),
                 'form_errors_garantie'     => $formErrorsGarantie,
                 'form_data_garantie'       => $formDataGarantie,
                 'garantie_form_feedback'   => [
@@ -93,20 +102,36 @@ final class GarantiesController
         switch ($action) {
             case 'garantie_save':
                 $data = $request->request->all();
+                $uploadedOriginalName = '';
+                $uploadedDocument = $request->files->get('documentJustificatifFile');
+                if ($uploadedDocument instanceof \Symfony\Component\HttpFoundation\File\UploadedFile) {
+                    $uploadedOriginalName = trim((string) $uploadedDocument->getClientOriginalName());
+                    $data['documentJustificatifFile'] = $uploadedDocument;
+                }
+
                 if (($data['idUser'] ?? '') === '') {
                     $data['idUser'] = (string) $userId;
                 }
 
                 $errors = $this->validateGarantie($data, $bankingService, $userId);
                 if ($errors !== []) {
+                    $sessionFormData = $data;
+                    unset($sessionFormData['documentJustificatifFile']);
                     $request->getSession()->set('nexora.form_errors.garantie', $errors);
-                    $request->getSession()->set('nexora.form_data.garantie', $data);
+                    $request->getSession()->set('nexora.form_data.garantie', $sessionFormData);
 
                     return ['type' => 'validation_error', 'message' => 'Veuillez corriger les erreurs du formulaire garantie.'];
                 }
 
                 $request->getSession()->remove('nexora.form_errors.garantie');
                 $request->getSession()->remove('nexora.form_data.garantie');
+
+                if ($uploadedDocument instanceof UploadedFile && $uploadedDocument->isValid()) {
+                    $storedDocumentPath = $this->moveUploadedGuaranteeDocument($uploadedDocument);
+                    $data['documentJustificatif'] = $storedDocumentPath;
+                    $data['existingDocumentJustificatif'] = $storedDocumentPath;
+                }
+                unset($data['documentJustificatifFile']);
 
                 $garantieId = $this->requestInt($request, 'idGarantie');
                 if ($garantieId !== null) {
@@ -121,14 +146,29 @@ final class GarantiesController
                         return ['type' => 'error', 'message' => 'Garantie introuvable ou inaccessible.'];
                     }
                     $data['idUser'] = (string) $userId;
-                    $bankingService->saveGarantie($data, $garantieId, null);
+                    $savedGarantieId = $bankingService->saveGarantie($data, $garantieId, $userId);
                 } else {
-                    $bankingService->saveGarantie($data, null, $userId);
+                    $savedGarantieId = $bankingService->saveGarantie($data, null, $userId);
                 }
+
+                $analysisPayload = array_replace($data, [
+                    'idGarantie' => $savedGarantieId,
+                    'uploadedOriginalName' => $uploadedOriginalName,
+                ]);
+                $analysis = $this->fraudDetectionService->analyzeGuarantee($analysisPayload, $userId);
+                $this->fraudDetectionService->recordGuaranteeAnalysis(
+                    $userId,
+                    (int) $savedGarantieId,
+                    (string) ($analysis['document_name'] ?? ($data['documentJustificatif'] ?? '')),
+                    $analysis
+                );
 
                 $this->logHistory($request, 'garantie_save', $data);
 
-                return ['type' => 'success', 'message' => 'Garantie enregistrée avec succès.'];
+                return [
+                    'type' => 'success',
+                    'message' => 'Garantie enregistree.',
+                ];
 
             case 'garantie_delete':
                 $id = $this->requestInt($request, 'idGarantie') ?? 0;
@@ -200,6 +240,44 @@ final class GarantiesController
             $errors['adresseBien'] = "L'adresse du bien ne peut pas depasser 255 caracteres.";
         }
 
+        $adresseComplete = trim((string) ($data['adresseComplete'] ?? ''));
+        if ($adresseComplete === '' && $adresseBien !== '') {
+            $data['adresseComplete'] = $adresseBien;
+            $adresseComplete = $adresseBien;
+        }
+        if ($adresseComplete !== '' && mb_strlen($adresseComplete, 'UTF-8') > 255) {
+            $errors['adresseComplete'] = "L'adresse complete ne peut pas depasser 255 caracteres.";
+        }
+
+        $ville = trim((string) ($data['ville'] ?? ''));
+        if ($ville !== '' && mb_strlen($ville, 'UTF-8') > 120) {
+            $errors['ville'] = 'La ville ne peut pas depasser 120 caracteres.';
+        }
+
+        $codePostal = trim((string) ($data['codePostal'] ?? ''));
+        if ($codePostal !== '' && mb_strlen($codePostal, 'UTF-8') > 30) {
+            $errors['codePostal'] = 'Le code postal ne peut pas depasser 30 caracteres.';
+        }
+
+        $pays = trim((string) ($data['pays'] ?? ''));
+        if ($pays !== '' && mb_strlen($pays, 'UTF-8') > 120) {
+            $errors['pays'] = 'Le pays ne peut pas depasser 120 caracteres.';
+        }
+
+        $latitude = trim((string) ($data['latitude'] ?? ''));
+        if ($latitude !== '' && (!is_numeric($latitude) || (float) $latitude < -90 || (float) $latitude > 90)) {
+            $errors['latitude'] = 'Latitude invalide.';
+        }
+
+        $longitude = trim((string) ($data['longitude'] ?? ''));
+        if ($longitude !== '' && (!is_numeric($longitude) || (float) $longitude < -180 || (float) $longitude > 180)) {
+            $errors['longitude'] = 'Longitude invalide.';
+        }
+
+        $data['statutVerificationAdresse'] = ($adresseComplete !== '' && $latitude !== '' && $longitude !== '')
+            ? 'Verifiee'
+            : 'A verifier';
+
         $estimatedRaw = $data['valeurEstimee'] ?? '';
         $estimated = (float) $estimatedRaw;
         if ($estimatedRaw === '' || $estimatedRaw === null) {
@@ -221,17 +299,34 @@ final class GarantiesController
         }
 
         $dateEvaluation = trim((string) ($data['dateEvaluation'] ?? ''));
+        $isEdit = (int) ($data['idGarantie'] ?? 0) > 0;
         if ($dateEvaluation === '') {
             $errors['dateEvaluation'] = "La date d'evaluation est obligatoire.";
         } else {
             try {
                 $parsedDate = new \DateTimeImmutable($dateEvaluation);
-                if ($parsedDate > $today) {
-                    $errors['dateEvaluation'] = "La date d'evaluation ne doit pas etre superieure a la date actuelle.";
+                if (!$isEdit && $parsedDate < $today) {
+                    $errors['dateEvaluation'] = "La date d'evaluation ne peut pas etre dans le passe.";
                 }
             } catch (\Throwable) {
                 $errors['dateEvaluation'] = "Date d'evaluation invalide.";
             }
+        }
+
+        $documentFile = $data['documentJustificatifFile'] ?? null;
+        $existingDocument = trim((string) ($data['existingDocumentJustificatif'] ?? ''));
+        $storedDocument = trim((string) ($data['documentJustificatif'] ?? ''));
+        if ($documentFile instanceof UploadedFile && $documentFile->isValid()) {
+            $extension = strtolower($documentFile->getClientOriginalExtension());
+            if (!in_array($extension, ['png', 'jpg', 'jpeg', 'webp', 'gif'], true)) {
+                $errors['documentJustificatif'] = 'Format de document non autorisé. Utilisez PNG, JPG, WEBP ou GIF.';
+            } elseif ($documentFile->getSize() !== null && $documentFile->getSize() > 5_242_880) {
+                $errors['documentJustificatif'] = 'Le document est trop volumineux (max. 5 Mo).';
+            } else {
+                $data['documentJustificatif'] = $documentFile->getClientOriginalName();
+            }
+        } else {
+            $data['documentJustificatif'] = $storedDocument !== '' ? $storedDocument : $existingDocument;
         }
 
         $document = trim((string) ($data['documentJustificatif'] ?? ''));
@@ -253,6 +348,43 @@ final class GarantiesController
         }
 
         return $errors;
+    }
+
+    private function moveUploadedGuaranteeDocument(UploadedFile $file): string
+    {
+        $uploadDirectory = dirname(__DIR__, 3).'/public/uploads/garanties';
+        if (!is_dir($uploadDirectory) && !mkdir($uploadDirectory, 0775, true) && !is_dir($uploadDirectory)) {
+            throw new FileException('Impossible de créer le répertoire de stockage du document.');
+        }
+
+        $filename = bin2hex(random_bytes(8)).'_' . preg_replace('/[^a-zA-Z0-9._-]+/', '_', $file->getClientOriginalName());
+        $file->move($uploadDirectory, $filename);
+
+        return 'uploads/garanties/'.$filename;
+    }
+
+    private function normalizeFraudGuaranteeStatus(string $status): string
+    {
+        return match ($status) {
+            'valide' => 'Validée',
+            'à vérifier' => 'À vérifier',
+            'suspect' => 'Suspect',
+            'rejeté' => 'Rejetée',
+            default => 'En attente',
+        };
+    }
+
+    private function getFraudBadgeClass(string $level, string $status): string
+    {
+        if ($status === 'rejeté' || $level === 'élevé') {
+            return 'text-bg-danger';
+        }
+
+        if ($status === 'suspect' || $status === 'à vérifier') {
+            return 'text-bg-warning';
+        }
+
+        return 'text-bg-success';
     }
 
     // -------------------------------------------------------------------------
@@ -277,20 +409,21 @@ final class GarantiesController
             return null;
         }
 
-        // Fetch the associated credit
-        $creditId = (int) ($garantie['idCredit'] ?? 0);
-        $credit   = null;
-        if ($creditId > 0) {
+        $creditIds = array_map('intval', $garantie['linkedCreditIds'] ?? []);
+        $credit = null;
+        $credits = [];
+        if ($creditIds !== []) {
             foreach ($bankingService->listCredits() as $c) {
-                if ((int) ($c['idCredit'] ?? 0) === $creditId) {
-                    $credit = $c;
-                    break;
+                if (in_array((int) ($c['idCredit'] ?? 0), $creditIds, true)) {
+                    $credits[] = $c;
                 }
             }
+            $credit = $credits[0] ?? null;
         }
 
         return [
             'garantie' => $garantie,
+            'credits'  => $credits,
             'credit'   => $credit,
         ];
     }
@@ -606,6 +739,109 @@ final class GarantiesController
             'ù' => 'u', 'ú' => 'u', 'û' => 'u', 'ü' => 'u',
             'ý' => 'y', 'ÿ' => 'y',
         ]);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $garanties
+     * @return array<int, array<string, mixed>>
+     */
+    private function enrichGarantiesWithFraudData(array $garanties, int $userId): array
+    {
+        if ($userId <= 0 || $garanties === []) {
+            return $garanties;
+        }
+
+        $garantieIds = [];
+        foreach ($garanties as $garantie) {
+            $garantieId = (int) ($garantie['idGarantie'] ?? 0);
+            if ($garantieId > 0) {
+                $garantieIds[] = $garantieId;
+            }
+        }
+
+        $historyByGarantie = $this->fraudDetectionService->loadGuaranteeFraudHistory($userId, array_values(array_unique($garantieIds)));
+
+        foreach ($garanties as &$garantie) {
+            $garantieId = (int) ($garantie['idGarantie'] ?? 0);
+            $history = array_slice($historyByGarantie[$garantieId] ?? [], 0, 5);
+
+            $garantie['fraud_analysis'] = $history[0] ?? null;
+            $garantie['fraud'] = $history[0] ?? null;
+            $garantie['fraud_history'] = $history;
+            $garantie['fraud_history_count'] = count($historyByGarantie[$garantieId] ?? []);
+            $garantie['ocr_payload'] = $this->fraudDetectionService->prepareExternalOcrPayload($garantie);
+        }
+        unset($garantie);
+
+        return $garanties;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $garanties
+     * @return array<string, int>
+     */
+    private function buildFraudStats(array $garanties): array
+    {
+        $stats = [
+            'analysed' => 0,
+            'valide' => 0,
+            'a_verifier' => 0,
+            'suspect' => 0,
+            'rejete' => 0,
+        ];
+
+        foreach ($garanties as $garantie) {
+            $analysis = is_array($garantie['fraud_analysis'] ?? null) ? $garantie['fraud_analysis'] : null;
+            if ($analysis === null) {
+                continue;
+            }
+
+            ++$stats['analysed'];
+            $status = strtolower(trim((string) ($analysis['status_key'] ?? $analysis['status'] ?? '')));
+
+            if (in_array($status, ['a verifier', 'a_verifier'], true)) {
+                ++$stats['a_verifier'];
+            } elseif ($status === 'suspect') {
+                ++$stats['suspect'];
+            } elseif ($status === 'rejete') {
+                ++$stats['rejete'];
+            } else {
+                ++$stats['valide'];
+            }
+        }
+
+        return $stats;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $garanties
+     * @return array<int, array<int, array<string, mixed>>>
+     */
+    private function extractFraudHistoryMap(array $garanties): array
+    {
+        $history = [];
+
+        foreach ($garanties as $garantie) {
+            $garantieId = (int) ($garantie['idGarantie'] ?? 0);
+            if ($garantieId <= 0) {
+                continue;
+            }
+
+            $history[$garantieId] = is_array($garantie['fraud_history'] ?? null)
+                ? $garantie['fraud_history']
+                : [];
+        }
+
+        return $history;
+    }
+
+    private function resolveFraudFlashType(string $status): string
+    {
+        return match (strtolower(trim($status))) {
+            'a verifier', 'a_verifier' => 'warning',
+            'suspect', 'rejete' => 'error',
+            default => 'success',
+        };
     }
 
     // -------------------------------------------------------------------------

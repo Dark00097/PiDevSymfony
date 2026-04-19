@@ -29,53 +29,8 @@ final class ExportService
         $safeSubtitle = htmlspecialchars($subtitle ?? 'Export detaille genere depuis Nexora.', ENT_QUOTES);
         $generatedAt = date('Y-m-d H:i:s');
         $safeAccent = htmlspecialchars($accent, ENT_QUOTES);
-        $columnCount = max(1, count($headers));
-        $paperOrientation = $columnCount > 6 ? 'landscape' : 'portrait';
-        $tableFontSize = $columnCount > 12 ? 8.5 : ($columnCount > 8 ? 9.5 : 10.5);
 
-        $html = '<html><head><meta charset="UTF-8">';
-        $html .= sprintf(
-            '<style>
-                @page { margin: 16px; }
-                body {
-                    font-family: DejaVu Sans, sans-serif;
-                    color: #0a2540;
-                    margin: 0;
-                    background: #eef4f8;
-                }
-                .nx-export-table {
-                    width: 100%%;
-                    border-collapse: collapse;
-                    table-layout: fixed;
-                    margin-top: 8px;
-                    font-size: %.1fpx;
-                }
-                .nx-export-table thead {
-                    display: table-header-group;
-                }
-                .nx-export-table tr {
-                    page-break-inside: avoid;
-                }
-                .nx-export-table th,
-                .nx-export-table td {
-                    border: 1px solid #dbe3ef;
-                    padding: 7px 8px;
-                    text-align: left;
-                    vertical-align: top;
-                    overflow-wrap: anywhere;
-                    word-break: break-word;
-                    white-space: normal;
-                    line-height: 1.3;
-                }
-                .nx-export-table th {
-                    background: #edf4fb;
-                    font-weight: 800;
-                    color: #0a2540;
-                }
-             </style>',
-            $tableFontSize
-        );
-        $html .= '</head><body>';
+        $html = '<html><head><meta charset="UTF-8"></head><body style="font-family: DejaVu Sans, sans-serif; color:#0a2540; margin:0; background:#eef4f8;">';
         $html .= '<div style="padding:28px 32px 36px;">';
         $html .= sprintf(
             '<div style="background:#0a2540; color:#ffffff; border-top:6px solid %s; border-radius:18px; padding:24px 28px; box-shadow:0 10px 30px rgba(10,37,64,.18);">',
@@ -103,18 +58,18 @@ final class ExportService
 
         $html .= '<div style="background:#ffffff; border:1px solid #dbe7f3; border-radius:18px; padding:18px; margin-top:18px;">';
         $html .= sprintf('<div style="font-size:13px; font-weight:800; color:#0a2540; text-transform:uppercase; letter-spacing:.8px; margin-bottom:12px; border-left:4px solid %s; padding-left:10px;">Details</div>', $safeAccent);
-        $html .= '<table class="nx-export-table">';
+        $html .= '<table style="width:100%; border-collapse:collapse; margin-top:8px; font-size:13px;">';
         $html .= '<thead><tr>';
         foreach ($headers as $header) {
             $html .= sprintf(
-                '<th>%s</th>',
+                '<th style="border:1px solid #dbe3ef; padding:10px 12px; background:#edf4fb; text-align:left; font-weight:800; color:#0a2540;">%s</th>',
                 htmlspecialchars($header, ENT_QUOTES)
             );
         }
         $html .= '</tr></thead><tbody>';
         if ($rows === []) {
             $html .= sprintf(
-                '<tr><td colspan="%d" style="padding:18px 12px; text-align:center; color:#6b86a0;">Aucune donnee disponible.</td></tr>',
+                '<tr><td colspan="%d" style="border:1px solid #dbe3ef; padding:18px 12px; text-align:center; color:#6b86a0;">Aucune donnee disponible.</td></tr>',
                 count($headers)
             );
         }
@@ -123,7 +78,7 @@ final class ExportService
             $html .= sprintf('<tr style="background:%s;">', $bg);
             foreach ($row as $cell) {
                 $html .= sprintf(
-                    '<td>%s</td>',
+                    '<td style="border:1px solid #dbe3ef; padding:10px 12px;">%s</td>',
                     htmlspecialchars((string) $cell, ENT_QUOTES)
                 );
             }
@@ -134,7 +89,7 @@ final class ExportService
         $html .= '</div></body></html>';
 
         $dompdf->loadHtml($html);
-        $dompdf->setPaper('A4', $paperOrientation);
+        $dompdf->setPaper('A4', 'portrait');
         $dompdf->render();
 
         return $dompdf->output();

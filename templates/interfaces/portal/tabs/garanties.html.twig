@@ -5,12 +5,187 @@
 {% endif %}
 {% set garantie_old = garantie_feedback.input|default({}) %}
 {% set garantie_errors = garantie_feedback.errors|default({}) %}
+{% set fraud_stats = support.garantie_fraud_stats|default({'analysed': 0, 'valide': 0, 'a_verifier': 0, 'suspect': 0, 'rejete': 0}) %}
+
+<style>
+.nx-list-pager {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+
+.nx-list-pager[hidden] {
+    display: none !important;
+}
+
+.nx-list-pager-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    border: 1px solid #cfe0f2;
+    background: #fff;
+    color: #58789a;
+    font-size: 14px;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.nx-list-pager-btn.is-active {
+    background: linear-gradient(135deg, #16a34a, #14b8a6);
+    border-color: transparent;
+    color: #fff;
+}
+
+.nx-list-pager-btn:disabled {
+    opacity: .45;
+    cursor: default;
+}
+
+tr.nx-page-hidden {
+    display: none;
+}
+
+.nx-fraud-overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin: 16px 0 20px;
+}
+
+.nx-fraud-card {
+    padding: 14px 16px;
+    border-radius: 18px;
+    background: linear-gradient(180deg, #f8fbff, #eef5fb);
+    border: 1px solid #d7e7f4;
+}
+
+.nx-fraud-card strong {
+    display: block;
+    font-size: 22px;
+    color: #11324d;
+}
+
+.nx-fraud-card span {
+    display: block;
+    margin-top: 4px;
+    color: #5d7388;
+    font-size: 12px;
+}
+
+.nx-fraud-box {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 240px;
+}
+
+.nx-fraud-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.nx-fraud-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.fraud-badge--success { background: #dcfce7; color: #166534; }
+.fraud-badge--success-soft { background: #ecfdf5; color: #047857; }
+.fraud-badge--warning { background: #fef3c7; color: #92400e; }
+.fraud-badge--warning-soft { background: #fffbeb; color: #b45309; }
+.fraud-badge--danger { background: #fee2e2; color: #b91c1c; }
+.fraud-badge--danger-soft { background: #fff1f2; color: #be123c; }
+.fraud-badge--dark { background: #e2e8f0; color: #0f172a; }
+.fraud-badge--neutral { background: #eaf1f7; color: #5f7488; }
+
+.nx-fraud-reasons {
+    margin: 0;
+    padding-left: 18px;
+    color: #3d556d;
+    font-size: 12px;
+}
+
+.nx-fraud-ok {
+    margin: 0;
+    color: #1d6b45;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.nx-fraud-history {
+    border-top: 1px dashed #d7e2ec;
+    padding-top: 8px;
+}
+
+.nx-fraud-history summary {
+    cursor: pointer;
+    color: #2c5f8a;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.nx-fraud-history-list {
+    display: grid;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.nx-fraud-history-item {
+    padding: 8px 10px;
+    border-radius: 12px;
+    background: #f8fbff;
+    border: 1px solid #dbe7f1;
+}
+
+.nx-fraud-history-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.nx-fraud-history-date {
+    font-size: 11px;
+    color: #64748b;
+}
+</style>
 
 <section class="panel-card">
     <h2>Garanties</h2>
     <p style="margin:6px 0 16px; color:#6b7280; font-size:13px;">
         Creation, modification, suppression et validation complete des garanties, avec le meme principe que le module compte bancaire.
     </p>
+
+    <div class="nx-fraud-overview">
+        <article class="nx-fraud-card">
+            <strong>{{ fraud_stats.analysed }}</strong>
+            <span>analyses documentaires</span>
+        </article>
+        <article class="nx-fraud-card">
+            <strong>{{ fraud_stats.a_verifier }}</strong>
+            <span>dossiers a verifier</span>
+        </article>
+        <article class="nx-fraud-card">
+            <strong>{{ fraud_stats.suspect }}</strong>
+            <span>documents suspects</span>
+        </article>
+        <article class="nx-fraud-card">
+            <strong>{{ fraud_stats.rejete }}</strong>
+            <span>documents rejetes</span>
+        </article>
+    </div>
 
     <form method="post" class="editor-form" id="portal-garantie-form" novalidate enctype="multipart/form-data">
         <input type="hidden" name="tab" value="garanties">
@@ -41,6 +216,44 @@
             <input type="text" name="adresseBien" id="portal-garantie-address" placeholder="Adresse du bien (min. 5 caracteres)" value="{{ garantie_old.adresseBien|default('') }}" class="{{ garantie_errors.adresseBien is defined ? 'acc-invalid' : '' }}">
             <span id="g-err-adresseBien" class="g-val-msg">{{ garantie_errors.adresseBien|default('') }}</span>
         </label>
+        <label style="grid-column:1 / -1;">
+            <span>Adresse complete OpenStreetMap</span>
+            <input type="text" name="adresseComplete" id="portal-garantie-address-complete" placeholder="Commencez a taper une adresse..." value="{{ garantie_old.adresseComplete|default(garantie_old.adresseBien|default('')) }}" class="{{ garantie_errors.adresseComplete is defined ? 'acc-invalid' : '' }}">
+            <div id="portal-garantie-address-suggestions" style="display:grid; gap:6px; margin-top:8px;" hidden></div>
+            <span id="g-err-adresseComplete" class="g-val-msg">{{ garantie_errors.adresseComplete|default('') }}</span>
+        </label>
+        <label>
+            <span>Ville</span>
+            <input type="text" name="ville" id="portal-garantie-city" value="{{ garantie_old.ville|default('') }}" readonly>
+            <span id="g-err-ville" class="g-val-msg">{{ garantie_errors.ville|default('') }}</span>
+        </label>
+        <label>
+            <span>Code postal</span>
+            <input type="text" name="codePostal" id="portal-garantie-postal" value="{{ garantie_old.codePostal|default('') }}" readonly>
+            <span id="g-err-codePostal" class="g-val-msg">{{ garantie_errors.codePostal|default('') }}</span>
+        </label>
+        <label>
+            <span>Pays</span>
+            <input type="text" name="pays" id="portal-garantie-country" value="{{ garantie_old.pays|default('') }}" readonly>
+            <span id="g-err-pays" class="g-val-msg">{{ garantie_errors.pays|default('') }}</span>
+        </label>
+        <label>
+            <span>Verification adresse</span>
+            <input type="text" name="statutVerificationAdresseLabel" id="portal-garantie-address-status-label" value="{{ garantie_old.statutVerificationAdresse|default('A verifier') }}" readonly>
+        </label>
+        <input type="hidden" name="latitude" id="portal-garantie-latitude" value="{{ garantie_old.latitude|default('') }}">
+        <input type="hidden" name="longitude" id="portal-garantie-longitude" value="{{ garantie_old.longitude|default('') }}">
+        <input type="hidden" name="statutVerificationAdresse" id="portal-garantie-address-status" value="{{ garantie_old.statutVerificationAdresse|default('A verifier') }}">
+        <div style="grid-column:1 / -1;">
+            <div
+                id="portal-garantie-map"
+                title="Carte OpenStreetMap interactive"
+                style="width:100%; height:280px; border-radius:18px; border:1px solid #dbe5ef; overflow:hidden; background:linear-gradient(180deg,#f8fbff,#eef4fa);"
+            ></div>
+            <small style="display:block; margin-top:8px; color:#64748b; font-size:12px;">
+                Cliquez sur la carte ou deplacez le marqueur pour choisir l'emplacement exact du bien.
+            </small>
+        </div>
         <label>
             <span>Valeur estimee (TND) <span style="color:#dc2626">*</span></span>
             <input type="number" step="0.01" name="valeurEstimee" id="portal-garantie-estimated" placeholder="0.00" value="{{ garantie_old.valeurEstimee|default('') }}" class="{{ garantie_errors.valeurEstimee is defined ? 'acc-invalid' : '' }}">
@@ -48,12 +261,13 @@
         </label>
         <label>
             <span>Valeur retenue (TND)</span>
-            <input type="number" step="0.01" name="valeurRetenue" id="portal-garantie-retained" placeholder="Auto (80% estimee)" value="{{ garantie_old.valeurRetenue|default('') }}" class="{{ garantie_errors.valeurRetenue is defined ? 'acc-invalid' : '' }}">
+            <input type="text" inputmode="decimal" name="valeurRetenue" id="portal-garantie-retained" placeholder="Auto selon type" value="{{ garantie_old.valeurRetenue|default('') }}" class="{{ garantie_errors.valeurRetenue is defined ? 'acc-invalid' : '' }}" readonly>
             <span id="g-err-valeurRetenue" class="g-val-msg">{{ garantie_errors.valeurRetenue|default('') }}</span>
+            <small id="portal-garantie-retained-hint" style="display:block; margin-top:4px; color:#64748b; font-size:12px;">Calcul auto selon le type de garantie</small>
         </label>
         <label>
             <span>Date evaluation <span style="color:#dc2626">*</span></span>
-            <input type="date" name="dateEvaluation" id="portal-garantie-date" value="{{ garantie_old.dateEvaluation|default(current_date) }}" min="{{ current_date }}" class="{{ garantie_errors.dateEvaluation is defined ? 'acc-invalid' : '' }}">
+            <input type="date" name="dateEvaluation" id="portal-garantie-date" value="{{ garantie_old.dateEvaluation|default(current_date) }}" class="{{ garantie_errors.dateEvaluation is defined ? 'acc-invalid' : '' }}">
             <span id="g-err-dateEvaluation" class="g-val-msg">{{ garantie_errors.dateEvaluation|default('') }}</span>
         </label>
         <label>
@@ -85,11 +299,14 @@
                 <th>Estimee</th>
                 <th>Retenue</th>
                 <th>Statut</th>
+                <th>Fraude</th>
                 <th>Actions</th>
             </tr>
             </thead>
             <tbody>
             {% for item in items %}
+                {% set fraud = item.fraud_analysis|default(null) %}
+                {% set fraud_history = item.fraud_history|default([]) %}
                 <tr
                     data-garantie-row
                     data-garantie-id="{{ item.idGarantie }}"
@@ -97,6 +314,13 @@
                     data-garantie-type="{{ item.typeGarantie|default('')|e('html_attr') }}"
                     data-garantie-description="{{ item.description|default('')|e('html_attr') }}"
                     data-garantie-address="{{ item.adresseBien|default('')|e('html_attr') }}"
+                    data-garantie-address-complete="{{ item.adresseComplete|default(item.adresseBien|default(''))|e('html_attr') }}"
+                    data-garantie-city="{{ item.ville|default('')|e('html_attr') }}"
+                    data-garantie-postal="{{ item.codePostal|default('')|e('html_attr') }}"
+                    data-garantie-country="{{ item.pays|default('')|e('html_attr') }}"
+                    data-garantie-latitude="{{ item.latitude|default('') }}"
+                    data-garantie-longitude="{{ item.longitude|default('') }}"
+                    data-garantie-address-status="{{ item.statutVerificationAdresse|default('A verifier')|e('html_attr') }}"
                     data-garantie-estimated="{{ item.valeurEstimee|default('') }}"
                     data-garantie-retained="{{ item.valeurRetenue|default('') }}"
                     data-garantie-document="{{ item.documentJustificatif|default('')|e('html_attr') }}"
@@ -105,11 +329,29 @@
                     data-garantie-status="{{ item.statut|default('')|e('html_attr') }}"
                 >
                     <td>{{ item.idGarantie }}</td>
-                    <td>{{ item.idCredit ? '#' ~ item.idCredit : 'Non associee' }}</td>
+                    <td>
+                        {% if item.linkedCreditCount|default(0) > 1 %}
+                            {{ item.linkedCreditCount }} credits
+                        {% elseif item.idCredit %}
+                            #{{ item.idCredit }}
+                        {% else %}
+                            Non associee
+                        {% endif %}
+                    </td>
                     <td>{{ item.typeGarantie }}</td>
                     <td>{{ item.valeurEstimee|default(0)|number_format(2, '.', ' ') }}</td>
                     <td>{{ item.valeurRetenue|default(0)|number_format(2, '.', ' ') }}</td>
                     <td>{{ item.statut }}</td>
+                    <td>
+                        {% if item.fraud is defined and item.fraud %}
+                            <span class="badge {{ item.fraud.badge_class }} px-2 py-1">{{ item.fraud.level|capitalize }} - {{ item.fraud.status }}</span>
+                            {% if item.fraud.reasons is defined and item.fraud.reasons|length > 0 %}
+                                <div style="margin-top:6px; font-size:12px; color:#475569;">{{ item.fraud.reasons|join(', ') }}</div>
+                            {% endif %}
+                        {% else %}
+                            <span class="badge text-bg-secondary">Non analyse</span>
+                        {% endif %}
+                    </td>
                     <td style="display:flex; gap:8px;">
                         <button class="btn btn-secondary js-garantie-edit" type="button">Modifier</button>
                         <form method="post">
@@ -122,14 +364,50 @@
                 </tr>
             {% else %}
                 <tr>
-                    <td colspan="7">Aucune garantie enregistree.</td>
+                    <td colspan="8">Aucune garantie enregistree.</td>
                 </tr>
             {% endfor %}
             </tbody>
         </table>
     </div>
+
+    {% if support.garantie_fraud_history is defined and support.garantie_fraud_history|length > 0 %}
+        <section class="panel-card" style="margin-top:24px;">
+            <h3>Historique des analyses de fraude documentaire</h3>
+            <div class="table-wrap" style="margin-top:12px;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Garantie</th>
+                            <th>Date</th>
+                            <th>Score</th>
+                            <th>Etat</th>
+                            <th>Raisons</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for garantieId, events in support.garantie_fraud_history %}
+                            {% for event in events %}
+                                <tr>
+                                    <td>#{{ garantieId }}</td>
+                                    <td>{{ event.created_at_label|default(event.created_at|default('N/A')) }}</td>
+                                    <td>{{ event.score }}</td>
+                                    <td>{{ event.level }} - {{ event.status }}</td>
+                                    <td>{{ event.reasons|default([])|join(', ') }}</td>
+                                </tr>
+                            {% endfor %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    {% endif %}
+
+    <div class="nx-list-pager" id="portal-garanties-pager" hidden></div>
 </section>
 
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 (() => {
     const form = document.getElementById('portal-garantie-form');
@@ -137,25 +415,70 @@
 
     const estimatedField = document.getElementById('portal-garantie-estimated');
     const retainedField = document.getElementById('portal-garantie-retained');
+    const retainedHint = document.getElementById('portal-garantie-retained-hint');
     const dateField = document.getElementById('portal-garantie-date');
     const idField = document.getElementById('portal-garantie-id');
+    const typeField = document.getElementById('portal-garantie-type');
+    const addressField = document.getElementById('portal-garantie-address');
+    const addressCompleteField = document.getElementById('portal-garantie-address-complete');
+    const cityField = document.getElementById('portal-garantie-city');
+    const postalField = document.getElementById('portal-garantie-postal');
+    const countryField = document.getElementById('portal-garantie-country');
+    const latitudeField = document.getElementById('portal-garantie-latitude');
+    const longitudeField = document.getElementById('portal-garantie-longitude');
+    const addressStatusField = document.getElementById('portal-garantie-address-status');
+    const addressStatusLabelField = document.getElementById('portal-garantie-address-status-label');
+    const mapCanvas = document.getElementById('portal-garantie-map');
+    const addressSuggestions = document.getElementById('portal-garantie-address-suggestions');
     const documentField = document.getElementById('portal-garantie-document');
     const existingDocumentField = document.getElementById('portal-garantie-document-existing');
     const documentLabel = document.getElementById('portal-garantie-document-label');
     const documentLink = document.getElementById('portal-garantie-document-link');
     const currentDateIso = '{{ current_date }}';
     const todayDate = new Date(`${currentDateIso}T00:00:00`);
-    const fieldNames = ['typeGarantie', 'description', 'adresseBien', 'valeurEstimee', 'valeurRetenue', 'dateEvaluation', 'documentJustificatif', 'nomGarant'];
+    const fieldNames = ['typeGarantie', 'description', 'adresseBien', 'adresseComplete', 'valeurEstimee', 'valeurRetenue', 'dateEvaluation', 'documentJustificatif', 'nomGarant'];
+    let addressSearchTimer = null;
+    let mapInstance = null;
+    let mapMarker = null;
+    let mapResizeTimer = null;
+    let reverseLookupToken = 0;
+    const defaultMapCenter = { lat: 36.8065, lng: 10.1815, zoom: 11 };
 
     const parseNum = (v) => {
-        const n = Number(v);
+        const normalized = String(v ?? '')
+            .replace(/\s+/g, '')
+            .replace(',', '.')
+            .trim();
+        const n = Number(normalized);
         return Number.isFinite(n) ? n : 0;
+    };
+    const formatDecimalDisplay = (value, decimals = 2) => Number.isFinite(value) && value > 0
+        ? value.toFixed(decimals)
+        : '';
+    const normalizeDecimalInputValue = (field) => {
+        if (!(field instanceof HTMLInputElement)) return;
+        const normalized = String(field.value ?? '')
+            .replace(/\s+/g, '')
+            .replace(',', '.')
+            .trim();
+        if (field.value !== normalized) {
+            field.value = normalized;
+        }
     };
     const parseInputDate = (rawValue) => {
         const raw = String(rawValue ?? '').trim();
         if (raw === '') return null;
         const parsed = new Date(`${raw}T00:00:00`);
         return Number.isNaN(parsed.getTime()) ? null : parsed;
+    };
+    const isEditMode = () => idField instanceof HTMLInputElement && idField.value.trim() !== '' && Number(idField.value) > 0;
+    const syncDateFieldConstraint = () => {
+        if (!(dateField instanceof HTMLInputElement)) return;
+        if (isEditMode()) {
+            dateField.removeAttribute('min');
+        } else {
+            dateField.min = currentDateIso;
+        }
     };
     const fieldElement = (name) => form.querySelector(`[name="${name}"]`);
     const messageElement = (name) => document.getElementById(`g-err-${name}`);
@@ -190,6 +513,225 @@
         }
         return true;
     };
+    const waitLeaflet = (callback) => {
+        if (typeof window.L !== 'undefined') {
+            callback();
+            return;
+        }
+        let attempts = 0;
+        const intervalId = window.setInterval(() => {
+            if (typeof window.L !== 'undefined') {
+                window.clearInterval(intervalId);
+                callback();
+                return;
+            }
+            attempts += 1;
+            if (attempts > 40) {
+                window.clearInterval(intervalId);
+            }
+        }, 150);
+    };
+    const parseCoordinate = (value) => {
+        const normalized = String(value ?? '').replace(',', '.').trim();
+        const number = Number.parseFloat(normalized);
+        return Number.isFinite(number) ? number : null;
+    };
+    const invalidateMapSize = (delay = 0) => {
+        window.setTimeout(() => {
+            if (!mapInstance) return;
+            try {
+                mapInstance.invalidateSize({ pan: false });
+            } catch (_error) {
+            }
+        }, delay);
+    };
+    const invalidateMapBurst = () => {
+        invalidateMapSize(0);
+        invalidateMapSize(120);
+        invalidateMapSize(320);
+    };
+    const ensureMapInstance = () => {
+        if (!(mapCanvas instanceof HTMLElement) || typeof window.L === 'undefined') {
+            return false;
+        }
+        if (mapInstance) {
+            return true;
+        }
+
+        mapInstance = window.L.map(mapCanvas, {
+            scrollWheelZoom: true,
+            preferCanvas: true,
+            zoomControl: true,
+        }).setView([defaultMapCenter.lat, defaultMapCenter.lng], defaultMapCenter.zoom);
+
+        window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            keepBuffer: 4,
+            updateWhenIdle: true,
+            attribution: '&copy; OpenStreetMap',
+        }).addTo(mapInstance);
+
+        mapInstance.on('click', (event) => {
+            applyMapSelection(event.latlng.lat, event.latlng.lng);
+        });
+
+        window.addEventListener('resize', () => {
+            window.clearTimeout(mapResizeTimer);
+            mapResizeTimer = window.setTimeout(() => {
+                invalidateMapBurst();
+            }, 90);
+        });
+
+        invalidateMapBurst();
+        return true;
+    };
+    const setMapMarker = (latValue, lngValue, zoom = 15) => {
+        if (!ensureMapInstance()) return;
+
+        const latitude = parseCoordinate(latValue);
+        const longitude = parseCoordinate(lngValue);
+        if (latitude === null || longitude === null) {
+            if (mapMarker) {
+                mapInstance.removeLayer(mapMarker);
+                mapMarker = null;
+            }
+            mapInstance.setView([defaultMapCenter.lat, defaultMapCenter.lng], defaultMapCenter.zoom);
+            invalidateMapBurst();
+            return;
+        }
+
+        const latLng = [latitude, longitude];
+        if (!mapMarker) {
+            mapMarker = window.L.marker(latLng, { draggable: true }).addTo(mapInstance);
+            mapMarker.on('dragend', () => {
+                const position = mapMarker.getLatLng();
+                applyMapSelection(position.lat, position.lng);
+            });
+        } else {
+            mapMarker.setLatLng(latLng);
+        }
+
+        mapInstance.setView(latLng, zoom);
+        invalidateMapBurst();
+    };
+    const setAddressVerificationStatus = (status) => {
+        const value = String(status ?? '').trim() || 'A verifier';
+        if (addressStatusField instanceof HTMLInputElement) addressStatusField.value = value;
+        if (addressStatusLabelField instanceof HTMLInputElement) addressStatusLabelField.value = value;
+    };
+    const updateMapMarker = (lat, lng) => {
+        setMapMarker(lat, lng);
+    };
+    const renderAddressSuggestions = (items) => {
+        if (!(addressSuggestions instanceof HTMLElement)) return;
+        addressSuggestions.innerHTML = '';
+        if (!Array.isArray(items) || items.length === 0) {
+            addressSuggestions.hidden = true;
+            return;
+        }
+
+        items.forEach((item) => {
+            const option = document.createElement('button');
+            option.type = 'button';
+            option.className = 'btn btn-secondary';
+            option.style.textAlign = 'left';
+            option.textContent = String(item.display_name ?? '').trim();
+            option.addEventListener('click', () => syncAddressFieldsFromPlace(item));
+            addressSuggestions.appendChild(option);
+        });
+        addressSuggestions.hidden = false;
+    };
+    const hideAddressSuggestions = () => {
+        if (!(addressSuggestions instanceof HTMLElement)) return;
+        addressSuggestions.hidden = true;
+        addressSuggestions.innerHTML = '';
+    };
+    const syncAddressFieldsFromPlace = (place, { overwriteAddress = false } = {}) => {
+        const formattedAddress = String(place?.display_name || '');
+        const lat = String(place?.lat ?? '');
+        const lng = String(place?.lon ?? '');
+        const address = place?.address ?? {};
+        const city = String(address.city || address.town || address.village || address.county || address.state || '');
+        const postalCode = String(address.postcode || '');
+        const country = String(address.country || '');
+
+        if (addressCompleteField instanceof HTMLInputElement && formattedAddress !== '') addressCompleteField.value = formattedAddress;
+        if (addressField instanceof HTMLInputElement && (overwriteAddress || addressField.value.trim() === '')) addressField.value = formattedAddress;
+        if (cityField instanceof HTMLInputElement) cityField.value = city;
+        if (postalField instanceof HTMLInputElement) postalField.value = postalCode;
+        if (countryField instanceof HTMLInputElement) countryField.value = country;
+        if (latitudeField instanceof HTMLInputElement) latitudeField.value = lat;
+        if (longitudeField instanceof HTMLInputElement) longitudeField.value = lng;
+
+        setAddressVerificationStatus(formattedAddress !== '' && lat !== '' && lng !== '' ? 'Verifiee' : 'A verifier');
+        updateMapMarker(lat, lng);
+        hideAddressSuggestions();
+        validateField('adresseBien');
+        validateField('adresseComplete');
+    };
+    const reverseGeocodeCoordinates = async (lat, lng) => {
+        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&zoom=18&lat=${encodeURIComponent(String(lat))}&lon=${encodeURIComponent(String(lng))}`, {
+            headers: {
+                'Accept': 'application/json',
+                'Accept-Language': 'fr',
+            },
+        });
+        if (!response.ok) {
+            throw new Error('Reverse geocoding indisponible.');
+        }
+        return response.json();
+    };
+    const applyMapSelection = async (lat, lng) => {
+        const normalizedLat = Number(lat);
+        const normalizedLng = Number(lng);
+        if (!Number.isFinite(normalizedLat) || !Number.isFinite(normalizedLng)) {
+            return;
+        }
+
+        const latValue = normalizedLat.toFixed(6);
+        const lngValue = normalizedLng.toFixed(6);
+        if (latitudeField instanceof HTMLInputElement) latitudeField.value = latValue;
+        if (longitudeField instanceof HTMLInputElement) longitudeField.value = lngValue;
+        setAddressVerificationStatus('Verification...');
+        updateMapMarker(latValue, lngValue);
+        hideAddressSuggestions();
+
+        const currentLookupToken = ++reverseLookupToken;
+        try {
+            const place = await reverseGeocodeCoordinates(latValue, lngValue);
+            if (currentLookupToken !== reverseLookupToken) return;
+            syncAddressFieldsFromPlace(place, { overwriteAddress: true });
+        } catch (_error) {
+            if (currentLookupToken !== reverseLookupToken) return;
+            const fallbackAddress = `Point choisi sur la carte (${latValue}, ${lngValue})`;
+            if (addressCompleteField instanceof HTMLInputElement) addressCompleteField.value = fallbackAddress;
+            if (addressField instanceof HTMLInputElement && addressField.value.trim() === '') addressField.value = fallbackAddress;
+            setAddressVerificationStatus('Verifiee');
+            validateField('adresseBien');
+            validateField('adresseComplete');
+        }
+    };
+    const clearAddressDetails = () => {
+        if (cityField instanceof HTMLInputElement) cityField.value = '';
+        if (postalField instanceof HTMLInputElement) postalField.value = '';
+        if (countryField instanceof HTMLInputElement) countryField.value = '';
+        if (latitudeField instanceof HTMLInputElement) latitudeField.value = '';
+        if (longitudeField instanceof HTMLInputElement) longitudeField.value = '';
+        setAddressVerificationStatus('A verifier');
+        updateMapMarker('', '');
+        hideAddressSuggestions();
+    };
+    const initGarantieMaps = () => {
+        waitLeaflet(() => {
+            if (!(addressCompleteField instanceof HTMLInputElement)) {
+                return;
+            }
+            updateMapMarker(
+                latitudeField instanceof HTMLInputElement ? latitudeField.value : '',
+                longitudeField instanceof HTMLInputElement ? longitudeField.value : ''
+            );
+        });
+    };
     const syncDocumentMeta = (path = '', label = '') => {
         const resolvedPath = String(path ?? '').trim();
         if (existingDocumentField instanceof HTMLInputElement) {
@@ -209,11 +751,44 @@
         }
     };
 
+    const normalizeGarantieTypeKey = (value) => String(value ?? '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
+    const getRetentionRate = () => {
+        const retentionRates = {
+            'hypotheque immobiliere': 0.8,
+            'titre vehicule': 0.7,
+            'caution personnelle': 0.5,
+            'garantie bancaire': 1,
+            'police assurance': 0.6,
+            'nantissement': 0.75,
+            'autre garantie': 0.5,
+        };
+
+        return retentionRates[normalizeGarantieTypeKey(typeField?.value ?? '')] ?? 0.8;
+    };
+    const syncRetainedHint = () => {
+        if (!(retainedHint instanceof HTMLElement)) return;
+        const typeLabel = String(typeField?.value ?? '').trim();
+        const ratePercent = Math.round(getRetentionRate() * 100);
+        retainedHint.textContent = typeLabel !== ''
+            ? `Calcul auto: ${ratePercent}% pour ${typeLabel}`
+            : 'Calcul auto selon le type de garantie';
+    };
+    const getExpectedRetained = () => {
+        if (!(estimatedField instanceof HTMLInputElement)) return 0;
+        const estimated = parseNum(estimatedField.value);
+        return estimated > 0 ? Number((estimated * getRetentionRate()).toFixed(2)) : 0;
+    };
+
     const syncRetained = () => {
         if (!(estimatedField instanceof HTMLInputElement) || !(retainedField instanceof HTMLInputElement)) return;
-        if (retainedField.dataset.manual === '1') return;
-        const est = parseNum(estimatedField.value);
-        retainedField.value = est > 0 ? (est * 0.8).toFixed(2) : '';
+        const retained = getExpectedRetained();
+        retainedField.dataset.manual = '0';
+        retainedField.value = formatDecimalDisplay(retained);
+        syncRetainedHint();
     };
 
     const validateField = (name) => {
@@ -231,6 +806,10 @@
             case 'adresseBien':
                 if (value === '') return setError(field, msgEl, "L'adresse du bien est obligatoire.");
                 if (value.length < 5) return setError(field, msgEl, "L'adresse doit contenir au moins 5 caracteres.");
+                return setValid(field, msgEl);
+            case 'adresseComplete':
+                if (value === '') return clearValid(field, msgEl);
+                if (value.length < 5) return setError(field, msgEl, "L'adresse complete est trop courte.");
                 return setValid(field, msgEl);
             case 'valeurEstimee': {
                 const estimated = parseNum(value);
@@ -251,7 +830,7 @@
                 const parsedDate = parseInputDate(value);
                 if (value === '') return setError(field, msgEl, "La date d'evaluation est obligatoire.");
                 if (!parsedDate) return setError(field, msgEl, "Date d'evaluation invalide.");
-                if (parsedDate < todayDate) return setError(field, msgEl, "La date d'évaluation ne peut pas être dans le passé.");
+                if (!isEditMode() && parsedDate < todayDate) return setError(field, msgEl, "La date d'evaluation ne peut pas etre dans le passe.");
                 return setValid(field, msgEl);
             }
             case 'documentJustificatif': {
@@ -279,20 +858,50 @@
     const validateForm = () => fieldNames.map((name) => validateField(name)).every((res) => res);
 
     estimatedField?.addEventListener('input', () => {
+        normalizeDecimalInputValue(estimatedField);
         syncRetained();
         validateField('valeurEstimee');
         validateField('valeurRetenue');
     });
-    retainedField?.addEventListener('input', () => {
-        if (retainedField instanceof HTMLInputElement) {
-            retainedField.dataset.manual = retainedField.value.trim() === '' ? '0' : '1';
-        }
+    typeField?.addEventListener('change', () => {
+        syncRetained();
+        validateField('typeGarantie');
         validateField('valeurRetenue');
     });
     documentField?.addEventListener('change', () => {
         const file = documentField instanceof HTMLInputElement ? documentField.files?.[0] ?? null : null;
         syncDocumentMeta(existingDocumentField instanceof HTMLInputElement ? existingDocumentField.value : '', file ? `Fichier selectionne: ${file.name}` : '');
         validateField('documentJustificatif');
+    });
+    addressCompleteField?.addEventListener('input', () => {
+        window.clearTimeout(addressSearchTimer);
+        if (latitudeField instanceof HTMLInputElement) latitudeField.value = '';
+        if (longitudeField instanceof HTMLInputElement) longitudeField.value = '';
+        setAddressVerificationStatus('A verifier');
+        validateField('adresseComplete');
+        const query = String(addressCompleteField.value ?? '').trim();
+        if (query.length < 4) {
+            hideAddressSuggestions();
+            updateMapMarker('', '');
+            return;
+        }
+        addressSearchTimer = window.setTimeout(async () => {
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&q=${encodeURIComponent(query)}`, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'Accept-Language': 'fr',
+                    },
+                });
+                if (!response.ok) {
+                    throw new Error('OpenStreetMap indisponible');
+                }
+                const items = await response.json();
+                renderAddressSuggestions(items);
+            } catch (_error) {
+                hideAddressSuggestions();
+            }
+        }, 350);
     });
 
     fieldNames.forEach((name) => {
@@ -309,18 +918,20 @@
             if (idField instanceof HTMLInputElement) idField.value = '';
             if (retainedField instanceof HTMLInputElement) retainedField.dataset.manual = '0';
             if (dateField instanceof HTMLInputElement) dateField.value = currentDateIso;
+            syncDateFieldConstraint();
             if (documentField instanceof HTMLInputElement) documentField.value = '';
+            if (addressCompleteField instanceof HTMLInputElement) addressCompleteField.value = '';
             syncDocumentMeta('', '');
+            clearAddressDetails();
             fieldNames.forEach((name) => clearValid(fieldElement(name), messageElement(name)));
             syncRetained();
         });
     });
 
     form.addEventListener('submit', (event) => {
-        if (retainedField instanceof HTMLInputElement && retainedField.value.trim() === '') {
-            retainedField.dataset.manual = '0';
-            syncRetained();
-        }
+        normalizeDecimalInputValue(estimatedField);
+        normalizeDecimalInputValue(retainedField);
+        syncRetained();
         if (!validateForm()) {
             event.preventDefault();
         }
@@ -344,16 +955,77 @@
             setFieldValue('valeurEstimee', row.dataset.garantieEstimated ?? '');
             setFieldValue('valeurRetenue', row.dataset.garantieRetained ?? '');
             setFieldValue('dateEvaluation', (row.dataset.garantieDate ?? '').slice(0, 10));
+            syncDateFieldConstraint();
             setFieldValue('nomGarant', row.dataset.garantieGuarantor ?? '');
             if (documentField instanceof HTMLInputElement) documentField.value = '';
             syncDocumentMeta(row.dataset.garantieDocument ?? '', '');
-            if (retainedField instanceof HTMLInputElement) retainedField.dataset.manual = (row.dataset.garantieRetained ?? '').trim() !== '' ? '1' : '0';
+            setFieldValue('adresseComplete', row.dataset.garantieAddressComplete ?? '');
+            setFieldValue('ville', row.dataset.garantieCity ?? '');
+            setFieldValue('codePostal', row.dataset.garantiePostal ?? '');
+            setFieldValue('pays', row.dataset.garantieCountry ?? '');
+            setFieldValue('latitude', row.dataset.garantieLatitude ?? '');
+            setFieldValue('longitude', row.dataset.garantieLongitude ?? '');
+            setAddressVerificationStatus(row.dataset.garantieAddressStatus ?? 'A verifier');
+            updateMapMarker(row.dataset.garantieLatitude ?? '', row.dataset.garantieLongitude ?? '');
             syncRetained();
             validateForm();
             form.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
     });
 
+    syncDateFieldConstraint();
     syncDocumentMeta(existingDocumentField instanceof HTMLInputElement ? existingDocumentField.value : '', '');
+    initGarantieMaps();
+    syncRetained();
+    document.addEventListener('click', (event) => {
+        if (!(addressSuggestions instanceof HTMLElement) || addressSuggestions.hidden) return;
+        if (addressSuggestions.contains(event.target) || addressCompleteField?.contains(event.target)) return;
+        hideAddressSuggestions();
+    });
+
+    const pager = document.getElementById('portal-garanties-pager');
+    const rows = Array.from(document.querySelectorAll('[data-garantie-row]'));
+    const pageSize = 6;
+    let currentPage = 1;
+
+    const renderPager = () => {
+        if (!(pager instanceof HTMLElement)) return;
+        const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+        currentPage = Math.min(Math.max(1, currentPage), totalPages);
+        pager.innerHTML = '';
+        pager.hidden = rows.length === 0;
+        if (pager.hidden) return;
+
+        const appendButton = (label, page, { icon = '', disabled = false, active = false, ariaLabel = '' } = {}) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'nx-list-pager-btn';
+            btn.disabled = disabled;
+            btn.setAttribute('aria-label', ariaLabel || String(label));
+            btn.innerHTML = icon ? `<i class="${icon}"></i>` : String(label);
+            if (active) btn.classList.add('is-active');
+            btn.addEventListener('click', () => {
+                if (disabled || page === currentPage) return;
+                currentPage = page;
+                applyPagination();
+            });
+            pager.appendChild(btn);
+        };
+
+        appendButton('Prev', Math.max(1, currentPage - 1), { icon: 'fa-solid fa-chevron-left', disabled: currentPage === 1, ariaLabel: 'Page precedente' });
+        for (let page = 1; page <= totalPages; page += 1) {
+            appendButton(String(page), page, { active: page === currentPage });
+        }
+        appendButton('Next', Math.min(totalPages, currentPage + 1), { icon: 'fa-solid fa-chevron-right', disabled: currentPage === totalPages, ariaLabel: 'Page suivante' });
+    };
+
+    const applyPagination = () => {
+        const start = (currentPage - 1) * pageSize;
+        const end = start + pageSize;
+        rows.forEach((row, index) => row.classList.toggle('nx-page-hidden', index < start || index >= end));
+        renderPager();
+    };
+
+    applyPagination();
 })();
 </script>
