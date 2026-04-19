@@ -129,7 +129,7 @@ final class CreditsController
 
                 $this->logHistory($request, 'credit_save', $data);
 
-                return ['type' => 'success', 'message' => 'Crédit enregistré avec succès.'];
+                return ['type' => 'success', 'message' => 'Credit enregistre.'];
 
             case 'credit_delete':
                 $id = $this->requestInt($request, 'idCredit') ?? 0;
@@ -308,12 +308,6 @@ final class CreditsController
 
             if ($matchingGarantie === null) {
                 $errors['idGarantie'] = 'Garantie selectionnee introuvable.';
-            } else {
-                $currentCreditId = (int) ($data['idCredit'] ?? 0);
-                $linkedCreditId = (int) ($matchingGarantie['idCredit'] ?? 0);
-                if ($linkedCreditId > 0 && $linkedCreditId !== $currentCreditId) {
-                    $errors['idGarantie'] = 'Cette garantie est deja associee a un autre credit.';
-                }
             }
         }
 
@@ -345,7 +339,7 @@ final class CreditsController
         $allGaranties    = $bankingService->listGaranties();
         $linkedGaranties = array_values(array_filter(
             $allGaranties,
-            fn ($g) => (int) ($g['idCredit'] ?? 0) === $idCredit
+            static fn ($g) => in_array($idCredit, array_map('intval', $g['linkedCreditIds'] ?? []), true)
         ));
 
         return [

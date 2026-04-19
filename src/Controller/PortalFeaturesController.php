@@ -175,59 +175,137 @@ final class PortalFeaturesController extends AbstractController
         $stats = [];
         $subtitle = null;
         $accent = '#1565c0';
+        $itemId = max(0, $request->query->getInt('id', 0));
+        $filename = sprintf('nexora-%s.pdf', $kind);
 
         if ($kind === 'credits') {
             $credits = $bankingService->listCredits($userId);
-            $title = 'Credits Report';
-            $subtitle = 'Vue synthetique de vos credits, mensualites et statuts.';
-            $accent = '#0db98f';
-            $headers = ['ID', 'Type', 'Amount', 'Monthly', 'Status'];
-            $totalAmount = 0.0;
-            $totalMonthly = 0.0;
-            foreach ($credits as $credit) {
+            if ($itemId > 0) {
+                $credit = null;
+                foreach ($credits as $entry) {
+                    if ((int) ($entry['idCredit'] ?? 0) === $itemId) {
+                        $credit = $entry;
+                        break;
+                    }
+                }
+
+                if ($credit === null) {
+                    throw $this->createNotFoundException('Credit not found.');
+                }
+
                 $amount = (float) ($credit['montantDemande'] ?? 0);
                 $monthly = (float) ($credit['mensualite'] ?? 0);
-                $totalAmount += $amount;
-                $totalMonthly += $monthly;
-                $rows[] = [
-                    $credit['idCredit'],
-                    $credit['typeCredit'],
-                    number_format($amount, 2, '.', ' '),
-                    number_format($monthly, 2, '.', ' '),
-                    $credit['statut'],
+                $title = sprintf('Credit #%d', $itemId);
+                $subtitle = 'Fiche detaillee du credit selectionne.';
+                $accent = '#0db98f';
+                $filename = sprintf('nexora-credit-%d.pdf', $itemId);
+                $headers = ['Field', 'Value'];
+                $rows = [
+                    ['ID', (string) ($credit['idCredit'] ?? '-')],
+                    ['Type', (string) ($credit['typeCredit'] ?? '-')],
+                    ['Amount', number_format($amount, 2, '.', ' ').' DT'],
+                    ['Monthly', number_format($monthly, 2, '.', ' ').' DT'],
+                    ['Duration', (string) ($credit['duree'] ?? '-').' mois'],
+                    ['Interest', (string) ($credit['tauxInteret'] ?? '-').' %'],
+                    ['Date', (string) ($credit['dateDemande'] ?? '-')],
+                    ['Status', (string) ($credit['statut'] ?? '-')],
+                    ['Guarantee', (string) ($credit['garantieType'] ?? '-')],
+                ];
+                $stats = [
+                    ['label' => 'Montant', 'value' => number_format($amount, 2, '.', ' ').' DT'],
+                    ['label' => 'Mensualite', 'value' => number_format($monthly, 2, '.', ' ').' DT'],
+                    ['label' => 'Statut', 'value' => (string) ($credit['statut'] ?? '-')],
+                ];
+            } else {
+                $title = 'Credits Report';
+                $subtitle = 'Vue synthetique de vos credits, mensualites et statuts.';
+                $accent = '#0db98f';
+                $headers = ['ID', 'Type', 'Amount', 'Monthly', 'Status'];
+                $totalAmount = 0.0;
+                $totalMonthly = 0.0;
+                foreach ($credits as $credit) {
+                    $amount = (float) ($credit['montantDemande'] ?? 0);
+                    $monthly = (float) ($credit['mensualite'] ?? 0);
+                    $totalAmount += $amount;
+                    $totalMonthly += $monthly;
+                    $rows[] = [
+                        $credit['idCredit'],
+                        $credit['typeCredit'],
+                        number_format($amount, 2, '.', ' '),
+                        number_format($monthly, 2, '.', ' '),
+                        $credit['statut'],
+                    ];
+                }
+                $stats = [
+                    ['label' => 'Total dossiers', 'value' => (string) count($credits)],
+                    ['label' => 'Montant total', 'value' => number_format($totalAmount, 2, '.', ' ').' DT'],
+                    ['label' => 'Mensualite totale', 'value' => number_format($totalMonthly, 2, '.', ' ').' DT'],
                 ];
             }
-            $stats = [
-                ['label' => 'Total dossiers', 'value' => (string) count($credits)],
-                ['label' => 'Montant total', 'value' => number_format($totalAmount, 2, '.', ' ').' DT'],
-                ['label' => 'Mensualite totale', 'value' => number_format($totalMonthly, 2, '.', ' ').' DT'],
-            ];
         } elseif ($kind === 'garanties') {
             $garanties = $bankingService->listGaranties($userId);
-            $title = 'Garanties Report';
-            $subtitle = 'Vue synthetique de vos garanties, valeurs estimees et retenues.';
-            $accent = '#00bcd4';
-            $headers = ['ID', 'Type', 'Value', 'Retained', 'Status'];
-            $estimatedTotal = 0.0;
-            $retainedTotal = 0.0;
-            foreach ($garanties as $garantie) {
+            if ($itemId > 0) {
+                $garantie = null;
+                foreach ($garanties as $entry) {
+                    if ((int) ($entry['idGarantie'] ?? 0) === $itemId) {
+                        $garantie = $entry;
+                        break;
+                    }
+                }
+
+                if ($garantie === null) {
+                    throw $this->createNotFoundException('Garantie not found.');
+                }
+
                 $estimated = (float) ($garantie['valeurEstimee'] ?? 0);
                 $retained = (float) ($garantie['valeurRetenue'] ?? 0);
-                $estimatedTotal += $estimated;
-                $retainedTotal += $retained;
-                $rows[] = [
-                    $garantie['idGarantie'],
-                    $garantie['typeGarantie'],
-                    number_format($estimated, 2, '.', ' '),
-                    number_format($retained, 2, '.', ' '),
-                    $garantie['statut'],
+                $title = sprintf('Garantie #%d', $itemId);
+                $subtitle = 'Fiche detaillee de la garantie selectionnee.';
+                $accent = '#00bcd4';
+                $filename = sprintf('nexora-garantie-%d.pdf', $itemId);
+                $headers = ['Field', 'Value'];
+                $rows = [
+                    ['ID', (string) ($garantie['idGarantie'] ?? '-')],
+                    ['Linked credit', (string) ($garantie['idCredit'] ?? '-')],
+                    ['Type', (string) ($garantie['typeGarantie'] ?? '-')],
+                    ['Estimated value', number_format($estimated, 2, '.', ' ').' DT'],
+                    ['Retained value', number_format($retained, 2, '.', ' ').' DT'],
+                    ['Evaluation date', (string) ($garantie['dateEvaluation'] ?? '-')],
+                    ['Guarantor', (string) ($garantie['nomGarant'] ?? '-')],
+                    ['Address', (string) ($garantie['adresseBien'] ?? '-')],
+                    ['Status', (string) ($garantie['statut'] ?? '-')],
+                ];
+                $stats = [
+                    ['label' => 'Type', 'value' => (string) ($garantie['typeGarantie'] ?? '-')],
+                    ['label' => 'Valeur estimee', 'value' => number_format($estimated, 2, '.', ' ').' DT'],
+                    ['label' => 'Valeur retenue', 'value' => number_format($retained, 2, '.', ' ').' DT'],
+                ];
+            } else {
+                $title = 'Garanties Report';
+                $subtitle = 'Vue synthetique de vos garanties, valeurs estimees et retenues.';
+                $accent = '#00bcd4';
+                $headers = ['ID', 'Type', 'Value', 'Retained', 'Status'];
+                $estimatedTotal = 0.0;
+                $retainedTotal = 0.0;
+                foreach ($garanties as $garantie) {
+                    $estimated = (float) ($garantie['valeurEstimee'] ?? 0);
+                    $retained = (float) ($garantie['valeurRetenue'] ?? 0);
+                    $estimatedTotal += $estimated;
+                    $retainedTotal += $retained;
+                    $rows[] = [
+                        $garantie['idGarantie'],
+                        $garantie['typeGarantie'],
+                        number_format($estimated, 2, '.', ' '),
+                        number_format($retained, 2, '.', ' '),
+                        $garantie['statut'],
+                    ];
+                }
+                $stats = [
+                    ['label' => 'Total garanties', 'value' => (string) count($garanties)],
+                    ['label' => 'Valeur estimee', 'value' => number_format($estimatedTotal, 2, '.', ' ').' DT'],
+                    ['label' => 'Valeur retenue', 'value' => number_format($retainedTotal, 2, '.', ' ').' DT'],
                 ];
             }
-            $stats = [
-                ['label' => 'Total garanties', 'value' => (string) count($garanties)],
-                ['label' => 'Valeur estimee', 'value' => number_format($estimatedTotal, 2, '.', ' ').' DT'],
-                ['label' => 'Valeur retenue', 'value' => number_format($retainedTotal, 2, '.', ' ').' DT'],
-            ];
         } else {
             $title = 'Transactions Report';
             $headers = ['ID', 'Category', 'Amount', 'Type', 'Status'];
@@ -244,7 +322,7 @@ final class PortalFeaturesController extends AbstractController
 
         return new Response($exportService->buildPdf($title, $headers, $rows, $stats, $subtitle, $accent), 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => sprintf('attachment; filename="nexora-%s.pdf"', $kind),
+            'Content-Disposition' => sprintf('attachment; filename="%s"', $filename),
         ]);
     }
 

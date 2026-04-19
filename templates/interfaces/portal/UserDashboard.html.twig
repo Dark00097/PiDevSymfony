@@ -885,7 +885,7 @@
             </div>
             <div class="nx-brand-text">
                 <div class="nx-brand-name">NEXORA</div>
-                <div class="nx-brand-tagline">Banque privee</div>
+                <div class="nx-brand-tagline" id="nx-brand-tagline">Banque privee</div>
             </div>
         </a>
 
@@ -896,9 +896,10 @@
             {% for item in tabs %}
                 {% if item.key in primary_keys %}
                     <a class="nx-nav-link {{ item.key == tab ? 'nx-nav-link-active' : '' }}"
+                       data-nav-key="{{ item.key }}"
                        href="{{ path(route_name, { tab: item.key }) }}">
                         <i class="fa-solid {{ nav_icons[item.key]|default('fa-circle') }}"></i>
-                        <span>{{ item.label }}</span>
+                        <span class="nx-nav-link-label">{{ item.label }}</span>
                     </a>
                 {% endif %}
             {% endfor %}
@@ -911,11 +912,11 @@
         <div class="nx-status-row">
             <span class="nx-chip nx-chip-secure">
                 <i class="fa-solid fa-shield-halved"></i>
-                Securise
+                <span id="nx-chip-secure-label">Securise</span>
             </span>
             <span class="nx-chip nx-chip-live">
                 <span class="nx-pulse"></span>
-                En ligne
+                <span id="nx-chip-live-label">En ligne</span>
             </span>
         </div>
 
@@ -940,6 +941,7 @@
             </a>
             <a class="nx-action-btn"
                href="{{ path(route_name, { tab: 'profile' }) }}"
+               id="nx-settings-btn"
                title="Parametres">
                 <i class="fa-solid fa-cog"></i>
             </a>
@@ -953,7 +955,7 @@
                 <div class="nx-user-name">
                     {{ current_user.prenom }} {{ current_user.nom }}
                 </div>
-                <div class="nx-user-type">Compte premium</div>
+                <div class="nx-user-type" id="nx-user-type">Compte premium</div>
             </div>
             <div class="nx-user-avatar">
                 {% if current_user.profile_image_path|default('') %}
@@ -962,7 +964,7 @@
                     <i class="fa-solid fa-user nx-user-avatar-icon"></i>
                 {% endif %}
             </div>
-            <a class="nx-signout-btn" href="{{ path('logout') }}" title="Deconnexion">
+            <a class="nx-signout-btn" href="{{ path('logout') }}" id="nx-signout-btn" title="Deconnexion">
                 <i class="fa-solid fa-right-from-bracket"></i>
             </a>
         </div>
@@ -1012,35 +1014,6 @@
             <a href="{{ path(route_name, { tab: 'notifications' }) }}">Voir toutes les notifications</a>
         </footer>
     </section>
-
-    {% if tab != 'credits' and tab != 'cashback' %}
-        {# â•â•â•â•â•â•â•â•â•â•â•â• SECONDARY / UTILITY NAV â•â•â•â•â•â•â•â•â•â•â•â• #}
-        <div class="nx-subnav">
-            <div class="nx-subnav-links">
-                {% for item in tabs %}
-                    {% if item.key in secondary_keys %}
-                        <a class="nx-subnav-link {{ item.key == tab ? 'nx-subnav-link-active' : '' }}"
-                           href="{{ path(route_name, { tab: item.key }) }}"
-                           title="{{ item.label }}">
-                            <i class="fa-solid {{ nav_icons[item.key]|default('fa-circle') }}"></i>
-                            <span>{{ item.label }}</span>
-                        </a>
-                    {% endif %}
-                {% endfor %}
-            </div>
-
-            {# Breadcrumb #}
-            <div class="nx-breadcrumb">
-                <i class="fa-solid fa-house nx-bc-home"></i>
-                <i class="fa-solid fa-chevron-right nx-bc-sep"></i>
-                <span>Tableau de bord</span>
-                <i class="fa-solid fa-chevron-right nx-bc-sep"></i>
-                <span class="nx-bc-active">{{ active_tab_label }}</span>
-            </div>
-        </div>
-
-    {% endif %}
-
 
     {# â•â•â•â•â•â•â•â•â•â•â•â• FLASH MESSAGES â•â•â•â•â•â•â•â•â•â•â•â• #}
     <div class="nx-flashes" id="nx-flashes">
@@ -1191,6 +1164,114 @@
             const brand = document.querySelector('.nx-brand');
             if (brand) brand.click();
         }
+    });
+
+    const portalLanguageCatalog = {
+        fr: {
+            brandTagline: 'Banque privee',
+            secure: 'Securise',
+            online: 'En ligne',
+            premium: 'Compte premium',
+            notifications: 'Notifications',
+            settings: 'Parametres',
+            logout: 'Deconnexion',
+            nav: {
+                dashboard: 'Dashboard',
+                accounts: 'Comptes',
+                transactions: 'Transactions',
+                credits: 'Credits',
+                cashback: 'Recompenses',
+                garanties: 'Garanties',
+                complaints: 'Reclamations',
+                vaults: 'Coffres',
+                profile: 'Profil',
+                notifications: 'Notifications'
+            }
+        },
+        en: {
+            brandTagline: 'Private bank',
+            secure: 'Secure',
+            online: 'Online',
+            premium: 'Premium account',
+            notifications: 'Notifications',
+            settings: 'Settings',
+            logout: 'Sign out',
+            nav: {
+                dashboard: 'Dashboard',
+                accounts: 'Accounts',
+                transactions: 'Transactions',
+                credits: 'Loans',
+                cashback: 'Rewards',
+                garanties: 'Guarantees',
+                complaints: 'Complaints',
+                vaults: 'Vaults',
+                profile: 'Profile',
+                notifications: 'Notifications'
+            }
+        },
+        ar: {
+            brandTagline: 'بنك خاص',
+            secure: 'آمن',
+            online: 'متصل',
+            premium: 'حساب مميز',
+            notifications: 'الإشعارات',
+            settings: 'الإعدادات',
+            logout: 'تسجيل الخروج',
+            nav: {
+                dashboard: 'لوحة التحكم',
+                accounts: 'الحسابات',
+                transactions: 'المعاملات',
+                credits: 'القروض',
+                cashback: 'المكافآت',
+                garanties: 'الضمانات',
+                complaints: 'الشكاوى',
+                vaults: 'الخزائن',
+                profile: 'الملف الشخصي',
+                notifications: 'الإشعارات'
+            }
+        }
+    };
+
+    const resolvePortalLanguage = (language) => Object.prototype.hasOwnProperty.call(portalLanguageCatalog, language) ? language : 'fr';
+    const applyPortalChromeLanguage = (language) => {
+        const currentLanguage = resolvePortalLanguage(String(language ?? '').toLowerCase().trim());
+        const dict = portalLanguageCatalog[currentLanguage];
+
+        const brandTagline = document.getElementById('nx-brand-tagline');
+        const chipSecure = document.getElementById('nx-chip-secure-label');
+        const chipLive = document.getElementById('nx-chip-live-label');
+        const userType = document.getElementById('nx-user-type');
+        const signoutBtn = document.getElementById('nx-signout-btn');
+        const settingsBtn = document.getElementById('nx-settings-btn');
+
+        if (brandTagline) brandTagline.textContent = dict.brandTagline;
+        if (chipSecure) chipSecure.textContent = dict.secure;
+        if (chipLive) chipLive.textContent = dict.online;
+        if (userType) userType.textContent = dict.premium;
+        if (notifToggle) notifToggle.title = dict.notifications;
+        if (settingsBtn) settingsBtn.title = dict.settings;
+        if (signoutBtn) signoutBtn.title = dict.logout;
+
+        document.querySelectorAll('[data-nav-key]').forEach((link) => {
+            const key = link.getAttribute('data-nav-key') || '';
+            const label = link.querySelector('.nx-nav-link-label');
+            if (label && dict.nav[key]) {
+                label.textContent = dict.nav[key];
+            }
+        });
+    };
+
+    const storedPortalLanguage = window.localStorage.getItem('nexora.portal.credits.language');
+    applyPortalChromeLanguage(storedPortalLanguage);
+
+    window.addEventListener('storage', (event) => {
+        if (event.key === 'nexora.portal.credits.language') {
+            applyPortalChromeLanguage(event.newValue);
+        }
+    });
+
+    window.addEventListener('nexora:portal-language-change', (event) => {
+        applyPortalChromeLanguage(event.detail?.language);
     });
 
 })();

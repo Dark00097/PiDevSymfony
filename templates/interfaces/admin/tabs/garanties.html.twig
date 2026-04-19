@@ -41,6 +41,54 @@
 tr.nx-page-hidden {
     display: none;
 }
+
+.nx-admin-map-wrap {
+    margin-top: 14px;
+    padding: 14px;
+    border-radius: 18px;
+    border: 1px solid #dce8f2;
+    background: linear-gradient(180deg, #f9fbff, #eef5fb);
+}
+
+.nx-admin-map-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 16px;
+    align-items: start;
+}
+
+.nx-admin-map-canvas {
+    height: 280px;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid #d8e3ee;
+}
+
+.nx-admin-map-meta {
+    display: grid;
+    gap: 8px;
+    font-size: 13px;
+    color: #50667d;
+}
+
+.nx-admin-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.nx-admin-badge--verified {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.nx-admin-badge--review {
+    background: #fef3c7;
+    color: #92400e;
+}
 </style>
 
 <section class="panel-card nx-crud-screen">
@@ -87,6 +135,18 @@ tr.nx-page-hidden {
                 <label><span>Type</span><input type="text" name="typeGarantie" required></label>
                 <label><span>Description</span><input type="text" name="description"></label>
                 <label><span>Adresse</span><input type="text" name="adresseBien"></label>
+                <label style="grid-column:1 / -1;">
+                    <span>Adresse complete OpenStreetMap</span>
+                    <input type="text" name="adresseComplete" id="admin-garantie-address-complete" autocomplete="off">
+                    <div id="admin-garantie-address-suggestions" style="display:grid; gap:6px; margin-top:8px;" hidden></div>
+                </label>
+                <label><span>Ville</span><input type="text" name="ville" id="admin-garantie-city" readonly></label>
+                <label><span>Code postal</span><input type="text" name="codePostal" id="admin-garantie-postal" readonly></label>
+                <label><span>Pays</span><input type="text" name="pays" id="admin-garantie-country" readonly></label>
+                <label><span>Verification adresse</span><input type="text" id="admin-garantie-address-status-label" readonly value="A verifier"></label>
+                <input type="hidden" name="latitude" id="admin-garantie-latitude">
+                <input type="hidden" name="longitude" id="admin-garantie-longitude">
+                <input type="hidden" name="statutVerificationAdresse" id="admin-garantie-address-status" value="A verifier">
                 <label><span>Valeur estimee</span><input type="number" step="0.01" name="valeurEstimee"></label>
                 <label><span>Nom garant</span><input type="text" name="nomGarant"></label>
                 <div class="nx-crud-form-actions">
@@ -94,6 +154,18 @@ tr.nx-page-hidden {
                     <button class="btn btn-secondary" type="reset">Annuler</button>
                 </div>
             </form>
+            <div class="nx-admin-map-wrap">
+                <div class="nx-admin-map-grid">
+                    <iframe id="admin-garantie-map" class="nx-admin-map-canvas" title="Carte OpenStreetMap" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="about:blank"></iframe>
+                    <div class="nx-admin-map-meta">
+                        <strong id="admin-garantie-map-title">Adresse a verifier</strong>
+                        <span id="admin-garantie-map-address">Aucune adresse selectionnee.</span>
+                        <span id="admin-garantie-map-city">Ville: -</span>
+                        <span id="admin-garantie-map-country">Pays: -</span>
+                        <span id="admin-garantie-map-status" class="nx-admin-badge nx-admin-badge--review">A verifier</span>
+                    </div>
+                </div>
+            </div>
         </article>
 
         <article class="nx-crud-table-card">
@@ -111,18 +183,33 @@ tr.nx-page-hidden {
                             <th>Type</th>
                             <th>Description</th>
                             <th>Valeur</th>
+                            <th>Adresse</th>
+                            <th>Verification</th>
                             <th>Statut</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                     {% for item in items %}
-                        <tr>
+                        <tr
+                            data-address-complete="{{ item.adresseComplete|default(item.adresseBien|default(''))|e('html_attr') }}"
+                            data-city="{{ item.ville|default('')|e('html_attr') }}"
+                            data-postal="{{ item.codePostal|default('')|e('html_attr') }}"
+                            data-country="{{ item.pays|default('')|e('html_attr') }}"
+                            data-latitude="{{ item.latitude|default('') }}"
+                            data-longitude="{{ item.longitude|default('') }}"
+                            data-address-status="{{ item.statutVerificationAdresse|default('A verifier')|e('html_attr') }}"
+                        >
                             <td>{{ item.idGarantie }}</td>
                             <td>#{{ item.idCredit }}</td>
                             <td>{{ item.typeGarantie }}</td>
                             <td>{{ item.description|default('-') }}</td>
                             <td>{{ item.valeurEstimee|default(0)|number_format(2, '.', ' ') }} DT</td>
+                            <td>{{ item.adresseComplete|default(item.adresseBien|default('-')) }}</td>
+                            <td>
+                                {% set verification = item.statutVerificationAdresse|default('A verifier') %}
+                                <span class="nx-admin-badge {{ verification == 'Verifiee' ? 'nx-admin-badge--verified' : 'nx-admin-badge--review' }}">{{ verification }}</span>
+                            </td>
                             <td>{{ item.statut }}</td>
                             <td class="nx-cell-actions">
                                 <form method="post">
@@ -134,7 +221,7 @@ tr.nx-page-hidden {
                             </td>
                         </tr>
                     {% else %}
-                        <tr><td colspan="7">Aucune garantie enregistree.</td></tr>
+                        <tr><td colspan="9">Aucune garantie enregistree.</td></tr>
                     {% endfor %}
                     </tbody>
                 </table>
@@ -145,6 +232,170 @@ tr.nx-page-hidden {
 </section>
 <script>
 (() => {
+    const form = document.querySelector('.nx-crud-form');
+    const addressCompleteField = document.getElementById('admin-garantie-address-complete');
+    const cityField = document.getElementById('admin-garantie-city');
+    const postalField = document.getElementById('admin-garantie-postal');
+    const countryField = document.getElementById('admin-garantie-country');
+    const latitudeField = document.getElementById('admin-garantie-latitude');
+    const longitudeField = document.getElementById('admin-garantie-longitude');
+    const addressStatusField = document.getElementById('admin-garantie-address-status');
+    const addressStatusLabel = document.getElementById('admin-garantie-address-status-label');
+    const mapCanvas = document.getElementById('admin-garantie-map');
+    const suggestions = document.getElementById('admin-garantie-address-suggestions');
+    const mapTitle = document.getElementById('admin-garantie-map-title');
+    const mapAddress = document.getElementById('admin-garantie-map-address');
+    const mapCity = document.getElementById('admin-garantie-map-city');
+    const mapCountry = document.getElementById('admin-garantie-map-country');
+    const mapStatus = document.getElementById('admin-garantie-map-status');
+    let addressSearchTimer = null;
+
+    const setAddressStatus = (value) => {
+        const status = String(value ?? '').trim() || 'A verifier';
+        if (addressStatusField instanceof HTMLInputElement) addressStatusField.value = status;
+        if (addressStatusLabel instanceof HTMLInputElement) addressStatusLabel.value = status;
+        if (mapStatus instanceof HTMLElement) {
+            mapStatus.textContent = status;
+            mapStatus.className = `nx-admin-badge ${status === 'Verifiee' ? 'nx-admin-badge--verified' : 'nx-admin-badge--review'}`;
+        }
+    };
+
+    const buildOsmEmbedUrl = (latValue, lngValue) => {
+        const latitude = Number(latValue);
+        const longitude = Number(lngValue);
+        const hasCoordinates = Number.isFinite(latitude) && Number.isFinite(longitude);
+        const centerLat = hasCoordinates ? latitude : 36.8065;
+        const centerLng = hasCoordinates ? longitude : 10.1815;
+        const delta = hasCoordinates ? 0.015 : 0.35;
+        const west = (centerLng - delta).toFixed(6);
+        const south = (centerLat - delta).toFixed(6);
+        const east = (centerLng + delta).toFixed(6);
+        const north = (centerLat + delta).toFixed(6);
+        const marker = hasCoordinates ? `&marker=${centerLat.toFixed(6)}%2C${centerLng.toFixed(6)}` : '';
+        return `https://www.openstreetmap.org/export/embed.html?bbox=${west}%2C${south}%2C${east}%2C${north}&layer=mapnik${marker}`;
+    };
+
+    const updateAdminMap = (lat, lng) => {
+        if (!(mapCanvas instanceof HTMLIFrameElement)) return;
+        mapCanvas.src = buildOsmEmbedUrl(lat, lng);
+    };
+
+    const hideSuggestions = () => {
+        if (!(suggestions instanceof HTMLElement)) return;
+        suggestions.hidden = true;
+        suggestions.innerHTML = '';
+    };
+
+    const renderSuggestions = (items) => {
+        if (!(suggestions instanceof HTMLElement)) return;
+        suggestions.innerHTML = '';
+        if (!Array.isArray(items) || items.length === 0) {
+            suggestions.hidden = true;
+            return;
+        }
+
+        items.forEach((item) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'btn btn-secondary';
+            button.style.textAlign = 'left';
+            button.textContent = String(item.display_name ?? '').trim();
+            button.addEventListener('click', () => syncPlaceToFields(item));
+            suggestions.appendChild(button);
+        });
+        suggestions.hidden = false;
+    };
+
+    const syncMapMeta = ({ address = '', city = '', country = '', status = 'A verifier' } = {}) => {
+        if (mapTitle) mapTitle.textContent = address !== '' ? 'Adresse selectionnee' : 'Adresse a verifier';
+        if (mapAddress) mapAddress.textContent = address !== '' ? address : 'Aucune adresse selectionnee.';
+        if (mapCity) mapCity.textContent = `Ville: ${city || '-'}`;
+        if (mapCountry) mapCountry.textContent = `Pays: ${country || '-'}`;
+        setAddressStatus(status);
+    };
+
+    const syncPlaceToFields = (place) => {
+        const formattedAddress = String(place?.display_name || '');
+        const address = place?.address ?? {};
+        const city = String(address.city || address.town || address.village || address.county || address.state || '');
+        const postal = String(address.postcode || '');
+        const country = String(address.country || '');
+        const lat = String(place?.lat ?? '');
+        const lng = String(place?.lon ?? '');
+
+        if (addressCompleteField instanceof HTMLInputElement) addressCompleteField.value = formattedAddress;
+        if (cityField instanceof HTMLInputElement) cityField.value = city;
+        if (postalField instanceof HTMLInputElement) postalField.value = postal;
+        if (countryField instanceof HTMLInputElement) countryField.value = country;
+        if (latitudeField instanceof HTMLInputElement) latitudeField.value = lat;
+        if (longitudeField instanceof HTMLInputElement) longitudeField.value = lng;
+
+        const status = formattedAddress !== '' && lat !== '' && lng !== '' ? 'Verifiee' : 'A verifier';
+        syncMapMeta({ address: formattedAddress, city, country, status });
+        updateAdminMap(lat, lng);
+        hideSuggestions();
+    };
+
+    const initAdminGarantieMap = () => {
+        if (!(addressCompleteField instanceof HTMLInputElement)) {
+            return;
+        }
+        updateAdminMap(
+            latitudeField instanceof HTMLInputElement ? latitudeField.value : '',
+            longitudeField instanceof HTMLInputElement ? longitudeField.value : ''
+        );
+        syncMapMeta({
+            address: addressCompleteField instanceof HTMLInputElement ? addressCompleteField.value : '',
+            city: cityField instanceof HTMLInputElement ? cityField.value : '',
+            country: countryField instanceof HTMLInputElement ? countryField.value : '',
+            status: addressStatusField instanceof HTMLInputElement ? addressStatusField.value : 'A verifier',
+        });
+    };
+    if (addressCompleteField instanceof HTMLInputElement) {
+        addressCompleteField.addEventListener('input', () => {
+            window.clearTimeout(addressSearchTimer);
+            setAddressStatus('A verifier');
+            if (latitudeField instanceof HTMLInputElement) latitudeField.value = '';
+            if (longitudeField instanceof HTMLInputElement) longitudeField.value = '';
+            const query = addressCompleteField.value.trim();
+            if (query.length < 4) {
+                hideSuggestions();
+                updateAdminMap('', '');
+                return;
+            }
+            addressSearchTimer = window.setTimeout(async () => {
+                try {
+                    const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&q=${encodeURIComponent(query)}`, {
+                        headers: {
+                            'Accept': 'application/json',
+                            'Accept-Language': 'fr',
+                        },
+                    });
+                    if (!response.ok) {
+                        throw new Error('OpenStreetMap indisponible');
+                    }
+                    const items = await response.json();
+                    renderSuggestions(items);
+                } catch (_error) {
+                    hideSuggestions();
+                }
+            }, 350);
+        });
+    }
+    form?.addEventListener('reset', () => {
+        requestAnimationFrame(() => {
+            if (addressCompleteField instanceof HTMLInputElement) addressCompleteField.value = '';
+            if (cityField instanceof HTMLInputElement) cityField.value = '';
+            if (postalField instanceof HTMLInputElement) postalField.value = '';
+            if (countryField instanceof HTMLInputElement) countryField.value = '';
+            if (latitudeField instanceof HTMLInputElement) latitudeField.value = '';
+            if (longitudeField instanceof HTMLInputElement) longitudeField.value = '';
+            syncMapMeta({});
+            updateAdminMap('', '');
+            hideSuggestions();
+        });
+    });
+
     const pager = document.getElementById('admin-garanties-pager');
     const rows = Array.from(document.querySelectorAll('.nx-crud-table tbody tr'))
         .filter((row) => row.querySelector('td') && row.querySelectorAll('td').length > 1);
@@ -192,6 +443,24 @@ tr.nx-page-hidden {
         renderPager();
     };
 
+    document.querySelectorAll('.nx-crud-table tbody tr[data-address-complete]').forEach((row) => {
+        row.addEventListener('click', () => {
+            syncMapMeta({
+                address: row.dataset.addressComplete ?? '',
+                city: row.dataset.city ?? '',
+                country: row.dataset.country ?? '',
+                status: row.dataset.addressStatus ?? 'A verifier',
+            });
+            updateAdminMap(row.dataset.latitude ?? '', row.dataset.longitude ?? '');
+        });
+    });
+
+    initAdminGarantieMap();
     applyPagination();
+    document.addEventListener('click', (event) => {
+        if (!(suggestions instanceof HTMLElement) || suggestions.hidden) return;
+        if (suggestions.contains(event.target) || addressCompleteField?.contains(event.target)) return;
+        hideSuggestions();
+    });
 })();
 </script>

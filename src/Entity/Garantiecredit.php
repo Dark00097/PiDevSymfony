@@ -25,6 +25,27 @@ class Garantiecredit
     #[ORM\Column(name: 'adresseBien', type: 'string', length: 255, nullable: true)]
     private ?string $adressebien = null;
 
+    #[ORM\Column(name: 'adresseComplete', type: 'string', length: 255, nullable: true)]
+    private ?string $adressecomplete = null;
+
+    #[ORM\Column(name: 'ville', type: 'string', length: 120, nullable: true)]
+    private ?string $ville = null;
+
+    #[ORM\Column(name: 'codePostal', type: 'string', length: 30, nullable: true)]
+    private ?string $codepostal = null;
+
+    #[ORM\Column(name: 'pays', type: 'string', length: 120, nullable: true)]
+    private ?string $pays = null;
+
+    #[ORM\Column(name: 'latitude', type: 'float', nullable: true)]
+    private ?float $latitude = null;
+
+    #[ORM\Column(name: 'longitude', type: 'float', nullable: true)]
+    private ?float $longitude = null;
+
+    #[ORM\Column(name: 'statutVerificationAdresse', type: 'string', length: 30, options: ['default' => 'A verifier'])]
+    private string $statutverificationadresse = 'A verifier';
+
     #[ORM\Column(name: 'valeurEstimee', type: 'float', precision: 22)]
     private float $valeurestimee;
 
@@ -47,7 +68,7 @@ class Garantiecredit
     private int $iduser;
 
     #[ORM\ManyToOne(targetEntity: Credit::class)]
-    #[ORM\JoinColumn(name: 'idCredit', referencedColumnName: 'idCredit', nullable: false)]
+    #[ORM\JoinColumn(name: 'idCredit', referencedColumnName: 'idCredit', nullable: true)]
     private ?Credit $credit = null;
 
 

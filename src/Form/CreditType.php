@@ -16,6 +16,7 @@ final class CreditType extends BaseCrudFormType
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $today = new \DateTimeImmutable('today');
+        $allowPastRequestDate = (bool) ($options['allow_past_request_date'] ?? false);
 
         $this->addFields($builder, [
             'idCredit' => [
@@ -25,6 +26,9 @@ final class CreditType extends BaseCrudFormType
                 'type' => HiddenType::class,
             ],
             'idCompte' => [
+                'type' => HiddenType::class,
+            ],
+            'idGarantie' => [
                 'type' => HiddenType::class,
             ],
 
@@ -59,20 +63,20 @@ final class CreditType extends BaseCrudFormType
                 'widget' => 'single_text',
                 'input' => 'string',
                 'html5' => true,
-                'attr' => [
+                'attr' => $allowPastRequestDate ? [] : [
                     'min' => $today->format('Y-m-d'),
                 ],
                 'constraints' => [
                     new Assert\NotBlank(message: 'La date de demande est obligatoire.'),
-                    new Assert\Callback(function ($value, $context) use ($today) {
+                    new Assert\Callback(function ($value, $context) use ($today, $allowPastRequestDate) {
                         if ($value === null || $value === '') {
                             return;
                         }
 
                         try {
                             $date = new \DateTimeImmutable((string) $value);
-                            if ($date < $today) {
-                                $context->buildViolation('La date de demande ne peut pas être dans le passé.')
+                            if (!$allowPastRequestDate && $date < $today) {
+                                $context->buildViolation('La date de demande ne peut pas etre dans le passe.')
                                     ->addViolation();
                             }
                         } catch (\Throwable) {
@@ -97,8 +101,8 @@ final class CreditType extends BaseCrudFormType
 
             'autofinancement' => [
                 'type' => NumberType::class,
-                'required' => false,
                 'constraints' => [
+                    new Assert\NotBlank(message: "L'autofinancement est obligatoire."),
                     new Assert\PositiveOrZero(message: "L'autofinancement doit etre positif ou nul."),
                 ],
             ],
@@ -168,13 +172,13 @@ final class CreditType extends BaseCrudFormType
                     'CDD' => 'CDD',
                     'Fonctionnaire' => 'Fonctionnaire',
                     'Profession liberale' => 'Profession liberale',
-                    'Profession liberale (legacy)' => 'Profession libérale',
+                    'Profession liberale (legacy)' => 'Profession libÃ©rale',
                     'Autre' => 'Autre',
                 ],
                 'constraints' => [
                     new Assert\NotBlank(message: 'Le type de contrat est obligatoire.'),
                     new Assert\Choice(
-                        choices: ['CDI', 'CDD', 'Fonctionnaire', 'Profession liberale', 'Profession libérale', 'Autre'],
+                        choices: ['CDI', 'CDD', 'Fonctionnaire', 'Profession liberale', 'Profession libÃ©rale', 'Autre'],
                         message: 'Veuillez selectionner un type de contrat valide.'
                     ),
                 ],
@@ -198,16 +202,16 @@ final class CreditType extends BaseCrudFormType
                 'choices' => [
                     'En attente' => 'En attente',
                     'Accepte' => 'Accepte',
-                    'Accepte (legacy)' => 'Accepté',
+                    'Accepte (legacy)' => 'AcceptÃ©',
                     'En cours' => 'En cours',
                     'Rejete' => 'Rejete',
-                    'Rejete (legacy)' => 'Rejeté',
+                    'Rejete (legacy)' => 'RejetÃ©',
                     'Cloture' => 'Cloture',
-                    'Cloture (legacy)' => 'Clôturé',
+                    'Cloture (legacy)' => 'ClÃ´turÃ©',
                 ],
                 'constraints' => [
                     new Assert\Choice(
-                        choices: ['En attente', 'Accepte', 'Accepté', 'En cours', 'Rejete', 'Rejeté', 'Cloture', 'Clôturé'],
+                        choices: ['En attente', 'Accepte', 'AcceptÃ©', 'En cours', 'Rejete', 'RejetÃ©', 'Cloture', 'ClÃ´turÃ©'],
                         message: 'Veuillez selectionner un statut valide.'
                     ),
                 ],
@@ -218,5 +222,7 @@ final class CreditType extends BaseCrudFormType
     public function configureOptions(OptionsResolver $resolver): void
     {
         parent::configureOptions($resolver);
+        $resolver->setDefault('allow_past_request_date', false);
+        $resolver->setAllowedTypes('allow_past_request_date', 'bool');
     }
 }

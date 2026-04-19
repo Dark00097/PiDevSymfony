@@ -20,6 +20,9 @@ final class BankingService
     ];
     private const ALLOWED_USER_ROLES = ['ROLE_USER', 'ROLE_ADMIN'];
     private const ALLOWED_USER_STATUS = ['PENDING', 'ACTIVE', 'DECLINED', 'INACTIVE', 'BANNED'];
+    private ?bool $creditGarantieLinkTableExists = null;
+    /** @var array<string, list<string>> */
+    private array $tableColumnsCache = [];
 
     public function __construct(
         private readonly Connection $connection,
@@ -418,6 +421,7 @@ final class BankingService
         $sql .= ' ORDER BY c.idCredit DESC';
 
         $credits = $this->connection->fetchAllAssociative($sql, $params);
+        $this->hydrateCreditsWithGaranties($credits);
         foreach ($credits as &$credit) {
             $credit['risk_score'] = $this->calculateCreditRiskScore($credit);
         }
@@ -465,7 +469,8 @@ final class BankingService
         $validatedData = $this->validateCrudInput(
             CreditType::class,
             array_replace($data, ['idUser' => $forcedUserId ?? ($data['idUser'] ?? null)]),
-            'Donnees du credit invalides.'
+            'Donnees du credit invalides.',
+            ['allow_past_request_date' => $id !== null]
         );
 
         $accountId = (int) ($validatedData['idCompte'] ?? 0);
@@ -489,30 +494,78 @@ final class BankingService
             throw new \InvalidArgumentException('Utilisateur requis pour enregistrer un credit.');
         }
 
+        $selectedGarantieId = $this->nullableInt($data['idGarantie'] ?? null)
+            ?? $this->nullableInt($validatedData['idGarantie'] ?? null);
+        if ($forcedUserId !== null && $selectedGarantieId === null) {
+            throw new \InvalidArgumentException('Une garantie existante est obligatoire pour la demande de credit.');
+        }
+
+        if ($selectedGarantieId !== null) {
+            $selectedGarantie = $this->connection->fetchAssociative(
+                'SELECT g.idGarantie,
+                        g.idCredit,
+                        g.idUser,
+                        c.idUser AS credit_user_id,
+                        cp.idUser AS compte_user_id
+                 FROM garantiecredit g
+                 LEFT JOIN credit c ON c.idCredit = g.idCredit
+                 LEFT JOIN compte cp ON cp.idCompte = c.idCompte
+                 WHERE g.idGarantie = ?
+                 LIMIT 1',
+                [$selectedGarantieId]
+            );
+            if (!$selectedGarantie) {
+                throw new \RuntimeException('Garantie selectionnee introuvable.');
+            }
+
+            if (!$this->matchesAnyResolvedUserId($effectiveUserId, [
+                $selectedGarantie['idUser'] ?? null,
+                $selectedGarantie['credit_user_id'] ?? null,
+                $selectedGarantie['compte_user_id'] ?? null,
+            ])) {
+                throw new \InvalidArgumentException('La garantie selectionnee n\'appartient pas a cet utilisateur.');
+            }
+
+            $linkedCreditId = $this->nullableInt($selectedGarantie['idCredit'] ?? null);
+            if (!$this->hasCreditGarantieLinkTable() && $linkedCreditId !== null && $linkedCreditId !== $id) {
+                throw new \InvalidArgumentException('Cette garantie est deja associee a un autre credit.');
+            }
+        }
+
         $typeCredit = trim((string) ($validatedData['typeCredit'] ?? ''));
         $amount = (float) ($validatedData['montantDemande'] ?? 0);
         $rate = max(0, (float) ($validatedData['tauxInteret'] ?? 0));
         $duration = (int) ($validatedData['duree'] ?? 0);
-        $autoFunding = $validatedData['autofinancement'] !== null ? (float) $validatedData['autofinancement'] : null;
-        if ($autoFunding !== null && $autoFunding < 0) {
+        if ($validatedData['autofinancement'] === null || $validatedData['autofinancement'] === '') {
+            throw new \InvalidArgumentException('Autofinancement obligatoire.');
+        }
+        $autoFunding = (float) $validatedData['autofinancement'];
+        if ($autoFunding < 0) {
             throw new \InvalidArgumentException('Autofinancement invalide.');
         }
-
-        $monthlyPayment = $validatedData['mensualite'] !== null
-            ? (float) $validatedData['mensualite']
-            : $this->calculateMonthlyPayment($amount, $rate, $duration);
-        if ($monthlyPayment <= 0) {
-            throw new \InvalidArgumentException('Mensualite invalide.');
+        if ($amount > 0 && $autoFunding > $amount) {
+            throw new \InvalidArgumentException("L'autofinancement ne doit pas depasser le montant demande.");
         }
 
         $approvedAmount = $validatedData['montantAccorde'] !== null
             ? (float) $validatedData['montantAccorde']
-            : $amount;
+            : max(0.0, $amount - $autoFunding);
         if ($approvedAmount < 0) {
             throw new \InvalidArgumentException('Montant accorde invalide.');
         }
 
-        $dateDemande = $this->normalizeIsoDateNotFuture((string) ($validatedData['dateDemande'] ?? ''), 'Date de demande invalide.');
+        $monthlyPayment = $validatedData['mensualite'] !== null
+            ? (float) $validatedData['mensualite']
+            : $this->calculateMonthlyPayment($approvedAmount > 0 ? $approvedAmount : $amount, $rate, $duration);
+        if ($monthlyPayment <= 0) {
+            throw new \InvalidArgumentException('Mensualite invalide.');
+        }
+
+        $dateDemande = $this->normalizeIsoDateNotFuture(
+            (string) ($validatedData['dateDemande'] ?? ''),
+            'Date de demande invalide.',
+            $id !== null
+        );
 
         $payload = [
             'idCompte' => $accountId,
@@ -531,9 +584,11 @@ final class BankingService
             'ancienneteAnnees' => max(0, (int) ($validatedData['ancienneteAnnees'] ?? 0)),
         ];
 
+        $savedCreditId = $id;
+
         if ($id === null) {
             $this->connection->insert('credit', $payload);
-            $createdId = (int) $this->connection->lastInsertId();
+            $savedCreditId = (int) $this->connection->lastInsertId();
             $this->activityService->log((int) $payload['idUser'], 'CREDIT_CREATE', 'Symfony portal', 'Credit dossier created.');
             $this->notificationService->createNotification(
                 (int) $payload['idUser'],
@@ -543,33 +598,55 @@ final class BankingService
                 'Credit enregistre',
                 sprintf(
                     'Votre credit #%d (%s) a ete enregistre. Montant: %.2f DT. Statut: %s.',
-                    $createdId,
+                    (int) $savedCreditId,
                     (string) $payload['typeCredit'],
                     (float) $payload['montantDemande'],
                     (string) $payload['statut']
                 )
             );
+        } else {
+            $this->connection->update('credit', $payload, ['idCredit' => $id]);
 
-            return;
+            $this->activityService->log((int) $payload['idUser'], 'CREDIT_UPDATE', 'Symfony portal', sprintf('Credit #%d updated.', $id));
+            $this->notificationService->createNotification(
+                (int) $payload['idUser'],
+                null,
+                (int) $payload['idUser'],
+                'CREDIT_UPDATE',
+                'Credit mis a jour',
+                sprintf(
+                    'Votre credit #%d (%s) a ete mis a jour. Montant: %.2f DT. Statut: %s.',
+                    (int) $id,
+                    (string) $payload['typeCredit'],
+                    (float) $payload['montantDemande'],
+                    (string) $payload['statut']
+                )
+            );
         }
 
-        $this->connection->update('credit', $payload, ['idCredit' => $id]);
-
-        $this->activityService->log((int) $payload['idUser'], 'CREDIT_UPDATE', 'Symfony portal', sprintf('Credit #%d updated.', $id));
-        $this->notificationService->createNotification(
-            (int) $payload['idUser'],
-            null,
-            (int) $payload['idUser'],
-            'CREDIT_UPDATE',
-            'Credit mis a jour',
-            sprintf(
-                'Votre credit #%d (%s) a ete mis a jour. Montant: %.2f DT. Statut: %s.',
-                (int) $id,
-                (string) $payload['typeCredit'],
-                (float) $payload['montantDemande'],
-                (string) $payload['statut']
-            )
-        );
+        if ($savedCreditId !== null) {
+            if ($this->hasCreditGarantieLinkTable()) {
+                $this->syncCreditGarantieLinks($savedCreditId, $selectedGarantieId !== null ? [$selectedGarantieId] : []);
+                if ($selectedGarantieId !== null) {
+                    $this->connection->update('garantiecredit', [
+                        'idUser' => $effectiveUserId,
+                    ], [
+                        'idGarantie' => $selectedGarantieId,
+                    ]);
+                }
+            } elseif ($selectedGarantieId !== null) {
+                $this->connection->executeStatement(
+                    'UPDATE garantiecredit SET idCredit = NULL WHERE idCredit = ? AND idGarantie <> ?',
+                    [(int) $savedCreditId, $selectedGarantieId]
+                );
+                $this->connection->update('garantiecredit', [
+                    'idCredit' => (int) $savedCreditId,
+                    'idUser' => $effectiveUserId,
+                ], [
+                    'idGarantie' => $selectedGarantieId,
+                ]);
+            }
+        }
     }
 
     public function deleteCredit(int $id, ?int $forcedUserId = null): void
@@ -579,6 +656,7 @@ final class BankingService
             throw new \RuntimeException('Credit introuvable.');
         }
 
+        $this->deleteCreditGarantieLinksForCredit($id);
         $deletedRows = $this->connection->delete('credit', ['idCredit' => $id]);
         if ($deletedRows <= 0) {
             throw new \RuntimeException('Suppression du credit impossible.');
@@ -609,30 +687,394 @@ final class BankingService
     public function listGaranties(?int $userId = null): array
     {
         $sql = 'SELECT g.*,
-                       c.typeCredit,
-                       c.montantDemande,
-                       c.idCompte,
-                       cp.numeroCompte AS compte_numero,
-                       cp.idUser AS compte_user_id,
-                       COALESCE(g.idUser, c.idUser, cp.idUser) AS resolved_user_id,
+                       g.idUser AS resolved_user_id,
                        CONCAT(COALESCE(u.prenom, \'\'), \' \', COALESCE(u.nom, \'\')) AS user_name
                 FROM garantiecredit g
-                LEFT JOIN credit c ON c.idCredit = g.idCredit
-                LEFT JOIN compte cp ON cp.idCompte = c.idCompte
-                LEFT JOIN users u ON u.idUser = COALESCE(g.idUser, c.idUser, cp.idUser)';
+                LEFT JOIN users u ON u.idUser = g.idUser';
         $params = [];
         if ($userId !== null) {
-            $sql .= ' WHERE (g.idUser = ? OR c.idUser = ? OR cp.idUser = ?)';
+            $sql .= ' WHERE g.idUser = ?
+                      OR EXISTS (
+                          SELECT 1
+                          FROM credit c
+                          LEFT JOIN compte cp ON cp.idCompte = c.idCompte
+                          WHERE c.idCredit = g.idCredit
+                            AND (c.idUser = ? OR cp.idUser = ?)
+                      )';
             $params[] = $userId;
             $params[] = $userId;
             $params[] = $userId;
         }
         $sql .= ' ORDER BY g.idGarantie DESC';
 
-        return $this->connection->fetchAllAssociative($sql, $params);
+        $garanties = $this->connection->fetchAllAssociative($sql, $params);
+        $this->hydrateGarantiesWithCredits($garanties);
+
+        return $garanties;
     }
 
-    public function saveGarantie(array $data, ?int $id = null, ?int $forcedUserId = null): void
+    /**
+     * @param array<int, array<string, mixed>> $credits
+     */
+    private function hydrateCreditsWithGaranties(array &$credits): void
+    {
+        if ($credits === []) {
+            return;
+        }
+
+        $creditIds = array_values(array_filter(array_map(
+            fn (array $credit): int => (int) ($credit['idCredit'] ?? 0),
+            $credits
+        )));
+        $linksByCredit = $this->fetchCreditGarantieLinksByCreditIds($creditIds);
+        $garantieIds = [];
+        foreach ($linksByCredit as $linkedIds) {
+            foreach ($linkedIds as $garantieId) {
+                $garantieIds[$garantieId] = $garantieId;
+            }
+        }
+
+        $garantieRows = $this->fetchGarantiesByIds(array_values($garantieIds));
+
+        foreach ($credits as &$credit) {
+            $creditId = (int) ($credit['idCredit'] ?? 0);
+            $linkedGarantieIds = $linksByCredit[$creditId] ?? [];
+            $primaryGarantieId = $linkedGarantieIds[0] ?? 0;
+            $primaryGarantie = $primaryGarantieId > 0 ? ($garantieRows[$primaryGarantieId] ?? null) : null;
+
+            $credit['linkedGarantieIds'] = $linkedGarantieIds;
+            $credit['linkedGaranties'] = array_values(array_filter(array_map(
+                static fn (int $garantieId): ?array => $garantieRows[$garantieId] ?? null,
+                $linkedGarantieIds
+            )));
+            $credit['garantieCount'] = count($linkedGarantieIds);
+            $credit['idGarantie'] = $primaryGarantieId > 0 ? $primaryGarantieId : null;
+            $credit['garantieType'] = $primaryGarantie['typeGarantie'] ?? null;
+        }
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $garanties
+     */
+    private function hydrateGarantiesWithCredits(array &$garanties): void
+    {
+        if ($garanties === []) {
+            return;
+        }
+
+        $garantieIds = array_values(array_filter(array_map(
+            fn (array $garantie): int => (int) ($garantie['idGarantie'] ?? 0),
+            $garanties
+        )));
+        $linksByGarantie = $this->fetchGarantieCreditLinksByGarantieIds($garantieIds);
+        $creditIds = [];
+        foreach ($linksByGarantie as $linkedIds) {
+            foreach ($linkedIds as $creditId) {
+                $creditIds[$creditId] = $creditId;
+            }
+        }
+
+        $creditRows = $this->fetchCreditsByIds(array_values($creditIds));
+
+        foreach ($garanties as &$garantie) {
+            $garantieId = (int) ($garantie['idGarantie'] ?? 0);
+            $linkedCreditIds = $linksByGarantie[$garantieId] ?? [];
+            $primaryCreditId = $linkedCreditIds[0] ?? 0;
+            $primaryCredit = $primaryCreditId > 0 ? ($creditRows[$primaryCreditId] ?? null) : null;
+
+            $garantie['linkedCreditIds'] = $linkedCreditIds;
+            $garantie['linkedCredits'] = array_values(array_filter(array_map(
+                static fn (int $creditId): ?array => $creditRows[$creditId] ?? null,
+                $linkedCreditIds
+            )));
+            $garantie['linkedCreditCount'] = count($linkedCreditIds);
+            $garantie['idCredit'] = $primaryCreditId > 0 ? $primaryCreditId : null;
+            $garantie['typeCredit'] = $primaryCredit['typeCredit'] ?? null;
+            $garantie['montantDemande'] = $primaryCredit['montantDemande'] ?? null;
+            $garantie['idCompte'] = $primaryCredit['idCompte'] ?? null;
+            $garantie['compte_numero'] = $primaryCredit['compte_numero'] ?? null;
+            $garantie['compte_user_id'] = $primaryCredit['compte_user_id'] ?? null;
+            if (($garantie['resolved_user_id'] ?? null) === null && isset($primaryCredit['resolved_user_id'])) {
+                $garantie['resolved_user_id'] = $primaryCredit['resolved_user_id'];
+            }
+        }
+    }
+
+    /**
+     * @param int[] $creditIds
+     * @return array<int, list<int>>
+     */
+    private function fetchCreditGarantieLinksByCreditIds(array $creditIds): array
+    {
+        $creditIds = array_values(array_unique(array_filter(array_map('intval', $creditIds))));
+        if ($creditIds === []) {
+            return [];
+        }
+
+        $links = [];
+        if ($this->hasCreditGarantieLinkTable()) {
+            $rows = $this->connection->fetchAllAssociative(
+                sprintf(
+                    'SELECT idCredit, idGarantie FROM credit_garantie_link WHERE idCredit IN (%s) ORDER BY linkedAt DESC, id DESC',
+                    $this->buildInClausePlaceholders(count($creditIds))
+                ),
+                $creditIds
+            );
+
+            foreach ($rows as $row) {
+                $this->appendLinkValue($links, (int) ($row['idCredit'] ?? 0), (int) ($row['idGarantie'] ?? 0), false);
+            }
+        }
+
+        $this->appendLegacyCreditGarantieLinks($links, $creditIds);
+
+        return $links;
+    }
+
+    /**
+     * @param int[] $garantieIds
+     * @return array<int, list<int>>
+     */
+    private function fetchGarantieCreditLinksByGarantieIds(array $garantieIds): array
+    {
+        $garantieIds = array_values(array_unique(array_filter(array_map('intval', $garantieIds))));
+        if ($garantieIds === []) {
+            return [];
+        }
+
+        $links = [];
+        if ($this->hasCreditGarantieLinkTable()) {
+            $rows = $this->connection->fetchAllAssociative(
+                sprintf(
+                    'SELECT idGarantie, idCredit FROM credit_garantie_link WHERE idGarantie IN (%s) ORDER BY linkedAt DESC, id DESC',
+                    $this->buildInClausePlaceholders(count($garantieIds))
+                ),
+                $garantieIds
+            );
+
+            foreach ($rows as $row) {
+                $this->appendLinkValue($links, (int) ($row['idGarantie'] ?? 0), (int) ($row['idCredit'] ?? 0), false);
+            }
+        }
+
+        $this->appendLegacyGarantieCreditLinks($links, $garantieIds);
+
+        return $links;
+    }
+
+    /**
+     * @param array<int, list<int>> $links
+     * @param int[] $creditIds
+     */
+    private function appendLegacyCreditGarantieLinks(array &$links, array $creditIds): void
+    {
+        $rows = $this->connection->fetchAllAssociative(
+            sprintf(
+                'SELECT idCredit, idGarantie FROM garantiecredit WHERE idCredit IN (%s) ORDER BY idGarantie DESC',
+                $this->buildInClausePlaceholders(count($creditIds))
+            ),
+            $creditIds
+        );
+
+        foreach ($rows as $row) {
+            $this->appendLinkValue($links, (int) ($row['idCredit'] ?? 0), (int) ($row['idGarantie'] ?? 0), false);
+        }
+    }
+
+    /**
+     * @param array<int, list<int>> $links
+     * @param int[] $garantieIds
+     */
+    private function appendLegacyGarantieCreditLinks(array &$links, array $garantieIds): void
+    {
+        $rows = $this->connection->fetchAllAssociative(
+            sprintf(
+                'SELECT idGarantie, idCredit FROM garantiecredit WHERE idGarantie IN (%s) AND idCredit IS NOT NULL ORDER BY idCredit DESC',
+                $this->buildInClausePlaceholders(count($garantieIds))
+            ),
+            $garantieIds
+        );
+
+        foreach ($rows as $row) {
+            $this->appendLinkValue($links, (int) ($row['idGarantie'] ?? 0), (int) ($row['idCredit'] ?? 0), false);
+        }
+    }
+
+    /**
+     * @param array<int, list<int>> $links
+     */
+    private function appendLinkValue(array &$links, int $key, int $value, bool $prepend): void
+    {
+        if ($key <= 0 || $value <= 0) {
+            return;
+        }
+
+        $current = $links[$key] ?? [];
+        if (in_array($value, $current, true)) {
+            return;
+        }
+
+        if ($prepend) {
+            array_unshift($current, $value);
+        } else {
+            $current[] = $value;
+        }
+
+        $links[$key] = $current;
+    }
+
+    /**
+     * @param int[] $garantieIds
+     * @return array<int, array<string, mixed>>
+     */
+    private function fetchGarantiesByIds(array $garantieIds): array
+    {
+        $garantieIds = array_values(array_unique(array_filter(array_map('intval', $garantieIds))));
+        if ($garantieIds === []) {
+            return [];
+        }
+
+        $rows = $this->connection->fetchAllAssociative(
+            sprintf(
+                'SELECT idGarantie, typeGarantie, valeurRetenue, valeurEstimee FROM garantiecredit WHERE idGarantie IN (%s)',
+                $this->buildInClausePlaceholders(count($garantieIds))
+            ),
+            $garantieIds
+        );
+
+        $indexed = [];
+        foreach ($rows as $row) {
+            $indexed[(int) ($row['idGarantie'] ?? 0)] = $row;
+        }
+
+        return $indexed;
+    }
+
+    /**
+     * @param int[] $creditIds
+     * @return array<int, array<string, mixed>>
+     */
+    private function fetchCreditsByIds(array $creditIds): array
+    {
+        $creditIds = array_values(array_unique(array_filter(array_map('intval', $creditIds))));
+        if ($creditIds === []) {
+            return [];
+        }
+
+        $rows = $this->connection->fetchAllAssociative(
+            sprintf(
+                'SELECT c.idCredit,
+                        c.typeCredit,
+                        c.montantDemande,
+                        c.idCompte,
+                        c.idUser,
+                        cp.numeroCompte AS compte_numero,
+                        cp.idUser AS compte_user_id,
+                        COALESCE(c.idUser, cp.idUser) AS resolved_user_id
+                 FROM credit c
+                 LEFT JOIN compte cp ON cp.idCompte = c.idCompte
+                 WHERE c.idCredit IN (%s)',
+                $this->buildInClausePlaceholders(count($creditIds))
+            ),
+            $creditIds
+        );
+
+        $indexed = [];
+        foreach ($rows as $row) {
+            $indexed[(int) ($row['idCredit'] ?? 0)] = $row;
+        }
+
+        return $indexed;
+    }
+
+    /**
+     * @param int[] $garantieIds
+     */
+    private function syncCreditGarantieLinks(int $creditId, array $garantieIds): void
+    {
+        if ($creditId <= 0 || !$this->hasCreditGarantieLinkTable()) {
+            return;
+        }
+
+        $garantieIds = array_values(array_unique(array_filter(array_map('intval', $garantieIds))));
+        $this->connection->delete('credit_garantie_link', ['idCredit' => $creditId]);
+
+        foreach ($garantieIds as $garantieId) {
+            $this->connection->insert('credit_garantie_link', [
+                'idCredit' => $creditId,
+                'idGarantie' => $garantieId,
+            ]);
+        }
+    }
+
+    private function deleteCreditGarantieLinksForCredit(int $creditId): void
+    {
+        if ($creditId > 0 && $this->hasCreditGarantieLinkTable()) {
+            $this->connection->delete('credit_garantie_link', ['idCredit' => $creditId]);
+        }
+    }
+
+    private function deleteCreditGarantieLinksForGarantie(int $garantieId): void
+    {
+        if ($garantieId > 0 && $this->hasCreditGarantieLinkTable()) {
+            $this->connection->delete('credit_garantie_link', ['idGarantie' => $garantieId]);
+        }
+    }
+
+    private function hasCreditGarantieLinkTable(): bool
+    {
+        if ($this->creditGarantieLinkTableExists !== null) {
+            return $this->creditGarantieLinkTableExists;
+        }
+
+        try {
+            $this->creditGarantieLinkTableExists = $this->connection
+                ->createSchemaManager()
+                ->tablesExist(['credit_garantie_link']);
+        } catch (\Throwable) {
+            $this->creditGarantieLinkTableExists = false;
+        }
+
+        return $this->creditGarantieLinkTableExists;
+    }
+
+    private function buildInClausePlaceholders(int $count): string
+    {
+        return implode(', ', array_fill(0, max(1, $count), '?'));
+    }
+
+    private function calculateGarantieRetainedValue(string $typeGarantie, float $estimated): float
+    {
+        if ($estimated <= 0) {
+            return 0.0;
+        }
+
+        return round($estimated * $this->getGarantieRetentionRate($typeGarantie), 2);
+    }
+
+    private function getGarantieRetentionRate(string $typeGarantie): float
+    {
+        return match ($this->normalizeGuaranteeTypeKey($typeGarantie)) {
+            'hypotheque immobiliere' => 0.80,
+            'titre vehicule' => 0.70,
+            'caution personnelle' => 0.50,
+            'garantie bancaire' => 1.00,
+            'police assurance' => 0.60,
+            'nantissement' => 0.75,
+            'autre garantie' => 0.50,
+            default => 0.80,
+        };
+    }
+
+    private function normalizeGuaranteeTypeKey(string $value): string
+    {
+        $normalized = trim(mb_strtolower($value, 'UTF-8'));
+        $transliterated = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $normalized);
+
+        return trim(is_string($transliterated) ? $transliterated : $normalized);
+    }
+
+    public function saveGarantie(array $data, ?int $id = null, ?int $forcedUserId = null): int
     {
         $existingGarantie = $this->resolveGarantieForWrite($id, $forcedUserId);
         if ($existingGarantie === null) {
@@ -642,23 +1084,47 @@ final class BankingService
         $validatedData = $this->validateCrudInput(
             GarantiecreditType::class,
             array_replace($data, ['idUser' => $forcedUserId ?? ($data['idUser'] ?? null)]),
-            'Donnees de la garantie invalides.'
+            'Donnees de la garantie invalides.',
+            ['allow_past_evaluation_date' => $id !== null]
         );
 
-        $creditId = (int) ($validatedData['idCredit'] ?? 0);
+        $creditId = $this->nullableInt($validatedData['idCredit'] ?? null) ?? $this->nullableInt($data['idCredit'] ?? null);
+        $credit = null;
+        if ($creditId !== null) {
+            $credit = $this->connection->fetchAssociative(
+                'SELECT c.idCredit,
+                        c.idUser,
+                        c.typeCredit,
+                        cp.idUser AS compte_user_id
+                 FROM credit c
+                 LEFT JOIN compte cp ON cp.idCompte = c.idCompte
+                 WHERE c.idCredit = ?
+                 LIMIT 1',
+                [$creditId]
+            );
+            if (!$credit) {
+                throw new \RuntimeException('Credit associe introuvable.');
+            }
 
-        $credit = $this->connection->fetchAssociative(
-            'SELECT idCredit, idUser, typeCredit FROM credit WHERE idCredit = ? LIMIT 1',
-            [$creditId]
-        );
-        if (!$credit) {
-            throw new \RuntimeException('Credit associe introuvable.');
+            if ($forcedUserId !== null && !$this->matchesAnyResolvedUserId($forcedUserId, [
+                $credit['idUser'] ?? null,
+                $credit['compte_user_id'] ?? null,
+            ])) {
+                throw new \InvalidArgumentException('Le credit selectionne n\'appartient pas a cet utilisateur.');
+            }
         }
 
-        $resolvedUserId = $forcedUserId ?? $this->nullableInt($validatedData['idUser'] ?? null) ?? $this->nullableInt($credit['idUser'] ?? null);
+        $resolvedUserId = $forcedUserId
+            ?? $this->nullableInt($validatedData['idUser'] ?? null)
+            ?? $this->nullableInt($credit['idUser'] ?? null)
+            ?? $this->nullableInt($existingGarantie['resolved_user_id'] ?? null);
+        $actorUserId = $resolvedUserId !== null && $resolvedUserId > 0 ? $resolvedUserId : null;
         $typeGarantie = trim((string) ($validatedData['typeGarantie'] ?? ''));
         $estimated = (float) ($validatedData['valeurEstimee'] ?? 0);
-        $retained = $validatedData['valeurRetenue'] !== null ? (float) $validatedData['valeurRetenue'] : round($estimated * 0.8, 2);
+        $autoRetained = $this->calculateGarantieRetainedValue($typeGarantie, $estimated);
+        $retained = $forcedUserId !== null
+            ? $autoRetained
+            : ($validatedData['valeurRetenue'] !== null ? (float) $validatedData['valeurRetenue'] : $autoRetained);
         if ($retained <= 0) {
             throw new \InvalidArgumentException('Valeur retenue invalide.');
         }
@@ -667,16 +1133,41 @@ final class BankingService
         }
 
         $address = trim((string) ($validatedData['adresseBien'] ?? ''));
+        $adresseComplete = trim((string) ($validatedData['adresseComplete'] ?? $data['adresseComplete'] ?? ''));
+        if ($adresseComplete === '' && $address !== '') {
+            $adresseComplete = $address;
+        }
+        if ($address === '' && $adresseComplete !== '') {
+            $address = $adresseComplete;
+        }
         if ($resolvedUserId !== null && $address !== '' && $this->isGarantieAddressAlreadyUsed($resolvedUserId, $address, $id, $creditId)) {
             throw new \InvalidArgumentException('Cette adresse de garantie est deja utilisee sur un autre credit actif.');
         }
 
-        $dateEvaluation = $this->normalizeIsoDateNotFuture((string) ($validatedData['dateEvaluation'] ?? ''), 'Date d\'evaluation invalide.');
+        $ville = trim((string) ($validatedData['ville'] ?? $data['ville'] ?? ''));
+        $codePostal = trim((string) ($validatedData['codePostal'] ?? $data['codePostal'] ?? ''));
+        $pays = trim((string) ($validatedData['pays'] ?? $data['pays'] ?? ''));
+        $latitude = $this->nullableFloat($validatedData['latitude'] ?? $data['latitude'] ?? null);
+        $longitude = $this->nullableFloat($validatedData['longitude'] ?? $data['longitude'] ?? null);
+        $statutVerificationAdresse = $this->resolveAddressVerificationStatus($adresseComplete, $latitude, $longitude);
+
+        $dateEvaluation = $this->normalizeGuaranteeEvaluationDate(
+            (string) ($validatedData['dateEvaluation'] ?? ''),
+            'Date d\'evaluation invalide.',
+            $id !== null
+        );
         $payload = [
             'idCredit' => $creditId,
             'typeGarantie' => $typeGarantie,
             'description' => trim((string) ($validatedData['description'] ?? '')),
             'adresseBien' => $address,
+            'adresseComplete' => $adresseComplete !== '' ? $adresseComplete : null,
+            'ville' => $ville !== '' ? $ville : null,
+            'codePostal' => $codePostal !== '' ? $codePostal : null,
+            'pays' => $pays !== '' ? $pays : null,
+            'latitude' => $latitude,
+            'longitude' => $longitude,
+            'statutVerificationAdresse' => $statutVerificationAdresse,
             'valeurEstimee' => $estimated,
             'valeurRetenue' => $retained,
             'documentJustificatif' => trim((string) ($validatedData['documentJustificatif'] ?? '')),
@@ -685,50 +1176,140 @@ final class BankingService
             'statut' => $this->resolveStatusForSave('garantiecredit', 'idGarantie', $data, $id, $forcedUserId),
             'idUser' => $resolvedUserId ?? 0,
         ];
+        $payload = $this->filterPayloadByExistingColumns('garantiecredit', $payload);
 
         if ($id === null) {
             $this->connection->insert('garantiecredit', $payload);
-            $this->activityService->log((int) $payload['idUser'], 'GARANTIE_CREATE', 'Symfony portal', 'Guarantee created.');
             $createdId = (int) $this->connection->lastInsertId();
-            if ($resolvedUserId !== null) {
+            if ($actorUserId !== null) {
+                $this->activityService->log($actorUserId, 'GARANTIE_CREATE', 'Symfony portal', 'Guarantee created.');
                 $this->notificationService->createNotification(
-                    $resolvedUserId,
+                    $actorUserId,
                     null,
-                    $resolvedUserId,
+                    $actorUserId,
                     'GARANTIE_CREATE',
                     'Garantie enregistree',
-                    sprintf(
-                        'Votre garantie #%d (%s) a ete enregistree avec le credit associe #%d (%s).',
-                        $createdId,
-                        $typeGarantie,
-                        $creditId,
-                        (string) ($credit['typeCredit'] ?? 'Credit')
-                    )
+                    $creditId !== null
+                        ? sprintf(
+                            'Votre garantie #%d (%s) a ete enregistree avec le credit associe #%d (%s).',
+                            $createdId,
+                            $typeGarantie,
+                            $creditId,
+                            (string) ($credit['typeCredit'] ?? 'Credit')
+                        )
+                        : sprintf(
+                            'Votre garantie #%d (%s) a ete enregistree et reste disponible pour un futur credit.',
+                            $createdId,
+                            $typeGarantie
+                        )
                 );
             }
 
-            return;
+            return $createdId;
         }
 
         $this->connection->update('garantiecredit', $payload, ['idGarantie' => $id]);
 
-        $this->activityService->log((int) $payload['idUser'], 'GARANTIE_UPDATE', 'Symfony portal', sprintf('Guarantee #%d updated.', $id));
-        if ($resolvedUserId !== null) {
+        if ($actorUserId !== null) {
+            $this->activityService->log($actorUserId, 'GARANTIE_UPDATE', 'Symfony portal', sprintf('Guarantee #%d updated.', $id));
             $this->notificationService->createNotification(
-                $resolvedUserId,
+                $actorUserId,
                 null,
-                $resolvedUserId,
+                $actorUserId,
                 'GARANTIE_UPDATE',
                 'Garantie mise a jour',
-                sprintf(
-                    'Votre garantie #%d (%s) a ete mise a jour avec le credit associe #%d (%s).',
-                    (int) $id,
-                    $typeGarantie,
-                    $creditId,
-                    (string) ($credit['typeCredit'] ?? 'Credit')
-                )
+                $creditId !== null
+                    ? sprintf(
+                        'Votre garantie #%d (%s) a ete mise a jour avec le credit associe #%d (%s).',
+                        (int) $id,
+                        $typeGarantie,
+                        $creditId,
+                        (string) ($credit['typeCredit'] ?? 'Credit')
+                    )
+                    : sprintf(
+                        'Votre garantie #%d (%s) a ete mise a jour et reste disponible pour un futur credit.',
+                        (int) $id,
+                        $typeGarantie
+                    )
             );
         }
+
+        return (int) $id;
+    }
+
+    public function saveGarantieFraudAnalysis(int $garantieId, int $userId, string $documentName, array $analysis): void
+    {
+        if ($garantieId <= 0 || $userId <= 0 || empty($analysis)) {
+            return;
+        }
+
+        $payload = [
+            'garantie_id' => $garantieId,
+            'document_name' => trim($documentName),
+            'score' => (int) ($analysis['score'] ?? 0),
+            'level' => trim((string) ($analysis['level'] ?? '')),
+            'status' => trim((string) ($analysis['status'] ?? '')),
+            'reasons' => $analysis['reasons'] ?? [],
+        ];
+
+        $this->activityService->log(
+            $userId,
+            'FRAUD_ANALYSIS',
+            'Garantie fraud detection',
+            json_encode($payload, JSON_UNESCAPED_UNICODE)
+        );
+    }
+
+    /**
+     * @param int[] $garantieIds
+     * @return array<int, array<int, array<string, mixed>>>
+     */
+    public function loadGarantieFraudHistory(int $userId, array $garantieIds = []): array
+    {
+        if ($userId <= 0) {
+            return [];
+        }
+
+        $rows = $this->connection->fetchAllAssociative(
+            'SELECT * FROM user_activity_log WHERE idUser = ? AND action_type = ? ORDER BY created_at DESC',
+            [$userId, 'FRAUD_ANALYSIS']
+        );
+
+        $history = [];
+        foreach ($rows as $row) {
+            $details = json_decode((string) ($row['details'] ?? ''), true);
+            if (!is_array($details)) {
+                continue;
+            }
+
+            $entryGarantId = (int) ($details['garantie_id'] ?? 0);
+            if ($entryGarantId <= 0 || ($garantieIds !== [] && !in_array($entryGarantId, $garantieIds, true))) {
+                continue;
+            }
+
+            $history[$entryGarantId][] = [
+                'created_at' => $row['created_at'] ?? null,
+                'score' => (int) ($details['score'] ?? 0),
+                'level' => $details['level'] ?? '',
+                'status' => $details['status'] ?? '',
+                'reasons' => is_array($details['reasons'] ?? null) ? $details['reasons'] : [],
+                'document_name' => $details['document_name'] ?? '',
+            ];
+        }
+
+        return $history;
+    }
+
+    public function countFraudUploadAttempts(int $userId, int $garantieId, int $days = 7): int
+    {
+        if ($userId <= 0 || $garantieId <= 0) {
+            return 0;
+        }
+
+        return (int) $this->connection->fetchOne(
+            'SELECT COUNT(*) FROM user_activity_log WHERE idUser = ? AND action_type = ? AND details LIKE ? AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)',
+            [$userId, 'FRAUD_ANALYSIS', '%"garantie_id":'.$garantieId.'%', $days]
+        );
     }
 
     public function deleteGarantie(int $id, ?int $forcedUserId = null): void
@@ -738,6 +1319,8 @@ final class BankingService
             throw new \RuntimeException('Garantie introuvable.');
         }
 
+        $linkedCreditIds = $this->fetchGarantieCreditLinksByGarantieIds([$id])[$id] ?? [];
+        $this->deleteCreditGarantieLinksForGarantie($id);
         $deletedRows = $this->connection->delete('garantiecredit', ['idGarantie' => $id]);
         if ($deletedRows <= 0) {
             throw new \RuntimeException('Suppression de la garantie impossible.');
@@ -751,13 +1334,17 @@ final class BankingService
                 $resolvedUserId,
                 'GARANTIE_DELETE',
                 'Garantie supprimee',
-                sprintf(
-                    'La garantie #%d (%s) et son credit associe #%d (%s) ont ete dissocies puis supprimes.',
-                    $id,
-                    (string) ($existing['typeGarantie'] ?? 'Garantie'),
-                    (int) ($existing['idCredit'] ?? 0),
-                    (string) ($existing['typeCredit'] ?? 'Credit')
-                )
+                ($linkedCreditIds !== [] || (int) ($existing['idCredit'] ?? 0) > 0)
+                    ? sprintf(
+                        'La garantie #%d (%s) et ses liaisons credit ont ete supprimees.',
+                        $id,
+                        (string) ($existing['typeGarantie'] ?? 'Garantie')
+                    )
+                    : sprintf(
+                        'La garantie #%d (%s) a ete supprimee.',
+                        $id,
+                        (string) ($existing['typeGarantie'] ?? 'Garantie')
+                    )
             );
         }
 
@@ -1130,7 +1717,7 @@ final class BankingService
         return $baseRate;
     }
 
-    private function normalizeIsoDateNotFuture(string $rawDate, string $errorMessage): string
+    private function normalizeIsoDateNotFuture(string $rawDate, string $errorMessage, bool $allowPastDate = false): string
     {
         $normalized = trim($rawDate);
         if ($normalized === '') {
@@ -1144,16 +1731,39 @@ final class BankingService
         }
 
         $today = new \DateTimeImmutable('today');
-        if ($date < $today) {
+        if (!$allowPastDate && $date < $today) {
             throw new \InvalidArgumentException($errorMessage);
         }
 
         return $date->format('Y-m-d');
     }
 
-    private function validateCrudInput(string $formType, array $data, string $fallbackMessage): array
+    private function normalizeGuaranteeEvaluationDate(string $rawDate, string $errorMessage, bool $allowPastDate): string
     {
-        $form = $this->formFactory->create($formType);
+        $normalized = trim($rawDate);
+        if ($normalized === '') {
+            return date('Y-m-d');
+        }
+
+        try {
+            $date = new \DateTimeImmutable($normalized);
+        } catch (\Throwable) {
+            throw new \InvalidArgumentException($errorMessage);
+        }
+
+        if (!$allowPastDate) {
+            $today = new \DateTimeImmutable('today');
+            if ($date < $today) {
+                throw new \InvalidArgumentException($errorMessage);
+            }
+        }
+
+        return $date->format('Y-m-d');
+    }
+
+    private function validateCrudInput(string $formType, array $data, string $fallbackMessage, array $options = []): array
+    {
+        $form = $this->formFactory->create($formType, null, $options);
         $form->submit($data);
 
         if (!$form->isValid()) {
@@ -1240,6 +1850,26 @@ final class BankingService
         return $distribution;
     }
 
+    private function calculateCreditGuaranteeCoverageTotal(int $creditId): float
+    {
+        if ($creditId <= 0) {
+            return 0.0;
+        }
+
+        $garantieIds = $this->fetchCreditGarantieLinksByCreditIds([$creditId])[$creditId] ?? [];
+        if ($garantieIds === []) {
+            return 0.0;
+        }
+
+        $guarantees = $this->fetchGarantiesByIds($garantieIds);
+        $total = 0.0;
+        foreach ($garantieIds as $garantieId) {
+            $total += (float) ($guarantees[$garantieId]['valeurRetenue'] ?? 0);
+        }
+
+        return $total;
+    }
+
     private function calculateMonthlyPayment(float $amount, float $annualRate, int $months): float
     {
         if ($months <= 0) {
@@ -1301,10 +1931,7 @@ final class BankingService
             $historyScore = max(0, min(25, $historyScore));
         }
 
-        $guaranteeCoverage = (float) $this->connection->fetchOne(
-            'SELECT COALESCE(SUM(valeurRetenue), 0) FROM garantiecredit WHERE idCredit = ?',
-            [(int) ($credit['idCredit'] ?? 0)]
-        );
+        $guaranteeCoverage = $this->calculateCreditGuaranteeCoverageTotal((int) ($credit['idCredit'] ?? 0));
         $amount = max(1.0, (float) ($credit['montantDemande'] ?? 1));
         $coverageRatio = $guaranteeCoverage / $amount;
         $guaranteeScore = 0;
@@ -1368,6 +1995,75 @@ final class BankingService
         $int = (int) $value;
 
         return $int > 0 ? $int : null;
+    }
+
+    private function nullableFloat(mixed $value): ?float
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (!is_numeric($value)) {
+            return null;
+        }
+
+        return (float) $value;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    private function filterPayloadByExistingColumns(string $table, array $payload): array
+    {
+        $columns = $this->getTableColumns($table);
+        if ($columns === []) {
+            return $payload;
+        }
+
+        $columnMap = [];
+        foreach ($columns as $column) {
+            $columnMap[strtolower($column)] = $column;
+        }
+
+        $filteredPayload = [];
+        foreach ($payload as $column => $value) {
+            $lookup = strtolower((string) $column);
+            if (!array_key_exists($lookup, $columnMap)) {
+                continue;
+            }
+
+            $filteredPayload[$columnMap[$lookup]] = $value;
+        }
+
+        return $filteredPayload;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function getTableColumns(string $table): array
+    {
+        if (array_key_exists($table, $this->tableColumnsCache)) {
+            return $this->tableColumnsCache[$table];
+        }
+
+        try {
+            $columns = array_keys($this->connection->createSchemaManager()->listTableColumns($table));
+        } catch (\Throwable) {
+            $columns = [];
+        }
+
+        return $this->tableColumnsCache[$table] = array_values($columns);
+    }
+
+    private function resolveAddressVerificationStatus(string $adresseComplete, ?float $latitude, ?float $longitude): string
+    {
+        if ($adresseComplete !== '' && $latitude !== null && $longitude !== null) {
+            return 'Verifiee';
+        }
+
+        return 'A verifier';
     }
 
     private function assertValidUserName(string $value, string $label): void
@@ -1486,6 +2182,8 @@ final class BankingService
             'SELECT c.idCredit,
                     c.typeCredit,
                     c.montantDemande,
+                    c.idUser AS credit_user_id,
+                    cp.idUser AS compte_user_id,
                     COALESCE(c.idUser, cp.idUser) AS resolved_user_id
              FROM credit c
              LEFT JOIN compte cp ON cp.idCompte = c.idCompte
@@ -1497,7 +2195,11 @@ final class BankingService
             return null;
         }
 
-        if ($forcedUserId !== null && $this->nullableInt($existing['resolved_user_id'] ?? null) !== $forcedUserId) {
+        if ($forcedUserId !== null && !$this->matchesAnyResolvedUserId($forcedUserId, [
+            $existing['credit_user_id'] ?? null,
+            $existing['compte_user_id'] ?? null,
+            $existing['resolved_user_id'] ?? null,
+        ])) {
             if ($throwOnForbidden) {
                 throw new \RuntimeException('Credit introuvable.');
             }
@@ -1518,7 +2220,10 @@ final class BankingService
             'SELECT g.idGarantie,
                     g.typeGarantie,
                     g.idCredit,
+                    g.idUser AS garantie_user_id,
                     c.typeCredit,
+                    c.idUser AS credit_user_id,
+                    cp.idUser AS compte_user_id,
                     COALESCE(g.idUser, c.idUser, cp.idUser) AS resolved_user_id
              FROM garantiecredit g
              LEFT JOIN credit c ON c.idCredit = g.idCredit
@@ -1531,7 +2236,12 @@ final class BankingService
             return null;
         }
 
-        if ($forcedUserId !== null && $this->nullableInt($existing['resolved_user_id'] ?? null) !== $forcedUserId) {
+        if ($forcedUserId !== null && !$this->matchesAnyResolvedUserId($forcedUserId, [
+            $existing['garantie_user_id'] ?? null,
+            $existing['credit_user_id'] ?? null,
+            $existing['compte_user_id'] ?? null,
+            $existing['resolved_user_id'] ?? null,
+        ])) {
             if ($throwOnForbidden) {
                 throw new \RuntimeException('Garantie introuvable.');
             }
@@ -1540,6 +2250,17 @@ final class BankingService
         }
 
         return $existing;
+    }
+
+    private function matchesAnyResolvedUserId(int $forcedUserId, array $candidates): bool
+    {
+        foreach ($candidates as $candidate) {
+            if ($this->nullableInt($candidate) === $forcedUserId) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function containsBadWord(string $description): bool

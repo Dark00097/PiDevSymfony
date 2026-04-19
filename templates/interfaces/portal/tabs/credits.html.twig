@@ -739,9 +739,10 @@
                                 </label>
                                 <div class="cr-input-pfx-wrap">
                                     <span class="cr-input-pfx cr-input-pfx-auto">AUTO</span>
-                                    <input class="cr-input cr-input-pfx-field cr-auto-field{{ garantie_errors.valeurRetenue is defined ? ' cr-input--error' : '' }}" type="number" step="0.01" name="valeurRetenue" id="cr-garantie-retained" placeholder="Auto (80% de l'estimee)" value="{{ garantie_old.valeurRetenue|default('') }}">
+                                    <input class="cr-input cr-input-pfx-field cr-auto-field{{ garantie_errors.valeurRetenue is defined ? ' cr-input--error' : '' }}" type="text" inputmode="decimal" name="valeurRetenue" id="cr-garantie-retained" placeholder="Auto selon type" value="{{ garantie_old.valeurRetenue|default('') }}" readonly>
                                 </div>
                                 <span id="cr-garantie-err-valeurRetenue" class="cr-val-msg{{ garantie_errors.valeurRetenue is defined ? ' is-error' : '' }}">{{ garantie_errors.valeurRetenue|default('') }}</span>
+                                <small id="cr-garantie-retained-hint" class="cr-field-hint"></small>
                             </div>
                             <div class="cr-field">
                                 <label class="cr-field-label">
@@ -771,6 +772,47 @@
                                 <span id="cr-garantie-err-adresseBien" class="cr-val-msg{{ garantie_errors.adresseBien is defined ? ' is-error' : '' }}">{{ garantie_errors.adresseBien|default('') }}</span>
                             </div>
                             <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-map"></i> Adresse OpenStreetMap
+                                </label>
+                                <input class="cr-input{{ garantie_errors.adresseComplete is defined ? ' cr-input--error' : '' }}" type="text" name="adresseComplete" id="cr-garantie-address-complete" placeholder="Rechercher une adresse..." value="{{ garantie_old.adresseComplete|default(garantie_old.adresseBien|default('')) }}" autocomplete="off">
+                                <div id="cr-garantie-address-suggestions" style="display:grid; gap:6px; margin-top:8px;" hidden></div>
+                                <span id="cr-garantie-err-adresseComplete" class="cr-val-msg{{ garantie_errors.adresseComplete is defined ? ' is-error' : '' }}">{{ garantie_errors.adresseComplete|default('') }}</span>
+                            </div>
+                        </div>
+
+                        <div class="cr-field-group cr-field-group-3">
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-city"></i> Ville
+                                </label>
+                                <input class="cr-input{{ garantie_errors.ville is defined ? ' cr-input--error' : '' }}" type="text" name="ville" id="cr-garantie-city" value="{{ garantie_old.ville|default('') }}" readonly>
+                                <span id="cr-garantie-err-ville" class="cr-val-msg{{ garantie_errors.ville is defined ? ' is-error' : '' }}">{{ garantie_errors.ville|default('') }}</span>
+                            </div>
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-mailbox"></i> Code postal
+                                </label>
+                                <input class="cr-input{{ garantie_errors.codePostal is defined ? ' cr-input--error' : '' }}" type="text" name="codePostal" id="cr-garantie-postal" value="{{ garantie_old.codePostal|default('') }}" readonly>
+                                <span id="cr-garantie-err-codePostal" class="cr-val-msg{{ garantie_errors.codePostal is defined ? ' is-error' : '' }}">{{ garantie_errors.codePostal|default('') }}</span>
+                            </div>
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-earth-africa"></i> Pays
+                                </label>
+                                <input class="cr-input{{ garantie_errors.pays is defined ? ' cr-input--error' : '' }}" type="text" name="pays" id="cr-garantie-country" value="{{ garantie_old.pays|default('') }}" readonly>
+                                <span id="cr-garantie-err-pays" class="cr-val-msg{{ garantie_errors.pays is defined ? ' is-error' : '' }}">{{ garantie_errors.pays|default('') }}</span>
+                            </div>
+                        </div>
+
+                        <div class="cr-field-group cr-field-group-2">
+                            <div class="cr-field">
+                                <label class="cr-field-label">
+                                    <i class="fa-solid fa-badge-check"></i> Verification adresse
+                                </label>
+                                <input class="cr-input" type="text" id="cr-garantie-address-status-label" value="{{ garantie_old.statutVerificationAdresse|default('A verifier') }}" readonly>
+                            </div>
+                            <div class="cr-field">
                                 <div class="cr-field-head">
                                     <label class="cr-field-label">
                                         <i class="fa-solid fa-file-lines"></i> Document justificatif <span class="cr-req">*</span>
@@ -787,6 +829,22 @@
                                     <a id="cr-garantie-document-link" href="{{ garantie_old.documentJustificatif|default('') ? asset(garantie_old.documentJustificatif) : '#' }}" target="_blank" rel="noopener" {{ garantie_old.documentJustificatif|default('') ? '' : 'hidden' }}>Voir l'image</a>
                                 </div>
                                 <span id="cr-garantie-err-documentJustificatif" class="cr-val-msg{{ garantie_errors.documentJustificatif is defined ? ' is-error' : '' }}">{{ garantie_errors.documentJustificatif|default('') }}</span>
+                            </div>
+                        </div>
+
+                        <input type="hidden" name="latitude" id="cr-garantie-latitude" value="{{ garantie_old.latitude|default('') }}">
+                        <input type="hidden" name="longitude" id="cr-garantie-longitude" value="{{ garantie_old.longitude|default('') }}">
+                        <input type="hidden" name="statutVerificationAdresse" id="cr-garantie-address-status" value="{{ garantie_old.statutVerificationAdresse|default('A verifier') }}">
+                        <div class="cr-field-group">
+                            <div class="cr-field">
+                                <div
+                                    id="cr-garantie-map"
+                                    title="Carte OpenStreetMap interactive"
+                                    style="width:100%; height:240px; border:1px solid #d7e2ec; border-radius:18px; background:#eef5fb; overflow:hidden;"
+                                ></div>
+                                <small style="display:block; margin-top:8px; color:#64748b; font-size:12px;">
+                                    Cliquez sur la carte ou deplacez le marqueur pour choisir l'emplacement exact.
+                                </small>
                             </div>
                         </div>
 
@@ -1031,6 +1089,13 @@
                                 data-garantie-type="{{ garantie.typeGarantie|default('')|e('html_attr') }}"
                                 data-garantie-description="{{ garantie.description|default('')|e('html_attr') }}"
                                 data-garantie-address="{{ garantie.adresseBien|default('')|e('html_attr') }}"
+                                data-garantie-address-complete="{{ garantie.adresseComplete|default(garantie.adresseBien|default(''))|e('html_attr') }}"
+                                data-garantie-city="{{ garantie.ville|default('')|e('html_attr') }}"
+                                data-garantie-postal="{{ garantie.codePostal|default('')|e('html_attr') }}"
+                                data-garantie-country="{{ garantie.pays|default('')|e('html_attr') }}"
+                                data-garantie-latitude="{{ garantie.latitude|default('') }}"
+                                data-garantie-longitude="{{ garantie.longitude|default('') }}"
+                                data-garantie-address-status="{{ garantie.statutVerificationAdresse|default('A verifier')|e('html_attr') }}"
                                 data-garantie-estimated="{{ garantie.valeurEstimee|default(0) }}"
                                 data-garantie-retained="{{ garantie.valeurRetenue|default('') }}"
                                 data-garantie-document="{{ garantie.documentJustificatif|default('')|e('html_attr') }}"
@@ -1065,7 +1130,9 @@
                                     <div class="cr-cc-meta-item">
                                         <i class="fa-solid fa-link"></i>
                                         <span>
-                                            {% if garantie.idCredit|default('') %}
+                                            {% if garantie.linkedCreditCount|default(0) > 1 %}
+                                                Liee a {{ garantie.linkedCreditCount }} credits
+                                            {% elseif garantie.idCredit|default('') %}
                                                 Credit associe #{{ garantie.idCredit }}
                                             {% else %}
                                                 Non associee
@@ -1221,6 +1288,10 @@
                                         <option value="Etudes" {{ credit_old.typeCredit|default('') == 'Etudes' ? 'selected' : '' }}>Etudes</option>
                                         <option value="Travaux" {{ credit_old.typeCredit|default('') == 'Travaux' ? 'selected' : '' }}>Travaux</option>
                                         <option value="Personnel" {{ credit_old.typeCredit|default('') == 'Personnel' ? 'selected' : '' }}>Personnel</option>
+                                        <option value="Hypotheque" {{ credit_old.typeCredit|default('') == 'Hypotheque' ? 'selected' : '' }}>Hypotheque</option>
+                                        <option value="Pret auto" {{ credit_old.typeCredit|default('') == 'Pret auto' ? 'selected' : '' }}>Pret auto</option>
+                                        <option value="Education" {{ credit_old.typeCredit|default('') == 'Education' ? 'selected' : '' }}>Education</option>
+                                        <option value="Sante" {{ credit_old.typeCredit|default('') == 'Sante' ? 'selected' : '' }}>Sante</option>
                                         <option value="Autre" {{ credit_old.typeCredit|default('') == 'Autre' ? 'selected' : '' }}>Autre</option>
                                     </select>
                                     <i class="fa-solid fa-chevron-down cr-select-icon"></i>
@@ -1238,9 +1309,8 @@
                                     <select class="cr-input cr-select{{ credit_errors.idGarantie is defined ? ' cr-input--error' : '' }}" name="idGarantie" id="cr-credit-garantie">
                                         <option value="">Selectionner</option>
                                         {% for garantie in credit_garanties %}
-                                            {% set linked_credit = garantie.idCredit|default('') %}
                                             <option value="{{ garantie.idGarantie }}" {{ credit_old.idGarantie|default('') == garantie.idGarantie ? 'selected' : '' }}>
-                                                #{{ garantie.idGarantie }} - {{ garantie.typeGarantie|default('Garantie') }}{{ linked_credit ? ' - Liee au credit #' ~ linked_credit : ' - Disponible' }}
+                                                #{{ garantie.idGarantie }} - {{ garantie.typeGarantie|default('Garantie') }}{% if garantie.linkedCreditCount|default(0) > 0 %} - Liee a {{ garantie.linkedCreditCount }} credit{{ garantie.linkedCreditCount > 1 ? 's' : '' }}{% else %} - Disponible{% endif %}
                                             </option>
                                         {% endfor %}
                                     </select>
@@ -4102,6 +4172,7 @@
 }
 
 .cr-field-group-2 { grid-template-columns: 1fr 1fr; }
+.cr-field-group-3 { grid-template-columns: repeat(3, 1fr); }
 
 .cr-field {
   display: flex;
@@ -4170,6 +4241,12 @@
   font-size: 12px;
   font-weight: 700;
   color: transparent;
+}
+
+.cr-field-hint {
+  min-height: 14px;
+  font-size: 11px;
+  color: #6b7f92;
 }
 
 .cr-ai-generate-btn {
@@ -5845,12 +5922,15 @@
   .cr-table-toolbar-right { flex-wrap: wrap; }
   .cr-search-box input { width: 100%; }
   .cr-form-card-header-top { flex-wrap: wrap; }
-  .cr-field-group-2 { grid-template-columns: 1fr; }
+  .cr-field-group-2,
+  .cr-field-group-3 { grid-template-columns: 1fr; }
   .cr-credits-grid { grid-template-columns: 1fr; }
   .cr-table-footer { flex-direction: column; align-items: flex-start; }
 }
 </style>
 
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 (() => {
   'use strict';
@@ -5877,6 +5957,23 @@
         .trim();
       const n = Number(normalized);
       return isFinite(n) ? n : 0;
+    };
+    const formatDecimalDisplay = (value, decimals = 2) => Number.isFinite(value) && value > 0
+      ? value.toFixed(decimals)
+      : '';
+    const normalizeDecimalInputValue = (field) => {
+      if (!(field instanceof HTMLInputElement)) {
+        return;
+      }
+
+      const normalized = String(field.value ?? '')
+        .replace(/\s+/g, '')
+        .replace(',', '.')
+        .trim();
+
+      if (field.value !== normalized) {
+        field.value = normalized;
+      }
     };
     const fmtNum = (n, dec = 2) => n.toLocaleString('fr-TN', { minimumFractionDigits: dec, maximumFractionDigits: dec });
     const normalizeSearchValue = (value) => String(value ?? '')
@@ -6761,6 +6858,7 @@
     const amountField  = $('#cr-credit-amount');
     const durationField= $('#cr-credit-duree');
     const rateField    = $('#cr-credit-rate');
+    const autoFundingField = $('#cr-credit-auto');
     const monthlyField = $('#cr-credit-monthly');
     const approvedField= $('#cr-credit-approved');
 
@@ -6772,8 +6870,10 @@
       const amount   = parseNum(amountField?.value);
       const duration = parseNum(durationField?.value);
       const rate     = parseNum(rateField?.value);
+      const autoFunding = parseNum(autoFundingField?.value);
+      const principal = Math.max(0, amount - autoFunding);
 
-      if (amount <= 0 || duration <= 0) {
+      if (principal <= 0 || duration <= 0) {
         if (monthlyField)  monthlyField.value  = '';
         if (approvedField) approvedField.value = '';
         if (previewMonthly)  previewMonthly.textContent  = '-- DT';
@@ -6784,14 +6884,14 @@
 
       const mr = rate / 100 / 12;
       const mensualite = mr <= 0
-        ? amount / duration
-        : (amount * mr) / (1 - Math.pow(1 + mr, -duration));
+        ? principal / duration
+        : (principal * mr) / (1 - Math.pow(1 + mr, -duration));
 
       const totalCost     = mensualite * duration;
-      const interestCost  = totalCost - amount;
+      const interestCost  = totalCost - principal;
 
       if (monthlyField)  monthlyField.value  = mensualite.toFixed(2);
-      if (approvedField) approvedField.value = amount.toFixed(2);
+      if (approvedField) approvedField.value = principal.toFixed(2);
 
       if (previewMonthly)  previewMonthly.textContent  = fmtNum(mensualite) + ' DT';
       if (previewTotal)    previewTotal.textContent    = fmtNum(totalCost) + ' DT';
@@ -6801,6 +6901,12 @@
     amountField?.addEventListener('input', () => {
       recalculate();
       validateCreditField('montantDemande');
+      validateCreditField('autofinancement');
+      validateCreditField('mensualite');
+      validateCreditField('montantAccorde');
+    });
+    autoFundingField?.addEventListener('input', () => {
+      recalculate();
       validateCreditField('autofinancement');
       validateCreditField('mensualite');
       validateCreditField('montantAccorde');
@@ -6846,7 +6952,6 @@
     const salaryField    = $('#cr-credit-salary');
     const contractField = $('#cr-credit-contract');
     const seniorityField = $('#cr-credit-seniority');
-    const autoFundingField = $('#cr-credit-auto');
     const typeCreditField = $('#cr-credit-type');
     const aiModal = $('#cr-ai-modal');
     const aiModalOverlay = $('#cr-ai-modal-overlay');
@@ -8814,7 +8919,19 @@
     const garantieIdField = $('#cr-garantie-id');
     const garantieEstimatedField = $('#cr-garantie-estimated');
     const garantieRetainedField = $('#cr-garantie-retained');
+    const garantieRetainedHint = $('#cr-garantie-retained-hint');
     const garantieDateField = $('#cr-garantie-date');
+    const garantieAddressField = $('#cr-garantie-address');
+    const garantieAddressCompleteField = $('#cr-garantie-address-complete');
+    const garantieAddressSuggestions = $('#cr-garantie-address-suggestions');
+    const garantieCityField = $('#cr-garantie-city');
+    const garantiePostalField = $('#cr-garantie-postal');
+    const garantieCountryField = $('#cr-garantie-country');
+    const garantieLatitudeField = $('#cr-garantie-latitude');
+    const garantieLongitudeField = $('#cr-garantie-longitude');
+    const garantieAddressStatusField = $('#cr-garantie-address-status');
+    const garantieAddressStatusLabel = $('#cr-garantie-address-status-label');
+    const garantieMapFrame = $('#cr-garantie-map');
     const garantieDocumentField = $('#cr-garantie-document');
     const garantieExistingDocumentField = $('#cr-garantie-document-existing');
     const garantieDocumentLabel = $('#cr-garantie-document-label');
@@ -8825,7 +8942,13 @@
     const garantieGenerateDocAiBtn = $('#cr-garantie-document-generate-ai');
     const garantieGenerateDocAiLabel = $('#cr-garantie-document-generate-ai-label');
     const garantieAiStatus = $('#cr-garantie-ai-status');
-    const garantieFieldNames = ['typeGarantie', 'valeurEstimee', 'valeurRetenue', 'dateEvaluation', 'nomGarant', 'adresseBien', 'documentJustificatif', 'description'];
+    const garantieFieldNames = ['typeGarantie', 'valeurEstimee', 'valeurRetenue', 'dateEvaluation', 'nomGarant', 'adresseBien', 'adresseComplete', 'documentJustificatif', 'description'];
+    let garantieAddressSearchTimer = null;
+    let garantieMapInstance = null;
+    let garantieMapMarker = null;
+    let garantieMapResizeTimer = null;
+    let garantieReverseLookupToken = 0;
+    const garantieDefaultMapCenter = { lat: 36.8065, lng: 10.1815, zoom: 11 };
 
     const setDrawerUrlState = (isOpen) => {
       const url = new URL(window.location.href);
@@ -8844,6 +8967,13 @@
       overlay.hidden = false;
       document.body.style.overflow = 'hidden';
       setDrawerUrlState(true);
+      waitLeafletReady(() => {
+        updateGarantieMapFrame(
+          garantieLatitudeField instanceof HTMLInputElement ? garantieLatitudeField.value : '',
+          garantieLongitudeField instanceof HTMLInputElement ? garantieLongitudeField.value : ''
+        );
+        invalidateGarantieMapBurst();
+      });
     };
 
     const closeDrawer = () => {
@@ -8892,6 +9022,269 @@
         }
       }
     };
+    const waitLeafletReady = (callback) => {
+      if (typeof window.L !== 'undefined') {
+        callback();
+        return;
+      }
+      let attempts = 0;
+      const intervalId = window.setInterval(() => {
+        if (typeof window.L !== 'undefined') {
+          window.clearInterval(intervalId);
+          callback();
+          return;
+        }
+        attempts += 1;
+        if (attempts > 40) {
+          window.clearInterval(intervalId);
+        }
+      }, 150);
+    };
+    const parseCoordinateValue = (value) => {
+      const normalized = String(value ?? '').replace(',', '.').trim();
+      const number = Number.parseFloat(normalized);
+      return Number.isFinite(number) ? number : null;
+    };
+    const invalidateGarantieMapSize = (delay = 0) => {
+      window.setTimeout(() => {
+        if (!garantieMapInstance) {
+          return;
+        }
+        try {
+          garantieMapInstance.invalidateSize({ pan: false });
+        } catch (_error) {
+        }
+      }, delay);
+    };
+    const invalidateGarantieMapBurst = () => {
+      invalidateGarantieMapSize(0);
+      invalidateGarantieMapSize(120);
+      invalidateGarantieMapSize(320);
+    };
+    const ensureGarantieMap = () => {
+      if (!(garantieMapFrame instanceof HTMLElement) || typeof window.L === 'undefined') {
+        return false;
+      }
+      if (garantieMapInstance) {
+        return true;
+      }
+
+      garantieMapInstance = window.L.map(garantieMapFrame, {
+        scrollWheelZoom: true,
+        preferCanvas: true,
+        zoomControl: true,
+      }).setView([garantieDefaultMapCenter.lat, garantieDefaultMapCenter.lng], garantieDefaultMapCenter.zoom);
+
+      window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        keepBuffer: 4,
+        updateWhenIdle: true,
+        attribution: '&copy; OpenStreetMap',
+      }).addTo(garantieMapInstance);
+
+      garantieMapInstance.on('click', (event) => {
+        applyGarantieMapSelection(event.latlng.lat, event.latlng.lng);
+      });
+
+      window.addEventListener('resize', () => {
+        window.clearTimeout(garantieMapResizeTimer);
+        garantieMapResizeTimer = window.setTimeout(() => {
+          invalidateGarantieMapBurst();
+        }, 90);
+      });
+
+      invalidateGarantieMapBurst();
+      return true;
+    };
+    const updateGarantieMapFrame = (latValue, lngValue) => {
+      if (!ensureGarantieMap()) {
+        return;
+      }
+      const latitude = parseCoordinateValue(latValue);
+      const longitude = parseCoordinateValue(lngValue);
+      if (latitude === null || longitude === null) {
+        if (garantieMapMarker) {
+          garantieMapInstance.removeLayer(garantieMapMarker);
+          garantieMapMarker = null;
+        }
+        garantieMapInstance.setView([garantieDefaultMapCenter.lat, garantieDefaultMapCenter.lng], garantieDefaultMapCenter.zoom);
+        invalidateGarantieMapBurst();
+        return;
+      }
+
+      const latLng = [latitude, longitude];
+      if (!garantieMapMarker) {
+        garantieMapMarker = window.L.marker(latLng, { draggable: true }).addTo(garantieMapInstance);
+        garantieMapMarker.on('dragend', () => {
+          const position = garantieMapMarker.getLatLng();
+          applyGarantieMapSelection(position.lat, position.lng);
+        });
+      } else {
+        garantieMapMarker.setLatLng(latLng);
+      }
+
+      garantieMapInstance.setView(latLng, 15);
+      invalidateGarantieMapBurst();
+    };
+    const setGarantieAddressStatus = (status) => {
+      const resolvedStatus = String(status ?? '').trim() || 'A verifier';
+      if (garantieAddressStatusField instanceof HTMLInputElement) {
+        garantieAddressStatusField.value = resolvedStatus;
+      }
+      if (garantieAddressStatusLabel instanceof HTMLInputElement) {
+        garantieAddressStatusLabel.value = resolvedStatus;
+      }
+    };
+    const hideGarantieSuggestions = () => {
+      if (!(garantieAddressSuggestions instanceof HTMLElement)) {
+        return;
+      }
+      garantieAddressSuggestions.hidden = true;
+      garantieAddressSuggestions.innerHTML = '';
+    };
+    const fillGarantieAddressDetails = (item, { overwriteAddress = false } = {}) => {
+      const address = item?.address ?? {};
+      const latitude = Number(item?.lat ?? '');
+      const longitude = Number(item?.lon ?? '');
+      const city = address.city || address.town || address.village || address.county || address.state || '';
+      const postalCode = address.postcode || '';
+      const country = address.country || '';
+      const displayName = String(item?.display_name ?? '').trim();
+
+      if (garantieAddressCompleteField instanceof HTMLInputElement) {
+        garantieAddressCompleteField.value = displayName;
+      }
+      if (garantieAddressField instanceof HTMLInputElement && (overwriteAddress || garantieAddressField.value.trim() === '')) {
+        garantieAddressField.value = displayName;
+      }
+      if (garantieCityField instanceof HTMLInputElement) {
+        garantieCityField.value = city;
+      }
+      if (garantiePostalField instanceof HTMLInputElement) {
+        garantiePostalField.value = postalCode;
+      }
+      if (garantieCountryField instanceof HTMLInputElement) {
+        garantieCountryField.value = country;
+      }
+      if (garantieLatitudeField instanceof HTMLInputElement) {
+        garantieLatitudeField.value = Number.isFinite(latitude) ? String(latitude) : '';
+      }
+      if (garantieLongitudeField instanceof HTMLInputElement) {
+        garantieLongitudeField.value = Number.isFinite(longitude) ? String(longitude) : '';
+      }
+      setGarantieAddressStatus(displayName !== '' && Number.isFinite(latitude) && Number.isFinite(longitude) ? 'Verifiee' : 'A verifier');
+      updateGarantieMapFrame(latitude, longitude);
+      hideGarantieSuggestions();
+      validateGarantieField('adresseBien');
+      validateGarantieField('adresseComplete');
+    };
+    const reverseGarantieCoordinates = async (lat, lng) => {
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&zoom=18&lat=${encodeURIComponent(String(lat))}&lon=${encodeURIComponent(String(lng))}`, {
+        headers: {
+          'Accept': 'application/json',
+          'Accept-Language': 'fr',
+        },
+      });
+      if (!response.ok) {
+        throw new Error('Reverse geocoding indisponible.');
+      }
+      return response.json();
+    };
+    const applyGarantieMapSelection = async (lat, lng) => {
+      const normalizedLat = Number(lat);
+      const normalizedLng = Number(lng);
+      if (!Number.isFinite(normalizedLat) || !Number.isFinite(normalizedLng)) {
+        return;
+      }
+
+      const latValue = normalizedLat.toFixed(6);
+      const lngValue = normalizedLng.toFixed(6);
+      if (garantieLatitudeField instanceof HTMLInputElement) {
+        garantieLatitudeField.value = latValue;
+      }
+      if (garantieLongitudeField instanceof HTMLInputElement) {
+        garantieLongitudeField.value = lngValue;
+      }
+      setGarantieAddressStatus('Verification...');
+      updateGarantieMapFrame(latValue, lngValue);
+      hideGarantieSuggestions();
+
+      const lookupToken = ++garantieReverseLookupToken;
+      try {
+        const place = await reverseGarantieCoordinates(latValue, lngValue);
+        if (lookupToken !== garantieReverseLookupToken) {
+          return;
+        }
+        fillGarantieAddressDetails(place, { overwriteAddress: true });
+      } catch (_error) {
+        if (lookupToken !== garantieReverseLookupToken) {
+          return;
+        }
+        const fallbackAddress = `Point choisi sur la carte (${latValue}, ${lngValue})`;
+        if (garantieAddressCompleteField instanceof HTMLInputElement) {
+          garantieAddressCompleteField.value = fallbackAddress;
+        }
+        if (garantieAddressField instanceof HTMLInputElement && garantieAddressField.value.trim() === '') {
+          garantieAddressField.value = fallbackAddress;
+        }
+        setGarantieAddressStatus('Verifiee');
+        validateGarantieField('adresseBien');
+        validateGarantieField('adresseComplete');
+      }
+    };
+    const clearGarantieAddressDetails = () => {
+      if (garantieCityField instanceof HTMLInputElement) {
+        garantieCityField.value = '';
+      }
+      if (garantiePostalField instanceof HTMLInputElement) {
+        garantiePostalField.value = '';
+      }
+      if (garantieCountryField instanceof HTMLInputElement) {
+        garantieCountryField.value = '';
+      }
+      if (garantieLatitudeField instanceof HTMLInputElement) {
+        garantieLatitudeField.value = '';
+      }
+      if (garantieLongitudeField instanceof HTMLInputElement) {
+        garantieLongitudeField.value = '';
+      }
+      setGarantieAddressStatus('A verifier');
+      updateGarantieMapFrame('', '');
+    };
+    const renderGarantieSuggestions = (items) => {
+      if (!(garantieAddressSuggestions instanceof HTMLElement)) {
+        return;
+      }
+      garantieAddressSuggestions.innerHTML = '';
+      if (!Array.isArray(items) || items.length === 0) {
+        garantieAddressSuggestions.hidden = true;
+        return;
+      }
+
+      items.forEach((item) => {
+        const option = document.createElement('button');
+        option.type = 'button';
+        option.className = 'cr-ai-generate-btn';
+        option.style.justifyContent = 'flex-start';
+        option.style.textAlign = 'left';
+        option.textContent = String(item.display_name ?? '').trim();
+        option.addEventListener('click', () => fillGarantieAddressDetails(item));
+        garantieAddressSuggestions.appendChild(option);
+      });
+      garantieAddressSuggestions.hidden = false;
+    };
+    const searchGarantieAddresses = async (query) => {
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&q=${encodeURIComponent(query)}`, {
+        headers: {
+          'Accept': 'application/json',
+          'Accept-Language': 'fr',
+        },
+      });
+      if (!response.ok) {
+        throw new Error('Recherche OpenStreetMap indisponible.');
+      }
+      return response.json();
+    };
     const setGarantieAiStatus = (message = '', tone = '', visible = false) => {
       if (!(garantieAiStatus instanceof HTMLElement)) {
         return;
@@ -8905,16 +9298,53 @@
       }
     };
 
+    const normalizeGarantieTypeKey = (value) => String(value ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+    const getGarantieRetentionRate = () => {
+      const retentionRates = {
+        'hypotheque immobiliere': 0.8,
+        'titre vehicule': 0.7,
+        'caution personnelle': 0.5,
+        'garantie bancaire': 1,
+        'police assurance': 0.6,
+        'nantissement': 0.75,
+        'autre garantie': 0.5,
+      };
+
+      return retentionRates[normalizeGarantieTypeKey(getGarantieField('typeGarantie')?.value ?? '')] ?? 0.8;
+    };
+    const syncGarantieRetainedHint = () => {
+      if (!(garantieRetainedHint instanceof HTMLElement)) {
+        return;
+      }
+
+      const typeLabel = String(getGarantieField('typeGarantie')?.value ?? '').trim();
+      const ratePercent = Math.round(getGarantieRetentionRate() * 100);
+      garantieRetainedHint.textContent = typeLabel !== ''
+        ? `Calcul auto: ${ratePercent}% pour ${typeLabel}`
+        : 'Calcul auto selon le type de garantie';
+    };
+    const getExpectedGarantieRetained = () => {
+      if (!(garantieEstimatedField instanceof HTMLInputElement)) {
+        return 0;
+      }
+
+      const estimated = parseNum(garantieEstimatedField.value);
+      return estimated > 0 ? Number((estimated * getGarantieRetentionRate()).toFixed(2)) : 0;
+    };
+
     const syncRetainedFromEstimated = () => {
       if (!(garantieEstimatedField instanceof HTMLInputElement) || !(garantieRetainedField instanceof HTMLInputElement)) {
         return;
       }
-      if (garantieRetainedField.dataset.manual === '1') {
-        return;
-      }
 
-      const estimated = parseNum(garantieEstimatedField.value);
-      garantieRetainedField.value = estimated > 0 ? (estimated * 0.8).toFixed(2) : '';
+      const retained = getExpectedGarantieRetained();
+      garantieRetainedField.dataset.manual = '0';
+      garantieRetainedField.value = formatDecimalDisplay(retained);
+      syncGarantieRetainedHint();
     };
 
     const isGarantieEditMode = () => {
@@ -8998,6 +9428,14 @@
             return setFieldError(field, messageEl, "L'adresse doit contenir au moins 5 caracteres.");
           }
           return setFieldOk(field, messageEl);
+        case 'adresseComplete':
+          if (value === '') {
+            return clearFieldValidation(field, messageEl);
+          }
+          if (value.length < 5) {
+            return setFieldError(field, messageEl, "L'adresse complete est trop courte.");
+          }
+          return setFieldOk(field, messageEl);
         case 'documentJustificatif': {
           const file = garantieDocumentField instanceof HTMLInputElement ? garantieDocumentField.files?.[0] ?? null : null;
           const existingPath = garantieExistingDocumentField instanceof HTMLInputElement ? garantieExistingDocumentField.value.trim() : '';
@@ -9044,7 +9482,12 @@
       if (garantieDocumentField instanceof HTMLInputElement) {
         garantieDocumentField.value = '';
       }
+      if (garantieAddressCompleteField instanceof HTMLInputElement) {
+        garantieAddressCompleteField.value = '';
+      }
       syncGarantieDocumentMeta('', '');
+      clearGarantieAddressDetails();
+      hideGarantieSuggestions();
       garantieFieldNames.forEach((name) => {
         clearFieldValidation(getGarantieField(name), getGarantieMessage(name));
       });
@@ -9053,18 +9496,17 @@
     };
 
     garantieEstimatedField?.addEventListener('input', () => {
+      normalizeDecimalInputValue(garantieEstimatedField);
       syncRetainedFromEstimated();
       validateGarantieField('valeurEstimee');
       validateGarantieField('valeurRetenue');
     });
-
-    garantieRetainedField?.addEventListener('input', () => {
-      if (!(garantieRetainedField instanceof HTMLInputElement)) {
-        return;
-      }
-      garantieRetainedField.dataset.manual = garantieRetainedField.value.trim() === '' ? '0' : '1';
+    getGarantieField('typeGarantie')?.addEventListener('change', () => {
+      syncRetainedFromEstimated();
+      validateGarantieField('typeGarantie');
       validateGarantieField('valeurRetenue');
     });
+
     garantieDocumentField?.addEventListener('change', () => {
       const file = garantieDocumentField instanceof HTMLInputElement ? garantieDocumentField.files?.[0] ?? null : null;
       syncGarantieDocumentMeta(
@@ -9072,6 +9514,33 @@
         file ? `Fichier selectionne: ${file.name}` : ''
       );
       validateGarantieField('documentJustificatif');
+    });
+    garantieAddressCompleteField?.addEventListener('input', () => {
+      window.clearTimeout(garantieAddressSearchTimer);
+      if (garantieLatitudeField instanceof HTMLInputElement) {
+        garantieLatitudeField.value = '';
+      }
+      if (garantieLongitudeField instanceof HTMLInputElement) {
+        garantieLongitudeField.value = '';
+      }
+      setGarantieAddressStatus('A verifier');
+      validateGarantieField('adresseComplete');
+
+      const query = String(garantieAddressCompleteField.value ?? '').trim();
+      if (query.length < 4) {
+        hideGarantieSuggestions();
+        updateGarantieMapFrame('', '');
+        return;
+      }
+
+      garantieAddressSearchTimer = window.setTimeout(async () => {
+        try {
+          const items = await searchGarantieAddresses(query);
+          renderGarantieSuggestions(items);
+        } catch (_error) {
+          hideGarantieSuggestions();
+        }
+      }, 350);
     });
     garantieFieldNames.forEach((name) => {
       const field = getGarantieField(name);
@@ -9091,10 +9560,9 @@
     });
 
     garantieForm?.addEventListener('submit', (event) => {
-      if (garantieRetainedField instanceof HTMLInputElement && garantieRetainedField.value.trim() === '') {
-        garantieRetainedField.dataset.manual = '0';
-        syncRetainedFromEstimated();
-      }
+      normalizeDecimalInputValue(garantieEstimatedField);
+      normalizeDecimalInputValue(garantieRetainedField);
+      syncRetainedFromEstimated();
       if (!validateGarantieFormValues()) {
         event.preventDefault();
       }
@@ -9223,6 +9691,13 @@
       setGarantieField('typeGarantie', row.dataset.garantieType ?? '');
       setGarantieField('description', row.dataset.garantieDescription ?? '');
       setGarantieField('adresseBien', row.dataset.garantieAddress ?? '');
+      setGarantieField('adresseComplete', row.dataset.garantieAddressComplete ?? '');
+      setGarantieField('ville', row.dataset.garantieCity ?? '');
+      setGarantieField('codePostal', row.dataset.garantiePostal ?? '');
+      setGarantieField('pays', row.dataset.garantieCountry ?? '');
+      setGarantieField('latitude', row.dataset.garantieLatitude ?? '');
+      setGarantieField('longitude', row.dataset.garantieLongitude ?? '');
+      setGarantieField('statutVerificationAdresse', row.dataset.garantieAddressStatus ?? 'A verifier');
       setGarantieField('valeurEstimee', row.dataset.garantieEstimated ?? '');
       setGarantieField('valeurRetenue', row.dataset.garantieRetained ?? '');
       setGarantieField('dateEvaluation', normalizeIsoDate(row.dataset.garantieDate ?? ''));
@@ -9231,10 +9706,10 @@
         garantieDocumentField.value = '';
       }
       syncGarantieDocumentMeta(row.dataset.garantieDocument ?? '', '');
+      setGarantieAddressStatus(row.dataset.garantieAddressStatus ?? 'A verifier');
+      updateGarantieMapFrame(row.dataset.garantieLatitude ?? '', row.dataset.garantieLongitude ?? '');
+      hideGarantieSuggestions();
 
-      if (garantieRetainedField instanceof HTMLInputElement) {
-        garantieRetainedField.dataset.manual = (row.dataset.garantieRetained ?? '').trim() !== '' ? '1' : '0';
-      }
       syncRetainedFromEstimated();
       validateGarantieFormValues();
 
@@ -9251,6 +9726,14 @@
     });
 
     syncGarantieDocumentMeta(garantieExistingDocumentField instanceof HTMLInputElement ? garantieExistingDocumentField.value : '', '');
+    setGarantieAddressStatus(garantieAddressStatusField instanceof HTMLInputElement ? garantieAddressStatusField.value : 'A verifier');
+    waitLeafletReady(() => {
+      updateGarantieMapFrame(
+        garantieLatitudeField instanceof HTMLInputElement ? garantieLatitudeField.value : '',
+        garantieLongitudeField instanceof HTMLInputElement ? garantieLongitudeField.value : ''
+      );
+    });
+    syncRetainedFromEstimated();
     openBtns.forEach((btn) => btn?.addEventListener('click', () => {
       resetGarantieFormState();
       openDrawer();
@@ -9258,6 +9741,15 @@
     }));
     closeBtn?.addEventListener('click', closeDrawer);
     overlay?.addEventListener('click', closeDrawer);
+    document.addEventListener('click', (event) => {
+      if (!(garantieAddressSuggestions instanceof HTMLElement) || garantieAddressSuggestions.hidden) {
+        return;
+      }
+      if (garantieAddressSuggestions.contains(event.target) || garantieAddressCompleteField?.contains(event.target)) {
+        return;
+      }
+      hideGarantieSuggestions();
+    });
 
     /* open if redirected back with panel=credit */
     if (new URLSearchParams(location.search).get('panel') === 'credit') {
