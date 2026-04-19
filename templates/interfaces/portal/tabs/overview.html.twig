@@ -23,10 +23,7 @@
   {% else %}
     {% set tx_credit_amount = tx_credit_amount + amount %}
   {% endif %}
-  {% set tx_status = tx.statutTransaction|default('')|lower %}
-  {% if 'term' in tx_status or 'valid' in tx_status or 'accept' in tx_status %}
-    {% set tx_done_count = tx_done_count + 1 %}
-  {% endif %}
+  {% set tx_done_count = tx_done_count + 1 %}
   {% set tx_category = tx.categorie|default('Autre') %}
   {% set category_totals = category_totals|merge({
     (tx_category): (category_totals[tx_category]|default(0)) + amount
@@ -524,10 +521,6 @@
 
       <div class="cc-feed-body">
         {% for item in tx_list %}
-          {% set st = item.statutTransaction|default('N/A') %}
-          {% set stl = st|lower %}
-          {% set sc = ('term' in stl or 'valid' in stl or 'accept' in stl) ? 'success'
-                     : (('attente' in stl or 'pending' in stl) ? 'warn' : 'neutral') %}
           {% set type_lower = item.typeTransaction|default('')|lower %}
           {% set is_debit = 'debit' in type_lower %}
 
@@ -557,8 +550,8 @@
               <div class="cc-feed-row-bot">
                 <span class="cc-feed-id">#{{ item.idTransaction }}</span>
                 <span class="cc-feed-date">{{ item.dateTransaction|default('-') }}</span>
-                <span class="cc-status-dot cc-status-dot--{{ sc }}"></span>
-                <span class="cc-feed-status">{{ st }}</span>
+                <span class="cc-status-dot cc-status-dot--success"></span>
+                <span class="cc-feed-status">{{ item.typeTransaction|default('Transaction') }}</span>
               </div>
             </div>
           </div>

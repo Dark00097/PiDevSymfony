@@ -971,9 +971,8 @@
                   <em>DT</em>
                 </td>
                 <td>
-                  {% set st = item.statutTransaction ?? item.statut ?? '' %}
-                  <span class="nx-dash__status nx-dash__status--{{ st|lower }}">
-                    {{ st ?: '—' }}
+                  <span class="nx-dash__status nx-dash__status--{{ item.typeTransaction|default('depot')|lower }}">
+                    {{ item.typeTransaction|default('—') }}
                   </span>
                 </td>
               </tr>

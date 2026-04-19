@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>🧪 Test - Inputs Disabled</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #667eea;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #667eea;
+        }
+        button {
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            margin: 5px;
+            transition: all 0.3s;
+        }
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        .btn-success {
+            background: #28a745;
+        }
+        .btn-success:hover {
+            background: #218838;
+        }
+        .btn-danger {
+            background: #dc3545;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 8px;
+            display: none;
+        }
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .result.info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        .status-ok {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 13px;
+        }
+        .step {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 3px solid #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test - Désactivation des Inputs</h1>
+        <p class="subtitle">Vérification que seuls les inputs de la section active sont envoyés</p>
+        
+        <div class="test-section">
+            <h3>📋 Instructions</h3>
+            <div class="step">
+                <strong>1.</strong> Cliquez sur "Tester le script v3.0" pour vérifier que le nouveau script est chargé
+            </div>
+            <div class="step">
+                <strong>2.</strong> Cliquez sur "Vérifier les inputs disabled" pour voir l'état des champs
+            </div>
+            <div class="step">
+                <strong>3.</strong> Cliquez sur "Compter les valeurs envoyées" pour vérifier qu'il n'y a qu'une seule valeur par champ
+            </div>
+            <div class="step">
+                <strong>4.</strong> Si tout est OK, allez sur le formulaire principal
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>🔍 Tests</h3>
+            <button onclick="testScriptVersion()">🔍 Tester le script v3.0</button>
+            <button onclick="testInputsDisabled()">🔒 Vérifier les inputs disabled</button>
+            <button onclick="testFormData()">📊 Compter les valeurs envoyées</button>
+            <button class="btn-success" onclick="window.location.href='/portal?tab=transactions'">
+                🚀 Aller au formulaire
+            </button>
+            <button class="btn-danger" onclick="clearCache()">
+                🗑️ Instructions cache
+            </button>
+        </div>
+        
+        <div id="result" class="result"></div>
+        
+        <div class="test-section">
+            <h3>✅ Résultats attendus</h3>
+            <ul>
+                <li><strong>Script v3.0:</strong> Le fichier doit contenir "VERSION CORRIGÉE" et "disableSection"</li>
+                <li><strong>Inputs disabled:</strong> 3 inputs avec <code>disabled=true</code>, 1 avec <code>disabled=false</code></li>
+                <li><strong>Valeurs envoyées:</strong> 1 seule valeur pour <code>montant</code> et <code>currency</code></li>
+            </ul>
+        </div>
+        
+        <div class="test-section">
+            <h3>🐛 Si les tests échouent</h3>
+            <ul>
+                <li><strong>Script pas v3.0:</strong> Videz le cache (<code>Ctrl + Shift + Delete</code>)</li>
+                <li><strong>Tous les inputs enabled:</strong> Le script v3.0 n'est pas chargé</li>
+                <li><strong>Plusieurs valeurs:</strong> Les sections cachées ne sont pas désactivées</li>
+            </ul>
+        </div>
+    </div>
+    
+    <script>
+        function showResult(message, type = 'info') {
+            const result = document.getElementById('result');
+            result.className = 'result ' + type;
+            result.innerHTML = message;
+            result.style.display = 'block';
+        }
+        
+        function testScriptVersion() {
+            showResult('🔄 Chargement du script...', 'info');
+            
+            fetch('/js/transaction-form-simple.js?v=3.0&t=' + Date.now())
+                .then(response => response.text())
+                .then(content => {
+                    const hasVersion = content.includes('VERSION CORRIGÉE');
+                    const hasDisable = content.includes('disableSection');
+                    const hasEnable = content.includes('enableSection');
+                    const hasV3 = content.includes('v3.0');
+                    
+                    if (hasVersion && hasDisable && hasEnable && hasV3) {
+                        showResult(`
+                            <strong>✅ SUCCÈS!</strong><br>
+                            Le script v3.0 est présent sur le serveur.<br>
+                            <br>
+                            <strong>Contenu vérifié:</strong><br>
+                            ✅ VERSION CORRIGÉE<br>
+                            ✅ disableSection()<br>
+                            ✅ enableSection()<br>
+                            ✅ v3.0<br>
+                            <br>
+                            <strong>Maintenant, videz votre cache navigateur:</strong><br>
+                            <code>Ctrl + Shift + Delete</code> → Effacer "Images et fichiers en cache"
+                        `, 'success');
+                    } else {
+                        showResult(`
+                            <strong>❌ ERREUR!</strong><br>
+                            Le script v3.0 n'est pas complet.<br>
+                            <br>
+                            <strong>Vérifications:</strong><br>
+                            ${hasVersion ? '✅' : '❌'} VERSION CORRIGÉE<br>
+                            ${hasDisable ? '✅' : '❌'} disableSection()<br>
+                            ${hasEnable ? '✅' : '❌'} enableSection()<br>
+                            ${hasV3 ? '✅' : '❌'} v3.0<br>
+                        `, 'error');
+                    }
+                })
+                .catch(error => {
+                    showResult(`
+                        <strong>❌ ERREUR!</strong><br>
+                        Impossible de charger le script.<br>
+                        Erreur: ${error.message}
+                    `, 'error');
+                });
+        }
+        
+        function testInputsDisabled() {
+            // Ouvrir le formulaire dans un iframe caché pour tester
+            showResult(`
+                <strong>🔍 Test des inputs disabled</strong><br>
+                <br>
+                Pour tester, ouvrez la console (F12) sur la page du formulaire et tapez:<br>
+                <pre>document.querySelectorAll('input[name="montant"]').forEach((input, i) => {
+    console.log(\`Input \${i}: disabled=\${input.disabled}\`);
+});</pre>
+                <br>
+                <strong>Résultat attendu:</strong><br>
+                3 inputs avec <code>disabled=true</code> (sections cachées)<br>
+                1 input avec <code>disabled=false</code> (section active)
+            `, 'info');
+        }
+        
+        function testFormData() {
+            showResult(`
+                <strong>📊 Test du nombre de valeurs</strong><br>
+                <br>
+                Pour tester, ouvrez la console (F12) sur la page du formulaire et tapez:<br>
+                <pre>const form = document.getElementById('transaction-form');
+const formData = new FormData(form);
+console.log('Montants:', formData.getAll('montant'));
+console.log('Devises:', formData.getAll('currency'));</pre>
+                <br>
+                <strong>Résultat attendu:</strong><br>
+                <code>Montants: [""]</code> (1 seule valeur, peut être vide si pas rempli)<br>
+                <code>Devises: ["TND"]</code> (1 seule valeur)
+            `, 'info');
+        }
+        
+        function clearCache() {
+            showResult(`
+                <strong>🗑️ COMMENT VIDER LE CACHE</strong><br>
+                <br>
+                <strong>Méthode 1: Vider le cache complet (RECOMMANDÉ)</strong><br>
+                1. Appuyez sur <code>Ctrl + Shift + Delete</code><br>
+                2. Cochez "Images et fichiers en cache"<br>
+                3. Cliquez sur "Effacer les données"<br>
+                4. Fermez et rouvrez le navigateur<br>
+                <br>
+                <strong>Méthode 2: Rechargement forcé</strong><br>
+                1. Appuyez sur <code>Ctrl + Shift + R</code><br>
+                2. Ou <code>Ctrl + F5</code><br>
+                <br>
+                <strong>Méthode 3: Navigation privée (TEST)</strong><br>
+                1. Appuyez sur <code>Ctrl + Shift + N</code><br>
+                2. Testez le formulaire<br>
+                3. Si ça marche, videz le cache du navigateur normal
+            `, 'info');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>🔧 DEBUG Transaction Direct</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .form-group { margin: 15px 0; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        input, select { padding: 10px; width: 100%; border: 1px solid #ddd; border-radius: 4px; font-size: 16px; }
+        button { padding: 15px 30px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: bold; }
+        button:hover { background: #0056b3; }
+        .result { padding: 15px; margin: 20px 0; border-radius: 4px; font-weight: bold; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #e2e3e5; color: #383d41; border: 1px solid #d6d8db; padding: 10px; margin: 10px 0; border-radius: 4px; }
+        h1 { color: #333; }
+        h2 { color: #666; margin-top: 30px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 DEBUG - Test Transaction Direct</h1>
+        
+        <div class="info">
+            <strong>Utilisateur:</strong> {{ user.prenom }} {{ user.nom }} (ID: {{ user.idUser }})<br>
+            <strong>URL:</strong> {{ app.request.uri }}<br>
+            <strong>Méthode:</strong> {{ app.request.method }}
+        </div>
+
+        {% if result %}
+            <div class="result success">{{ result }}</div>
+        {% endif %}
+
+        {% if error %}
+            <div class="result error">{{ error }}</div>
+        {% endif %}
+
+        <h2>📝 Formulaire de Test</h2>
+        <form method="post">
+            <div class="form-group">
+                <label>🏦 Compte:</label>
+                <select name="compte" required>
+                    <option value="">-- Sélectionner un compte --</option>
+                    {% for account in accounts %}
+                        <option value="{{ account.idCompte }}">
+                            {{ account.numeroCompte }} - Solde: {{ account.solde }} DT
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>📅 Date:</label>
+                <input type="date" name="dateTransaction" value="{{ 'now'|date('Y-m-d') }}" required>
+            </div>
+            
+            <div class="form-group">
+                <label>💰 Montant (DT):</label>
+                <input type="number" step="0.01" name="montant" value="100.00" required>
+            </div>
+            
+            <div class="form-group">
+                <button type="submit">🚀 TESTER LA TRANSACTION</button>
+            </div>
+        </form>
+
+        <h2>📊 Comptes Disponibles</h2>
+        <div class="info">
+            {% for account in accounts %}
+                <strong>Compte {{ account.numeroCompte }}:</strong> {{ account.solde }} DT (ID: {{ account.idCompte }})<br>
+            {% endfor %}
+        </div>
+
+        <h2>🔍 Instructions</h2>
+        <div class="info">
+            1. Sélectionnez un compte<br>
+            2. Entrez un montant<br>
+            3. Cliquez sur "TESTER LA TRANSACTION"<br>
+            4. Regardez le résultat ci-dessus<br>
+            5. Vérifiez les logs avec: <code>tail -f var/log/dev.log</code>
+        </div>
+    </div>
+
+    <script>
+        document.querySelector('form').addEventListener('submit', function(e) {
+            console.log('=== SOUMISSION FORMULAIRE DEBUG ===');
+            console.log('Action:', this.action);
+            console.log('Méthode:', this.method);
+            
+            const formData = new FormData(this);
+            console.log('Données:');
+            for (let [key, value] of formData.entries()) {
+                console.log(key + ':', value);
+            }
+            console.log('=== FIN DEBUG ===');
+        });
+    </script>
+</body>
+</html>

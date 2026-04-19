@@ -1,0 +1,521 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Convertisseur de Devises - Nexora Bank{% endblock %}
+
+{% block body %}
+<div class="currency-converter-page">
+    
+    {# Header #}
+    <div class="converter-header">
+        <a href="{{ path('portal_dashboard') }}" class="back-btn">
+            <i class="fa-solid fa-arrow-left"></i> Retour au portail
+        </a>
+        <div class="header-content">
+            <div class="header-icon">
+                <i class="fa-solid fa-money-bill-transfer"></i>
+            </div>
+            <div>
+                <h1>💱 Convertisseur de Devises</h1>
+                <p>Conversion en temps réel avec les meilleurs taux du marché</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="converter-container">
+        
+        {# Main Converter Card #}
+        <div class="converter-card">
+            <div class="converter-card-header">
+                <h2><i class="fa-solid fa-calculator"></i> Calculateur de conversion</h2>
+                <span class="live-indicator">
+                    <span class="pulse-dot"></span> Taux en direct
+                </span>
+            </div>
+
+            <div class="converter-form">
+                {# From Currency #}
+                <div class="currency-input-group">
+                    <label>De</label>
+                    <div class="input-wrapper">
+                        <input type="number" id="amount-from" class="amount-input" value="100" min="0" step="0.01">
+                        <select id="currency-from" class="currency-select">
+                            {% for currency in supported_currencies %}
+                                <option value="{{ currency }}" {{ currency == 'TND' ? 'selected' : '' }}>
+                                    {{ currency_symbols[currency] }} {{ currency }} - {{ currency_names[currency] }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                {# Swap Button #}
+                <div class="swap-button-container">
+                    <button type="button" id="btn-swap" class="swap-btn" title="Inverser les devises">
+                        <i class="fa-solid fa-arrow-right-arrow-left"></i>
+                    </button>
+                </div>
+
+                {# To Currency #}
+                <div class="currency-input-group">
+                    <label>Vers</label>
+                    <div class="input-wrapper">
+                        <input type="number" id="amount-to" class="amount-input" readonly>
+                        <select id="currency-to" class="currency-select">
+                            {% for currency in supported_currencies %}
+                                <option value="{{ currency }}" {{ currency == 'EUR' ? 'selected' : '' }}>
+                                    {{ currency_symbols[currency] }} {{ currency }} - {{ currency_names[currency] }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            {# Conversion Details #}
+            <div class="conversion-details" id="conversion-details" style="display:none;">
+                <div class="detail-row">
+                    <span class="detail-label">Taux de change</span>
+                    <span class="detail-value" id="exchange-rate">-</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Montant converti</span>
+                    <span class="detail-value" id="converted-amount">-</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Frais de conversion (0.5%)</span>
+                    <span class="detail-value" id="conversion-fee">-</span>
+                </div>
+                <div class="detail-row total-row">
+                    <span class="detail-label"><strong>Total à payer</strong></span>
+                    <span class="detail-value" id="total-amount"><strong>-</strong></span>
+                </div>
+            </div>
+
+            <button type="button" id="btn-convert" class="convert-btn">
+                <i class="fa-solid fa-rotate"></i> Convertir
+            </button>
+        </div>
+
+        {# Exchange Rates Table #}
+        <div class="rates-card">
+            <div class="rates-card-header">
+                <h3><i class="fa-solid fa-chart-line"></i> Taux de change actuels</h3>
+                <span class="update-time">Mis à jour: {{ 'now'|date('H:i') }}</span>
+            </div>
+            <div class="rates-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Devise</th>
+                            <th>Taux (1 TND =)</th>
+                            <th>Inverse (1 = TND)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for currency, rate in rates %}
+                            <tr>
+                                <td>
+                                    <span class="currency-flag">{{ currency_symbols[currency] }}</span>
+                                    <strong>{{ currency }}</strong>
+                                    <span class="currency-name-small">{{ currency_names[currency] }}</span>
+                                </td>
+                                <td class="rate-value">{{ rate|number_format(4, '.', ' ') }}</td>
+                                <td class="rate-value">{{ (1 / rate)|number_format(4, '.', ' ') }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<style>
+.currency-converter-page {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 40px 20px;
+}
+
+.converter-header {
+    max-width: 1200px;
+    margin: 0 auto 30px;
+}
+
+.back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+    border-radius: 10px;
+    text-decoration: none;
+    font-weight: 600;
+    margin-bottom: 20px;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+}
+
+.back-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateX(-5px);
+}
+
+.header-content {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    color: #ffffff;
+}
+
+.header-icon {
+    width: 80px;
+    height: 80px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    backdrop-filter: blur(10px);
+}
+
+.header-content h1 {
+    margin: 0;
+    font-size: 36px;
+    font-weight: 800;
+}
+
+.header-content p {
+    margin: 5px 0 0;
+    font-size: 16px;
+    opacity: 0.9;
+}
+
+.converter-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+}
+
+@media (max-width: 968px) {
+    .converter-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+.converter-card, .rates-card {
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.converter-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.converter-card-header h2 {
+    margin: 0;
+    font-size: 22px;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.live-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #10b981;
+    font-weight: 600;
+}
+
+.pulse-dot {
+    width: 8px;
+    height: 8px;
+    background: #10b981;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.2); }
+}
+
+.converter-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.currency-input-group label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #64748b;
+    margin-bottom: 10px;
+}
+
+.input-wrapper {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.amount-input, .currency-select {
+    padding: 15px;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.amount-input:focus, .currency-select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.swap-button-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.swap-btn {
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #ffffff;
+    border: none;
+    border-radius: 50%;
+    font-size: 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.swap-btn:hover {
+    transform: rotate(180deg) scale(1.1);
+}
+
+.conversion-details {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-radius: 12px;
+    padding: 20px;
+    margin: 20px 0;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+}
+
+.detail-label {
+    color: #64748b;
+    font-size: 14px;
+}
+
+.detail-value {
+    color: #1e293b;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.total-row {
+    margin-top: 10px;
+    padding-top: 15px;
+    border-top: 2px solid #667eea;
+}
+
+.total-row .detail-value {
+    color: #667eea;
+    font-size: 20px;
+}
+
+.convert-btn {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: #ffffff;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.convert-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+}
+
+.rates-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.rates-card-header h3 {
+    margin: 0;
+    font-size: 20px;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.update-time {
+    font-size: 12px;
+    color: #94a3b8;
+}
+
+.rates-table table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.rates-table th {
+    text-align: left;
+    padding: 12px;
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.rates-table td {
+    padding: 15px 12px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.currency-flag {
+    font-size: 20px;
+    margin-right: 8px;
+}
+
+.currency-name-small {
+    display: block;
+    font-size: 11px;
+    color: #94a3b8;
+    margin-top: 2px;
+}
+
+.rate-value {
+    font-weight: 600;
+    color: #667eea;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const amountFrom = document.getElementById('amount-from');
+    const amountTo = document.getElementById('amount-to');
+    const currencyFrom = document.getElementById('currency-from');
+    const currencyTo = document.getElementById('currency-to');
+    const btnSwap = document.getElementById('btn-swap');
+    const btnConvert = document.getElementById('btn-convert');
+    const conversionDetails = document.getElementById('conversion-details');
+    
+    // Auto-convert on input change
+    let convertTimeout;
+    amountFrom.addEventListener('input', function() {
+        clearTimeout(convertTimeout);
+        convertTimeout = setTimeout(performConversion, 500);
+    });
+    
+    currencyFrom.addEventListener('change', performConversion);
+    currencyTo.addEventListener('change', performConversion);
+    
+    // Swap currencies
+    btnSwap.addEventListener('click', function() {
+        const tempCurrency = currencyFrom.value;
+        currencyFrom.value = currencyTo.value;
+        currencyTo.value = tempCurrency;
+        performConversion();
+    });
+    
+    // Convert button
+    btnConvert.addEventListener('click', performConversion);
+    
+    // Perform conversion
+    function performConversion() {
+        const amount = parseFloat(amountFrom.value);
+        const from = currencyFrom.value;
+        const to = currencyTo.value;
+        
+        if (!amount || amount <= 0) {
+            conversionDetails.style.display = 'none';
+            amountTo.value = '';
+            return;
+        }
+        
+        fetch('{{ path('portal_api_currency_convert') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+                amount: amount,
+                from: from,
+                to: to
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const conv = data.conversion;
+                amountTo.value = conv.converted.toFixed(3);
+                
+                document.getElementById('exchange-rate').textContent = 
+                    `1 ${conv.from} = ${conv.rate.toFixed(4)} ${conv.to}`;
+                document.getElementById('converted-amount').textContent = 
+                    `${conv.converted.toFixed(3)} ${conv.to_symbol}`;
+                document.getElementById('conversion-fee').textContent = 
+                    `${conv.fee.toFixed(3)} ${conv.to_symbol}`;
+                document.getElementById('total-amount').textContent = 
+                    `${conv.total.toFixed(3)} ${conv.to_symbol}`;
+                
+                conversionDetails.style.display = 'block';
+            } else {
+                alert('Erreur: ' + (data.error || 'Conversion échouée'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Erreur lors de la conversion');
+        });
+    }
+    
+    // Initial conversion
+    performConversion();
+});
+</script>
+{% endblock %}

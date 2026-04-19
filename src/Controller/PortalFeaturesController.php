@@ -6,10 +6,13 @@ use App\Service\AuthService;
 use App\Service\BankingService;
 use App\Service\ExportService;
 use App\Service\GamificationService;
+use App\Service\GeminiService;
 use App\Service\InsightsService;
 use App\Service\NotificationService;
 use App\Service\PaymentService;
+use App\Service\StripeService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -230,14 +233,14 @@ final class PortalFeaturesController extends AbstractController
             ];
         } else {
             $title = 'Transactions Report';
-            $headers = ['ID', 'Category', 'Amount', 'Type', 'Status'];
+            $headers = ['ID', 'Category', 'Amount', 'Type', 'Date'];
             foreach ($bankingService->listTransactions($userId) as $transaction) {
                 $rows[] = [
                     $transaction['idTransaction'],
                     $transaction['categorie'],
                     number_format((float) ($transaction['montant_value'] ?? 0), 2, '.', ' '),
                     $transaction['typeTransaction'],
-                    $transaction['statutTransaction'],
+                    $transaction['dateTransaction'] ?? '-',
                 ];
             }
         }
@@ -272,14 +275,16 @@ final class PortalFeaturesController extends AbstractController
 
         foreach ($bankingService->listTransactions((int) $user['idUser']) as $transaction) {
             if ((int) $transaction['idTransaction'] === $id) {
-                return new Response($exportService->buildTransactionQrSvg($transaction), 200, [
-                    'Content-Type' => 'image/svg+xml',
-                    'Content-Disposition' => sprintf('inline; filename="transaction-%d-qr.svg"', $id),
+                $svgContent = $exportService->buildTransactionQrSvg($transaction);
+
+                return $this->render('interfaces/portal/features/transaction_qr.html.twig', [
+                    'transaction' => $transaction,
+                    'qr_svg'      => $svgContent,
                 ]);
             }
         }
 
-        throw $this->createNotFoundException('Transaction not found.');
+        throw $this->createNotFoundException('Transaction introuvable.');
     }
 
     private function handleAction(
@@ -416,5 +421,99 @@ final class PortalFeaturesController extends AbstractController
         }
 
         return $viewState;
+    }
+
+    #[Route('/portal/api/reclamation/improve-description', name: 'portal_api_reclamation_improve', methods: ['POST'])]
+    public function improveReclamationDescription(Request $request, AuthService $authService, GeminiService $geminiService): JsonResponse
+    {
+        set_time_limit(15); // max 15s pour cet endpoint
+
+        $user = $authService->getAuthenticatedUser($request->getSession());
+        if ($user === null) {
+            return new JsonResponse(['error' => 'Non authentifié.'], 401);
+        }
+
+        if (!$geminiService->isConfigured()) {
+            return new JsonResponse(['error' => 'Service IA non configuré.'], 503);
+        }
+
+        $description = trim((string) $request->request->get('description', ''));
+        if ($description === '') {
+            return new JsonResponse(['error' => 'Description vide.'], 400);
+        }
+
+        $improved = $geminiService->improveReclamationDescription($description, [
+            'type'      => (string) $request->request->get('type', ''),
+            'categorie' => (string) $request->request->get('categorie', ''),
+            'montant'   => (string) $request->request->get('montant', ''),
+        ]);
+
+        return new JsonResponse(['improved' => $improved]);
+    }
+
+    #[Route('/portal/stripe/checkout/{id}', name: 'portal_stripe_checkout', methods: ['GET'])]
+    public function stripeCheckout(
+        int $id,
+        Request $request,
+        AuthService $authService,
+        BankingService $bankingService,
+        StripeService $stripeService,
+    ): Response {
+        $user = $authService->getAuthenticatedUser($request->getSession());
+        if ($user === null) {
+            return $this->redirectToRoute('login');
+        }
+
+        if (!$stripeService->isConfigured()) {
+            $this->addFlash('error', 'Le paiement Stripe n\'est pas configuré.');
+            return $this->redirectToRoute('portal_dashboard', ['tab' => 'transactions']);
+        }
+
+        foreach ($bankingService->listTransactions((int) $user['idUser']) as $tx) {
+            if ((int) $tx['idTransaction'] === $id) {
+                $successUrl = $this->generateUrl('portal_stripe_success', ['id' => $id], \Symfony\Component\Routing\Generator\UrlGeneratorInterface::ABSOLUTE_URL);
+                $cancelUrl  = $this->generateUrl('portal_dashboard', ['tab' => 'transactions'], \Symfony\Component\Routing\Generator\UrlGeneratorInterface::ABSOLUTE_URL);
+
+                try {
+                    $checkoutUrl = $stripeService->createCheckoutSession($tx, $successUrl, $cancelUrl);
+                    return $this->redirect($checkoutUrl);
+                } catch (\RuntimeException $e) {
+                    $this->addFlash('error', $e->getMessage());
+                    return $this->redirectToRoute('portal_dashboard', ['tab' => 'transactions']);
+                }
+            }
+        }
+
+        throw $this->createNotFoundException('Transaction introuvable.');
+    }
+
+    #[Route('/portal/stripe/success/{id}', name: 'portal_stripe_success', methods: ['GET'])]
+    public function stripeSuccess(
+        int $id,
+        Request $request,
+        AuthService $authService,
+        BankingService $bankingService,
+        StripeService $stripeService,
+    ): Response {
+        $user = $authService->getAuthenticatedUser($request->getSession());
+        if ($user === null) {
+            return $this->redirectToRoute('login');
+        }
+
+        foreach ($bankingService->listTransactions((int) $user['idUser']) as $tx) {
+            if ((int) $tx['idTransaction'] === $id) {
+                $montant     = (float) ($tx['montant_value']    ?? 0);
+                $montantPaye = (float) ($tx['montantPaye_value'] ?? 0);
+                $restant     = max(0, $montant - $montantPaye);
+
+                // Marque la transaction comme entièrement payée
+                $stripeService->markTransactionPaid($id, $montantPaye + $restant, $montant);
+
+                $this->addFlash('success', sprintf('Paiement de %.3f TND effectué avec succès !', $restant));
+                return $this->redirectToRoute('portal_dashboard', ['tab' => 'transactions']);
+            }
+        }
+
+        return $this->redirectToRoute('portal_dashboard', ['tab' => 'transactions']);
     }
 }

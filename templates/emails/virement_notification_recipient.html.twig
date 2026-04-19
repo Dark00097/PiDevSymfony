@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Virement reçu</title>
+</head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background:#f3f4f6;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:40px 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 10px 25px rgba(0,0,0,0.1);">
+
+                    {# Header #}
+                    <tr>
+                        <td style="background:linear-gradient(135deg,#1e3a8a 0%,#1d4ed8 100%);padding:40px 30px;text-align:center;">
+                            <div style="background:rgba(255,255,255,0.2);width:80px;height:80px;border-radius:50%;margin:0 auto 20px;text-align:center;line-height:80px;">
+                                <span style="font-size:42px;">💸</span>
+                            </div>
+                            <h1 style="margin:0;color:#ffffff;font-size:26px;font-weight:700;">Virement reçu !</h1>
+                            <p style="margin:10px 0 0;color:rgba(255,255,255,0.85);font-size:15px;">
+                                Un virement bancaire vous a été envoyé
+                            </p>
+                        </td>
+                    </tr>
+
+                    {# Corps #}
+                    <tr>
+                        <td style="padding:40px 30px;">
+                            <p style="margin:0 0 20px;color:#374151;font-size:16px;line-height:1.6;">
+                                Bonjour <strong>{{ transaction.nomDestinataire|default('') }}</strong>,
+                            </p>
+                            <p style="margin:0 0 30px;color:#6b7280;font-size:15px;line-height:1.6;">
+                                <strong>{{ sender.prenom|default('') }} {{ sender.nom|default('') }}</strong>
+                                vous a envoyé un virement via <strong>Nexora Bank</strong>.
+                            </p>
+
+                            {# Montant #}
+                            <div style="background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%);border-radius:16px;padding:30px;margin-bottom:30px;text-align:center;border:2px solid #3b82f6;">
+                                <div style="color:#1e3a8a;font-size:13px;font-weight:700;margin-bottom:10px;text-transform:uppercase;letter-spacing:1px;">
+                                    Montant reçu
+                                </div>
+                                <div style="color:#1d4ed8;font-size:48px;font-weight:900;line-height:1;margin-bottom:4px;">
+                                    +{{ transaction.montant_value|default(0)|number_format(3, '.', ' ') }}
+                                </div>
+                                <div style="color:#2563eb;font-size:22px;font-weight:700;">DT</div>
+                            </div>
+
+                            {# Détails #}
+                            <div style="background:#f9fafb;border-radius:12px;padding:25px;margin-bottom:30px;border:1px solid #e5e7eb;">
+                                <h3 style="margin:0 0 18px;color:#111827;font-size:15px;font-weight:700;">📋 Détails du virement</h3>
+                                <table width="100%" cellpadding="0" cellspacing="0">
+                                    <tr>
+                                        <td style="padding:8px 0;color:#6b7280;font-size:14px;border-bottom:1px solid #f3f4f6;">Expéditeur</td>
+                                        <td align="right" style="padding:8px 0;color:#111827;font-size:14px;font-weight:600;border-bottom:1px solid #f3f4f6;">
+                                            {{ sender.prenom|default('') }} {{ sender.nom|default('') }}
+                                        </td>
+                                    </tr>
+                                    {% if sender.email|default('') != '' %}
+                                    <tr>
+                                        <td style="padding:8px 0;color:#6b7280;font-size:14px;border-bottom:1px solid #f3f4f6;">Email expéditeur</td>
+                                        <td align="right" style="padding:8px 0;color:#2563eb;font-size:14px;font-weight:600;border-bottom:1px solid #f3f4f6;">
+                                            {{ sender.email }}
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                    <tr>
+                                        <td style="padding:8px 0;color:#6b7280;font-size:14px;border-bottom:1px solid #f3f4f6;">Référence</td>
+                                        <td align="right" style="padding:8px 0;color:#111827;font-size:14px;font-weight:600;border-bottom:1px solid #f3f4f6;">
+                                            #{{ transaction.idTransaction|default('—') }}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding:8px 0;color:#6b7280;font-size:14px;border-bottom:1px solid #f3f4f6;">Compte destinataire</td>
+                                        <td align="right" style="padding:8px 0;color:#111827;font-size:14px;font-weight:600;border-bottom:1px solid #f3f4f6;">
+                                            {{ transaction.idCompteDestinataire|default('—') }}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding:8px 0;color:#6b7280;font-size:14px;">Date</td>
+                                        <td align="right" style="padding:8px 0;color:#111827;font-size:14px;font-weight:600;">
+                                            {{ transaction.dateTransaction|default('now'|date('d/m/Y')) }}
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+
+                            {% if transaction.description|default('') != '' %}
+                            <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:15px 20px;border-radius:8px;margin-bottom:30px;">
+                                <div style="color:#92400e;font-size:13px;font-weight:600;margin-bottom:5px;">💬 Message de l'expéditeur</div>
+                                <div style="color:#78350f;font-size:14px;line-height:1.5;">{{ transaction.description }}</div>
+                            </div>
+                            {% endif %}
+
+                            <div style="background:#eff6ff;border-radius:10px;padding:18px 20px;border:1px solid #bfdbfe;">
+                                <p style="margin:0;color:#1e40af;font-size:14px;line-height:1.6;">
+                                    <strong>🔒 Sécurité :</strong> Ce virement a été effectué de manière sécurisée via Nexora Bank. Si vous ne reconnaissez pas cet expéditeur, contactez notre support.
+                                </p>
+                            </div>
+                        </td>
+                    </tr>
+
+                    {# Footer #}
+                    <tr>
+                        <td style="background:#f9fafb;padding:28px 30px;text-align:center;border-top:1px solid #e5e7eb;">
+                            <p style="margin:0 0 8px;color:#9ca3af;font-size:13px;">
+                                Email envoyé automatiquement par <strong style="color:#6b7280;">Nexora Bank</strong>
+                            </p>
+                            <p style="margin:0;color:#9ca3af;font-size:12px;">
+                                © {{ 'now'|date('Y') }} Nexora Bank. Tous droits réservés.
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

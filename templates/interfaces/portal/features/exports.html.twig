@@ -21,7 +21,7 @@
 
 <section class="panel-card">
     <h2>Transactions and QR Codes</h2>
-    <div class="table-wrap"><table class="data-table"><thead><tr><th>ID</th><th>Category</th><th>Amount</th><th>Status</th><th>QR</th></tr></thead><tbody>{% for item in exports_data.transactions %}<tr><td>{{ item.idTransaction }}</td><td>{{ item.categorie }}</td><td>{{ item.montant_value|number_format(2, '.', ' ') }} DT</td><td>{{ item.statutTransaction }}</td><td><a class="btn btn-secondary" href="{{ path('portal_feature_transaction_qr', { id: item.idTransaction }) }}">Open QR</a></td></tr>{% else %}<tr><td colspan="5">No transactions.</td></tr>{% endfor %}</tbody></table></div>
+    <div class="table-wrap"><table class="data-table"><thead><tr><th>ID</th><th>Category</th><th>Type</th><th>Amount</th><th>QR</th></tr></thead><tbody>{% for item in exports_data.transactions %}<tr><td>{{ item.idTransaction }}</td><td>{{ item.categorie }}</td><td>{{ item.typeTransaction }}</td><td>{{ item.montant_value|number_format(2, '.', ' ') }} DT</td><td><a class="btn btn-secondary" href="{{ path('portal_feature_transaction_qr', { id: item.idTransaction }) }}">Open QR</a></td></tr>{% else %}<tr><td colspan="5">No transactions.</td></tr>{% endfor %}</tbody></table></div>
 </section>
 
 <section class="panel-grid">

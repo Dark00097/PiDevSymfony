@@ -36,7 +36,7 @@ final class GamificationService
         $recentSpending = 0.0;
         $daysSinceSavings = 999;
         foreach ($recentTransactions as $row) {
-            $amount = (float) ($this->security->decryptAmount((string) ($row['montant'] ?? '')) ?? 0.0);
+            $amount = (float) ($row['montant'] ?? 0.0);
             if (strtoupper((string) ($row['typeTransaction'] ?? '')) === 'DEBIT') {
                 $recentSpending += $amount;
             }
@@ -135,11 +135,11 @@ final class GamificationService
                 'idUser' => $userId,
                 'categorie' => 'Epargne',
                 'dateTransaction' => date('Y-m-d'),
-                'montant' => $this->security->encryptAmount($amount),
+                'montant'         => $amount,
                 'typeTransaction' => 'DEBIT',
-                'soldeApres' => $newBalance,
-                'description' => 'Virement coffre - dragon feed',
-                'montantPaye' => $this->security->encryptAmount($amount),
+                'soldeApres'      => $newBalance,
+                'description'     => 'Virement coffre - dragon feed',
+                'montantPaye'     => $amount,
             ]);
 
             $this->activityService->log($userId, 'DRAGON_FEED', 'Symfony portal', sprintf('Fed %.2f DT into vault #%d.', $amount, $vaultId));
@@ -249,11 +249,11 @@ final class GamificationService
                 'idUser' => $userId,
                 'categorie' => 'Recompense',
                 'dateTransaction' => date('Y-m-d'),
-                'montant' => $this->security->encryptAmount(50),
+                'montant'         => 50,
                 'typeTransaction' => 'CREDIT',
-                'soldeApres' => $newBalance,
-                'description' => 'Bonus roue de fortune +50 DT',
-                'montantPaye' => $this->security->encryptAmount(50),
+                'soldeApres'      => $newBalance,
+                'description'     => 'Bonus roue de fortune +50 DT',
+                'montantPaye'     => 50,
             ]);
 
             $this->connection->update('roue_fortune_points', [
@@ -293,7 +293,7 @@ final class GamificationService
         $minBalance = null;
 
         foreach ($rows as $row) {
-            $amount = (float) ($this->security->decryptAmount((string) ($row['montant'] ?? '')) ?? 0.0);
+            $amount  = (float) ($row['montant'] ?? 0.0);
             $balance = ($row['soldeApres'] ?? null) !== null ? (float) $row['soldeApres'] : null;
             if ($balance !== null) {
                 $minBalance = $minBalance === null ? $balance : min($minBalance, $balance);

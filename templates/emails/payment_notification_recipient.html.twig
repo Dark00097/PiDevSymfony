@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notification de paiement reçu</title>
+</head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background:#f3f4f6;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:40px 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 10px 25px rgba(0,0,0,0.1);">
+                    
+                    {# Header avec gradient #}
+                    <tr>
+                        <td style="background:linear-gradient(135deg,#6366f1 0%,#4f46e5 100%);padding:40px 30px;text-align:center;">
+                            <div style="background:rgba(255,255,255,0.2);width:80px;height:80px;border-radius:50%;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);">
+                                <span style="font-size:48px;">💰</span>
+                            </div>
+                            <h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:700;letter-spacing:-0.5px;">
+                                Paiement reçu !
+                            </h1>
+                            <p style="margin:10px 0 0;color:rgba(255,255,255,0.9);font-size:16px;">
+                                Vous avez reçu un nouveau paiement
+                            </p>
+                        </td>
+                    </tr>
+
+                    {# Contenu principal #}
+                    <tr>
+                        <td style="padding:40px 30px;">
+                            <p style="margin:0 0 20px;color:#374151;font-size:16px;line-height:1.6;">
+                                Bonjour <strong>{{ transaction.nomDestinataire|default('') }}</strong>,
+                            </p>
+                            <p style="margin:0 0 30px;color:#6b7280;font-size:15px;line-height:1.6;">
+                                Nous vous informons que vous avez reçu un paiement de la part de <strong>{{ user.nom|default('') }} {{ user.prenom|default('') }}</strong> via Nexora Bank.
+                            </p>
+
+                            {# Montant en évidence #}
+                            <div style="background:linear-gradient(135deg,#ecfdf5 0%,#d1fae5 100%);border-radius:16px;padding:30px;margin-bottom:30px;text-align:center;border:2px solid #10b981;">
+                                <div style="color:#065f46;font-size:14px;font-weight:600;margin-bottom:10px;text-transform:uppercase;letter-spacing:1px;">
+                                    Montant reçu
+                                </div>
+                                <div style="color:#047857;font-size:48px;font-weight:800;line-height:1;margin-bottom:5px;">
+                                    {{ transaction.montant_value|default(0)|number_format(3, '.', ' ') }}
+                                </div>
+                                <div style="color:#059669;font-size:24px;font-weight:600;">
+                                    DT
+                                </div>
+                            </div>
+
+                            {# Détails de la transaction #}
+                            <div style="background:#f9fafb;border-radius:12px;padding:25px;margin-bottom:30px;border:1px solid #e5e7eb;">
+                                <h3 style="margin:0 0 20px;color:#111827;font-size:16px;font-weight:700;">
+                                    📋 Détails de la transaction
+                                </h3>
+                                <table width="100%" cellpadding="0" cellspacing="0">
+                                    <tr>
+                                        <td style="padding:8px 0;color:#6b7280;font-size:14px;">De</td>
+                                        <td align="right" style="padding:8px 0;color:#111827;font-size:14px;font-weight:600;">
+                                            {{ user.nom|default('') }} {{ user.prenom|default('') }}
+                                        </td>
+                                    </tr>
+                                    {% if user.email|default('') != '' %}
+                                    <tr>
+                                        <td style="padding:8px 0;color:#6b7280;font-size:14px;">Email</td>
+                                        <td align="right" style="padding:8px 0;color:#6366f1;font-size:14px;font-weight:600;">
+                                            {{ user.email }}
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                    <tr>
+                                        <td style="padding:8px 0;color:#6b7280;font-size:14px;">Transaction</td>
+                                        <td align="right" style="padding:8px 0;color:#111827;font-size:14px;font-weight:600;">
+                                            #{{ transaction.idTransaction|default('—') }}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding:8px 0;color:#6b7280;font-size:14px;">Catégorie</td>
+                                        <td align="right" style="padding:8px 0;">
+                                            <span style="background:#dbeafe;color:#1e40af;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;text-transform:uppercase;">
+                                                {{ transaction.categorie|default('Paiement') }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding:8px 0;color:#6b7280;font-size:14px;">Date</td>
+                                        <td align="right" style="padding:8px 0;color:#111827;font-size:14px;font-weight:600;">
+                                            {{ transaction.dateTransaction|default('now'|date('d/m/Y à H:i')) }}
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+
+                            {% if transaction.description|default('') != '' %}
+                            <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:15px 20px;border-radius:8px;margin-bottom:30px;">
+                                <div style="color:#92400e;font-size:13px;font-weight:600;margin-bottom:5px;">💬 Message</div>
+                                <div style="color:#78350f;font-size:14px;line-height:1.5;">
+                                    {{ transaction.description }}
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            <div style="background:#eff6ff;border-radius:10px;padding:20px;margin-bottom:20px;border:1px solid #bfdbfe;">
+                                <p style="margin:0;color:#1e40af;font-size:14px;line-height:1.6;">
+                                    <strong>ℹ️ Information :</strong> Ce paiement a été effectué via Stripe de manière sécurisée. Les fonds ont été transférés avec succès.
+                                </p>
+                            </div>
+
+                            <p style="margin:0;color:#9ca3af;font-size:13px;line-height:1.6;text-align:center;">
+                                Si vous avez des questions concernant ce paiement, veuillez contacter directement l'expéditeur.
+                            </p>
+                        </td>
+                    </tr>
+
+                    {# Footer #}
+                    <tr>
+                        <td style="background:#f9fafb;padding:30px;text-align:center;border-top:1px solid #e5e7eb;">
+                            <p style="margin:0 0 10px;color:#9ca3af;font-size:13px;">
+                                Cet email a été envoyé automatiquement par <strong style="color:#6b7280;">Nexora Bank</strong>
+                            </p>
+                            <p style="margin:0;color:#9ca3af;font-size:12px;">
+                                © {{ 'now'|date('Y') }} Nexora Bank. Tous droits réservés.
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

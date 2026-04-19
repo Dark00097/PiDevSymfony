@@ -1,20 +1,15 @@
-﻿{% set transaction_total = summary.transactions_total|default(items|length) %}
+{% set transaction_total = summary.transactions_total|default(items|length) %}
 {% set revenues = 0 %}
 {% set expenses = 0 %}
-{% set pending_count = 0 %}
 {% set current_month = 'now'|date('Y-m') %}
 {% set operations_month = 0 %}
 {% for item in items %}
     {% set amount = item.montant_value|default(0) %}
-    {% set type_key = item.typeTransaction|default('credit')|lower %}
-    {% set status_key = item.statutTransaction|default('')|lower %}
-    {% if 'debit' in type_key %}
+    {% set type_key = item.typeTransaction|default('DEPOT')|upper %}
+    {% if type_key in ['RETRAIT', 'PAIEMENT'] %}
         {% set expenses = expenses + amount %}
     {% else %}
         {% set revenues = revenues + amount %}
-    {% endif %}
-    {% if 'attente' in status_key %}
-        {% set pending_count = pending_count + 1 %}
     {% endif %}
     {% if item.dateTransaction is not empty and item.dateTransaction|date('Y-m') == current_month %}
         {% set operations_month = operations_month + 1 %}
@@ -58,23 +53,15 @@
                 <span class="tnx-banner-stat-num">{{ operations_month }}</span>
                 <span class="tnx-banner-stat-lbl">Ce mois</span>
             </div>
-            <div class="tnx-banner-divider"></div>
-            <div class="tnx-banner-stat">
-                <span class="tnx-banner-stat-num">{{ pending_count }}</span>
-                <span class="tnx-banner-stat-lbl">En attente</span>
-            </div>
         </div>
 
         <nav class="tnx-banner-nav">
             <a class="tnx-nav-pill" href="{{ path('portal_feature_pdf_download', { kind: 'transactions' }) }}">
                 <i class="fa-solid fa-download"></i><span>PDF</span>
             </a>
-            <a class="tnx-nav-pill" href="{{ path('portal_features', { section: 'payments' }) }}">
-                <i class="fa-solid fa-message"></i><span>SMS</span>
-            </a>
-            <a class="tnx-nav-pill tnx-nav-pill--ai" href="{{ path('portal_features', { section: 'insights' }) }}">
-                <i class="fa-solid fa-brain"></i><span>Analyse IA</span>
-            </a>
+            <button type="button" class="tnx-nav-pill tnx-nav-pill--predict" id="btn-predict-payments">
+                <i class="fa-solid fa-crystal-ball"></i><span>Prédictions</span>
+            </button>
             <a class="tnx-nav-pill tnx-nav-pill--cta" href="#tnx-form-anchor">
                 <i class="fa-solid fa-plus"></i><span>Nouvelle</span>
             </a>
@@ -147,25 +134,6 @@
             </div>
         </div>
 
-        <div class="tnx-kpi-tile tnx-kpi-tile--pend">
-            <div class="tnx-kpi-tile-left">
-                <div class="tnx-kpi-badge tnx-kpi-badge--glow">
-                    <i class="fa-solid fa-hourglass-half"></i>
-                </div>
-                <div>
-                    <span class="tnx-kpi-label">EN ATTENTE</span>
-                    <span class="tnx-kpi-sub">Traitement requis</span>
-                </div>
-            </div>
-            <div class="tnx-kpi-tile-right">
-                <strong class="tnx-kpi-num tnx-kpi-num--pend">{{ pending_count }}</strong>
-                <span class="tnx-kpi-currency">ops</span>
-            </div>
-            <div class="tnx-kpi-bar">
-                <span class="is-warn" style="width:{{ pending_count > 0 ? '60%' : '0%' }}"></span>
-            </div>
-        </div>
-
     </div>
 
     {# ── BODY: SIDEBAR + CONTENT ── #}
@@ -191,35 +159,194 @@
                 {% endif %}
             </div>
 
-            <form method="post" class="tnx-form" id="transaction-form" novalidate novalidate
+            <form method="post" class="tnx-form" id="transaction-form" novalidate
+                  data-turbo="false"
                   action="{{ path(route_name, { tab: 'transactions' }) }}">
                 <input type="hidden" name="tab" value="transactions">
                 <input type="hidden" name="idTransaction" value="{{ edit_item ? edit_item.idTransaction : '' }}">
+                <input type="hidden" name="montant" id="f-montant-hidden" value="">
+                <input type="hidden" name="currency" id="f-currency-hidden" value="TND">
 
                 <div class="tnx-form-section">
                     <span class="tnx-form-section-label">
                         <i class="fa-solid fa-fingerprint"></i> Identification
                     </span>
                     <div class="tnx-field">
-                        <label for="f-compte">Compte</label>
-                        <select id="f-compte" name="idCompte">
+                        <label for="f-compte">Compte source <em>*</em></label>
+                        <select id="f-compte" name="compte" data-solde="{{ edit_item.linked_account.solde|default(0) }}">
                             <option value="">Sans compte</option>
                             {% for account in support.accounts|default([]) %}
-                                <option value="{{ account.idCompte }}"
+                                <option value="{{ account.idCompte }}" data-solde="{{ account.solde }}"
                                     {{ edit_item and edit_item.idCompte ~ '' == account.idCompte ~ '' ? 'selected' : '' }}>
-                                    {{ account.numeroCompte }}
+                                    {{ account.numeroCompte }} ({{ account.solde }} DT)
                                 </option>
                             {% endfor %}
                         </select>
+                        <span class="tnx-field-msg" id="msg-compte"></span>
+                    </div>
+                    <div class="tnx-field">
+                        <label for="f-date">Date <em>*</em></label>
+                        <input id="f-date" type="date" name="dateTransaction"
+                               value="{{ edit_item ? edit_item.dateTransaction|default('now'|date('Y-m-d')) : 'now'|date('Y-m-d') }}">
+                        <span class="tnx-field-msg" id="msg-dateTransaction"></span>
+                    </div>
+                    <div class="tnx-field">
+                        <label for="f-desc">Description</label>
+                        <textarea id="f-desc" name="description" rows="3"
+                                  placeholder="Details de l'operation...">{{ edit_item ? edit_item.description|default('') : '' }}</textarea>
+                        <span id="msg-description" style="font-size:12px;font-weight:600;margin-top:4px;display:block;"></span>
                     </div>
                 </div>
 
                 <div class="tnx-form-section">
                     <span class="tnx-form-section-label">
-                        <i class="fa-solid fa-tags"></i> Classification
+                        <i class="fa-solid fa-tags"></i> Type de transaction
                     </span>
                     <div class="tnx-field">
-                        <label for="f-cat">Categorie <em>*</em></label>
+                        <label for="f-type">Type <em>*</em></label>
+                        <div class="tnx-toggle-group">
+                            <label class="tnx-toggle-opt">
+                                <input type="radio" name="typeTransaction" value="DEPOT"
+                                    {{ not edit_item or edit_item.typeTransaction|default('DEPOT')|upper == 'DEPOT' ? 'checked' : '' }}>
+                                <span class="tnx-toggle-face tnx-toggle-face--credit">
+                                    <i class="fa-solid fa-arrow-down"></i> Dépôt
+                                </span>
+                            </label>
+                            <label class="tnx-toggle-opt">
+                                <input type="radio" name="typeTransaction" value="RETRAIT"
+                                    {{ edit_item and edit_item.typeTransaction|default('')|upper == 'RETRAIT' ? 'checked' : '' }}>
+                                <span class="tnx-toggle-face tnx-toggle-face--debit">
+                                    <i class="fa-solid fa-arrow-up"></i> Retrait
+                                </span>
+                            </label>
+                            <label class="tnx-toggle-opt">
+                                <input type="radio" name="typeTransaction" value="VIREMENT"
+                                    {{ edit_item and edit_item.typeTransaction|default('')|upper == 'VIREMENT' ? 'checked' : '' }}>
+                                <span class="tnx-toggle-face tnx-toggle-face--virement">
+                                    <i class="fa-solid fa-right-left"></i> Virement
+                                </span>
+                            </label>
+                            <label class="tnx-toggle-opt">
+                                <input type="radio" name="typeTransaction" value="PAIEMENT"
+                                    {{ edit_item and edit_item.typeTransaction|default('')|upper == 'PAIEMENT' ? 'checked' : '' }}>
+                                <span class="tnx-toggle-face tnx-toggle-face--debit">
+                                    <i class="fa-solid fa-credit-card"></i> Paiement
+                                </span>
+                            </label>
+                        </div>
+                        <span class="tnx-field-msg" id="msg-typeTransaction"></span>
+                    </div>
+                </div>
+
+                <div class="tnx-form-section section-depot" style="display: none;">
+                    <span class="tnx-form-section-label">
+                        <i class="fa-solid fa-arrow-down"></i> Dépôt
+                    </span>
+                    <div class="tnx-field">
+                        <label for="f-amount-depot">Montant <em>*</em></label>
+                        <div class="tnx-amount-currency-wrap">
+                            <div class="amount-input-wrapper">
+                                <input id="f-amount-depot" type="number" step="0.01" name="montant_depot"
+                                       placeholder="0.00" class="currency-amount-input"
+                                       value="{{ edit_item and edit_item.typeTransaction|upper == 'DEPOT' ? edit_item.original_amount|default(edit_item.montant_value)|default('') : '' }}">
+                            </div>
+                            <div class="currency-selector">
+                                <select id="f-currency-depot" name="currency_depot" class="currency-select-modern">
+                                    <option value="TND" data-symbol="DT" {{ edit_item and edit_item.original_currency|default('TND') == 'TND' ? 'selected' : '' }}>🇹🇳 TND - Dinar Tunisien</option>
+                                    <option value="EUR" data-symbol="€" {{ edit_item and edit_item.original_currency == 'EUR' ? 'selected' : '' }}>🇪🇺 EUR - Euro</option>
+                                    <option value="USD" data-symbol="$" {{ edit_item and edit_item.original_currency == 'USD' ? 'selected' : '' }}>🇺🇸 USD - Dollar</option>
+                                    <option value="GBP" data-symbol="£" {{ edit_item and edit_item.original_currency == 'GBP' ? 'selected' : '' }}>🇬🇧 GBP - Livre Sterling</option>
+                                </select>
+                            </div>
+                        </div>
+                        <span class="tnx-field-msg" id="msg-montant-depot"></span>
+                    </div>
+                    <div id="conversion-preview-depot" class="conversion-preview" style="display:none;"></div>
+                </div>
+
+                <div class="tnx-form-section section-retrait" style="display: none;">
+                    <span class="tnx-form-section-label">
+                        <i class="fa-solid fa-arrow-up"></i> Retrait
+                    </span>
+                    <div class="tnx-field">
+                        <label for="f-amount-retrait">Montant <em>*</em></label>
+                        <div class="tnx-amount-currency-wrap">
+                            <div class="amount-input-wrapper">
+                                <input id="f-amount-retrait" type="number" step="0.01" name="montant_retrait"
+                                       placeholder="0.00" class="currency-amount-input"
+                                       value="{{ edit_item and edit_item.typeTransaction|upper == 'RETRAIT' ? edit_item.original_amount|default(edit_item.montant_value)|default('') : '' }}">
+                            </div>
+                            <div class="currency-selector">
+                                <select id="f-currency-retrait" name="currency_retrait" class="currency-select-modern">
+                                    <option value="TND" data-symbol="DT" {{ edit_item and edit_item.original_currency|default('TND') == 'TND' ? 'selected' : '' }}>🇹🇳 TND - Dinar Tunisien</option>
+                                    <option value="EUR" data-symbol="€" {{ edit_item and edit_item.original_currency == 'EUR' ? 'selected' : '' }}>🇪🇺 EUR - Euro</option>
+                                    <option value="USD" data-symbol="$" {{ edit_item and edit_item.original_currency == 'USD' ? 'selected' : '' }}>🇺🇸 USD - Dollar</option>
+                                    <option value="GBP" data-symbol="£" {{ edit_item and edit_item.original_currency == 'GBP' ? 'selected' : '' }}>🇬🇧 GBP - Livre Sterling</option>
+                                </select>
+                            </div>
+                        </div>
+                        <span class="tnx-field-msg" id="msg-montant-retrait"></span>
+                        <small style="font-size:.72rem;color:#ff9800;margin-top:8px;display:block;">
+                            <i class="fa-solid fa-triangle-exclamation"></i> Solde disponible: <strong id="solde-disponible">0.00 DT</strong>
+                        </small>
+                    </div>
+                    <div id="conversion-preview-retrait" class="conversion-preview" style="display:none;"></div>
+                </div>
+
+                <div class="tnx-form-section section-virement" style="display: none;">
+                    <span class="tnx-form-section-label">
+                        <i class="fa-solid fa-right-left"></i> Virement
+                    </span>
+                    <div class="tnx-field">
+                        <label for="f-compte-dest">Numéro de compte destinataire <em>*</em></label>
+                        <input type="text" id="f-compte-dest" name="compteDestinataire" 
+                            placeholder="Ex: 1234567890"
+                            value="{{ edit_item and edit_item.typeTransaction|upper == 'VIREMENT' ? edit_item.idCompteDestinataire|default('') : '' }}">
+                        <span class="tnx-field-msg" id="msg-compteDestinataire"></span>
+                    </div>
+                    <div class="tnx-field">
+                        <label for="f-nom-dest">Nom du destinataire <em>*</em></label>
+                        <input type="text" id="f-nom-dest" name="nomDestinataire" 
+                            placeholder="Nom complet"
+                            value="{{ edit_item and edit_item.typeTransaction|upper == 'VIREMENT' ? edit_item.nomDestinataire|default('') : '' }}">
+                        <span class="tnx-field-msg" id="msg-nomDestinataire"></span>
+                    </div>
+                    <div class="tnx-field">
+                        <label for="f-email-dest">Email du destinataire</label>
+                        <input type="email" id="f-email-dest" name="emailDestinataire" 
+                            placeholder="email@example.com"
+                            value="{{ edit_item and edit_item.typeTransaction|upper == 'VIREMENT' ? edit_item.emailDestinataire|default('') : '' }}">
+                        <span class="tnx-field-msg" id="msg-emailDestinataire"></span>
+                    </div>
+                    <div class="tnx-field">
+                        <label for="f-amount-virement">Montant <em>*</em></label>
+                        <div class="tnx-amount-currency-wrap">
+                            <div class="amount-input-wrapper">
+                                <input id="f-amount-virement" type="number" step="0.01" name="montant_virement"
+                                       placeholder="0.00" class="currency-amount-input"
+                                       value="{{ edit_item and edit_item.typeTransaction|upper == 'VIREMENT' ? edit_item.original_amount|default(edit_item.montant_value)|default('') : '' }}">
+                            </div>
+                            <div class="currency-selector">
+                                <select id="f-currency-virement" name="currency_virement" class="currency-select-modern">
+                                    <option value="TND" data-symbol="DT" {{ edit_item and edit_item.original_currency|default('TND') == 'TND' ? 'selected' : '' }}>🇹🇳 TND - Dinar Tunisien</option>
+                                    <option value="EUR" data-symbol="€" {{ edit_item and edit_item.original_currency == 'EUR' ? 'selected' : '' }}>🇪🇺 EUR - Euro</option>
+                                    <option value="USD" data-symbol="$" {{ edit_item and edit_item.original_currency == 'USD' ? 'selected' : '' }}>🇺🇸 USD - Dollar</option>
+                                    <option value="GBP" data-symbol="£" {{ edit_item and edit_item.original_currency == 'GBP' ? 'selected' : '' }}>🇬🇧 GBP - Livre Sterling</option>
+                                </select>
+                            </div>
+                        </div>
+                        <span class="tnx-field-msg" id="msg-montant-virement"></span>
+                    </div>
+                    <div id="conversion-preview-virement" class="conversion-preview" style="display:none;"></div>
+                </div>
+
+                {# Section PAIEMENT - cachée par défaut #}
+                <div class="tnx-form-section section-paiement" style="display: none;">
+                    <span class="tnx-form-section-label">
+                        <i class="fa-solid fa-credit-card"></i> Paiement
+                    </span>
+                    <div class="tnx-field">
+                        <label for="f-cat">Catégorie <em>*</em></label>
                         <select id="f-cat" name="categorie">
                             <option value="">Selectionner</option>
                             {% for category in categories %}
@@ -232,69 +359,50 @@
                         <span class="tnx-field-msg" id="msg-categorie"></span>
                     </div>
                     <div class="tnx-field">
-                        <label for="f-type">Type <em>*</em></label>
-                        <div class="tnx-toggle-group">
-                            <label class="tnx-toggle-opt">
-                                <input type="radio" name="typeTransaction" value="Credit"
-                                    {{ not edit_item or 'credit' in edit_item.typeTransaction|default('Credit')|lower ? 'checked' : '' }}>
-                                <span class="tnx-toggle-face tnx-toggle-face--credit">
-                                    <i class="fa-solid fa-arrow-up"></i> Credit
-                                </span>
-                            </label>
-                            <label class="tnx-toggle-opt">
-                                <input type="radio" name="typeTransaction" value="Debit"
-                                    {{ edit_item and 'debit' in edit_item.typeTransaction|default('')|lower ? 'checked' : '' }}>
-                                <span class="tnx-toggle-face tnx-toggle-face--debit">
-                                    <i class="fa-solid fa-arrow-down"></i> Debit
-                                </span>
-                            </label>
+                        <label for="f-montant-paye">Montant à payer <em>*</em></label>
+                        <div class="tnx-amount-currency-wrap">
+                            <div class="amount-input-wrapper">
+                                <input id="f-montant-paye" type="number" step="0.01" name="montantPaye"
+                                       placeholder="0.00" class="currency-amount-input"
+                                       value="{{ edit_item and edit_item.typeTransaction|upper == 'PAIEMENT' ? edit_item.original_amount|default(edit_item.montantPaye_value)|default('') : '' }}">
+                            </div>
+                            <div class="currency-selector">
+                                <select id="f-currency-paiement" name="currency_paiement" class="currency-select-modern">
+                                    <option value="TND" data-symbol="DT" {{ edit_item and edit_item.original_currency|default('TND') == 'TND' ? 'selected' : '' }}>🇹🇳 TND - Dinar Tunisien</option>
+                                    <option value="EUR" data-symbol="€" {{ edit_item and edit_item.original_currency == 'EUR' ? 'selected' : '' }}>🇪🇺 EUR - Euro</option>
+                                    <option value="USD" data-symbol="$" {{ edit_item and edit_item.original_currency == 'USD' ? 'selected' : '' }}>🇺🇸 USD - Dollar</option>
+                                    <option value="GBP" data-symbol="£" {{ edit_item and edit_item.original_currency == 'GBP' ? 'selected' : '' }}>🇬🇧 GBP - Livre Sterling</option>
+                                </select>
+                            </div>
                         </div>
-                        <span class="tnx-field-msg" id="msg-typeTransaction"></span>
+                        <span class="tnx-field-msg" id="msg-montantPaye"></span>
                     </div>
-                </div>
-
-                <div class="tnx-form-section">
-                    <span class="tnx-form-section-label">
-                        <i class="fa-solid fa-coins"></i> Montant & Date
-                    </span>
+                    <div id="conversion-preview-paiement" class="conversion-preview" style="display:none;"></div>
                     <div class="tnx-field">
-                        <label for="f-amount">Montant <em>*</em></label>
-                        <div class="tnx-amount-wrap">
-                            <span class="tnx-amount-prefix">DT</span>
-                            <input id="f-amount" type="number" step="0.01" name="montant"
-                                   placeholder="0.00"
-                                   value="{{ edit_item ? edit_item.montant_value|default('') : '' }}">
+                        <label for="f-nom-benef">Bénéficiaire</label>
+                        <input type="text" id="f-nom-benef" name="nomDestinataire" 
+                            placeholder="Nom du bénéficiaire (optionnel)"
+                            value="{{ edit_item and edit_item.typeTransaction|upper == 'PAIEMENT' ? edit_item.nomDestinataire|default('') : '' }}">
+                    </div>
+                    <div class="tnx-field">
+                        <label for="f-email-benef">Email du bénéficiaire</label>
+                        <input type="email" id="f-email-benef" name="emailDestinataire" 
+                            placeholder="email@example.com (optionnel)"
+                            value="{{ edit_item and edit_item.typeTransaction|upper == 'PAIEMENT' ? edit_item.emailDestinataire|default('') : '' }}">
+                    </div>
+                    
+                    <div style="margin-top: 20px; padding: 15px; background: rgba(99, 102, 241, 0.1); border-radius: 8px; border: 1px solid rgba(99, 102, 241, 0.3);">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                            <i class="fa-solid fa-shield-halved" style="color: #6366f1; font-size: 20px;"></i>
+                            <strong style="color: #4f46e5;">Paiement sécurisé via Stripe</strong>
                         </div>
-                        <span class="tnx-field-msg" id="msg-montant"></span>
-                        <small class="tnx-amount-note">Dinar tunisien (TND)</small>
-                    </div>
-                    <div class="tnx-field">
-                        <label for="f-date">Date <em>*</em></label>
-                        <input id="f-date" type="date" name="dateTransaction"
-                               value="{{ edit_item ? edit_item.dateTransaction|default('now'|date('Y-m-d')) : 'now'|date('Y-m-d') }}">
-                        <span class="tnx-field-msg" id="msg-dateTransaction"></span>
-                    </div>
-                </div>
-
-                <div class="tnx-form-section">
-                    <span class="tnx-form-section-label">
-                        <i class="fa-solid fa-circle-dot"></i> Notes
-                    </span>
-                    <div class="tnx-field">
-                        <label for="f-solde">Solde après</label>
-                        <div class="tnx-amount-wrap">
-                            <span class="tnx-amount-prefix">DT</span>
-                            <input id="f-solde" type="number" step="0.01" name="soldeApres"
-                                   placeholder="0.00"
-                                   value="{{ edit_item ? edit_item.soldeApres|default('') : '' }}">
-                        </div>
-                        <span id="msg-soldeApres" style="font-size:12px;font-weight:600;margin-top:4px;display:block;"></span>
-                    </div>
-                    <div class="tnx-field">
-                        <label for="f-desc">Description</label>
-                        <textarea id="f-desc" name="description" rows="3"
-                                  placeholder="Details de l'operation...">{{ edit_item ? edit_item.description|default('') : '' }}</textarea>
-                        <span id="msg-description" style="font-size:12px;font-weight:600;margin-top:4px;display:block;"></span>
+                        <p style="font-size: 13px; color: #6b7280; margin: 0 0 15px 0;">
+                            Après avoir enregistré cette transaction, vous serez redirigé vers Stripe pour effectuer le paiement de manière sécurisée.
+                        </p>
+                        <button type="button" id="btn-payer-stripe" class="tnx-act-btn tnx-act-btn--save" 
+                            style="width: 100%; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); border: none;">
+                            <i class="fa-solid fa-lock"></i> Enregistrer et payer avec Stripe
+                        </button>
                     </div>
                 </div>
 
@@ -336,16 +444,83 @@
                 <div class="tnx-panel-controls">
                     <div class="tnx-search-box">
                         <i class="fa-solid fa-magnifying-glass"></i>
-                        <input type="text" placeholder="Rechercher une transaction...">
+                        <input type="text" placeholder="Rechercher une transaction..." id="search-input" value="{{ support.transaction_query.q|default('') }}">
                     </div>
-                    <select class="tnx-sort-select">
-                        <option>Date recente</option>
-                        <option>Date ancienne</option>
-                        <option>Montant decroissant</option>
-                        <option>Montant croissant</option>
-                        <option>Statut A-Z</option>
+                    <button type="button" class="tnx-view-toggle" id="btn-toggle-calendar" title="Vue calendrier">
+                        <i class="fa-solid fa-calendar-days"></i>
+                        <span>Calendrier</span>
+                    </button>
+                    <button type="button" class="tnx-advanced-search-btn" id="btn-toggle-advanced-search">
+                        <i class="fa-solid fa-sliders"></i>
+                        <span>Filtres avancés</span>
+                    </button>
+                    <select class="tnx-sort-select" id="sort-select">
+                        <option value="dateTransaction-desc" {{ support.transaction_query.sort == 'dateTransaction' and support.transaction_query.dir == 'desc' ? 'selected' : '' }}>Date récente</option>
+                        <option value="dateTransaction-asc" {{ support.transaction_query.sort == 'dateTransaction' and support.transaction_query.dir == 'asc' ? 'selected' : '' }}>Date ancienne</option>
+                        <option value="montant-desc" {{ support.transaction_query.sort == 'montant' and support.transaction_query.dir == 'desc' ? 'selected' : '' }}>Montant décroissant</option>
+                        <option value="montant-asc" {{ support.transaction_query.sort == 'montant' and support.transaction_query.dir == 'asc' ? 'selected' : '' }}>Montant croissant</option>
                     </select>
                 </div>
+            </div>
+
+            {# Advanced Search Panel #}
+            <div class="tnx-advanced-search-panel" id="advanced-search-panel" style="display:none;">
+                <form method="get" action="{{ path(route_name, {tab: 'transactions'}) }}" class="advanced-search-form">
+                    <input type="hidden" name="tab" value="transactions">
+                    
+                    <div class="advanced-search-grid">
+                        <div class="advanced-search-field">
+                            <label><i class="fa-solid fa-calendar-days"></i> Date début</label>
+                            <input type="date" name="date_from" value="{{ support.transaction_query.date_from|default('') }}">
+                        </div>
+                        
+                        <div class="advanced-search-field">
+                            <label><i class="fa-solid fa-calendar-days"></i> Date fin</label>
+                            <input type="date" name="date_to" value="{{ support.transaction_query.date_to|default('') }}">
+                        </div>
+                        
+                        <div class="advanced-search-field">
+                            <label><i class="fa-solid fa-coins"></i> Montant min (DT)</label>
+                            <input type="number" step="0.01" name="amount_min" placeholder="0.00" value="{{ support.transaction_query.amount_min|default('') }}">
+                        </div>
+                        
+                        <div class="advanced-search-field">
+                            <label><i class="fa-solid fa-coins"></i> Montant max (DT)</label>
+                            <input type="number" step="0.01" name="amount_max" placeholder="1000.00" value="{{ support.transaction_query.amount_max|default('') }}">
+                        </div>
+                        
+                        <div class="advanced-search-field">
+                            <label><i class="fa-solid fa-tag"></i> Catégorie</label>
+                            <select name="category">
+                                <option value="">Toutes les catégories</option>
+                                {% for cat in support.transaction_categories|default([]) %}
+                                    <option value="{{ cat }}" {{ support.transaction_query.category == cat ? 'selected' : '' }}>{{ cat }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="advanced-search-field">
+                            <label><i class="fa-solid fa-building-columns"></i> Compte</label>
+                            <select name="account_id">
+                                <option value="">Tous les comptes</option>
+                                {% for account in support.accounts|default([]) %}
+                                    <option value="{{ account.idCompte }}" {{ support.transaction_query.account_id == account.idCompte ? 'selected' : '' }}>
+                                        {{ account.numeroCompte }} ({{ account.solde }} DT)
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="advanced-search-actions">
+                        <button type="submit" class="btn-apply-filters">
+                            <i class="fa-solid fa-check"></i> Appliquer les filtres
+                        </button>
+                        <a href="{{ path(route_name, {tab: 'transactions'}) }}" class="btn-reset-filters">
+                            <i class="fa-solid fa-rotate-left"></i> Réinitialiser
+                        </a>
+                    </div>
+                </form>
             </div>
 
             {# Filter chips #}
@@ -357,19 +532,17 @@
                 <button class="tnx-chip">Terminees</button>
             </div>
 
+            {# ── CALENDAR VIEW ── #}
+            <div id="tnx-calendar-view" style="display:none;">
+                <div id="transaction-calendar" style="background:#fff;padding:20px;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.08);"></div>
+            </div>
+
             {# Timeline list #}
-            <div class="tnx-timeline">
+            <div class="tnx-timeline" id="tnx-timeline-view">
                 {% for item in items %}
                     {% set amount = item.montant_value|default(0) %}
-                    {% set type_key = item.typeTransaction|default('credit')|lower %}
-                    {% set status_key = item.statutTransaction|default('terminee')|lower %}
-                    {% set is_debit = 'debit' in type_key %}
-                    {% set badge_class = 'is-ok' %}
-                    {% if 'attente' in status_key %}
-                        {% set badge_class = 'is-wait' %}
-                    {% elseif 'echoue' in status_key or 'annule' in status_key %}
-                        {% set badge_class = 'is-fail' %}
-                    {% endif %}
+                    {% set type_key = item.typeTransaction|default('DEPOT')|upper %}
+                    {% set is_debit = type_key in ['RETRAIT', 'PAIEMENT'] %}
 
                     <div class="tnx-row {{ is_debit ? 'tnx-row--debit' : 'tnx-row--credit' }} {{ edit_item and edit_item.idTransaction ~ '' == item.idTransaction ~ '' ? 'tnx-row--selected' : '' }}">
 
@@ -388,15 +561,9 @@
                                 <div class="tnx-row-card-info">
                                     <div class="tnx-row-card-top">
                                         <span class="tnx-row-cat">{{ item.categorie|default('Transaction') }}</span>
-                                        <span class="tnx-row-badge tnx-row-badge--{{ badge_class }}">
-                                            {% if badge_class == 'is-ok' %}
-                                                <i class="fa-solid fa-check"></i>
-                                            {% elseif badge_class == 'is-wait' %}
-                                                <i class="fa-solid fa-clock"></i>
-                                            {% else %}
-                                                <i class="fa-solid fa-xmark"></i>
-                                            {% endif %}
-                                            {{ item.statutTransaction|default('Terminee') }}
+                                        <span class="tnx-row-badge tnx-row-badge--is-ok">
+                                            <i class="fa-solid fa-check"></i>
+                                            {{ item.typeTransaction|default('DEPOT') }}
                                         </span>
                                     </div>
                                     <p class="tnx-row-meta">
@@ -406,11 +573,33 @@
                                         <i class="fa-regular fa-user"></i>
                                         {{ item.user_name|default('Utilisateur')|trim }}
                                         &nbsp;·&nbsp;
-                                        {{ item.typeTransaction|default('Credit') }}
+                                        {{ item.typeTransaction|default('Versement') }}
                                     </p>
                                     <div class="tnx-row-progress">
-                                        <div class="tnx-row-progress-fill {{ badge_class }}" style="width: {{ badge_class == 'is-ok' ? '100%' : (badge_class == 'is-wait' ? '56%' : '28%') }};"></div>
+                                        <div class="tnx-row-progress-fill is-ok" style="width: 100%;"></div>
                                     </div>
+
+                                    {# ── Barre de progression paiement ── #}
+                                    {% set m  = item.montant_value|default(0) %}
+                                    {% set mp = item.montantPaye_value|default(0) %}
+                                    {% set pct = m > 0 ? ((mp / m) * 100)|round(1) : 0 %}
+                                    {% if m > 0 %}
+                                    <div class="pay-progress">
+                                        <div class="pay-progress__bar">
+                                            <div class="pay-progress__fill {{ pct >= 100 ? 'is-full' : (pct > 0 ? 'is-partial' : '') }}"
+                                                 style="width:{{ pct > 100 ? 100 : pct }}%"></div>
+                                        </div>
+                                        <span class="pay-progress__label">
+                                            {% if pct >= 100 %}
+                                                <i class="fa-solid fa-circle-check" style="color:#16a34a"></i> Entièrement payé
+                                            {% elseif pct > 0 %}
+                                                {{ pct }}% payé · reste {{ (m - mp)|number_format(3,'.','') }} DT
+                                            {% else %}
+                                                Non payé · {{ m|number_format(3,'.','') }} DT
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                    {% endif %}
                                 </div>
 
                                 <div class="tnx-row-card-right">
@@ -434,6 +623,7 @@
                                     <i class="fa-solid fa-qrcode"></i>
                                     <span>QR</span>
                                 </a>
+
                                 {% set show_rec_id = app.request.query.get('show_reclamation')|default('') %}
                                 {% if show_rec_id ~ '' == item.idTransaction ~ '' %}
                                     <a class="tnx-row-action tnx-row-action--flag"
@@ -451,11 +641,26 @@
                                         <span>Reclamation</span>
                                     </a>
                                 {% endif %}
-                                <a class="tnx-row-action tnx-row-action--eye" href="{{ path('portal_features', { section: 'exports' }) }}" title="Voir">
+                                <button class="tnx-row-action tnx-row-action--eye"
+                                        onclick="tnxShowDetail(this)"
+                                        data-id="{{ item.idTransaction }}"
+                                        data-type="{{ item.typeTransaction|default('DEPOT') }}"
+                                        data-categorie="{{ item.categorie|default('-') }}"
+                                        data-date="{{ item.dateTransaction|default('-') }}"
+                                        data-montant="{{ amount|number_format(2, '.', ' ') }}"
+                                        data-montant-paye="{{ item.montantPaye_value|default(0)|number_format(2, '.', ' ') }}"
+                                        data-devise="{{ item.original_currency|default('TND') }}"
+                                        data-description="{{ item.description|default('')|e('html_attr') }}"
+                                        data-compte="{{ item.numeroCompte|default('-') }}"
+                                        data-destinataire="{{ item.nomDestinataire|default('-') }}"
+                                        data-compte-dest="{{ item.idCompteDestinataire|default('-') }}"
+                                        data-email-dest="{{ item.emailDestinataire|default('-') }}"
+                                        data-user="{{ item.user_name|default('-')|trim }}"
+                                        title="Voir les détails">
                                     <i class="fa-solid fa-eye"></i>
                                     <span>Voir</span>
-                                </a>
-                                <form method="post" class="tnx-row-del-form">
+                                </button>
+                                <form method="post" class="tnx-row-del-form" data-turbo="false">
                                     <input type="hidden" name="tab" value="transactions">
                                     <input type="hidden" name="action" value="transaction_delete">
                                     <input type="hidden" name="idTransaction" value="{{ item.idTransaction }}">
@@ -488,147 +693,210 @@
                                     {% endfor %}
                                 {% endif %}
 
-                                <div style="border-top:2px solid #fecaca;margin-top:4px;padding:16px 0 4px;">
+                                <div class="tnx-reclamations-container">
 
-                                    {# Formulaire ajout/modification réclamation #}
-                                    <div style="background:#fff5f5;border:1px solid #fecaca;border-radius:14px;padding:16px;margin-bottom:14px;">
-                                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-                                            <div style="width:32px;height:32px;border-radius:9px;background:{{ edit_rec ? '#2563eb' : '#dc2626' }};display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;flex-shrink:0;">
-                                                <i class="fa-solid {{ edit_rec ? 'fa-pen' : 'fa-flag' }}"></i>
+                                    {# ── FORMULAIRE AJOUT / MODIFICATION RÉCLAMATION ── #}
+                                    <div class="rec-form-card">
+                                        <div class="rec-form-card__header">
+                                            <div class="rec-form-card__header-icon">
+                                                <i class="fa-solid fa-flag"></i>
                                             </div>
-                                            <strong style="font-size:13px;color:#991b1b;">
-                                                {{ edit_rec ? 'Modifier la réclamation #' ~ edit_rec.idReclamation : 'Nouvelle réclamation' }}
-                                            </strong>
+                                            <div>
+                                                <h4>{{ edit_rec ? 'Modifier la réclamation #' ~ edit_rec.idReclamation : 'Nouvelle réclamation' }}</h4>
+                                                <p>Transaction #{{ item.idTransaction }} · {{ item.categorie|default('—') }} · {{ item.montant_value|default(0)|number_format(2,'.','') }} DT</p>
+                                            </div>
                                             {% if edit_rec %}
                                                 <a href="{{ path(route_name, { tab: 'transactions', show_reclamation: item.idTransaction }) }}"
-                                                   style="margin-left:auto;font-size:11px;color:#6b7280;text-decoration:none;display:flex;align-items:center;gap:4px;">
-                                                    <i class="fa-solid fa-plus"></i> Nouvelle
+                                                   class="rec-form-card__close" title="Annuler la modification">
+                                                    <i class="fa-solid fa-xmark"></i>
                                                 </a>
                                             {% endif %}
                                         </div>
-                                        <form method="post"
-                                              action="{{ path(route_name, { tab: 'transactions', show_reclamation: item.idTransaction }) }}" novalidate>
+
+                                        <form method="post" class="rec-form-card__body" novalidate data-turbo="false">
                                             <input type="hidden" name="tab"           value="transactions">
                                             <input type="hidden" name="action"        value="reclamation_save">
                                             <input type="hidden" name="idTransaction" value="{{ item.idTransaction }}">
-                                            {% if edit_rec %}
-                                                <input type="hidden" name="idReclamation" value="{{ edit_rec.idReclamation }}">
-                                            {% endif %}
-                                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-                                                <div>
-                                                    <label style="font-size:11px;font-weight:700;color:#7f1d1d;display:block;margin-bottom:4px;">Date <span style="color:#dc2626">*</span></label>
-                                                    <input type="date" name="dateReclamation" class="rec-input"
-                                                           value="{{ edit_rec ? edit_rec.dateReclamation|default('now'|date('Y-m-d')) : 'now'|date('Y-m-d') }}"
-                                                           style="width:100%;height:38px;border-radius:9px;border:1px solid #fca5a5;background:#fff;padding:0 10px;font-size:12px;color:#0a2540;outline:none;box-sizing:border-box;transition:border-color .2s;">
-                                                    <span class="rec-msg" data-field="dateReclamation" style="font-size:11px;font-weight:600;margin-top:3px;display:block;"></span>
-                                                </div>
-                                                <div>
-                                                    <label style="font-size:11px;font-weight:700;color:#7f1d1d;display:block;margin-bottom:4px;">Type <span style="color:#dc2626">*</span></label>
-                                                    <select name="typeReclamation" class="rec-input"
-                                                            style="width:100%;height:38px;border-radius:9px;border:1px solid #fca5a5;background:#fff;padding:0 10px;font-size:12px;color:#0a2540;outline:none;box-sizing:border-box;transition:border-color .2s;">
+                                            <input type="hidden" name="idReclamation" value="{{ edit_rec ? edit_rec.idReclamation : '' }}">
+
+                                            <div class="rec-form-row">
+                                                {# Type #}
+                                                <div class="rec-form-field">
+                                                    <label><i class="fa-solid fa-tag"></i> Type de réclamation <em>*</em></label>
+                                                    <select name="typeReclamation" required>
                                                         <option value="">— Sélectionner —</option>
-                                                        {% for opt in ['Echec de montant', 'Virement non recu', 'Erreur de transaction', 'Probleme de connexion au compte'] %}
-                                                            <option value="{{ opt }}"
-                                                                {{ edit_rec and edit_rec.typeReclamation == opt ? 'selected' : '' }}>
-                                                                {{ opt }}
-                                                            </option>
+                                                        {% for rtype in ['Echec de montant','Virement non recu','Erreur de transaction','Probleme de connexion au compte'] %}
+                                                            <option value="{{ rtype }}" {{ edit_rec and edit_rec.typeReclamation == rtype ? 'selected' : '' }}>{{ rtype }}</option>
                                                         {% endfor %}
                                                     </select>
-                                                    <span class="rec-msg" data-field="typeReclamation" style="font-size:11px;font-weight:600;margin-top:3px;display:block;"></span>
+                                                    <span class="rec-msg" data-field="typeReclamation"></span>
+                                                </div>
+
+                                                {# Date #}
+                                                <div class="rec-form-field">
+                                                    <label><i class="fa-regular fa-calendar"></i> Date <em>*</em></label>
+                                                    <input type="date" name="dateReclamation" required
+                                                           value="{{ edit_rec ? edit_rec.dateReclamation|default('now'|date('Y-m-d')) : 'now'|date('Y-m-d') }}">
+                                                    <span class="rec-msg" data-field="dateReclamation"></span>
                                                 </div>
                                             </div>
-                                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-                                                <div>
-                                                    <label style="font-size:11px;font-weight:700;color:#7f1d1d;display:block;margin-bottom:4px;">Statut</label>
-                                                    <select name="status" class="rec-input"
-                                                            style="width:100%;height:38px;border-radius:9px;border:1px solid #fca5a5;background:#fff;padding:0 10px;font-size:12px;color:#0a2540;outline:none;box-sizing:border-box;transition:border-color .2s;">
-                                                        {% for opt in ['En attente', 'Bloque', 'Ferme', 'Valide'] %}
-                                                            <option value="{{ opt }}"
-                                                                {{ edit_rec and edit_rec.status == opt ? 'selected' : (not edit_rec and opt == 'En attente' ? 'selected' : '') }}>
-                                                                {{ opt }}
-                                                            </option>
-                                                        {% endfor %}
-                                                    </select>
-                                                    <span class="rec-msg" data-field="status" style="font-size:11px;font-weight:600;margin-top:3px;display:block;"></span>
-                                                </div>
-                                                <div>
-                                                    <label style="font-size:11px;font-weight:700;color:#7f1d1d;display:block;margin-bottom:4px;">Transaction</label>
-                                                    <select name="idTransaction" class="rec-input"
-                                                            style="width:100%;height:38px;border-radius:9px;border:1px solid #fca5a5;background:#fff;padding:0 10px;font-size:12px;color:#0a2540;outline:none;box-sizing:border-box;transition:border-color .2s;">
-                                                        {% for t in items %}
-                                                            <option value="{{ t.idTransaction }}"
-                                                                {{ t.idTransaction ~ '' == item.idTransaction ~ '' ? 'selected' : '' }}>
-                                                                #{{ t.idTransaction }} — {{ t.categorie|default('') }}
-                                                            </option>
-                                                        {% endfor %}
-                                                    </select>
-                                                    <span class="rec-msg" data-field="idTransaction" style="font-size:11px;font-weight:600;margin-top:3px;display:block;"></span>
-                                                </div>
+
+                                            {# Description #}
+                                            <div class="rec-form-field">
+                                                <label style="display:flex;align-items:center;justify-content:space-between;">
+                                                    <span><i class="fa-solid fa-align-left"></i> Description <em style="color:#ef4444;font-style:normal">*</em></span>
+                                                    <button type="button"
+                                                            id="rec-ai-btn-{{ item.idTransaction }}"
+                                                            data-tx-id="{{ item.idTransaction }}"
+                                                            data-categorie="{{ item.categorie|default('') }}"
+                                                            data-montant="{{ item.montant_value|default(0) }}"
+                                                            title="Améliorer avec Gemini AI"
+                                                            style="display:inline-flex;align-items:center;gap:5px;padding:.25rem .75rem;border-radius:7px;border:none;cursor:pointer;font-size:.72rem;font-weight:700;font-family:inherit;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;box-shadow:0 2px 8px rgba(99,102,241,.3);transition:all .2s;white-space:nowrap;">
+                                                        <i class="fa-solid fa-wand-magic-sparkles"></i> Améliorer
+                                                    </button>
+                                                </label>
+                                                <textarea name="description"
+                                                          id="rec-desc-{{ item.idTransaction }}"
+                                                          rows="3"
+                                                          placeholder="Décrivez le problème rencontré avec cette transaction..."
+                                                          required>{{ edit_rec ? edit_rec.description|default('') : '' }}</textarea>
+                                                <span class="rec-msg" data-field="description"></span>
                                             </div>
-                                            <div style="margin-bottom:10px;">
-                                                <label style="font-size:11px;font-weight:700;color:#7f1d1d;display:block;margin-bottom:4px;">Description</label>
-                                                <textarea name="description" rows="2" class="rec-input"
-                                                          placeholder="Décrivez le problème..."
-                                                          style="width:100%;border-radius:9px;border:1px solid #fca5a5;background:#fff;padding:8px 10px;font-size:12px;color:#0a2540;outline:none;resize:vertical;font-family:inherit;box-sizing:border-box;transition:border-color .2s;">{{ edit_rec ? edit_rec.description|default('') : '' }}</textarea>
-                                                <span class="rec-msg" data-field="description" style="font-size:11px;font-weight:600;margin-top:3px;display:block;"></span>
-                                            </div>
-                                            <div style="display:flex;justify-content:flex-end;gap:8px;">
+
+                                            <script>
+                                            (function(){
+                                                var btn      = document.getElementById('rec-ai-btn-{{ item.idTransaction }}');
+                                                var textarea = document.getElementById('rec-desc-{{ item.idTransaction }}');
+                                                if (!btn || !textarea) return;
+                                                btn.addEventListener('click', function(e){
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    var desc = textarea.value.trim();
+                                                    if (!desc) {
+                                                        textarea.style.outline = '2px solid #f59e0b';
+                                                        textarea.focus();
+                                                        setTimeout(function(){ textarea.style.outline=''; }, 1500);
+                                                        return;
+                                                    }
+                                                    var form   = btn.closest('form');
+                                                    var typeEl = form && form.querySelector('[name="typeReclamation"]');
+                                                    btn.disabled = true;
+                                                    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> IA…';
+                                                    fetch('{{ path('portal_api_reclamation_improve') }}', {
+                                                        method : 'POST',
+                                                        headers: {'Content-Type':'application/x-www-form-urlencoded'},
+                                                        body   : 'description=' + encodeURIComponent(desc)
+                                                               + '&type='      + encodeURIComponent(typeEl ? typeEl.value : '')
+                                                               + '&categorie=' + encodeURIComponent('{{ item.categorie|default('')|e('js') }}')
+                                                               + '&montant='   + encodeURIComponent('{{ item.montant_value|default(0) }}')
+                                                    })
+                                                    .then(function(r){ return r.json(); })
+                                                    .then(function(d){
+                                                        if (d.improved) {
+                                                            textarea.value = d.improved;
+                                                            textarea.style.boxShadow = '0 0 0 3px rgba(99,102,241,.3)';
+                                                            setTimeout(function(){ textarea.style.boxShadow=''; }, 2000);
+                                                        } else {
+                                                            alert(d.error || 'Erreur IA.');
+                                                        }
+                                                    })
+                                                    .catch(function(err){ alert('Erreur : ' + err.message); })
+                                                    .finally(function(){
+                                                        btn.disabled = false;
+                                                        btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Améliorer';
+                                                    });
+                                                });
+                                            })();
+                                            </script>
+
+                                            <div class="rec-form-footer">
                                                 <a href="{{ path(route_name, { tab: 'transactions' }) }}"
-                                                   style="height:36px;padding:0 14px;border-radius:9px;border:1px solid #fca5a5;background:#fff;color:#991b1b;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;text-decoration:none;">
+                                                   class="rec-form-btn rec-form-btn--cancel">
                                                     <i class="fa-solid fa-xmark"></i> Annuler
                                                 </a>
-                                                <button type="submit"
-                                                        style="height:36px;padding:0 16px;border-radius:9px;border:0;background:{{ edit_rec ? '#2563eb' : '#dc2626' }};color:#fff;font-size:12px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                                                <button type="submit" class="rec-form-btn rec-form-btn--submit">
                                                     <i class="fa-solid fa-paper-plane"></i>
-                                                    {{ edit_rec ? 'Mettre à jour' : 'Envoyer Réclamation' }}
+                                                    {{ edit_rec ? 'Mettre à jour' : 'Soumettre la réclamation' }}
                                                 </button>
                                             </div>
                                         </form>
                                     </div>
 
-                                    {# Cartes des réclamations liées #}
+                                    {# ── LISTE DES RÉCLAMATIONS ── #}
                                     {% if linked_recs is not empty %}
-                                        <div style="display:flex;flex-direction:column;gap:8px;">
-                                            {% for rec in linked_recs %}
-                                                {% set rs = rec.status|default('En attente')|lower %}
-                                                {% set rc = rs == 'valide' ? '#16a34a' : (rs == 'ferme' ? '#dc2626' : (rs == 'bloque' ? '#d97706' : '#2563eb')) %}
-                                                {% set rb = rs == 'valide' ? 'rgba(34,197,94,.08)' : (rs == 'ferme' ? 'rgba(220,38,38,.08)' : (rs == 'bloque' ? 'rgba(217,119,6,.08)' : 'rgba(37,99,235,.08)')) %}
-                                                <div style="background:{{ rb }};border:1px solid {{ rc }};border-radius:12px;padding:12px 14px;display:flex;align-items:flex-start;gap:12px;">
-                                                    <div style="width:34px;height:34px;border-radius:9px;background:{{ rc }};display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;flex-shrink:0;">
-                                                        <i class="fa-solid fa-flag"></i>
-                                                    </div>
-                                                    <div style="flex:1;min-width:0;">
-                                                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
-                                                            <strong style="font-size:12px;color:#0a2540;">{{ rec.typeReclamation|default('Réclamation') }}</strong>
-                                                            <span style="padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;background:{{ rc }};color:#fff;">{{ rec.status|default('En attente') }}</span>
-                                                            <span style="font-size:11px;color:#7294ae;margin-left:auto;">{{ rec.dateReclamation|default('—') }}</span>
-                                                        </div>
-                                                        {% if rec.description %}
-                                                            <p style="font-size:11px;color:#5b80a0;margin:0;line-height:1.4;">{{ rec.description }}</p>
-                                                        {% endif %}
-                                                    </div>
-                                                    <div style="display:flex;gap:6px;flex-shrink:0;">
-                                                        <a href="{{ path(route_name, { tab: 'transactions', show_reclamation: item.idTransaction, edit_rec: rec.idReclamation }) }}"
-                                                           style="width:30px;height:30px;border-radius:8px;background:#eef4ff;color:#2563eb;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:12px;"
-                                                           title="Modifier">
-                                                            <i class="fa-solid fa-pen"></i>
-                                                        </a>
-                                                        <form method="post" style="display:inline"
-                                                              onsubmit="return confirm('Supprimer cette réclamation ?')">
-                                                            <input type="hidden" name="tab"           value="transactions">
-                                                            <input type="hidden" name="action"        value="reclamation_delete">
-                                                            <input type="hidden" name="idReclamation" value="{{ rec.idReclamation }}">
-                                                            <button type="submit"
-                                                                    style="width:30px;height:30px;border-radius:8px;border:0;background:#fff1f2;color:#e11d48;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;"
-                                                                    title="Supprimer">
-                                                                <i class="fa-solid fa-trash"></i>
-                                                            </button>
-                                                        </form>
-                                                    </div>
-                                                </div>
-                                            {% endfor %}
+                                        <div class="rec-table-wrapper">
+                                            <div class="rec-table-header">
+                                                <h4><i class="fa-solid fa-list-check"></i> Réclamations liées ({{ linked_recs|length }})</h4>
+                                            </div>
+                                            <div class="table-responsive">
+                                                <table class="rec-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Date</th>
+                                                            <th>Type</th>
+                                                            <th>Description</th>
+                                                            <th>Statut</th>
+                                                            <th style="text-align:right">Actions</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% for rec in linked_recs %}
+                                                            {% set rs = rec.status|default('En attente')|lower %}
+                                                            {% set rc_bg  = rs == 'valide' ? 'rgba(34,197,94,.12)'  : (rs == 'ferme' ? 'rgba(220,38,38,.1)'  : 'rgba(37,99,235,.1)') %}
+                                                            {% set rc_txt = rs == 'valide' ? '#15803d'              : (rs == 'ferme' ? '#b91c1c'              : '#1d4ed8') %}
+                                                            <tr class="rec-row {{ edit_rec and edit_rec.idReclamation ~ '' == rec.idReclamation ~ '' ? 'rec-row--editing' : '' }}">
+                                                                <td class="rec-cell-date">{{ rec.dateReclamation|default('—') }}</td>
+                                                                <td class="rec-cell-type">
+                                                                    {% set sentiment_emoji = {
+                                                                        'angry': '😠',
+                                                                        'sad': '😢',
+                                                                        'worried': '😰',
+                                                                        'neutral': '😐',
+                                                                        'happy': '😊'
+                                                                    } %}
+                                                                    <span class="sentiment-emoji" title="Sentiment: {{ rec.sentiment|default('neutral') }}" style="font-size:1.2rem;margin-right:.4rem;display:inline-block;">
+                                                                        {{ sentiment_emoji[rec.sentiment|default('neutral')] ?? '😐' }}
+                                                                    </span>
+                                                                    <strong>{{ rec.typeReclamation|default('—') }}</strong>
+                                                                </td>
+                                                                <td class="rec-cell-desc" title="{{ rec.description|default('') }}">
+                                                                    {{ rec.description|default('')|slice(0,60) }}{{ rec.description|default('')|length > 60 ? '…' : '' }}
+                                                                </td>
+                                                                <td class="rec-cell-status">
+                                                                    <span class="rec-badge" style="background:{{ rc_bg }};color:{{ rc_txt }};">
+                                                                        {% if rs == 'valide' %}<i class="fa-solid fa-circle-check"></i>
+                                                                        {% elseif rs == 'ferme' %}<i class="fa-solid fa-circle-xmark"></i>
+                                                                        {% else %}<i class="fa-solid fa-clock"></i>{% endif %}
+                                                                        {{ rec.status|default('En attente') }}
+                                                                    </span>
+                                                                </td>
+                                                                <td class="rec-cell-actions">
+                                                                    <a href="{{ path(route_name, { tab: 'transactions', show_reclamation: item.idTransaction, edit_rec: rec.idReclamation }) }}"
+                                                                       class="rec-btn rec-btn-edit" title="Modifier">
+                                                                        <i class="fa-solid fa-pen"></i>
+                                                                    </a>
+                                                                    <form method="post" style="display:inline" data-turbo="false" onsubmit="return confirm('Supprimer cette réclamation ?')">
+                                                                        <input type="hidden" name="tab"           value="transactions">
+                                                                        <input type="hidden" name="action"        value="reclamation_delete">
+                                                                        <input type="hidden" name="idReclamation" value="{{ rec.idReclamation }}">
+                                                                        <button type="submit" class="rec-btn rec-btn-del" title="Supprimer">
+                                                                            <i class="fa-solid fa-trash"></i>
+                                                                        </button>
+                                                                    </form>
+                                                                </td>
+                                                            </tr>
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    {% else %}
+                                        <div class="rec-empty-state">
+                                            <i class="fa-regular fa-flag"></i>
+                                            <p>Aucune réclamation pour cette transaction</p>
                                         </div>
                                     {% endif %}
+
                                 </div>
                             {% endif %}
 
@@ -650,20 +918,41 @@
             </div>
 
             {# Pagination footer #}
+            {% set pagination = support.pagination|default({ current_page: 1, total_pages: 1, total_items: 0, per_page: 3, has_prev: false, has_next: false }) %}
             <div class="tnx-footer">
                 <span class="tnx-footer-info">
-                    Affichage <strong>{{ items is empty ? '0' : '1–' ~ items|length }}</strong> sur <strong>{{ items|length }}</strong>
+                    Affichage <strong>{{ items is empty ? '0' : ((pagination.current_page - 1) * pagination.per_page + 1) ~ '–' ~ ((pagination.current_page - 1) * pagination.per_page + items|length) }}</strong> sur <strong>{{ pagination.total_items }}</strong>
                 </span>
                 <div class="tnx-pager">
-                    <button type="button" class="tnx-pager-btn" aria-label="Precedent">
-                        <i class="fa-solid fa-chevron-left"></i>
-                    </button>
-                    <button type="button" class="tnx-pager-btn tnx-pager-btn--active">
-                        {{ items is empty ? 0 : 1 }}
-                    </button>
-                    <button type="button" class="tnx-pager-btn" aria-label="Suivant">
-                        <i class="fa-solid fa-chevron-right"></i>
-                    </button>
+                    {% if pagination.has_prev %}
+                        <a href="{{ path(route_name, { tab: 'transactions', page: pagination.current_page - 1 }) }}" class="tnx-pager-btn" aria-label="Precedent" style="text-decoration:none">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </a>
+                    {% else %}
+                        <span class="tnx-pager-btn" style="opacity:.4;cursor:not-allowed" aria-label="Precedent">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </span>
+                    {% endif %}
+                    
+                    {% for page in 1..pagination.total_pages %}
+                        {% if page == pagination.current_page %}
+                            <span class="tnx-pager-btn tnx-pager-btn--active">{{ page }}</span>
+                        {% elseif page == 1 or page == pagination.total_pages or (page >= pagination.current_page - 1 and page <= pagination.current_page + 1) %}
+                            <a href="{{ path(route_name, { tab: 'transactions', page: page }) }}" class="tnx-pager-btn" style="text-decoration:none">{{ page }}</a>
+                        {% elseif page == pagination.current_page - 2 or page == pagination.current_page + 2 %}
+                            <span style="padding:0 .3rem;color:#94a3b8">...</span>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if pagination.has_next %}
+                        <a href="{{ path(route_name, { tab: 'transactions', page: pagination.current_page + 1 }) }}" class="tnx-pager-btn" aria-label="Suivant" style="text-decoration:none">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </a>
+                    {% else %}
+                        <span class="tnx-pager-btn" style="opacity:.4;cursor:not-allowed" aria-label="Suivant">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </span>
+                    {% endif %}
                 </div>
                 <span class="tnx-footer-month">
                     <i class="fa-regular fa-calendar-check"></i>
@@ -676,99 +965,406 @@
 
 </section>
 
-
+{# ── MODAL DE PRÉDICTION ── #}
+<div class="prediction-modal" id="prediction-modal">
+    <div class="prediction-modal-overlay" id="prediction-modal-overlay"></div>
+    <div class="prediction-modal-content">
+        <div class="prediction-modal-header">
+            <div class="prediction-modal-title">
+                <i class="fa-solid fa-crystal-ball"></i>
+                <div>
+                    <h2>Prédictions de Paiements Futurs</h2>
+                    <p>Analyse IA de vos habitudes de paiement</p>
+                </div>
+            </div>
+            <button type="button" class="prediction-modal-close" id="prediction-modal-close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        
+        <div class="prediction-modal-body" id="prediction-modal-body">
+            <div class="prediction-loading">
+                <div class="prediction-spinner"></div>
+                <p>Analyse de vos transactions en cours...</p>
+            </div>
+        </div>
+    </div>
+</div>
 
 <style>
+/* Styling for Reclamations Table */
+.tnx-reclamations-container {
+    margin-top: 12px;
+    padding: 4px 0 12px 0;
+    animation: fadeInRec 0.3s ease;
+}
+@keyframes fadeInRec {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.rec-table-wrapper {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.05), 0 2px 6px -2px rgba(0, 0, 0, 0.03);
+}
+
+.rec-table-header {
+    background: #f8fafc;
+    padding: 14px 18px;
+    border-bottom: 1px solid #e2e8f0;
+}
+.rec-table-header h4 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.rec-table-header h4 i {
+    color: #ef4444;
+}
+
+.table-responsive {
+    overflow-x: auto;
+}
+
+.rec-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    text-align: left;
+}
+.rec-table th {
+    padding: 12px 18px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid #e2e8f0;
+    background: #fcfcfc;
+    white-space: nowrap;
+}
+.rec-table td {
+    padding: 14px 18px;
+    color: #475569;
+    vertical-align: middle;
+    border-bottom: 1px solid #f1f5f9;
+}
+.rec-row {
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+.rec-row:hover {
+    background-color: #f8fafc;
+}
+.rec-row:last-child td {
+    border-bottom: none;
+}
+.rec-cell-date {
+    white-space: nowrap;
+    color: #94a3b8;
+    font-size: 12px;
+    font-weight: 500;
+}
+.rec-cell-type strong {
+    color: #0f172a;
+    font-size: 13px;
+    font-weight: 600;
+}
+.rec-cell-desc {
+    color: #64748b;
+    max-width: 300px;
+    line-height: 1.5;
+}
+.rec-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+.sentiment-emoji {
+    animation: sentimentPop 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+@keyframes sentimentPop {
+    0% {
+        transform: scale(0) rotate(-180deg);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.2) rotate(10deg);
+    }
+    100% {
+        transform: scale(1) rotate(0);
+        opacity: 1;
+    }
+}
+.rec-cell-actions {
+    text-align: right;
+    white-space: nowrap;
+}
+.rec-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    text-decoration: none;
+    margin-left: 6px;
+}
+.rec-btn-edit {
+    background: #eff6ff;
+    color: #3b82f6;
+    border: 1px solid transparent;
+}
+.rec-btn-edit:hover {
+    background: #dbeafe;
+    color: #2563eb;
+    border-color: #bfdbfe;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(59,130,246,0.1);
+}
+.rec-btn-del {
+    background: #fef2f2;
+    color: #ef4444;
+    border: 1px solid transparent;
+}
+.rec-btn-del:hover {
+    background: #fee2e2;
+    color: #dc2626;
+    border-color: #fecaca;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(239,68,68,0.1);
+}
+
+.rec-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: #f8fafc;
+    border: 2px dashed #cbd5e1;
+    border-radius: 12px;
+    color: #64748b;
+    text-align: center;
+}
+.rec-empty-state i {
+    font-size: 24px;
+    color: #94a3b8;
+    margin-bottom: 10px;
+}
+.rec-empty-state p {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+/* ── Reclamation form card ── */
+.rec-form-card{background:#fff;border-radius:16px;border:1px solid #e2e8f0;box-shadow:0 4px 24px rgba(15,23,42,.08);overflow:hidden;margin-bottom:16px;animation:fadeInRec .3s ease}
+.rec-form-card__header{display:flex;align-items:center;gap:12px;padding:16px 20px;background:linear-gradient(135deg,#1e293b 0%,#1e3a5f 60%,#0f4c81 100%);color:#fff;position:relative;overflow:hidden}
+.rec-form-card__header::after{content:'';position:absolute;right:-30px;top:-30px;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.12) 0%,transparent 70%)}
+.rec-form-card__header-icon{width:42px;height:42px;border-radius:12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.2);display:grid;place-items:center;font-size:1rem;flex-shrink:0;position:relative;z-index:1}
+.rec-form-card__header h4{margin:0 0 2px;font-size:.9rem;font-weight:700;position:relative;z-index:1}
+.rec-form-card__header p{margin:0;font-size:.72rem;color:rgba(255,255,255,.6);position:relative;z-index:1}
+.rec-form-card__close{margin-left:auto;width:32px;height:32px;border-radius:9px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.2);color:#fff;display:grid;place-items:center;text-decoration:none;font-size:.8rem;position:relative;z-index:1;transition:background .2s}
+.rec-form-card__close:hover{background:rgba(255,255,255,.25)}
+.rec-form-card__body{padding:18px 20px;display:flex;flex-direction:column;gap:14px}
+.rec-form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:600px){.rec-form-row{grid-template-columns:1fr}}
+.rec-form-field{display:flex;flex-direction:column;gap:5px}
+.rec-form-field label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#64748b;display:flex;align-items:center;gap:5px}
+.rec-form-field label em{color:#ef4444;font-style:normal}
+.rec-form-field select,.rec-form-field input[type="date"],.rec-form-field textarea{width:100%;box-sizing:border-box;border:1.5px solid #e2e8f0;border-radius:10px;padding:.55rem .8rem;font-size:.83rem;color:#1e293b;background:#f8fafc;font-family:inherit;outline:none;transition:border-color .2s,box-shadow .2s,background .2s}
+.rec-form-field select:focus,.rec-form-field input[type="date"]:focus,.rec-form-field textarea:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.12);background:#fff}
+.rec-form-field textarea{resize:vertical;min-height:80px;line-height:1.5}
+.rec-msg{font-size:.7rem;font-weight:600;min-height:.9rem}
+.rec-form-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding-top:4px;border-top:1px solid #f1f5f9;margin-top:2px}
+.rec-form-btn{display:inline-flex;align-items:center;gap:6px;padding:.52rem 1.1rem;border-radius:9px;font-size:.82rem;font-weight:600;border:none;cursor:pointer;text-decoration:none;font-family:inherit;transition:all .2s ease}
+.rec-form-btn--cancel{background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0}
+.rec-form-btn--cancel:hover{background:#e2e8f0}
+.rec-form-btn--submit{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;box-shadow:0 3px 10px rgba(239,68,68,.3)}
+.rec-form-btn--submit:hover{background:linear-gradient(135deg,#dc2626,#b91c1c);box-shadow:0 4px 14px rgba(239,68,68,.4);transform:translateY(-1px)}
+.rec-row--editing{background:rgba(59,130,246,.05);outline:2px solid rgba(59,130,246,.3)}
+
+/* ── AI improve button ── */
+.rec-desc-wrap{position:relative;display:flex;flex-direction:column;gap:6px}
+.rec-ai-btn{display:inline-flex;align-items:center;gap:5px;padding:.25rem .7rem;border-radius:7px;border:none;cursor:pointer;font-size:.68rem;font-weight:700;font-family:inherit;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;box-shadow:0 2px 8px rgba(99,102,241,.3);transition:all .2s ease;white-space:nowrap;margin-left:auto;vertical-align:middle}
+.rec-ai-btn:hover{background:linear-gradient(135deg,#4f46e5,#7c3aed);box-shadow:0 3px 12px rgba(99,102,241,.4);transform:translateY(-1px)}
+.rec-ai-btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
+.rec-ai-btn__loading{display:none}
+.rec-ai-btn.is-loading .rec-ai-btn__idle{display:none}
+.rec-ai-btn.is-loading .rec-ai-btn__loading{display:inline-flex;align-items:center;gap:4px}
+.rec-form-field label{display:flex;align-items:center;gap:6px}
+
+/* ── Currency conversion widget ── */
+.cvt-widget{margin-top:8px;border-radius:10px;border:1px solid #e0e7ff;background:linear-gradient(135deg,#f5f3ff,#eef2ff);padding:10px 14px;font-size:.78rem}
+.cvt-widget__line{font-size:1.1rem;font-weight:800;color:#1e293b;line-height:1.2}
+.cvt-widget__line--tnd{color:#0f766e}
+.cvt-widget__line--eur{color:#1d4ed8}
+.cvt-widget__line--usd{color:#15803d}
+.cvt-widget__equiv{font-size:.82rem;font-weight:600;color:#6366f1;margin-top:3px}
+.cvt-widget__meta{font-size:.67rem;color:#94a3b8;margin-top:4px}
+
 /* Validation transaction */
 .tnx-field input.f-invalid,.tnx-field select.f-invalid,.tnx-field textarea.f-invalid{border-color:#dc2626!important;box-shadow:0 0 0 3px rgba(220,38,38,.12)!important;background:#fff5f5!important}
 .tnx-field input.f-valid,.tnx-field select.f-valid,.tnx-field textarea.f-valid{border-color:#16a34a!important;box-shadow:0 0 0 3px rgba(22,163,74,.1)!important;background:#f0fdf4!important}
 .f-err{color:#dc2626;font-size:12px;font-weight:600}
 .f-ok{color:#16a34a;font-size:12px;font-weight:600}
 </style>
+
+
 <script>
+/* ── Conversion devise selon localisation ── */
 (function(){
-var today=new Date();today.setHours(0,0,0,0);
+  /* ── Taux fixes embarqués (toujours disponibles) ── */
+  var RATES = { EUR:0.295, USD:0.320 };
 
-/* Show message in a dedicated span by ID */
-function showOk(spanId,el){
-  var s=document.getElementById(spanId);
-  if(s){s.className='f-ok';s.textContent='✓ Valide';}
-  if(el){el.classList.remove('f-invalid');el.classList.add('f-valid');}
-}
-function showErr(spanId,el,msg){
-  var s=document.getElementById(spanId);
-  if(s){s.className='f-err';s.textContent='⚠ '+msg;}
-  if(el){el.classList.remove('f-valid');el.classList.add('f-invalid');}
-}
-function clearMsg(spanId,el){
-  var s=document.getElementById(spanId);
-  if(s){s.className='';s.textContent='';}
-  if(el){el.classList.remove('f-valid','f-invalid');}
-}
+  var EUROZONE = ['FR','DE','IT','ES','BE','NL','AT','PT','GR','IE','LU','FI','SK','SI','EE','LV','LT','CY','MT'];
+  var USDZONE  = ['US','CA','MX','PA','EC','SV'];
+  var NAMES    = {
+    TN:'Tunisie',FR:'France',DE:'Allemagne',IT:'Italie',ES:'Espagne',
+    BE:'Belgique',NL:'Pays-Bas',AT:'Autriche',PT:'Portugal',GR:'Grèce',
+    US:'États-Unis',CA:'Canada',GB:'Royaume-Uni',CH:'Suisse',
+    MA:'Maroc',DZ:'Algérie',LY:'Libye',SA:'Arabie Saoudite',
+  };
 
-var tf=document.getElementById('transaction-form');
-if(!tf)return;
+  var widget    = document.getElementById('cvt-widget');
+  var amtInput  = document.getElementById('f-amount');
+  var mainLine  = document.getElementById('cvt-main-line');
+  var equivLine = document.getElementById('cvt-equiv-line');
+  var metaLine  = document.getElementById('cvt-meta-line');
+  var currLabel = document.getElementById('cvt-currency-label');
+  if (!widget || !amtInput) return;
 
-function vCategorie(){
-  var el=document.getElementById('f-cat');
-  if(!el)return true;
-  if(!el.value){showErr('msg-categorie',el,'Sélectionner une catégorie.');return false;}
-  showOk('msg-categorie',el);return true;
-}
-function vType(){
-  var chk=tf.querySelector('input[name="typeTransaction"]:checked');
-  var s=document.getElementById('msg-typeTransaction');
-  if(!chk){if(s){s.className='f-err';s.textContent='⚠ Sélectionner un type.';}return false;}
-  if(s){s.className='f-ok';s.textContent='✓ Valide';}return true;
-}
-function vMontant(){
-  var el=document.getElementById('f-amount');
-  if(!el)return true;
-  var v=el.value.trim();
-  if(!v){showErr('msg-montant',el,'Le montant est obligatoire.');return false;}
-  if(parseFloat(v)<=0){showErr('msg-montant',el,'Doit être > 0.');return false;}
-  showOk('msg-montant',el);return true;
-}
-function vDate(){
-  var el=document.getElementById('f-date');
-  if(!el)return true;
-  if(!el.value){showErr('msg-dateTransaction',el,'La date est obligatoire.');return false;}
-  var d=new Date(el.value);d.setHours(0,0,0,0);
-  if(d>today){showErr('msg-dateTransaction',el,"Ne doit pas être dans le futur.");return false;}
-  showOk('msg-dateTransaction',el);return true;
-}
-function vSolde(){
-  var el=document.getElementById('f-solde');
-  if(!el||el.value.trim()===''){clearMsg('msg-soldeApres',el);return true;}
-  if(parseFloat(el.value)<0){showErr('msg-soldeApres',el,'Doit être ≥ 0.');return false;}
-  showOk('msg-soldeApres',el);return true;
-}
-function vDesc(){
-  var el=document.getElementById('f-desc');
-  if(!el||el.value.trim()===''){clearMsg('msg-description',el);return true;}
-  if(el.value.trim().length<10){showErr('msg-description',el,'Min. 10 caractères.');return false;}
-  showOk('msg-description',el);return true;
-}
+  /* ── Pays : localStorage d'abord, puis API, puis fallback TN ── */
+  var _country = null;
 
-/* Live validation */
-var cat=document.getElementById('f-cat');
-if(cat){cat.addEventListener('change',vCategorie);}
-tf.querySelectorAll('input[name="typeTransaction"]').forEach(function(r){r.addEventListener('change',vType);});
-var amt=document.getElementById('f-amount');
-if(amt){['input','blur'].forEach(function(e){amt.addEventListener(e,vMontant);});}
-var dt=document.getElementById('f-date');
-if(dt){dt.addEventListener('change',vDate);}
-var sl=document.getElementById('f-solde');
-if(sl){['input','blur'].forEach(function(e){sl.addEventListener(e,vSolde);});}
-var dc=document.getElementById('f-desc');
-if(dc){['input','blur'].forEach(function(e){dc.addEventListener(e,vDesc);});}
+  function getCountry(cb){
+    /* 1. Mémoire */
+    if(_country){ cb(_country); return; }
+    /* 2. localStorage (valide 24h) */
+    try {
+      var cached = JSON.parse(localStorage.getItem('cvt_country')||'null');
+      if(cached && cached.code && (Date.now()-cached.ts) < 86400000){
+        _country = cached.code; cb(_country); return;
+      }
+    } catch(e){}
+    /* 3. API avec timeout 3s */
+    var done = false;
+    var timer = setTimeout(function(){ if(!done){ done=true; _country='TN'; cb(_country); } }, 3000);
+    fetch('https://ipapi.co/json/')
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(done) return;
+        done = true; clearTimeout(timer);
+        _country = (d.country_code||'TN').toUpperCase();
+        try{ localStorage.setItem('cvt_country', JSON.stringify({code:_country,ts:Date.now()})); }catch(e){}
+        cb(_country);
+      })
+      .catch(function(){
+        if(done) return;
+        done = true; clearTimeout(timer);
+        _country = 'TN'; cb(_country);
+      });
+  }
 
-/* Submit */
-tf.addEventListener('submit',function(e){
-  var ok=vCategorie()&vType()&vMontant()&vDate();
-  vSolde();vDesc();
-  if(!ok)e.preventDefault();
-});
+  /* ── Taux : essaie l'API, utilise les fixes si échec ── */
+  function getRates(cb){
+    /* Toujours appeler cb immédiatement avec les taux fixes */
+    /* puis mettre à jour si l'API répond */
+    cb(RATES);
+    fetch('https://open.er-api.com/v6/latest/TND')
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(d.rates && d.rates.EUR && d.rates.USD){
+          RATES = { EUR:d.rates.EUR, USD:d.rates.USD };
+        }
+      })
+      .catch(function(){});
+  }
+
+  function fmt(n,d){ return n.toFixed(d!==undefined?d:2); }
+
+  var CURRENCY_LABELS = {
+    TND: 'Dinar tunisien (TND)',
+    EUR: 'Euro (EUR)',
+    USD: 'Dollar américain (USD)',
+  };
+
+  function render(amount, country){
+    var inEuro = EUROZONE.indexOf(country) !== -1;
+    var inUsd  = USDZONE.indexOf(country)  !== -1;
+    var cname  = NAMES[country] || country;
+
+    /* Mise à jour du label devise */
+    if(currLabel){
+      currLabel.textContent = inEuro ? CURRENCY_LABELS.EUR : (inUsd ? CURRENCY_LABELS.USD : CURRENCY_LABELS.TND);
+    }
+
+    if(country === 'TN'){
+      mainLine.textContent  = fmt(amount,3) + ' TND';
+      equivLine.textContent = '≈ ' + fmt(amount*RATES.EUR,2) + ' EUR  ·  ' + fmt(amount*RATES.USD,2) + ' USD';
+      metaLine.textContent  = '📍 ' + cname;
+      mainLine.className    = 'cvt-widget__line cvt-widget__line--tnd';
+
+    } else if(inEuro){
+      mainLine.textContent  = fmt(amount,2) + ' EUR';
+      equivLine.textContent = '≈ ' + fmt(amount/RATES.EUR,3) + ' TND';
+      metaLine.textContent  = '📍 ' + cname + '  ·  1 EUR = ' + fmt(1/RATES.EUR,3) + ' TND';
+      mainLine.className    = 'cvt-widget__line cvt-widget__line--eur';
+
+    } else if(inUsd){
+      mainLine.textContent  = fmt(amount,2) + ' USD';
+      equivLine.textContent = '≈ ' + fmt(amount/RATES.USD,3) + ' TND';
+      metaLine.textContent  = '📍 ' + cname + '  ·  1 USD = ' + fmt(1/RATES.USD,3) + ' TND';
+      mainLine.className    = 'cvt-widget__line cvt-widget__line--usd';
+
+    } else {
+      mainLine.textContent  = fmt(amount,3) + ' TND';
+      equivLine.textContent = '≈ ' + fmt(amount*RATES.EUR,2) + ' EUR  ·  ' + fmt(amount*RATES.USD,2) + ' USD';
+      metaLine.textContent  = '📍 ' + cname;
+      mainLine.className    = 'cvt-widget__line cvt-widget__line--tnd';
+    }
+    widget.removeAttribute('hidden');
+  }
+
+  function refresh(){
+    var amount = parseFloat(amtInput.value);
+    if(!amount || amount <= 0){ widget.setAttribute('hidden',''); return; }
+    /* Affiche immédiatement avec taux fixes + pays connu ou TN */
+    render(amount, _country || 'TN');
+    /* Puis affine avec le vrai pays */
+    getCountry(function(country){ render(amount, country); });
+    /* Taux en arrière-plan */
+    getRates(function(){});
+  }
+
+  amtInput.addEventListener('input',  refresh);
+  amtInput.addEventListener('change', refresh);
+
+  /* Pré-charge le pays dès le chargement de la page */
+  getCountry(function(country){
+    if(currLabel){
+      var inEuro = EUROZONE.indexOf(country) !== -1;
+      var inUsd  = USDZONE.indexOf(country)  !== -1;
+      currLabel.textContent = inEuro ? CURRENCY_LABELS.EUR : (inUsd ? CURRENCY_LABELS.USD : CURRENCY_LABELS.TND);
+    }
+  });
+  if(amtInput.value) refresh();
 })();
 </script>
 
@@ -840,4 +1436,2177 @@ document.querySelectorAll('form input[name="action"][value="reclamation_save"]')
   if(f)wireRecForm(f);
 });
 })();
+</script>
+
+
+<script>
+// Gestion affichage sections + solde (sans validation — géré par transaction-form-simple.js)
+(function() {
+    'use strict';
+
+    const form = document.getElementById('transaction-form');
+    if (!form) return;
+
+    const compteSelect  = document.getElementById('f-compte');
+    const soldeDisplay  = document.getElementById('solde-disponible');
+    const typeRadios    = form.querySelectorAll('input[name="typeTransaction"]');
+
+    const sections = {
+        DEPOT:    form.querySelector('.section-depot'),
+        RETRAIT:  form.querySelector('.section-retrait'),
+        VIREMENT: form.querySelector('.section-virement'),
+        PAIEMENT: form.querySelector('.section-paiement'),
+    };
+
+    function updateSolde() {
+        if (!compteSelect || compteSelect.selectedIndex <= 0) return;
+        const solde = parseFloat(compteSelect.options[compteSelect.selectedIndex].dataset.solde || 0);
+        if (soldeDisplay) soldeDisplay.textContent = solde.toFixed(2) + ' DT';
+    }
+
+    // Écouter les changements de compte pour mettre à jour le solde affiché
+    compteSelect?.addEventListener('change', updateSolde);
+
+    // Initialiser le solde
+    updateSolde();
+
+    // Gérer le bouton "Payer avec Stripe" pour les paiements
+    const btnPayerStripe = document.getElementById('btn-payer-stripe');
+    if (btnPayerStripe) {
+        btnPayerStripe.addEventListener('click', function(e) {
+            e.preventDefault();
+
+            const typeChecked = form.querySelector('input[name="typeTransaction"]:checked');
+            if (!typeChecked || typeChecked.value !== 'PAIEMENT') return;
+
+            const montant = parseFloat(document.getElementById('f-montant-paye')?.value || 0);
+            let montantInput = form.querySelector('input[name="montant"]');
+            if (!montantInput) {
+                montantInput = document.createElement('input');
+                montantInput.type = 'hidden';
+                montantInput.name = 'montant';
+                form.appendChild(montantInput);
+            }
+            montantInput.value = montant;
+
+            // S'assurer que action est présent
+            let actionInput = form.querySelector('input[name="action"][value="transaction_save"]');
+            if (!actionInput) {
+                actionInput = document.createElement('input');
+                actionInput.type = 'hidden';
+                actionInput.name = 'action';
+                actionInput.value = 'transaction_save';
+                form.appendChild(actionInput);
+            }
+
+            form.submit();
+        });
+    }
+
+})();
+</script>
+
+<style>
+/* ── Bouton Prédiction ── */
+.tnx-nav-pill--predict {
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+    color: #fff;
+    border: 2px solid #7c3aed;
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+    transition: all 0.3s ease;
+}
+
+.tnx-nav-pill--predict:hover {
+    background: linear-gradient(135deg, #7c3aed, #6d28d9);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(139, 92, 246, 0.4);
+}
+
+/* ── Modal de Prédiction ── */
+.prediction-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.prediction-modal.is-open {
+    display: flex;
+}
+
+.prediction-modal-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.7);
+    backdrop-filter: blur(8px);
+}
+
+.prediction-modal-content {
+    position: relative;
+    width: min(900px, 100%);
+    max-height: 85vh;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    border-radius: 24px;
+    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+    animation: modalSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.prediction-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 28px;
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+}
+
+.prediction-modal-header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -10%;
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, transparent 70%);
+}
+
+.prediction-modal-title {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: relative;
+    z-index: 1;
+}
+
+.prediction-modal-title i {
+    font-size: 32px;
+    animation: crystalPulse 2s ease-in-out infinite;
+}
+
+@keyframes crystalPulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.8; }
+}
+
+.prediction-modal-title h2 {
+    margin: 0 0 4px 0;
+    font-size: 22px;
+    font-weight: 800;
+}
+
+.prediction-modal-title p {
+    margin: 0;
+    font-size: 13px;
+    opacity: 0.9;
+}
+
+.prediction-modal-close {
+    position: relative;
+    z-index: 1;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.prediction-modal-close:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: rotate(90deg);
+}
+
+.prediction-modal-body {
+    padding: 28px;
+    max-height: calc(85vh - 100px);
+    overflow-y: auto;
+}
+
+/* ── Loading State ── */
+.prediction-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    gap: 20px;
+}
+
+.prediction-spinner {
+    width: 60px;
+    height: 60px;
+    border: 4px solid #e5e7eb;
+    border-top-color: #8b5cf6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.prediction-loading p {
+    color: #64748b;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+/* ── Analysis Section ── */
+.prediction-analysis {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(124, 58, 237, 0.05));
+    border: 2px solid rgba(139, 92, 246, 0.2);
+    border-radius: 16px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+}
+
+.prediction-analysis h3 {
+    margin: 0 0 12px 0;
+    font-size: 16px;
+    font-weight: 800;
+    color: #7c3aed;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.prediction-analysis p {
+    margin: 0;
+    color: #475569;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+/* ── Predictions Grid ── */
+.predictions-grid {
+    display: grid;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.prediction-card {
+    background: #fff;
+    border: 2px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 20px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.prediction-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: linear-gradient(180deg, #8b5cf6, #7c3aed);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.prediction-card:hover {
+    border-color: #8b5cf6;
+    box-shadow: 0 8px 24px rgba(139, 92, 246, 0.15);
+    transform: translateY(-2px);
+}
+
+.prediction-card:hover::before {
+    opacity: 1;
+}
+
+.prediction-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.prediction-category {
+    font-size: 16px;
+    font-weight: 800;
+    color: #1e293b;
+}
+
+.prediction-confidence {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.prediction-confidence.high {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(22, 163, 74, 0.1));
+    color: #16a34a;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.prediction-confidence.medium {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(217, 119, 6, 0.1));
+    color: #d97706;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.prediction-confidence.low {
+    background: linear-gradient(135deg, rgba(148, 163, 184, 0.15), rgba(100, 116, 139, 0.1));
+    color: #64748b;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.prediction-amount {
+    font-size: 28px;
+    font-weight: 800;
+    color: #8b5cf6;
+    margin-bottom: 8px;
+}
+
+.prediction-amount em {
+    font-size: 16px;
+    font-style: normal;
+    color: #94a3b8;
+    margin-left: 4px;
+}
+
+.prediction-date {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+.prediction-date i {
+    color: #8b5cf6;
+}
+
+.prediction-reason {
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.5;
+    font-style: italic;
+}
+
+/* ── Advice Section ── */
+.prediction-advice {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(22, 163, 74, 0.05));
+    border: 2px solid rgba(34, 197, 94, 0.2);
+    border-radius: 16px;
+    padding: 20px 24px;
+}
+
+.prediction-advice h3 {
+    margin: 0 0 12px 0;
+    font-size: 16px;
+    font-weight: 800;
+    color: #16a34a;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.prediction-advice p {
+    margin: 0;
+    color: #475569;
+    font-size: 14px;
+    line-height: 1.7;
+    white-space: pre-line;
+}
+
+/* ── Error State ── */
+.prediction-error {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.prediction-error i {
+    font-size: 48px;
+    color: #ef4444;
+    margin-bottom: 16px;
+}
+
+.prediction-error h3 {
+    margin: 0 0 8px 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.prediction-error p {
+    margin: 0;
+    color: #64748b;
+    font-size: 14px;
+}
+
+/* ── Provider Badge ── */
+.prediction-provider {
+    text-align: center;
+    padding: 12px;
+    color: #94a3b8;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.prediction-provider i {
+    color: #8b5cf6;
+    margin-right: 4px;
+}
+
+/* ── Next Month Forecast Section ── */
+.next-month-forecast {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(79, 70, 229, 0.05));
+    border: 2px solid rgba(99, 102, 241, 0.2);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 24px;
+}
+
+.forecast-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.forecast-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 800;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.forecast-header h3 i {
+    color: #6366f1;
+}
+
+.forecast-confidence {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.forecast-confidence.high {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(22, 163, 74, 0.1));
+    color: #16a34a;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.forecast-confidence.medium {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(217, 119, 6, 0.1));
+    color: #d97706;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.forecast-confidence.low {
+    background: linear-gradient(135deg, rgba(148, 163, 184, 0.15), rgba(100, 116, 139, 0.1));
+    color: #64748b;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.forecast-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.forecast-card {
+    background: #fff;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: all 0.3s ease;
+}
+
+.forecast-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.forecast-card--deposit {
+    border-left: 4px solid #22c55e;
+}
+
+.forecast-card--deposit:hover {
+    border-color: #16a34a;
+    box-shadow: 0 8px 20px rgba(34, 197, 94, 0.2);
+}
+
+.forecast-card--withdrawal {
+    border-left: 4px solid #f59e0b;
+}
+
+.forecast-card--withdrawal:hover {
+    border-color: #d97706;
+    box-shadow: 0 8px 20px rgba(245, 158, 11, 0.2);
+}
+
+.forecast-card--payment {
+    border-left: 4px solid #ef4444;
+}
+
+.forecast-card--payment:hover {
+    border-color: #dc2626;
+    box-shadow: 0 8px 20px rgba(239, 68, 68, 0.2);
+}
+
+.forecast-card--transfer {
+    border-left: 4px solid #3b82f6;
+}
+
+.forecast-card--transfer:hover {
+    border-color: #2563eb;
+    box-shadow: 0 8px 20px rgba(59, 130, 246, 0.2);
+}
+
+.forecast-card-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.forecast-card--deposit .forecast-card-icon {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(22, 163, 74, 0.1));
+    color: #16a34a;
+}
+
+.forecast-card--withdrawal .forecast-card-icon {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(217, 119, 6, 0.1));
+    color: #d97706;
+}
+
+.forecast-card--payment .forecast-card-icon {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.1));
+    color: #dc2626;
+}
+
+.forecast-card--transfer .forecast-card-icon {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(37, 99, 235, 0.1));
+    color: #2563eb;
+}
+
+.forecast-card-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.forecast-card-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.forecast-card-amount {
+    font-size: 18px;
+    font-weight: 800;
+    color: #1e293b;
+}
+
+.forecast-net-balance {
+    background: #fff;
+    border: 3px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.forecast-net-balance.positive {
+    border-color: #22c55e;
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.05), rgba(22, 163, 74, 0.02));
+}
+
+.forecast-net-balance.negative {
+    border-color: #ef4444;
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.05), rgba(220, 38, 38, 0.02));
+}
+
+.forecast-net-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.forecast-net-balance.positive .forecast-net-icon {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    color: #fff;
+}
+
+.forecast-net-balance.negative .forecast-net-icon {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: #fff;
+}
+
+.forecast-net-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.forecast-net-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.forecast-net-amount {
+    font-size: 32px;
+    font-weight: 900;
+}
+
+.forecast-net-balance.positive .forecast-net-amount {
+    color: #16a34a;
+}
+
+.forecast-net-balance.negative .forecast-net-amount {
+    color: #dc2626;
+}
+
+.forecast-insights {
+    background: rgba(255, 255, 255, 0.6);
+    border-radius: 12px;
+    padding: 16px;
+}
+
+.forecast-insights h4 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.forecast-insights h4 i {
+    color: #f59e0b;
+}
+
+.forecast-insights ul {
+    margin: 0;
+    padding-left: 20px;
+    list-style: none;
+}
+
+.forecast-insights li {
+    position: relative;
+    padding-left: 20px;
+    margin-bottom: 8px;
+    color: #475569;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.forecast-insights li:before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    color: #6366f1;
+    font-weight: 700;
+}
+
+.forecast-insights li:last-child {
+    margin-bottom: 0;
+}
+
+.predictions-section {
+    margin-top: 24px;
+}
+
+.predictions-section > h3 {
+    margin: 0 0 16px 0;
+    font-size: 18px;
+    font-weight: 800;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.predictions-section > h3 i {
+    color: #8b5cf6;
+}
+</style>
+
+<script>
+(function() {
+    const btnPredict = document.getElementById('btn-predict-payments');
+    const modal = document.getElementById('prediction-modal');
+    const modalOverlay = document.getElementById('prediction-modal-overlay');
+    const modalClose = document.getElementById('prediction-modal-close');
+    const modalBody = document.getElementById('prediction-modal-body');
+
+    if (!btnPredict || !modal) return;
+
+    // Ouvrir la modal
+    btnPredict.addEventListener('click', function() {
+        modal.classList.add('is-open');
+        document.body.style.overflow = 'hidden';
+        loadPredictions();
+    });
+
+    // Fermer la modal
+    function closeModal() {
+        modal.classList.remove('is-open');
+        document.body.style.overflow = '';
+    }
+
+    modalClose.addEventListener('click', closeModal);
+    modalOverlay.addEventListener('click', closeModal);
+
+    // Charger les prédictions
+    function loadPredictions() {
+        // Afficher le loading
+        modalBody.innerHTML = `
+            <div class="prediction-loading">
+                <div class="prediction-spinner"></div>
+                <p>Analyse de vos transactions en cours...</p>
+            </div>
+        `;
+
+        fetch('{{ path('portal_api_predict_payments') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                showError(data.error);
+                return;
+            }
+
+            displayPredictions(data);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showError('Une erreur est survenue lors de la génération des prédictions.');
+        });
+    }
+
+    function displayPredictions(data) {
+        let html = '';
+
+        // Analysis section
+        if (data.analysis) {
+            html += `
+                <div class="prediction-analysis">
+                    <h3><i class="fa-solid fa-chart-line"></i> Analyse de vos habitudes</h3>
+                    <p>${escapeHtml(data.analysis)}</p>
+                </div>
+            `;
+        }
+        
+        // Next Month Forecast Section
+        if (data.next_month_forecast) {
+            const forecast = data.next_month_forecast;
+            const nextMonth = new Date();
+            nextMonth.setMonth(nextMonth.getMonth() + 1);
+            const monthName = nextMonth.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+            
+            const confidenceClass = forecast.confidence || 'medium';
+            const confidenceLabel = {
+                'high': 'Élevée',
+                'medium': 'Moyenne',
+                'low': 'Faible'
+            }[confidenceClass] || 'Moyenne';
+            
+            html += `
+                <div class="next-month-forecast">
+                    <div class="forecast-header">
+                        <h3><i class="fa-solid fa-calendar-days"></i> Prévisions pour ${monthName}</h3>
+                        <span class="forecast-confidence ${confidenceClass}">
+                            <i class="fa-solid fa-gauge-high"></i> Confiance: ${confidenceLabel}
+                        </span>
+                    </div>
+                    
+                    <div class="forecast-grid">
+                        <div class="forecast-card forecast-card--deposit">
+                            <div class="forecast-card-icon">
+                                <i class="fa-solid fa-arrow-down"></i>
+                            </div>
+                            <div class="forecast-card-content">
+                                <span class="forecast-card-label">Dépôts estimés</span>
+                                <span class="forecast-card-amount">+${parseFloat(forecast.total_deposits || 0).toFixed(2)} DT</span>
+                            </div>
+                        </div>
+                        
+                        <div class="forecast-card forecast-card--withdrawal">
+                            <div class="forecast-card-icon">
+                                <i class="fa-solid fa-arrow-up"></i>
+                            </div>
+                            <div class="forecast-card-content">
+                                <span class="forecast-card-label">Retraits estimés</span>
+                                <span class="forecast-card-amount">-${parseFloat(forecast.total_withdrawals || 0).toFixed(2)} DT</span>
+                            </div>
+                        </div>
+                        
+                        <div class="forecast-card forecast-card--payment">
+                            <div class="forecast-card-icon">
+                                <i class="fa-solid fa-credit-card"></i>
+                            </div>
+                            <div class="forecast-card-content">
+                                <span class="forecast-card-label">Paiements estimés</span>
+                                <span class="forecast-card-amount">-${parseFloat(forecast.total_payments || 0).toFixed(2)} DT</span>
+                            </div>
+                        </div>
+                        
+                        <div class="forecast-card forecast-card--transfer">
+                            <div class="forecast-card-icon">
+                                <i class="fa-solid fa-right-left"></i>
+                            </div>
+                            <div class="forecast-card-content">
+                                <span class="forecast-card-label">Virements estimés</span>
+                                <span class="forecast-card-amount">-${parseFloat(forecast.total_transfers || 0).toFixed(2)} DT</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="forecast-net-balance ${forecast.net_balance >= 0 ? 'positive' : 'negative'}">
+                        <div class="forecast-net-icon">
+                            <i class="fa-solid fa-scale-balanced"></i>
+                        </div>
+                        <div class="forecast-net-content">
+                            <span class="forecast-net-label">Solde net estimé</span>
+                            <span class="forecast-net-amount">${forecast.net_balance >= 0 ? '+' : ''}${parseFloat(forecast.net_balance || 0).toFixed(2)} DT</span>
+                        </div>
+                    </div>
+                    
+                    ${forecast.key_insights && forecast.key_insights.length > 0 ? `
+                        <div class="forecast-insights">
+                            <h4><i class="fa-solid fa-lightbulb"></i> Points clés</h4>
+                            <ul>
+                                ${forecast.key_insights.map(insight => `<li>${escapeHtml(insight)}</li>`).join('')}
+                            </ul>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        // Predictions grid
+        if (data.predictions && data.predictions.length > 0) {
+            html += '<div class="predictions-section"><h3><i class="fa-solid fa-clock"></i> Prochains paiements prévus</h3>';
+            html += '<div class="predictions-grid">';
+            
+            data.predictions.forEach(pred => {
+                const confidence = pred.confidence || 'medium';
+                const confidenceLabel = {
+                    'high': 'Élevée',
+                    'medium': 'Moyenne',
+                    'low': 'Faible'
+                }[confidence] || 'Moyenne';
+
+                html += `
+                    <div class="prediction-card">
+                        <div class="prediction-card-header">
+                            <span class="prediction-category">${escapeHtml(pred.category)}</span>
+                            <span class="prediction-confidence ${confidence}">
+                                <i class="fa-solid fa-circle"></i> ${confidenceLabel}
+                            </span>
+                        </div>
+                        <div class="prediction-amount">
+                            ${parseFloat(pred.estimated_amount).toFixed(2)} <em>DT</em>
+                        </div>
+                        <div class="prediction-date">
+                            <i class="fa-regular fa-calendar"></i>
+                            Estimé pour le ${formatDate(pred.estimated_date)}
+                        </div>
+                        <div class="prediction-reason">
+                            ${escapeHtml(pred.reason)}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div></div>';
+        } else {
+            html += `
+                <div class="prediction-error">
+                    <i class="fa-solid fa-info-circle"></i>
+                    <h3>Pas assez de données</h3>
+                    <p>Effectuez plus de paiements pour obtenir des prédictions personnalisées.</p>
+                </div>
+            `;
+        }
+
+        // Advice section
+        if (data.advice) {
+            html += `
+                <div class="prediction-advice">
+                    <h3><i class="fa-solid fa-lightbulb"></i> Conseils personnalisés</h3>
+                    <p>${escapeHtml(data.advice)}</p>
+                </div>
+            `;
+        }
+
+        // Provider badge
+        if (data.provider) {
+            html += `
+                <div class="prediction-provider">
+                    <i class="fa-solid fa-robot"></i> Propulsé par ${escapeHtml(data.provider)}
+                </div>
+            `;
+        }
+
+        modalBody.innerHTML = html;
+    }
+
+    function showError(message) {
+        modalBody.innerHTML = `
+            <div class="prediction-error">
+                <i class="fa-solid fa-exclamation-triangle"></i>
+                <h3>Erreur</h3>
+                <p>${escapeHtml(message)}</p>
+            </div>
+        `;
+    }
+
+    function formatDate(dateStr) {
+        if (!dateStr) return 'Date inconnue';
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('fr-FR', { 
+            day: 'numeric', 
+            month: 'long', 
+            year: 'numeric' 
+        });
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+})();
+</script>
+
+
+<script>
+// ── Détection de Badwords côté client ──
+(function() {
+    const badWords = [
+        // Français
+        'merde', 'putain', 'connard', 'salaud', 'enculé', 'fils de pute',
+        'con', 'conne', 'connasse', 'pute', 'salope', 'bordel',
+        'chier', 'foutre', 'bite', 'couille', 'cul', 'nique',
+        'ta gueule', 'ferme ta gueule', 'va te faire', 'enfoiré',
+        'batard', 'bâtard', 'crétin', 'débile', 'idiot', 'imbécile',
+        
+        // Arabe/Tunisien (translittération)
+        'kahba', 'ka7ba', 'zebbi', 'zeb', 'kess', 'omek', 'bouk',
+        'ya7chilek', 'nayek', 'nik', 'tfou', 'hmar', '7mar',
+        'kelb', 'kalb', 'weld el kahba', 'ibn el kahba',
+        
+        // Variantes
+        'p*tain', 'c*n', 'm*rde', 'sal*pe', 'enc*lé'
+    ];
+
+    function detectBadWords(text) {
+        const normalized = text.toLowerCase()
+            // Remplacer les caractères spéciaux l33t speak
+            .replace(/@/g, 'a')
+            .replace(/0/g, 'o')
+            .replace(/1/g, 'i')
+            .replace(/3/g, 'e')
+            .replace(/4/g, 'a')
+            .replace(/5/g, 's')
+            .replace(/7/g, 'h')
+            .replace(/8/g, 'b')
+            .replace(/\$/g, 's')
+            // Enlever les caractères spéciaux
+            .replace(/\*/g, '')
+            .replace(/_/g, '')
+            .replace(/-/g, '')
+            .replace(/\./g, '')
+            .replace(/\s+/g, ' ')
+            // Enlever les accents
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+
+        for (const word of badWords) {
+            const normalizedWord = word.toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '');
+            
+            if (normalized.includes(normalizedWord)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Ajouter la validation sur tous les formulaires de réclamation
+    document.querySelectorAll('form input[name="action"][value="reclamation_save"]').forEach(input => {
+        const form = input.closest('form');
+        if (!form) return;
+        
+        form.addEventListener('submit', function(e) {
+            const textarea = form.querySelector('textarea[name="description"]');
+            if (!textarea) return;
+
+            const description = textarea.value.trim();
+            
+            if (detectBadWords(description)) {
+                e.preventDefault();
+                
+                // Afficher un message d'avertissement
+                const existingWarning = form.querySelector('.badword-warning');
+                if (existingWarning) {
+                    existingWarning.remove();
+                }
+
+                const warning = document.createElement('div');
+                warning.className = 'badword-warning';
+                warning.style.cssText = `
+                    background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.1));
+                    border: 2px solid #ef4444;
+                    border-radius: 12px;
+                    padding: 16px 20px;
+                    margin-top: 16px;
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 12px;
+                    animation: warningShake 0.5s ease;
+                `;
+                
+                warning.innerHTML = `
+                    <i class="fa-solid fa-triangle-exclamation" style="color: #ef4444; font-size: 24px; flex-shrink: 0;"></i>
+                    <div>
+                        <strong style="color: #dc2626; font-size: 15px; display: block; margin-bottom: 6px;">
+                            ⚠️ Langage inapproprié détecté
+                        </strong>
+                        <p style="color: #7f1d1d; font-size: 13px; line-height: 1.5; margin: 0;">
+                            Votre réclamation contient des mots inappropriés. Elle sera automatiquement signalée à l'administrateur pour modération. 
+                            Veuillez reformuler votre message de manière professionnelle.
+                        </p>
+                        <div style="margin-top: 12px; display: flex; gap: 8px;">
+                            <button type="button" class="btn-cancel-badword" style="
+                                padding: 8px 16px;
+                                background: #fff;
+                                border: 2px solid #ef4444;
+                                border-radius: 8px;
+                                color: #dc2626;
+                                font-weight: 700;
+                                font-size: 13px;
+                                cursor: pointer;
+                                transition: all 0.2s;
+                            ">
+                                <i class="fa-solid fa-pen"></i> Modifier
+                            </button>
+                            <button type="button" class="btn-submit-anyway" style="
+                                padding: 8px 16px;
+                                background: linear-gradient(135deg, #ef4444, #dc2626);
+                                border: none;
+                                border-radius: 8px;
+                                color: #fff;
+                                font-weight: 700;
+                                font-size: 13px;
+                                cursor: pointer;
+                                transition: all 0.2s;
+                            ">
+                                <i class="fa-solid fa-paper-plane"></i> Soumettre quand même
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                textarea.parentElement.appendChild(warning);
+                textarea.style.borderColor = '#ef4444';
+                textarea.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.2)';
+                textarea.focus();
+
+                // Bouton modifier
+                warning.querySelector('.btn-cancel-badword').addEventListener('click', function() {
+                    warning.remove();
+                    textarea.style.borderColor = '';
+                    textarea.style.boxShadow = '';
+                    textarea.focus();
+                });
+
+                // Bouton soumettre quand même
+                warning.querySelector('.btn-submit-anyway').addEventListener('click', function() {
+                    warning.remove();
+                    textarea.style.borderColor = '';
+                    textarea.style.boxShadow = '';
+                    form.submit();
+                });
+
+                return false;
+            }
+        });
+    });
+
+    // Animation de shake
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes warningShake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+    `;
+    document.head.appendChild(style);
+})();
+</script>
+
+
+{# ══════════════════════════════════════════════════════════════════════════════ #}
+{# ADVANCED SEARCH STYLES #}
+{# ══════════════════════════════════════════════════════════════════════════════ #}
+<style>
+.tnx-advanced-search-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    color: #ffffff;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
+}
+
+.tnx-advanced-search-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.tnx-advanced-search-panel {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 24px;
+    margin: 16px 0;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.advanced-search-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.advanced-search-field label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+    margin-bottom: 8px;
+}
+
+.advanced-search-field label i {
+    color: #6366f1;
+    font-size: 14px;
+}
+
+.advanced-search-field input,
+.advanced-search-field select {
+    width: 100%;
+    padding: 10px 14px;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 14px;
+    color: #1e293b;
+    background: #ffffff;
+    transition: all 0.2s ease;
+}
+
+.advanced-search-field input:focus,
+.advanced-search-field select:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.advanced-search-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    padding-top: 16px;
+    border-top: 2px solid #e2e8f0;
+}
+
+.btn-apply-filters,
+.btn-reset-filters {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+}
+
+.btn-apply-filters {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: #ffffff;
+    border: none;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
+}
+
+.btn-apply-filters:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.btn-reset-filters {
+    background: #ffffff;
+    color: #64748b;
+    border: 2px solid #e2e8f0;
+}
+
+.btn-reset-filters:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    color: #475569;
+}
+
+/* Active filters indicator */
+.tnx-advanced-search-btn.has-filters {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    position: relative;
+}
+
+.tnx-advanced-search-btn.has-filters::after {
+    content: '';
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 12px;
+    height: 12px;
+    background: #ef4444;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 0.8;
+    }
+}
+</style>
+
+{# ══════════════════════════════════════════════════════════════════════════════ #}
+{# ADVANCED SEARCH JAVASCRIPT #}
+{# ══════════════════════════════════════════════════════════════════════════════ #}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const btnToggle = document.getElementById('btn-toggle-advanced-search');
+    const panel = document.getElementById('advanced-search-panel');
+    const searchInput = document.getElementById('search-input');
+    const sortSelect = document.getElementById('sort-select');
+    
+    // Toggle advanced search panel
+    if (btnToggle && panel) {
+        btnToggle.addEventListener('click', function() {
+            if (panel.style.display === 'none') {
+                panel.style.display = 'block';
+            } else {
+                panel.style.display = 'none';
+            }
+        });
+        
+        // Check if filters are active
+        const urlParams = new URLSearchParams(window.location.search);
+        const hasFilters = urlParams.has('date_from') || urlParams.has('date_to') || 
+                          urlParams.has('amount_min') || urlParams.has('amount_max') || 
+                          urlParams.has('category') || urlParams.has('account_id');
+        
+        if (hasFilters) {
+            btnToggle.classList.add('has-filters');
+            panel.style.display = 'block';
+        }
+    }
+    
+    // Real-time search
+    if (searchInput) {
+        let searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                const url = new URL(window.location.href);
+                url.searchParams.set('tab', 'transactions');
+                url.searchParams.set('q', searchInput.value);
+                url.searchParams.set('page', '1'); // Reset to first page
+                window.location.href = url.toString();
+            }, 500);
+        });
+    }
+    
+    // Sort change
+    if (sortSelect) {
+        sortSelect.addEventListener('change', function() {
+            const [sort, dir] = this.value.split('-');
+            const url = new URL(window.location.href);
+            url.searchParams.set('tab', 'transactions');
+            url.searchParams.set('sort', sort);
+            url.searchParams.set('dir', dir);
+            url.searchParams.set('page', '1'); // Reset to first page
+            window.location.href = url.toString();
+        });
+    }
+});
+</script>
+
+
+{# ══════════════════════════════════════════════════════════════════════════════ #}
+{# MULTI-CURRENCY STYLES #}
+{# ══════════════════════════════════════════════════════════════════════════════ #}
+<style>
+.tnx-amount-currency-wrap {
+    display: flex;
+    gap: 12px;
+    align-items: stretch;
+}
+
+.amount-input-wrapper {
+    flex: 1;
+    position: relative;
+}
+
+.currency-amount-input {
+    width: 100%;
+    padding: 14px 18px;
+    border: 2px solid rgba(255,255,255,.25);
+    border-radius: 12px;
+    background: rgba(255,255,255,.1);
+    color: #fff;
+    font-size: 18px;
+    font-weight: 700;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.currency-amount-input:focus {
+    outline: none;
+    border-color: rgba(99, 102, 241, 0.6);
+    background: rgba(255,255,255,.15);
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+}
+
+.currency-amount-input::placeholder {
+    color: rgba(255,255,255,0.4);
+}
+
+.currency-selector {
+    min-width: 200px;
+}
+
+.currency-select-modern {
+    width: 100%;
+    height: 100%;
+    padding: 14px 16px;
+    border: 2px solid rgba(99, 102, 241, 0.4);
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(79, 70, 229, 0.2) 100%);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23ffffff' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+}
+
+.currency-select-modern:hover {
+    border-color: rgba(99, 102, 241, 0.6);
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.3) 0%, rgba(79, 70, 229, 0.3) 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.currency-select-modern:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2);
+}
+
+.currency-select-modern option {
+    background: #1e293b;
+    color: #fff;
+    padding: 12px;
+    font-weight: 600;
+}
+
+.conversion-preview {
+    background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+    border: 2px solid #10b981;
+    border-radius: 14px;
+    padding: 18px;
+    margin-top: 14px;
+    animation: slideIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    box-shadow: 0 4px 20px rgba(16, 185, 129, 0.35);
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-15px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.conversion-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    color: #d1fae5;
+    font-size: 14px;
+    border-bottom: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.conversion-row:last-child {
+    border-bottom: none;
+}
+
+.conversion-row.total {
+    border-top: 2px solid rgba(16, 185, 129, 0.6);
+    margin-top: 10px;
+    padding-top: 14px;
+    font-weight: 700;
+    font-size: 17px;
+}
+
+.conversion-row .label {
+    opacity: 1;
+    color: #a7f3d0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.conversion-row .value {
+    font-weight: 700;
+    color: #ffffff;
+    font-size: 15px;
+}
+
+.conversion-row.total .value {
+    color: #ffffff;
+    font-size: 20px;
+    background: rgba(16, 185, 129, 0.4);
+    padding: 6px 14px;
+    border-radius: 8px;
+}
+
+.currency-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    background: rgba(99, 102, 241, 0.25);
+    border: 1px solid rgba(99, 102, 241, 0.5);
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #c7d2fe;
+    backdrop-filter: blur(10px);
+}
+
+/* Animation pour le sélecteur de devise */
+@keyframes currencyPulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 0 8px rgba(99, 102, 241, 0);
+    }
+}
+
+.currency-select-modern:focus {
+    animation: currencyPulse 1.5s infinite;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .tnx-amount-currency-wrap {
+        flex-direction: column;
+    }
+    
+    .currency-selector {
+        min-width: 100%;
+    }
+}
+</style>
+
+{# ══════════════════════════════════════════════════════════════════════════════ #}
+{# MULTI-CURRENCY JAVASCRIPT #}
+{# ══════════════════════════════════════════════════════════════════════════════ #}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Configuration des champs de conversion pour chaque type de transaction
+    const conversionConfigs = [
+        { amountId: 'f-amount-depot', currencyId: 'f-currency-depot', previewId: 'conversion-preview-depot' },
+        { amountId: 'f-amount-retrait', currencyId: 'f-currency-retrait', previewId: 'conversion-preview-retrait' },
+        { amountId: 'f-amount-virement', currencyId: 'f-currency-virement', previewId: 'conversion-preview-virement' },
+        { amountId: 'f-montant-paye', currencyId: 'f-currency-paiement', previewId: 'conversion-preview-paiement' }
+    ];
+    
+    // Initialiser la conversion pour chaque configuration
+    conversionConfigs.forEach(config => {
+        const amountInput = document.getElementById(config.amountId);
+        const currencySelect = document.getElementById(config.currencyId);
+        const previewDiv = document.getElementById(config.previewId);
+        
+        if (amountInput && currencySelect && previewDiv) {
+            let conversionTimeout;
+            
+            const updateConversion = () => {
+                clearTimeout(conversionTimeout);
+                conversionTimeout = setTimeout(() => {
+                    performConversion(amountInput, currencySelect, previewDiv);
+                }, 500);
+            };
+            
+            amountInput.addEventListener('input', updateConversion);
+            currencySelect.addEventListener('change', updateConversion);
+        }
+    });
+    
+    function performConversion(amountInput, currencySelect, previewDiv) {
+        const amount = parseFloat(amountInput.value);
+        const currency = currencySelect.value;
+        
+        // Si TND ou montant invalide, cacher l'aperçu
+        if (currency === 'TND' || !amount || amount <= 0) {
+            previewDiv.style.display = 'none';
+            return;
+        }
+        
+        // Appeler l'API de conversion
+        fetch('{{ path('portal_api_currency_convert') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+                amount: amount,
+                from: currency,
+                to: 'TND'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const conv = data.conversion;
+                
+                previewDiv.innerHTML = `
+                    <div class="conversion-row">
+                        <span class="label">💱 Taux de change:</span>
+                        <span class="value">1 ${conv.from} = ${conv.rate.toFixed(4)} TND</span>
+                    </div>
+                    <div class="conversion-row">
+                        <span class="label">Montant converti:</span>
+                        <span class="value">${conv.converted.toFixed(3)} TND</span>
+                    </div>
+                    <div class="conversion-row">
+                        <span class="label">Frais de conversion (0.5%):</span>
+                        <span class="value">${conv.fee.toFixed(3)} TND</span>
+                    </div>
+                    <div class="conversion-row total">
+                        <span class="label">Total à débiter:</span>
+                        <span class="value">${conv.total.toFixed(3)} TND</span>
+                    </div>
+                `;
+                
+                previewDiv.style.display = 'block';
+            } else {
+                console.error('Conversion error:', data.error);
+                previewDiv.style.display = 'none';
+            }
+        })
+        .catch(error => {
+            console.error('Fetch error:', error);
+            previewDiv.style.display = 'none';
+        });
+    }
+});
+</script>
+
+
+{# ══════════════════════════════════════════════════════════════════════════════ #}
+{# SCRIPT SIMPLIFIÉ POUR LA GESTION DES TRANSACTIONS #}
+{# Version 3.0 - Désactive les inputs des sections cachées #}
+{# ══════════════════════════════════════════════════════════════════════════════ #}
+<script src="{{ asset('js/transaction-form-simple.js') }}?v=3.0"></script>
+
+{# ── MODALE DÉTAIL TRANSACTION ── #}
+<div id="tnx-detail-modal" style="display:none;position:fixed;inset:0;z-index:1300;display:none;align-items:center;justify-content:center;padding:1rem;background:rgba(15,23,42,.5);backdrop-filter:blur(6px);">
+    <div style="width:min(520px,100%);background:#fff;border-radius:20px;box-shadow:0 24px 64px rgba(15,23,42,.22);overflow:hidden;animation:tnxDetailIn .25s ease;">
+        {# Header #}
+        <div id="tnx-detail-header" style="padding:1.2rem 1.5rem;display:flex;align-items:center;gap:12px;position:relative;">
+            <div id="tnx-detail-icon" style="width:46px;height:46px;border-radius:14px;display:grid;place-items:center;font-size:1.2rem;flex-shrink:0;"></div>
+            <div>
+                <h3 id="tnx-detail-title" style="margin:0 0 2px;font-size:1rem;font-weight:800;color:#fff;"></h3>
+                <p id="tnx-detail-sub" style="margin:0;font-size:.75rem;color:rgba(255,255,255,.7);"></p>
+            </div>
+            <button onclick="tnxCloseDetail()" style="margin-left:auto;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.25);color:#fff;cursor:pointer;font-size:.9rem;display:grid;place-items:center;">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        {# Montant #}
+        <div style="padding:.8rem 1.5rem;background:#f8faff;border-top:1px solid #e8f0fb;border-bottom:1px solid #e8f0fb;display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#64748b;">Montant</span>
+            <strong id="tnx-detail-montant" style="font-size:1.6rem;font-weight:900;"></strong>
+        </div>
+
+        {# Grille de détails #}
+        <div style="padding:1.2rem 1.5rem;display:grid;grid-template-columns:1fr 1fr;gap:.85rem;">
+            <div class="tnx-d-field">
+                <span class="tnx-d-label"><i class="fa-regular fa-calendar"></i> Date</span>
+                <span id="tnx-detail-date" class="tnx-d-value"></span>
+            </div>
+            <div class="tnx-d-field">
+                <span class="tnx-d-label"><i class="fa-solid fa-tags"></i> Catégorie</span>
+                <span id="tnx-detail-categorie" class="tnx-d-value"></span>
+            </div>
+            <div class="tnx-d-field">
+                <span class="tnx-d-label"><i class="fa-solid fa-building-columns"></i> Compte</span>
+                <span id="tnx-detail-compte" class="tnx-d-value"></span>
+            </div>
+            <div class="tnx-d-field">
+                <span class="tnx-d-label"><i class="fa-solid fa-coins"></i> Devise</span>
+                <span id="tnx-detail-devise" class="tnx-d-value"></span>
+            </div>
+            <div class="tnx-d-field" id="tnx-d-dest-wrap">
+                <span class="tnx-d-label"><i class="fa-solid fa-user"></i> Destinataire</span>
+                <span id="tnx-detail-destinataire" class="tnx-d-value"></span>
+            </div>
+            <div class="tnx-d-field" id="tnx-d-comptedest-wrap">
+                <span class="tnx-d-label"><i class="fa-solid fa-hashtag"></i> Compte dest.</span>
+                <span id="tnx-detail-comptedest" class="tnx-d-value"></span>
+            </div>
+            <div class="tnx-d-field" id="tnx-d-email-wrap" style="grid-column:1/-1;">
+                <span class="tnx-d-label"><i class="fa-solid fa-envelope"></i> Email dest.</span>
+                <span id="tnx-detail-email" class="tnx-d-value"></span>
+            </div>
+            <div class="tnx-d-field" id="tnx-d-desc-wrap" style="grid-column:1/-1;">
+                <span class="tnx-d-label"><i class="fa-solid fa-align-left"></i> Description</span>
+                <span id="tnx-detail-description" class="tnx-d-value" style="font-style:italic;color:#475569;"></span>
+            </div>
+        </div>
+
+        {# Footer #}
+        <div style="padding:.9rem 1.5rem;background:#f8faff;border-top:1px solid #e8f0fb;display:flex;justify-content:flex-end;">
+            <button onclick="tnxCloseDetail()" style="padding:.5rem 1.4rem;border-radius:9px;background:#1e293b;color:#fff;border:none;font-size:.83rem;font-weight:700;cursor:pointer;">
+                Fermer
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+@keyframes tnxDetailIn {
+    from { opacity:0; transform:scale(.94) translateY(12px); }
+    to   { opacity:1; transform:scale(1)  translateY(0); }
+}
+.tnx-d-field { display:flex; flex-direction:column; gap:4px; background:#f8faff; border:1px solid #e8f0fb; border-radius:10px; padding:.65rem .85rem; }
+.tnx-d-label { font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:#94a3b8; display:flex; align-items:center; gap:5px; }
+.tnx-d-value { font-size:.88rem; font-weight:700; color:#1e293b; word-break:break-word; }
+</style>
+
+<script>
+function tnxShowDetail(btn) {
+    var type       = btn.dataset.type || 'DEPOT';
+    var id         = btn.dataset.id;
+    var categorie  = btn.dataset.categorie;
+    var date       = btn.dataset.date;
+    var montant    = btn.dataset.montant;
+    var montantPaye= btn.dataset.montantPaye;
+    var devise     = btn.dataset.devise;
+    var desc       = btn.dataset.description;
+    var compte     = btn.dataset.compte;
+    var dest       = btn.dataset.destinataire;
+    var compteDest = btn.dataset.compteDest;
+    var emailDest  = btn.dataset.emailDest;
+    var user       = btn.dataset.user;
+
+    var isDebit = ['RETRAIT','PAIEMENT'].indexOf(type) !== -1;
+    var isVirement = type === 'VIREMENT';
+    var isPaiement = type === 'PAIEMENT';
+
+    // Couleurs par type
+    var colors = {
+        DEPOT:    { bg: 'linear-gradient(135deg,#065f46,#047857)', icon: '#d1fae5', fa: 'fa-arrow-down' },
+        RETRAIT:  { bg: 'linear-gradient(135deg,#991b1b,#b91c1c)', icon: '#fee2e2', fa: 'fa-arrow-up' },
+        VIREMENT: { bg: 'linear-gradient(135deg,#1e3a8a,#1d4ed8)', icon: '#dbeafe', fa: 'fa-right-left' },
+        PAIEMENT: { bg: 'linear-gradient(135deg,#4c1d95,#6d28d9)', icon: '#ede9fe', fa: 'fa-credit-card' },
+    };
+    var c = colors[type] || colors.DEPOT;
+
+    // Header
+    document.getElementById('tnx-detail-header').style.background = c.bg;
+    var iconEl = document.getElementById('tnx-detail-icon');
+    iconEl.style.background = c.icon;
+    iconEl.innerHTML = '<i class="fa-solid ' + c.fa + '" style="color:' + (isDebit ? '#991b1b' : '#065f46') + '"></i>';
+    document.getElementById('tnx-detail-title').textContent = type + ' #' + id;
+    document.getElementById('tnx-detail-sub').textContent = user !== '-' ? 'Par ' + user : date;
+
+    // Montant
+    var montantEl = document.getElementById('tnx-detail-montant');
+    montantEl.textContent = (isDebit ? '−' : '+') + montant + ' DT';
+    montantEl.style.color = isDebit ? '#dc2626' : '#047857';
+
+    // Champs
+    document.getElementById('tnx-detail-date').textContent       = date;
+    document.getElementById('tnx-detail-categorie').textContent  = categorie;
+    document.getElementById('tnx-detail-compte').textContent     = compte;
+    document.getElementById('tnx-detail-devise').textContent     = devise;
+
+    // Destinataire (virement/paiement seulement)
+    var showDest = dest && dest !== '-';
+    document.getElementById('tnx-d-dest-wrap').style.display      = showDest ? '' : 'none';
+    document.getElementById('tnx-detail-destinataire').textContent = dest;
+
+    var showCompteDest = compteDest && compteDest !== '-';
+    document.getElementById('tnx-d-comptedest-wrap').style.display = showCompteDest ? '' : 'none';
+    document.getElementById('tnx-detail-comptedest').textContent   = compteDest;
+
+    var showEmail = emailDest && emailDest !== '-';
+    document.getElementById('tnx-d-email-wrap').style.display     = showEmail ? '' : 'none';
+    document.getElementById('tnx-detail-email').textContent       = emailDest;
+
+    var showDesc = desc && desc.trim() !== '';
+    document.getElementById('tnx-d-desc-wrap').style.display      = showDesc ? '' : 'none';
+    document.getElementById('tnx-detail-description').textContent = desc;
+
+    // Afficher la modale
+    var modal = document.getElementById('tnx-detail-modal');
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function tnxCloseDetail() {
+    document.getElementById('tnx-detail-modal').style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+// Fermer en cliquant sur le fond
+document.getElementById('tnx-detail-modal').addEventListener('click', function(e) {
+    if (e.target === this) tnxCloseDetail();
+});
+
+// Fermer avec Escape
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') tnxCloseDetail();
+});
+</script>
+
+
+{# ══════════════════════════════════════════════════════════════════════════════ #}
+{# FULLCALENDAR INTEGRATION #}
+{# ══════════════════════════════════════════════════════════════════════════════ #}
+
+<!-- FullCalendar CSS -->
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
+
+<!-- FullCalendar JS -->
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.10/locales/fr.global.min.js"></script>
+
+<style>
+/* Styles personnalisés pour le calendrier */
+.tnx-view-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1.1rem;
+    border-radius: 9px;
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    color: #fff;
+    border: none;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 3px 10px rgba(99, 102, 241, 0.35);
+    transition: all 0.2s ease;
+}
+
+.tnx-view-toggle:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(99, 102, 241, 0.45);
+}
+
+.tnx-view-toggle.active {
+    background: linear-gradient(135deg, #10b981, #059669);
+    box-shadow: 0 3px 10px rgba(16, 185, 129, 0.35);
+}
+
+/* Personnalisation FullCalendar */
+#transaction-calendar {
+    font-family: 'Inter', system-ui, sans-serif;
+}
+
+.fc {
+    --fc-border-color: #e4ecf4;
+    --fc-button-bg-color: #6366f1;
+    --fc-button-border-color: #4f46e5;
+    --fc-button-hover-bg-color: #4f46e5;
+    --fc-button-hover-border-color: #4338ca;
+    --fc-button-active-bg-color: #4338ca;
+    --fc-button-active-border-color: #3730a3;
+    --fc-today-bg-color: rgba(99, 102, 241, 0.1);
+}
+
+.fc .fc-button {
+    border-radius: 8px;
+    font-weight: 600;
+    text-transform: capitalize;
+    padding: 0.5rem 1rem;
+}
+
+.fc .fc-toolbar-title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #1a2b3c;
+}
+
+.fc .fc-daygrid-day-number {
+    font-weight: 600;
+    color: #1a2b3c;
+}
+
+.fc .fc-col-header-cell-cushion {
+    font-weight: 700;
+    color: #6b85a0;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+}
+
+/* Événements personnalisés */
+.fc-event {
+    border: none !important;
+    border-radius: 6px !important;
+    padding: 2px 6px !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+
+.fc-event:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+.fc-event.event-depot {
+    background: linear-gradient(135deg, #22c55e, #16a34a) !important;
+    color: #fff !important;
+}
+
+.fc-event.event-retrait {
+    background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+    color: #fff !important;
+}
+
+.fc-event.event-virement {
+    background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+    color: #fff !important;
+}
+
+.fc-event.event-paiement {
+    background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+    color: #fff !important;
+}
+
+.fc-daygrid-day.fc-day-today {
+    background: rgba(99, 102, 241, 0.05) !important;
+}
+
+.fc-daygrid-day-frame {
+    min-height: 100px;
+}
+
+/* Tooltip personnalisé */
+.calendar-tooltip {
+    position: absolute;
+    background: #1a2b3c;
+    color: #fff;
+    padding: 12px 16px;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    z-index: 9999;
+    font-size: 0.85rem;
+    max-width: 300px;
+    pointer-events: none;
+}
+
+.calendar-tooltip-title {
+    font-weight: 700;
+    margin-bottom: 6px;
+    font-size: 0.9rem;
+}
+
+.calendar-tooltip-amount {
+    font-size: 1.1rem;
+    font-weight: 800;
+    margin: 8px 0;
+}
+
+.calendar-tooltip-meta {
+    font-size: 0.75rem;
+    opacity: 0.8;
+    margin-top: 6px;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('[Calendar] Initializing...');
+    
+    // Données des transactions pour le calendrier
+    const transactions = [
+        {% for item in support.all_transactions|default(items) %}
+        {
+            id: '{{ item.idTransaction }}',
+            title: '{{ item.typeTransaction|default("Transaction") }}',
+            start: '{{ item.dateTransaction|default("now")|date("Y-m-d") }}',
+            amount: {{ item.montant_value|default(0) }},
+            type: '{{ item.typeTransaction|default("DEPOT")|upper }}',
+            category: '{{ item.categorie|default("") }}',
+            description: '{{ item.description|default("")|e('js') }}',
+            userName: '{{ item.user_name|default("Utilisateur")|e('js') }}',
+            className: 'event-{{ item.typeTransaction|default("depot")|lower }}'
+        }{{ loop.last ? '' : ',' }}
+        {% endfor %}
+    ];
+    
+    console.log('[Calendar] Loaded ' + transactions.length + ' transactions');
+    
+    // Initialiser FullCalendar
+    const calendarEl = document.getElementById('transaction-calendar');
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        locale: 'fr',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,dayGridWeek,listWeek'
+        },
+        buttonText: {
+            today: "Aujourd'hui",
+            month: 'Mois',
+            week: 'Semaine',
+            list: 'Liste'
+        },
+        events: transactions.map(t => ({
+            id: t.id,
+            title: formatEventTitle(t),
+            start: t.start,
+            extendedProps: t,
+            className: t.className
+        })),
+        eventClick: function(info) {
+            const transaction = info.event.extendedProps;
+            showTransactionDetails(transaction);
+        },
+        eventMouseEnter: function(info) {
+            const transaction = info.event.extendedProps;
+            showTooltip(info.el, transaction);
+        },
+        eventMouseLeave: function(info) {
+            hideTooltip();
+        },
+        height: 'auto',
+        aspectRatio: 1.8,
+        eventDisplay: 'block',
+        displayEventTime: false,
+        dayMaxEvents: 3,
+        moreLinkText: function(num) {
+            return '+ ' + num + ' autres';
+        }
+    });
+    
+    // Fonction pour formater le titre de l'événement
+    function formatEventTitle(transaction) {
+        const amount = parseFloat(transaction.amount).toFixed(2);
+        const symbol = transaction.type === 'DEPOT' ? '+' : '-';
+        return `${symbol}${amount} DT`;
+    }
+    
+    // Fonction pour afficher les détails d'une transaction
+    function showTransactionDetails(transaction) {
+        const editUrl = '{{ path(route_name, { tab: 'transactions' }) }}?edit_id=' + transaction.id + '#tnx-form-anchor';
+        window.location.href = editUrl;
+    }
+    
+    // Tooltip
+    let tooltipEl = null;
+    
+    function showTooltip(element, transaction) {
+        hideTooltip();
+        
+        const rect = element.getBoundingClientRect();
+        tooltipEl = document.createElement('div');
+        tooltipEl.className = 'calendar-tooltip';
+        
+        const typeIcons = {
+            'DEPOT': '<i class="fa-solid fa-arrow-down"></i>',
+            'RETRAIT': '<i class="fa-solid fa-arrow-up"></i>',
+            'VIREMENT': '<i class="fa-solid fa-right-left"></i>',
+            'PAIEMENT': '<i class="fa-solid fa-credit-card"></i>'
+        };
+        
+        const typeColors = {
+            'DEPOT': '#22c55e',
+            'RETRAIT': '#f59e0b',
+            'VIREMENT': '#3b82f6',
+            'PAIEMENT': '#ef4444'
+        };
+        
+        const icon = typeIcons[transaction.type] || '<i class="fa-solid fa-circle"></i>';
+        const color = typeColors[transaction.type] || '#6366f1';
+        const amount = parseFloat(transaction.amount).toFixed(2);
+        
+        tooltipEl.innerHTML = `
+            <div class="calendar-tooltip-title">
+                ${icon} ${transaction.title}
+            </div>
+            <div class="calendar-tooltip-amount" style="color:${color}">
+                ${amount} DT
+            </div>
+            ${transaction.category ? `<div><strong>Catégorie:</strong> ${transaction.category}</div>` : ''}
+            ${transaction.description ? `<div><strong>Description:</strong> ${transaction.description}</div>` : ''}
+            <div class="calendar-tooltip-meta">
+                <i class="fa-solid fa-user"></i> ${transaction.userName}
+            </div>
+        `;
+        
+        document.body.appendChild(tooltipEl);
+        
+        tooltipEl.style.left = (rect.left + rect.width / 2 - tooltipEl.offsetWidth / 2) + 'px';
+        tooltipEl.style.top = (rect.top - tooltipEl.offsetHeight - 10) + 'px';
+    }
+    
+    function hideTooltip() {
+        if (tooltipEl) {
+            tooltipEl.remove();
+            tooltipEl = null;
+        }
+    }
+    
+    // Toggle entre vue liste et vue calendrier
+    const btnToggleCalendar = document.getElementById('btn-toggle-calendar');
+    const timelineView = document.getElementById('tnx-timeline-view');
+    const calendarView = document.getElementById('tnx-calendar-view');
+    
+    let isCalendarView = false;
+    
+    btnToggleCalendar.addEventListener('click', function() {
+        isCalendarView = !isCalendarView;
+        
+        if (isCalendarView) {
+            timelineView.style.display = 'none';
+            calendarView.style.display = 'block';
+            btnToggleCalendar.classList.add('active');
+            btnToggleCalendar.innerHTML = '<i class="fa-solid fa-list"></i><span>Liste</span>';
+            calendar.render();
+            console.log('[Calendar] Switched to calendar view');
+        } else {
+            timelineView.style.display = 'block';
+            calendarView.style.display = 'none';
+            btnToggleCalendar.classList.remove('active');
+            btnToggleCalendar.innerHTML = '<i class="fa-solid fa-calendar-days"></i><span>Calendrier</span>';
+            console.log('[Calendar] Switched to list view');
+        }
+    });
+    
+    console.log('[Calendar] Initialization complete');
+});
 </script>

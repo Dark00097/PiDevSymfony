@@ -19,6 +19,8 @@ use App\Service\BankingService;
 use App\Service\GamificationService;
 use App\Service\InsightsService;
 use App\Service\NotificationService;
+use App\Service\PaymentEmailService;
+use Doctrine\DBAL\Connection;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
@@ -38,6 +40,8 @@ final class PortalController extends AbstractController
         private readonly PartnersSectionController $partnersSectionController,
         private readonly NotificationsSectionController $notificationsSectionController,
         private readonly ProfileSectionController $profileSectionController,
+        private readonly PaymentEmailService $paymentEmailService,
+        private readonly Connection $connection,
     ) {
     }
 
@@ -87,7 +91,12 @@ final class PortalController extends AbstractController
             $sort = trim((string) $request->request->get('sort', $request->query->get('sort', '')));
             $dir = trim((string) $request->request->get('dir', $request->query->get('dir', '')));
             $action = (string) $request->request->get('action', '');
-            $this->handlePortalAction($request, $authService, $bankingService, $notificationService, $insightsService, $gamificationService, $user);
+            $redirectResponse = $this->handlePortalAction($request, $authService, $bankingService, $notificationService, $insightsService, $gamificationService, $user);
+            
+            // Si une redirection est retournée (ex: Stripe), l'exécuter
+            if ($redirectResponse instanceof Response) {
+                return $redirectResponse;
+            }
 
             if ($selectedAccount === '' && $action === 'vault_save') {
                 $selectedAccount = trim((string) $request->request->get('idCompte', ''));
@@ -176,9 +185,17 @@ final class PortalController extends AbstractController
         InsightsService $insightsService,
         GamificationService $gamificationService,
         array $user
-    ): void {
+    ): ?Response {
         $action = (string) $request->request->get('action', '');
         $userId = (int) $user['idUser'];
+        
+        error_log("=== PORTAL ACTION DEBUG ===");
+        error_log("Action reçue: " . $action);
+        error_log("User ID: " . $userId);
+        error_log("Méthode: " . $request->getMethod());
+        error_log("Données POST: " . json_encode($request->request->all()));
+        error_log("=== FIN DEBUG ===");
+        
         $profileImagePath = $action === 'profile_save'
             ? $this->handleProfileImageUpload($request, 'profile_image')
             : null;
@@ -189,7 +206,7 @@ final class PortalController extends AbstractController
             foreach ([
                 $accountsFlash,
                 str_starts_with($action, 'vault_') ? null : $this->coffrevirtuelleSectionController->handlePortalAction($action, $request, $bankingService, $userId),
-                $this->transactionsSectionController->handlePortalAction($action, $request, $bankingService, $userId),
+                $this->transactionsSectionController->handlePortalAction($action, $request, $bankingService, $userId, $this->paymentEmailService, $this->connection),
                 $this->reclamationSectionController->handlePortalAction($action, $request, $bankingService, $userId),
                 $this->creditsSectionController->handlePortalAction($action, $request, $bankingService, $userId),
                 $this->garantiesSectionController->handlePortalAction($action, $request, $bankingService, $userId),
@@ -198,8 +215,16 @@ final class PortalController extends AbstractController
                 $this->notificationsSectionController->handleAction($action, $notificationService, $user),
             ] as $flash) {
                 if ($flash !== null) {
+                    error_log("PortalController: Flash reçu - Type: " . ($flash['type'] ?? 'unknown'));
+                    
+                    // Si c'est une redirection Stripe, rediriger
+                    if (isset($flash['type']) && $flash['type'] === 'redirect_stripe' && isset($flash['transaction_id'])) {
+                        error_log("PortalController: Redirection vers Stripe pour transaction #" . $flash['transaction_id']);
+                        return $this->redirectToRoute('portal_stripe_checkout', ['id' => $flash['transaction_id']]);
+                    }
+                    
                     $this->addFlash((string) $flash['type'], (string) $flash['message']);
-                    return;
+                    return null;
                 }
             }
 
@@ -215,8 +240,16 @@ final class PortalController extends AbstractController
                     break;
             }
         } catch (\Throwable $exception) {
+            error_log("=== EXCEPTION DANS PORTAL ACTION ===");
+            error_log("Message: " . $exception->getMessage());
+            error_log("File: " . $exception->getFile() . ":" . $exception->getLine());
+            error_log("Trace: " . $exception->getTraceAsString());
+            error_log("=== FIN EXCEPTION ===");
+            
             $this->addFlash('error', $exception->getMessage());
         }
+        
+        return null;
     }
 
     private function buildPortalTabData(
@@ -380,5 +413,92 @@ final class PortalController extends AbstractController
             'profile' => ['styles/interfaces/sections/portal-profile.css'],
             default => [],
         };
+    }
+
+    #[Route('/portal/api/predict-payments', name: 'portal_api_predict_payments', methods: ['POST'])]
+    public function predictPayments(
+        Request $request,
+        AuthService $authService,
+        BankingService $bankingService,
+        \App\Service\PaymentPredictionService $predictionService
+    ): Response {
+        $session = $request->getSession();
+        $user = $authService->getAuthenticatedUser($session);
+        
+        if ($user === null) {
+            return $this->json(['error' => 'Non authentifié'], 401);
+        }
+
+        $userId = (int) ($user['idUser'] ?? 0);
+        if ($userId <= 0) {
+            return $this->json(['error' => 'Utilisateur invalide'], 400);
+        }
+
+        try {
+            // Récupérer toutes les transactions de l'utilisateur
+            $transactions = $bankingService->listTransactions($userId);
+            
+            // Obtenir les prédictions
+            $result = $predictionService->predictFuturePayments($transactions);
+            
+            return $this->json([
+                'success' => true,
+                'predictions' => $result['predictions'],
+                'analysis' => $result['analysis'],
+                'advice' => $result['advice'],
+                'provider' => $result['provider'] ?? 'Unknown',
+            ]);
+            
+        } catch (\Throwable $e) {
+            error_log('Prediction error: ' . $e->getMessage());
+            return $this->json([
+                'error' => 'Erreur lors de la génération des prédictions',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    #[Route('/portal/api/reclamation/moderate', name: 'portal_api_reclamation_moderate', methods: ['POST'])]
+    public function moderateReclamation(
+        Request $request,
+        AuthService $authService,
+        BankingService $bankingService
+    ): Response {
+        $session = $request->getSession();
+        $user = $authService->getAuthenticatedUser($session);
+        
+        if ($user === null || strtoupper((string) ($user['role'] ?? '')) !== 'ROLE_ADMIN') {
+            return $this->json(['error' => 'Accès refusé'], 403);
+        }
+
+        $reclamationId = (int) $request->request->get('idReclamation', 0);
+        $action = trim((string) $request->request->get('action', ''));
+
+        if ($reclamationId <= 0) {
+            return $this->json(['error' => 'ID réclamation invalide'], 400);
+        }
+
+        if (!in_array($action, ['accept', 'blur'], true)) {
+            return $this->json(['error' => 'Action invalide'], 400);
+        }
+
+        try {
+            $isBlurred = $action === 'blur' ? 1 : 0;
+            
+            $bankingService->moderateReclamation($reclamationId, $isBlurred);
+            
+            return $this->json([
+                'success' => true,
+                'message' => $action === 'blur' ? 'Réclamation floutée' : 'Réclamation acceptée',
+                'is_blurred' => $isBlurred,
+            ]);
+            
+        } catch (\Throwable $e) {
+            error_log('Moderation error: ' . $e->getMessage());
+            return $this->json([
+                'error' => 'Erreur lors de la modération',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
     }
 }

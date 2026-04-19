@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ULTRA SIMPLE TEST</title>
+</head>
+<body>
+    <h1>ULTRA SIMPLE - AUCUN JAVASCRIPT</h1>
+    
+    {% if app.request.method == 'POST' %}
+        <div style="background: green; color: white; padding: 20px; margin: 20px 0;">
+            <h2>✅ FORMULAIRE SOUMIS AVEC SUCCÈS!</h2>
+            <p>Données reçues:</p>
+            {% for key, value in app.request.request.all %}
+                <strong>{{ key }}:</strong> {{ value }}<br>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <form method="post" action="{{ path('ultra_simple_test') }}">
+        <p>
+            <label>Nom:</label><br>
+            <input type="text" name="nom" value="Test" required>
+        </p>
+        
+        <p>
+            <label>Email:</label><br>
+            <input type="email" name="email" value="test@test.com" required>
+        </p>
+        
+        <p>
+            <button type="submit">ENVOYER</button>
+        </p>
+    </form>
+    
+    <p><strong>Instructions:</strong> Cliquez sur "ENVOYER" et regardez si la page se rafraîchit et affiche un message vert.</p>
+</body>
+</html>

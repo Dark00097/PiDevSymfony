@@ -98,12 +98,12 @@ final class ExportService
     public function buildTransactionQrSvg(array $transaction): string
     {
         $payload = sprintf(
-            "Transaction #%s\nCategory: %s\nDate: %s\nAmount: %s DT\nStatus: %s",
+            "Transaction #%s\nCategorie: %s\nDate: %s\nMontant: %s DT\nType: %s",
             $transaction['idTransaction'] ?? '-',
             $transaction['categorie'] ?? '-',
             $transaction['dateTransaction'] ?? '-',
-            $transaction['montant_value'] ?? '0.00',
-            $transaction['statutTransaction'] ?? '-'
+            number_format((float) ($transaction['montant_value'] ?? 0), 3, '.', ' '),
+            $transaction['typeTransaction'] ?? '-'
         );
 
         $builder = new Builder(

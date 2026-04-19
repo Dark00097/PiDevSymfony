@@ -214,15 +214,15 @@ final class PaymentService
             );
 
             $this->connection->insert('transactions', [
-                'idCompte' => $accountId,
-                'idUser' => $userId,
-                'categorie' => 'Paiement credit',
+                'idCompte'        => $accountId,
+                'idUser'          => $userId,
+                'categorie'       => 'Paiement credit',
                 'dateTransaction' => date('Y-m-d'),
-                'montant' => $this->security->encryptAmount($amount),
+                'montant'         => $amount,
                 'typeTransaction' => 'DEBIT',
-                'soldeApres' => $newBalance,
-                'description' => $description,
-                'montantPaye' => $this->security->encryptAmount($amount),
+                'soldeApres'      => $newBalance,
+                'description'     => $description,
+                'montantPaye'     => $amount,
             ]);
 
             $totalPaid = $this->calculateTotalPaid($userId, $creditId) + $amount;
@@ -277,9 +277,9 @@ final class PaymentService
             $history[] = [
                 'idTransaction' => $row['idTransaction'],
                 'dateTransaction' => $row['dateTransaction'],
-                'amount' => (float) ($this->security->decryptAmount((string) ($row['montant'] ?? '')) ?? 0.0),
+                'amount' => (float) ($row['montant'] ?? 0.0),
                 'description' => (string) ($row['description'] ?? ''),
-                'status' => (string) ($row['statutTransaction'] ?? ''),
+                'type' => (string) ($row['typeTransaction'] ?? ''),
             ];
         }
 

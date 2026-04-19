@@ -141,7 +141,8 @@ final class InsightsService
             $type = strtoupper((string) ($transaction['typeTransaction'] ?? ''));
             $category = trim((string) ($transaction['categorie'] ?? 'Autre')) ?: 'Autre';
 
-            if ($type === 'DEBIT') {
+            // RETRAIT et PAIEMENT sont des débits
+            if (in_array($type, ['RETRAIT', 'PAIEMENT'], true)) {
                 $byCategory[$category] = ($byCategory[$category] ?? 0.0) + $amount;
                 if ($month === $this->currentMonth()) {
                     $monthlyDebits += $amount;
@@ -428,7 +429,7 @@ final class InsightsService
             }
 
             $month = substr($date, 0, 7);
-            $creditsByMonth[$month] = ($creditsByMonth[$month] ?? 0.0) + ((float) ($this->security->decryptAmount((string) ($row['montant'] ?? '')) ?? 0));
+            $creditsByMonth[$month] = ($creditsByMonth[$month] ?? 0.0) + (float) ($row['montant'] ?? 0);
         }
 
         $currentIncome = (float) ($creditsByMonth[$currentMonth] ?? 0.0);

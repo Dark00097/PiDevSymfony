@@ -22,6 +22,8 @@ final class BankingService
         private readonly LegacyBankingSecurity $security,
         private readonly NotificationService $notificationService,
         private readonly ActivityService $activityService,
+        private readonly SentimentAnalysisService $sentimentAnalysisService,
+        private readonly CurrencyExchangeService $currencyExchangeService,
     ) {
     }
 
@@ -295,10 +297,12 @@ final class BankingService
         $sql = 'SELECT t.*,
                        c.idUser AS compte_user_id,
                        COALESCE(t.idUser, c.idUser) AS resolved_user_id,
-                       CONCAT(COALESCE(u.prenom, \'\'), \' \', COALESCE(u.nom, \'\')) AS user_name
+                       CONCAT(COALESCE(u.prenom, \'\'), \' \', COALESCE(u.nom, \'\')) AS user_name,
+                       cd.numeroCompte AS numeroCompteDestinataire
                 FROM transactions t
-                LEFT JOIN compte c ON c.idCompte = t.idCompte
-                LEFT JOIN users u ON u.idUser = COALESCE(t.idUser, c.idUser)';
+                LEFT JOIN compte c  ON c.idCompte  = t.idCompte
+                LEFT JOIN compte cd ON cd.idCompte = t.idCompteDestinataire
+                LEFT JOIN users u   ON u.idUser    = COALESCE(t.idUser, c.idUser)';
         $params = [];
         if ($userId !== null) {
             $sql .= ' WHERE (t.idUser = ? OR c.idUser = ?)';
@@ -309,15 +313,15 @@ final class BankingService
 
         $rows = $this->connection->fetchAllAssociative($sql, $params);
         foreach ($rows as &$row) {
-            $row['montant_value'] = $this->security->decryptAmount($row['montant'] ?? null) ?? 0.0;
-            $row['montantPaye_value'] = $this->security->decryptAmount($row['montantPaye'] ?? null) ?? 0.0;
+            $row['montant_value']     = isset($row['montant'])     ? (float) $row['montant']     : 0.0;
+            $row['montantPaye_value'] = isset($row['montantPaye']) ? (float) $row['montantPaye'] : 0.0;
             $row['is_anomalie'] = $this->isTransactionAnomaly((int) ($row['resolved_user_id'] ?? $row['idUser'] ?? 0), (float) $row['montant_value']);
         }
 
         return $rows;
     }
 
-    public function saveTransaction(array $data, ?int $id = null, ?int $forcedUserId = null): void
+    public function saveTransaction(array $data, ?int $id = null, ?int $forcedUserId = null): ?int
     {
         $existing = null;
         if ($id !== null) {
@@ -330,13 +334,13 @@ final class BankingService
             }
         }
 
-        $accountId = $this->nullableInt($data['idCompte'] ?? null) ?? $this->nullableInt($existing['idCompte'] ?? null);
+        $accountId = $this->nullableInt($data['compte'] ?? $data['idCompte'] ?? null) ?? $this->nullableInt($existing['idCompte'] ?? null);
         if ($accountId === null) {
             throw new \InvalidArgumentException('Compte requis pour enregistrer une transaction.');
         }
 
         $account = $this->connection->fetchAssociative(
-            'SELECT idCompte, idUser FROM compte WHERE idCompte = ? LIMIT 1',
+            'SELECT idCompte, idUser, solde FROM compte WHERE idCompte = ? LIMIT 1',
             [$accountId]
         );
         if (!$account) {
@@ -352,34 +356,178 @@ final class BankingService
             throw new \InvalidArgumentException('Utilisateur introuvable pour cette transaction.');
         }
 
-        $amount = (float) ($data['montant'] ?? 0);
-        $paidAmount = (float) ($data['montantPaye'] ?? 0);
+        $type       = strtoupper(trim((string) ($data['typeTransaction'] ?? 'DEPOT')));
+        $amount     = (float) ($data['montant'] ?? 0);
+        
+        // ═══════════════════════════════════════════════════════════════
+        // MULTI-CURRENCY CONVERSION LOGIC
+        // ═══════════════════════════════════════════════════════════════
+        $currency = strtoupper(trim((string) ($data['currency'] ?? 'TND')));
+        $originalAmount = $amount;
+        $originalCurrency = $currency;
+        $exchangeRate = 1.0;
+        $conversionFee = 0.0;
+        
+        // Si la devise n'est pas TND, convertir
+        if ($currency !== 'TND' && $amount > 0) {
+            try {
+                $conversion = $this->currencyExchangeService->getConversionDetails($amount, $currency, 'TND');
+                
+                $exchangeRate = $conversion['rate'];
+                $convertedAmount = $conversion['converted'];
+                $conversionFee = $conversion['fee'];
+                $amount = $conversion['total']; // Montant total en TND (converti + frais)
+                
+                error_log(sprintf(
+                    'Currency conversion: %s %s → %s TND (rate: %s, fee: %s)',
+                    $originalAmount,
+                    $originalCurrency,
+                    $amount,
+                    $exchangeRate,
+                    $conversionFee
+                ));
+            } catch (\Exception $e) {
+                error_log('Currency conversion error: ' . $e->getMessage());
+                throw new \RuntimeException('Erreur lors de la conversion de devise: ' . $e->getMessage());
+            }
+        }
+        // ═══════════════════════════════════════════════════════════════
+        
+        // Pour PAIEMENT: montant = 0, montantPaye = le montant à payer
+        // Pour les autres types: montant = le montant, montantPaye = 0
+        if ($type === 'PAIEMENT') {
+            $paidAmount = (float) ($data['montantPaye'] ?? 0);
+            // Pour un nouveau paiement, on stocke le montant total dans 'montant' et montantPaye = 0
+            if ($id === null) {
+                $amount = $paidAmount; // Le montant total à payer
+                $paidAmount = 0; // Pas encore payé
+            }
+        } else {
+            $paidAmount = 0; // Les autres types n'utilisent pas montantPaye
+        }
+        
+        $oldSolde   = (float) ($account['solde'] ?? 0);
+
+        // Validation du type de transaction
+        $validTypes = ['DEPOT', 'RETRAIT', 'VIREMENT', 'PAIEMENT'];
+        if (!in_array($type, $validTypes, true)) {
+            throw new \InvalidArgumentException('Type de transaction invalide. Types autorisés : ' . implode(', ', $validTypes));
+        }
+
+        // Calcul du nouveau solde selon le type
+        $newSolde = $oldSolde;
+        switch ($type) {
+            case 'DEPOT':
+                if ($amount <= 0) {
+                    throw new \InvalidArgumentException('Le montant du dépôt doit être supérieur à 0.');
+                }
+                $newSolde = $oldSolde + $amount;
+                break;
+                
+            case 'RETRAIT':
+                if ($amount <= 0) {
+                    throw new \InvalidArgumentException('Le montant du retrait doit être supérieur à 0.');
+                }
+                if ($oldSolde < $amount) {
+                    throw new \RuntimeException('Solde insuffisant pour effectuer ce retrait.');
+                }
+                $newSolde = $oldSolde - $amount;
+                break;
+                
+            case 'VIREMENT':
+                if ($amount <= 0) {
+                    throw new \InvalidArgumentException('Le montant du virement doit être supérieur à 0.');
+                }
+                if ($oldSolde < $amount) {
+                    throw new \RuntimeException('Solde insuffisant pour effectuer ce virement.');
+                }
+                $newSolde = $oldSolde - $amount;
+                break;
+                
+            case 'PAIEMENT':
+                if ($amount <= 0) {
+                    throw new \InvalidArgumentException('Le montant du paiement doit être supérieur à 0.');
+                }
+                if ($oldSolde < $amount) {
+                    throw new \RuntimeException('Solde insuffisant pour effectuer ce paiement.');
+                }
+                // Pour les paiements, on ne débite PAS immédiatement
+                // Le solde sera débité après confirmation du paiement Stripe
+                $newSolde = $oldSolde;
+                break;
+        }
+
+        if ($newSolde < 0) {
+            throw new \RuntimeException('Solde insuffisant : cette transaction rendrait le solde negatif.');
+        }
+
+        // Compte destinataire (string pour VIREMENT)
+        $destAccountNumber = trim((string) ($data['compteDestinataire'] ?? $data['idCompteDestinataire'] ?? ''));
+        $destAccount = null;
+        if ($destAccountNumber !== '' && $type === 'VIREMENT') {
+            $destAccount = $this->connection->fetchAssociative(
+                'SELECT idCompte, solde, numeroCompte FROM compte WHERE numeroCompte = ? LIMIT 1',
+                [$destAccountNumber]
+            );
+            if (!$destAccount) {
+                throw new \RuntimeException('Compte destinataire introuvable : ' . $destAccountNumber);
+            }
+        }
+
         $payload = [
-            'idCompte' => $accountId,
-            'idUser' => $userId,
-            'categorie' => trim((string) ($data['categorie'] ?? '')),
-            'dateTransaction' => trim((string) ($data['dateTransaction'] ?? date('Y-m-d'))),
-            'montant' => $this->security->encryptAmount($amount),
-            'typeTransaction' => trim((string) ($data['typeTransaction'] ?? 'Credit')),
-            'soldeApres' => ($data['soldeApres'] ?? '') !== '' ? (float) $data['soldeApres'] : null,
-            'description' => trim((string) ($data['description'] ?? '')),
-            'montantPaye' => $this->security->encryptAmount($paidAmount),
+            'idCompte'             => $accountId,
+            'idUser'               => $userId,
+            'categorie'            => trim((string) ($data['categorie'] ?? '')),
+            'dateTransaction'      => trim((string) ($data['dateTransaction'] ?? date('Y-m-d'))),
+            'montant'              => $amount,
+            'typeTransaction'      => $type,
+            'soldeApres'           => $newSolde,
+            'description'          => trim((string) ($data['description'] ?? '')),
+            'montantPaye'          => $paidAmount,
+            'idCompteDestinataire' => $destAccountNumber !== '' ? $destAccountNumber : null,
+            'nomDestinataire'      => trim((string) ($data['nomDestinataire'] ?? '')),
+            'emailDestinataire'    => trim((string) ($data['emailDestinataire'] ?? '')),
+            // Multi-currency fields
+            'original_amount'      => $originalAmount,
+            'original_currency'    => $originalCurrency,
+            'exchange_rate'        => $exchangeRate,
+            'conversion_fee'       => $conversionFee,
         ];
 
-        if ($id === null) {
-            $this->connection->insert('transactions', $payload);
-            $this->activityService->log($userId, 'TRANSACTION_CREATE', 'Symfony portal', 'Transaction created.');
+        $this->connection->beginTransaction();
+        try {
+            if ($id === null) {
+                $this->connection->insert('transactions', $payload);
+                $insertedId = (int) $this->connection->lastInsertId();
+                $this->activityService->log($userId, 'TRANSACTION_CREATE', 'Symfony portal', 'Transaction created.');
+                $id = $insertedId;
+            } else {
+                $criteria = ['idTransaction' => $id];
+                if ($forcedUserId !== null) {
+                    $criteria['idUser'] = $forcedUserId;
+                }
+                $this->connection->update('transactions', $payload, $criteria);
+                $this->activityService->log($userId, 'TRANSACTION_UPDATE', 'Symfony portal', sprintf('Transaction #%d updated.', $id));
+            }
 
-            return;
+            // Mise à jour du solde du compte source (sauf pour les paiements en attente)
+            if ($type !== 'PAIEMENT') {
+                $this->connection->update('compte', ['solde' => $newSolde], ['idCompte' => $accountId]);
+            }
+
+            // Mise à jour du solde du compte destinataire si virement
+            if ($destAccount !== null && $type === 'VIREMENT') {
+                $destNewSolde = (float) $destAccount['solde'] + $amount;
+                $this->connection->update('compte', ['solde' => $destNewSolde], ['idCompte' => $destAccount['idCompte']]);
+            }
+
+            $this->connection->commit();
+            
+            return $id;
+        } catch (\Throwable $e) {
+            $this->connection->rollBack();
+            throw $e;
         }
-
-        $criteria = ['idTransaction' => $id];
-        if ($forcedUserId !== null) {
-            $criteria['idUser'] = $forcedUserId;
-        }
-
-        $this->connection->update('transactions', $payload, $criteria);
-        $this->activityService->log($userId, 'TRANSACTION_UPDATE', 'Symfony portal', sprintf('Transaction #%d updated.', $id));
     }
 
     public function deleteTransaction(int $id, ?int $forcedUserId = null): void
@@ -987,6 +1135,10 @@ final class BankingService
 
         $description = trim((string) ($data['description'] ?? ''));
         $inappropriate = $this->containsBadWord($description);
+        
+        // Analyser le sentiment
+        $sentimentAnalysis = $this->sentimentAnalysisService->analyzeSentiment($description);
+        
         $payload = [
             'idUser' => $resolvedUserId,
             'idTransaction' => $transactionId,
@@ -996,6 +1148,7 @@ final class BankingService
             'status' => $inappropriate ? 'Signalée' : trim((string) ($data['status'] ?? 'En attente')),
             'is_inappropriate' => $inappropriate ? 1 : 0,
             'is_blurred' => (int) ((string) ($data['is_blurred'] ?? '0') === '1'),
+            'sentiment' => $sentimentAnalysis['sentiment'],
         ];
 
         if ($id === null) {
@@ -1034,6 +1187,18 @@ final class BankingService
         if ($forcedUserId !== null) {
             $this->activityService->log($forcedUserId, 'RECLAMATION_DELETE', 'Symfony portal', sprintf('Complaint #%d deleted.', $id));
         }
+    }
+
+    public function moderateReclamation(int $id, int $isBlurred): void
+    {
+        $this->connection->update(
+            'reclamation',
+            [
+                'is_blurred' => $isBlurred,
+                'is_inappropriate' => 0, // Marquer comme modéré
+            ],
+            ['idReclamation' => $id]
+        );
     }
 
     public function listVaults(?int $userId = null): array
@@ -1328,7 +1493,7 @@ final class BankingService
         $sum = 0.0;
         $count = 0;
         foreach ($rows as $row) {
-            $value = $this->security->decryptAmount($row['montant'] ?? null);
+            $value = isset($row['montant']) ? (float) $row['montant'] : null;
             if ($value !== null && $value > 0) {
                 $sum += $value;
                 ++$count;
@@ -1554,12 +1719,10 @@ final class BankingService
                 continue;
             }
 
-            $type = strtolower(trim((string) ($transaction['typeTransaction'] ?? '')));
-            $isEntry = str_contains($type, 'credit')
-                || str_contains($type, 'depot')
-                || str_contains($type, 'entree')
-                || str_contains($type, 'entrée')
-                || str_contains($type, 'versement');
+            $type = strtoupper(trim((string) ($transaction['typeTransaction'] ?? '')));
+            
+            // Types d'entrée : DEPOT et VIREMENT
+            $isEntry = in_array($type, ['DEPOT', 'VIREMENT'], true);
 
             if ($isEntry) {
                 $entries[$monthIndex] += $amount;

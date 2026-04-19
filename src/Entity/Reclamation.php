@@ -61,6 +61,9 @@ class Reclamation
     #[ORM\Column(name: 'is_blurred', type: 'boolean')]
     private bool $isBlurred;
 
+    #[ORM\Column(name: 'sentiment', type: 'string', length: 20)]
+    private string $sentiment = 'neutral';
+
     #[ORM\ManyToOne(targetEntity: Users::class)]
     #[ORM\JoinColumn(name: 'idUser', referencedColumnName: 'idUser', nullable: true)]
     private ?Users $users = null;
@@ -70,6 +73,117 @@ class Reclamation
     #[Assert\NotNull(message: 'Veuillez selectionner une transaction.')]
     private ?Transactions $transactions = null;
 
+    public function getIdreclamation(): ?int
+    {
+        return $this->idreclamation;
+    }
 
+    public function getDatereclamation(): ?\DateTimeInterface
+    {
+        return $this->datereclamation;
+    }
 
+    public function setDatereclamation(\DateTimeInterface $datereclamation): self
+    {
+        $this->datereclamation = $datereclamation;
+        return $this;
+    }
+
+    public function getTypereclamation(): ?string
+    {
+        return $this->typereclamation;
+    }
+
+    public function setTypereclamation(string $typereclamation): self
+    {
+        $this->typereclamation = $typereclamation;
+        return $this;
+    }
+
+    public function getDescription(): ?string
+    {
+        return $this->description;
+    }
+
+    public function setDescription(string $description): self
+    {
+        $this->description = $description;
+        return $this;
+    }
+
+    public function getStatus(): ?string
+    {
+        return $this->status;
+    }
+
+    public function setStatus(string $status): self
+    {
+        $this->status = $status;
+        return $this;
+    }
+
+    public function isInappropriate(): bool
+    {
+        return $this->isInappropriate;
+    }
+
+    public function setIsInappropriate(bool $isInappropriate): self
+    {
+        $this->isInappropriate = $isInappropriate;
+        return $this;
+    }
+
+    public function isBlurred(): bool
+    {
+        return $this->isBlurred;
+    }
+
+    public function setIsBlurred(bool $isBlurred): self
+    {
+        $this->isBlurred = $isBlurred;
+        return $this;
+    }
+
+    public function getSentiment(): string
+    {
+        return $this->sentiment;
+    }
+
+    public function setSentiment(string $sentiment): self
+    {
+        $this->sentiment = $sentiment;
+        return $this;
+    }
+
+    public function getUsers(): ?Users
+    {
+        return $this->users;
+    }
+
+    public function setUsers(?Users $users): self
+    {
+        $this->users = $users;
+        return $this;
+    }
+
+    public function getTransactions(): ?Transactions
+    {
+        return $this->transactions;
+    }
+
+    public function setTransactions(?Transactions $transactions): self
+    {
+        $this->transactions = $transactions;
+        return $this;
+    }
+
+    public static function getReclamationTypes(): array
+    {
+        return self::RECLAMATION_TYPES;
+    }
+
+    public static function getReclamationStatuses(): array
+    {
+        return self::RECLAMATION_STATUSES;
+    }
 }

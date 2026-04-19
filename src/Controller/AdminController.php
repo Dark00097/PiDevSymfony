@@ -577,4 +577,202 @@ final class AdminController extends AbstractController
 
         return [$tab, $panel];
     }
+
+    #[Route('/admin/api/reclamations/analyse', name: 'admin_api_reclamations_analyse', methods: ['POST'])]
+    public function analyseReclamations(
+        Request $request,
+        AuthService $authService,
+        GeminiService $geminiService,
+        \Doctrine\DBAL\Connection $connection
+    ): Response {
+        try {
+            $session = $request->getSession();
+            $user = $authService->getAuthenticatedUser($session);
+
+            if ($user === null || strtoupper((string) ($user['role'] ?? '')) !== 'ROLE_ADMIN') {
+                return $this->json(['error' => 'Accès refusé'], 403);
+            }
+
+            if (!$geminiService->isConfigured()) {
+                return $this->json(['error' => 'API IA non configurée. Vérifiez GROK_API_KEY dans .env'], 503);
+            }
+
+            $reclamations = $connection->fetchAllAssociative(
+                'SELECT r.idReclamation, r.typeReclamation, r.description, r.status, r.dateReclamation,
+                        r.sentiment, u.nom, u.prenom
+                 FROM reclamation r
+                 LEFT JOIN users u ON u.idUser = r.idUser
+                 ORDER BY r.dateReclamation DESC
+                 LIMIT 100'
+            );
+
+            if (empty($reclamations)) {
+                return $this->json(['error' => 'Aucune réclamation à analyser'], 404);
+            }
+
+            $total       = count($reclamations);
+            $byType      = [];
+            $byStatus    = [];
+            $bySentiment = [];
+            foreach ($reclamations as $r) {
+                $t    = $r['typeReclamation'] ?? 'Inconnu';
+                $s    = $r['status']          ?? 'Inconnu';
+                $sent = $r['sentiment']        ?? 'neutral';
+                $byType[$t]         = ($byType[$t]         ?? 0) + 1;
+                $byStatus[$s]       = ($byStatus[$s]       ?? 0) + 1;
+                $bySentiment[$sent] = ($bySentiment[$sent] ?? 0) + 1;
+            }
+
+            arsort($byType);
+            $topTypes  = array_slice($byType, 0, 5, true);
+            $typesStr  = implode(', ', array_map(fn($k, $v) => "$k ($v)", array_keys($topTypes), $topTypes));
+            $statusStr = implode(', ', array_map(fn($k, $v) => "$k ($v)", array_keys($byStatus), $byStatus));
+            $sentStr   = implode(', ', array_map(fn($k, $v) => "$k ($v)", array_keys($bySentiment), $bySentiment));
+
+            $prompt = sprintf(
+                "Tu es un analyste bancaire expert. Analyse ces %d réclamations clients et fournis un rapport structuré en français.\n\n" .
+                "DONNÉES :\n- Types : %s\n- Statuts : %s\n- Sentiments : %s\n\n" .
+                "RAPPORT (format structuré) :\n" .
+                "1. RÉSUMÉ EXÉCUTIF (2-3 phrases)\n" .
+                "2. PROBLÈMES PRINCIPAUX (3 problèmes fréquents avec impact)\n" .
+                "3. ANALYSE DES SENTIMENTS (interprétation)\n" .
+                "4. RECOMMANDATIONS (3 actions concrètes)\n" .
+                "5. INDICATEUR DE RISQUE (Faible/Moyen/Élevé avec justification)",
+                $total, $typesStr, $statusStr, $sentStr
+            );
+
+            $result = $geminiService->analyseReclamations($prompt);
+
+            if ($result === null) {
+                return $this->json([
+                    'error' => 'Erreur API IA : Clé API invalide ou expirée. Veuillez vérifier GROK_API_KEY dans .env et obtenir une nouvelle clé sur https://console.groq.com/keys'
+                ], 500);
+            }
+
+            return $this->json([
+                'analyse' => $result,
+                'stats'   => [
+                    'total'        => $total,
+                    'by_type'      => $byType,
+                    'by_status'    => $byStatus,
+                    'by_sentiment' => $bySentiment,
+                ],
+            ]);
+
+        } catch (\Throwable $e) {
+            return $this->json(['error' => 'Erreur serveur : ' . $e->getMessage()], 500);
+        }
+    }
+
+    #[Route('/admin/api/reclamation/respond-ai', name: 'admin_api_reclamation_respond_ai', methods: ['POST'])]
+    public function respondWithAI(
+        Request $request,
+        AuthService $authService,
+        BankingService $bankingService,
+        \App\Service\ReclamationResponseService $responseService,
+        \Doctrine\DBAL\Connection $connection
+    ): Response {
+        $session = $request->getSession();
+        $user = $authService->getAuthenticatedUser($session);
+        
+        if ($user === null || strtoupper((string) ($user['role'] ?? '')) !== 'ROLE_ADMIN') {
+            return $this->json(['error' => 'Accès refusé'], 403);
+        }
+
+        $reclamationId = (int) $request->request->get('reclamationId', 0);
+        $userName = trim((string) $request->request->get('userName', ''));
+        $reclamationType = trim((string) $request->request->get('reclamationType', ''));
+        $description = trim((string) $request->request->get('description', ''));
+        $generateOnly = $request->request->get('generateOnly', '0') === '1';
+        $sendEmail = $request->request->get('sendEmail', '0') === '1';
+        $customResponse = trim((string) $request->request->get('customResponse', ''));
+
+        if ($reclamationId <= 0) {
+            return $this->json(['error' => 'ID réclamation invalide'], 400);
+        }
+
+        try {
+            // Récupérer les informations complètes de la réclamation
+            $reclamation = $connection->fetchAssociative(
+                'SELECT r.*, u.email, u.nom, u.prenom 
+                 FROM reclamation r
+                 LEFT JOIN users u ON u.idUser = r.idUser
+                 WHERE r.idReclamation = ?',
+                [$reclamationId]
+            );
+
+            if (!$reclamation) {
+                return $this->json(['error' => 'Réclamation introuvable'], 404);
+            }
+
+            $userEmail = $reclamation['email'] ?? '';
+            $fullName = trim(($reclamation['prenom'] ?? '') . ' ' . ($reclamation['nom'] ?? ''));
+            
+            if (empty($userEmail)) {
+                return $this->json(['error' => 'Email utilisateur introuvable'], 400);
+            }
+
+            // Si on a une réponse personnalisée, l'utiliser, sinon générer avec l'IA
+            if ($customResponse !== '') {
+                $aiResponse = $customResponse;
+            } else {
+                // Générer la réponse avec l'IA
+                $aiResponse = $responseService->generateResponse(
+                    $reclamationType ?: $reclamation['typeReclamation'] ?? 'Réclamation',
+                    $description ?: $reclamation['description'] ?? '',
+                    $fullName ?: $userName
+                );
+            }
+
+            // Si on veut juste générer sans envoyer
+            if ($generateOnly) {
+                return $this->json([
+                    'success' => true,
+                    'response' => $aiResponse,
+                    'email' => $userEmail,
+                ]);
+            }
+
+            // Si on veut envoyer l'email
+            if ($sendEmail || $customResponse !== '') {
+                $responseService->sendResponseEmail(
+                    $userEmail,
+                    $fullName ?: $userName,
+                    $reclamationType ?: $reclamation['typeReclamation'] ?? 'Réclamation',
+                    $aiResponse,
+                    $reclamationId
+                );
+
+                return $this->json([
+                    'success' => true,
+                    'message' => 'Email envoyé avec succès',
+                    'response' => $aiResponse,
+                    'email' => $userEmail,
+                ]);
+            }
+
+            // Par défaut, générer et envoyer
+            $responseService->sendResponseEmail(
+                $userEmail,
+                $fullName ?: $userName,
+                $reclamationType ?: $reclamation['typeReclamation'] ?? 'Réclamation',
+                $aiResponse,
+                $reclamationId
+            );
+
+            return $this->json([
+                'success' => true,
+                'message' => 'Réponse générée et envoyée par email',
+                'response' => $aiResponse,
+                'email' => $userEmail,
+            ]);
+            
+        } catch (\Throwable $e) {
+            error_log('AI Response error: ' . $e->getMessage());
+            return $this->json([
+                'error' => 'Erreur lors de la génération de la réponse',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
 }

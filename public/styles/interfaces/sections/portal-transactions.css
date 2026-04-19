@@ -698,8 +698,8 @@
 
 .tnx-row {
     display: grid;
-    grid-template-columns: 48px 1fr;
-    gap: 14px;
+    grid-template-columns: 52px 1fr;
+    gap: 16px;
     position: relative;
 }
 
@@ -707,43 +707,44 @@
 .tnx-row:not(:last-child)::after {
     content: '';
     position: absolute;
-    left: 23px;
-    top: 48px;
-    bottom: -16px;
+    left: 25px;
+    top: 52px;
+    bottom: -18px;
     width: 2px;
-    background: #e8f1fa;
+    background: linear-gradient(180deg, #cbd5e1, transparent);
     z-index: 0;
 }
 
 .tnx-row + .tnx-row {
-    margin-top: 16px;
+    margin-top: 18px;
 }
 
 /* Dot */
 .tnx-row-dot {
-    width: 46px;
-    height: 46px;
+    width: 50px;
+    height: 50px;
     border-radius: 999px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 15px;
+    font-size: 16px;
     flex-shrink: 0;
     position: relative;
     z-index: 1;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
 }
 
 .tnx-row-dot-ring {
     position: absolute;
-    inset: 0;
+    inset: -3px;
     border-radius: 999px;
     border: 2px solid transparent;
     animation: none;
 }
 
 .tnx-row--credit .tnx-row-dot {
-    background: #dcfce7;
-    color: #059669;
+    background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+    color: #065f46;
 }
 
 .tnx-row--credit .tnx-row-dot-ring {
@@ -751,8 +752,8 @@
 }
 
 .tnx-row--debit .tnx-row-dot {
-    background: #fee2e2;
-    color: #dc2626;
+    background: linear-gradient(135deg, #fee2e2, #fecaca);
+    color: #991b1b;
 }
 
 .tnx-row--debit .tnx-row-dot-ring {
@@ -761,38 +762,49 @@
 
 /* Card */
 .tnx-row-card {
-    border: 1px solid #dce8f3;
-    border-radius: 14px;
-    background: #fcfeff;
+    border: 1.5px solid #e2ecf6;
+    border-radius: 16px;
+    background: #ffffff;
     overflow: hidden;
-    transition: box-shadow 0.18s, transform 0.18s;
+    transition: box-shadow 0.22s, transform 0.22s, border-color 0.22s;
+    box-shadow: 0 2px 8px rgba(15, 42, 68, 0.06);
 }
 
 .tnx-row-card:hover {
-    box-shadow: 0 8px 24px rgba(13, 185, 143, 0.13);
-    transform: translateY(-1px);
+    box-shadow: 0 10px 32px rgba(15, 42, 68, 0.13);
+    transform: translateY(-2px);
+    border-color: #b6d4f0;
 }
 
 .tnx-row--credit .tnx-row-card {
-    border-left: 3px solid #10b981;
+    border-left: 4px solid #10b981;
+    background: linear-gradient(to right, #f0fdf8 0%, #ffffff 60px);
 }
 
 .tnx-row--debit .tnx-row-card {
-    border-left: 3px solid #ef4444;
+    border-left: 4px solid #ef4444;
+    background: linear-gradient(to right, #fff5f5 0%, #ffffff 60px);
+}
+
+.tnx-row--selected .tnx-row-card {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15), 0 8px 24px rgba(99, 102, 241, 0.12);
 }
 
 .tnx-row-card-main {
-    padding: 12px 14px;
+    padding: 14px 18px;
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 12px;
+    gap: 14px;
+    text-decoration: none;
+    color: inherit;
 }
 
 .tnx-row-card-info {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 6px;
     flex: 1;
     min-width: 0;
 }
@@ -814,56 +826,61 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 2px 9px;
+    padding: 3px 10px;
     border-radius: 999px;
     font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.05em;
+    border: 1px solid transparent;
 }
 
 .tnx-row-badge--is-ok {
     background: #dcfce7;
     color: #15803d;
+    border-color: #bbf7d0;
 }
 
 .tnx-row-badge--is-wait {
     background: #fef3c7;
-    color: #b45309;
+    color: #92400e;
+    border-color: #fde68a;
 }
 
 .tnx-row-badge--is-fail {
     background: #fee2e2;
-    color: #b91c1c;
+    color: #991b1b;
+    border-color: #fecaca;
 }
 
 .tnx-row-meta {
     margin: 0;
-    font-size: 11px;
-    color: #7a92a8;
+    font-size: 12px;
+    color: #64748b;
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
     flex-wrap: wrap;
+    font-weight: 500;
 }
 
 .tnx-row-meta i {
     font-size: 10px;
-    opacity: 0.7;
+    opacity: 0.6;
 }
 
 .tnx-row-progress {
-    height: 4px;
-    background: #edf3fa;
+    height: 5px;
+    background: #e8f1fa;
     border-radius: 999px;
     overflow: hidden;
-    max-width: 200px;
+    max-width: 220px;
 }
 
 .tnx-row-progress-fill {
     height: 100%;
     border-radius: inherit;
-    background: linear-gradient(90deg, #10b981, #0db98f);
+    background: linear-gradient(90deg, #10b981, #059669);
     transition: width 0.6s;
 }
 
@@ -878,38 +895,51 @@
 .tnx-row-card-right {
     flex-shrink: 0;
     text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
 }
 
 .tnx-row-amount {
-    font-size: clamp(16px, 1.3vw, 22px);
+    font-size: clamp(17px, 1.4vw, 23px);
     font-weight: 900;
     display: block;
+    letter-spacing: -0.5px;
 }
 
 .tnx-row-amount em {
-    font-size: 11px;
+    font-size: 12px;
     font-style: normal;
     font-weight: 700;
     margin-left: 3px;
-    opacity: 0.7;
+    opacity: 0.65;
 }
 
 .tnx-row-amount--credit {
-    color: #059669;
+    color: #047857;
 }
 
 .tnx-row-amount--debit {
     color: #dc2626;
 }
 
-/* Card footer / actions */
-.tnx-row-card-footer {
-    border-top: 1px solid #edf3fa;
-    padding: 8px 14px;
+.tnx-row-edit-hint {
+    font-size: 11px;
+    color: #94a3b8;
     display: flex;
     align-items: center;
-    gap: 6px;
-    background: #f8fbff;
+    gap: 3px;
+}
+
+/* Card footer / actions */
+.tnx-row-card-footer {
+    border-top: 1px solid #f0f6ff;
+    padding: 9px 16px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: linear-gradient(to right, #f8faff, #f4f8ff);
     flex-wrap: wrap;
 }
 
@@ -922,50 +952,87 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    padding: 0 10px;
-    height: 28px;
+    padding: 0 12px;
+    height: 30px;
     border-radius: 8px;
-    border: 1px solid transparent;
+    border: 1.5px solid transparent;
     font: inherit;
-    font-size: 11px;
+    font-size: 11.5px;
     font-weight: 700;
     cursor: pointer;
     text-decoration: none;
-    transition: opacity 0.16s, transform 0.14s;
+    transition: all 0.18s ease;
+    white-space: nowrap;
 }
 
 .tnx-row-action:hover {
-    opacity: 0.8;
-    transform: translateY(-1px);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
 }
 
 .tnx-row-action i {
     font-size: 11px;
 }
 
+.tnx-row-action--edit {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border-color: #bfdbfe;
+}
+.tnx-row-action--edit:hover {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
 .tnx-row-action--qr {
+    background: #f0fdf4;
+    color: #15803d;
+    border-color: #bbf7d0;
+}
+.tnx-row-action--qr:hover {
     background: #dcfce7;
-    color: #059669;
+    color: #065f46;
 }
 
 .tnx-row-action--flag {
-    background: #fee2e2;
-    color: #dc2626;
+    background: #fff1f2;
+    color: #be123c;
+    border-color: #fecdd3;
+}
+.tnx-row-action--flag:hover {
+    background: #ffe4e6;
+    color: #9f1239;
 }
 
 .tnx-row-action--ai {
+    background: #faf5ff;
+    color: #6d28d9;
+    border-color: #ddd6fe;
+}
+.tnx-row-action--ai:hover {
     background: #ede9fe;
-    color: #7c3aed;
+    color: #5b21b6;
 }
 
 .tnx-row-action--eye {
-    background: #e0f2fe;
+    background: #f0f9ff;
     color: #0369a1;
+    border-color: #bae6fd;
+}
+.tnx-row-action--eye:hover {
+    background: #e0f2fe;
+    color: #075985;
 }
 
 .tnx-row-action--del {
-    background: #f1f5f9;
-    color: #64748b;
+    background: #f8fafc;
+    color: #475569;
+    border-color: #e2e8f0;
+}
+.tnx-row-action--del:hover {
+    background: #fee2e2;
+    color: #dc2626;
+    border-color: #fecaca;
 }
 
 /* ═══════════════════════════════════════════════
@@ -1164,4 +1231,73 @@
     .tnx-row-card-right {
         text-align: left;
     }
+}
+
+/* ── Bouton Payer ── */
+.tnx-row-action--pay {
+    background: linear-gradient(135deg, #0ea5e9, #0284c7);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(14,165,233,.3);
+    text-decoration: none;
+}
+.tnx-row-action--pay:hover {
+    background: linear-gradient(135deg, #0284c7, #0369a1);
+    box-shadow: 0 4px 12px rgba(14,165,233,.4);
+    transform: translateY(-1px);
+}
+.tnx-row-action--paid {
+    background: #f0fdf4;
+    color: #16a34a;
+    border: 1px solid #bbf7d0;
+    cursor: default;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* ── Barre de progression paiement ── */
+.pay-progress {
+    margin-top: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.pay-progress__bar {
+    height: 5px;
+    background: #e2e8f0;
+    border-radius: 999px;
+    overflow: hidden;
+}
+.pay-progress__fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width .4s ease;
+    background: #cbd5e1;
+}
+.pay-progress__fill.is-partial {
+    background: linear-gradient(90deg, #0ea5e9, #38bdf8);
+}
+.pay-progress__fill.is-full {
+    background: linear-gradient(90deg, #16a34a, #4ade80);
+}
+.pay-progress__label {
+    font-size: 11px;
+    color: #64748b;
+    font-weight: 500;
+}
+
+/* ── Toggle virement ── */
+.tnx-toggle-face--virement {
+    background: rgba(59,130,246,.08);
+    color: #1d4ed8;
+    border-color: rgba(59,130,246,.25);
+}
+input[type="radio"]:checked + .tnx-toggle-face--virement {
+    background: #1d4ed8;
+    color: #fff;
+    border-color: #1d4ed8;
 }

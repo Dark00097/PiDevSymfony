@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Formulaire Transaction</title>
+</head>
+<body>
+    <h1>Test Formulaire Simple</h1>
+    
+    <form method="post" action="{{ path('portal_dashboard', { tab: 'transactions' }) }}">
+        <input type="hidden" name="tab" value="transactions">
+        
+        <p>
+            <label>Compte:</label>
+            <select name="compte" required>
+                <option value="">Sélectionner</option>
+                {% for account in support.accounts|default([]) %}
+                    <option value="{{ account.idCompte }}">{{ account.numeroCompte }} ({{ account.solde }} DT)</option>
+                {% endfor %}
+            </select>
+        </p>
+        
+        <p>
+            <label>Date:</label>
+            <input type="date" name="dateTransaction" value="{{ 'now'|date('Y-m-d') }}" required>
+        </p>
+        
+        <p>
+            <label>Type:</label>
+            <input type="radio" name="typeTransaction" value="DEPOT" checked> Dépôt
+        </p>
+        
+        <p>
+            <label>Montant:</label>
+            <input type="number" step="0.01" name="montant" value="100.00" required>
+        </p>
+        
+        <p>
+            <label>Devise:</label>
+            <select name="currency">
+                <option value="TND" selected>TND</option>
+                <option value="EUR">EUR</option>
+            </select>
+        </p>
+        
+        <p>
+            <button type="submit" name="action" value="transaction_save" style="background: green; color: white; padding: 10px 20px; border: none; cursor: pointer;">
+                ENREGISTRER TEST
+            </button>
+        </p>
+    </form>
+    
+    <script>
+        document.querySelector('form').addEventListener('submit', function(e) {
+            console.log('=== SOUMISSION FORMULAIRE TEST ===');
+            console.log('Action du formulaire:', this.action);
+            console.log('Méthode:', this.method);
+            
+            const formData = new FormData(this);
+            console.log('Données du formulaire:');
+            for (let [key, value] of formData.entries()) {
+                console.log(key + ':', value);
+            }
+            console.log('=== FIN TEST ===');
+        });
+    </script>
+</body>
+</html>

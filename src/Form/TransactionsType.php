@@ -2,10 +2,15 @@
 
 namespace App\Form;
 
+use App\Entity\Compte;
+use App\Entity\Transactions;
+use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\DateType;
+use Symfony\Component\Form\Extension\Core\Type\EmailType;
 use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\Extension\Core\Type\NumberType;
+use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
@@ -23,8 +28,10 @@ final class TransactionsType extends BaseCrudFormType
     ];
 
     private const TYPES = [
-        'Credit',
-        'Debit',
+        'DEPOT' => Transactions::TYPE_DEPOT,
+        'RETRAIT' => Transactions::TYPE_RETRAIT,
+        'VIREMENT' => Transactions::TYPE_VIREMENT,
+        'PAIEMENT' => Transactions::TYPE_PAIEMENT,
     ];
 
     public function buildForm(FormBuilderInterface $builder, array $options): void
@@ -73,18 +80,20 @@ final class TransactionsType extends BaseCrudFormType
             ],
             'typeTransaction' => [
                 'type' => ChoiceType::class,
-                'choices' => array_combine(self::TYPES, self::TYPES),
+                'choices' => self::TYPES,
                 'expanded' => false,
                 'required' => true,
                 'constraints' => [
                     new Assert\NotBlank(message: 'Veuillez selectionner un type de transaction.'),
-                ],
-            ],
-            'soldeApres' => [
-                'type' => NumberType::class,
-                'required' => false,
-                'constraints' => [
-                    new Assert\GreaterThanOrEqual(0, message: 'Le solde apres doit etre positif ou egal a 0.'),
+                    new Assert\Choice(
+                        choices: [
+                            Transactions::TYPE_DEPOT,
+                            Transactions::TYPE_RETRAIT,
+                            Transactions::TYPE_VIREMENT,
+                            Transactions::TYPE_PAIEMENT,
+                        ],
+                        message: 'Type de transaction invalide.'
+                    ),
                 ],
             ],
             'description' => [
@@ -104,6 +113,55 @@ final class TransactionsType extends BaseCrudFormType
                 'constraints' => [
                     new Assert\GreaterThanOrEqual(0, message: 'Le montant paye doit etre positif ou egal a 0.'),
                 ],
+            ],
+        ]);
+
+        // compteDestinataire en tant que string (numéro de compte)
+        $builder->add('compteDestinataire', TextType::class, [
+            'required' => false,
+            'label' => 'Numéro de compte destinataire',
+            'attr' => [
+                'placeholder' => 'Ex: 1234567890',
+                'class' => 'field-virement',
+            ],
+            'constraints' => [
+                new Assert\Length(
+                    max: 255,
+                    maxMessage: 'Le numéro de compte ne peut pas dépasser {{ limit }} caractères.'
+                ),
+            ],
+        ]);
+
+        // Nom du destinataire
+        $builder->add('nomDestinataire', TextType::class, [
+            'required' => false,
+            'label' => 'Nom du destinataire',
+            'attr' => [
+                'placeholder' => 'Nom complet',
+                'class' => 'field-virement field-paiement',
+            ],
+            'constraints' => [
+                new Assert\Length(
+                    max: 255,
+                    maxMessage: 'Le nom ne peut pas dépasser {{ limit }} caractères.'
+                ),
+            ],
+        ]);
+
+        // Email du destinataire
+        $builder->add('emailDestinataire', EmailType::class, [
+            'required' => false,
+            'label' => 'Email du destinataire',
+            'attr' => [
+                'placeholder' => 'email@example.com',
+                'class' => 'field-virement field-paiement',
+            ],
+            'constraints' => [
+                new Assert\Email(message: 'Email invalide.'),
+                new Assert\Length(
+                    max: 255,
+                    maxMessage: 'L\'email ne peut pas dépasser {{ limit }} caractères.'
+                ),
             ],
         ]);
     }

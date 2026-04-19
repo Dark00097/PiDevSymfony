@@ -4,7 +4,7 @@
 {% set accounts = support.accounts|default([]) %}
 {% set all_transaction_items = support.all_transactions|default(transaction_items) %}
 {% set transaction_categories = support.transaction_categories|default(['Alimentation', 'Education', 'Loyer', 'Restaurant', 'Vetements', 'Assurance sante']) %}
-{% set transaction_types = support.transaction_types|default(['Credit', 'Debit']) %}
+{% set transaction_types = support.transaction_types|default(['DEPOT', 'RETRAIT', 'VIREMENT', 'PAIEMENT']) %}
 {% set transaction_sort_fields = support.transaction_sort_fields|default({}) %}
 {% set transaction_query = support.transaction_query|default({ q: '', sort: 'dateTransaction', dir: 'desc', edit_id: null, view_id: null }) %}
 {% set transaction_stats = support.transaction_stats|default({ total: 0, total_amount: 0, categories: [] }) %}
@@ -26,11 +26,12 @@
 .nx-tx__hero{display:flex;align-items:center;justify-content:space-between;gap:1.25rem;background:linear-gradient(135deg,#1a2b3c 0%,#1e3448 60%,#1a3050 100%);border-radius:var(--na-radius);padding:1.5rem 1.8rem;box-shadow:var(--na-shadow-lg);flex-wrap:wrap;position:relative;overflow:hidden}
 .nx-tx__hero::before{content:'';position:absolute;width:260px;height:260px;top:-80px;right:-50px;border-radius:50%;background:radial-gradient(circle,rgba(17,183,170,.22) 0%,transparent 70%)}
 .nx-tx__hero::after{content:'';position:absolute;width:160px;height:160px;bottom:-60px;left:30%;border-radius:50%;background:radial-gradient(circle,rgba(43,125,233,.18) 0%,transparent 70%)}
-.nx-tx__hero-left,.nx-tx__hero-actions,.nx-tx__tabs,.nx-tx__search,.nx-tx__form-actions,.nx-tx__act-group{display:flex;align-items:center;gap:.65rem;flex-wrap:wrap}.nx-tx__hero-left{position:relative;z-index:1}.nx-tx__hero-actions{position:relative;z-index:1}
+.nx-tx__hero-left,.nx-tx__hero-actions,.nx-tx__tabs,.nx-tx__search,.nx-tx__form-actions,.nx-tx__act-group{display:flex;align-items:center;gap:.65rem;flex-wrap:wrap}
+.nx-tx__act-group{gap:.5rem;justify-content:center}.nx-tx__hero-left{position:relative;z-index:1}.nx-tx__hero-actions{position:relative;z-index:1}
 .nx-tx__hero-icon{width:50px;height:50px;border-radius:13px;background:linear-gradient(135deg,var(--na-teal),var(--na-teal-dk));display:grid;place-items:center;font-size:1.3rem;color:#fff;box-shadow:0 4px 16px rgba(17,183,170,.4)}
 .nx-tx__hero-text h2{font-size:1.1rem;font-weight:800;color:#fff;margin:0 0 .25rem}.nx-tx__hero-text p{font-size:.76rem;color:rgba(255,255,255,.56);margin:0}
 .na-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.52rem 1.1rem;border-radius:9px;font-size:.82rem;font-weight:600;border:none;cursor:pointer;text-decoration:none;transition:all .2s ease;font-family:inherit;white-space:nowrap}
-.na-btn--primary{background:linear-gradient(135deg,var(--na-teal),var(--na-teal-dk));color:#fff;box-shadow:0 3px 10px rgba(17,183,170,.35)}.na-btn--ghost{background:rgba(255,255,255,.1);color:rgba(255,255,255,.88);border:1px solid rgba(255,255,255,.18);backdrop-filter:blur(4px)}.na-btn--save{background:linear-gradient(135deg,var(--na-teal),var(--na-teal-dk));color:#fff;box-shadow:0 3px 10px rgba(17,183,170,.3)}.na-btn--reset{background:var(--na-bg);color:var(--na-muted);border:1px solid var(--na-border)}
+.na-btn--primary{background:linear-gradient(135deg,var(--na-teal),var(--na-teal-dk));color:#fff;box-shadow:0 3px 10px rgba(17,183,170,.35)}.na-btn--ghost{background:rgba(255,255,255,.1);color:rgba(255,255,255,.88);border:1px solid rgba(255,255,255,.18);backdrop-filter:blur(4px)}.na-btn--save{background:linear-gradient(135deg,var(--na-teal),var(--na-teal-dk));color:#fff;box-shadow:0 4px 12px rgba(17,183,170,.35);transition:all .2s ease}.na-btn--save:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(17,183,170,.45)}.na-btn--reset{background:#fff;color:var(--na-muted);border:2px solid var(--na-border);transition:all .2s ease}.na-btn--reset:hover{border-color:var(--na-teal);color:var(--na-teal);transform:translateY(-2px)}
 .nx-tx__tabs{background:var(--na-surface);border:1px solid var(--na-border);border-radius:var(--na-radius);padding:.55rem .65rem;box-shadow:var(--na-shadow)}.nx-tx__tab{display:inline-flex;align-items:center;gap:.45rem;padding:.5rem 1.1rem;border-radius:9px;font-size:.82rem;font-weight:600;color:var(--na-muted);text-decoration:none;transition:all .2s ease;border:1px solid transparent}.nx-tx__tab.is-active{background:linear-gradient(135deg,var(--na-teal),var(--na-teal-dk));color:#fff;box-shadow:0 3px 10px rgba(17,183,170,.3)}.nx-tx__tabs-spacer{flex:1}.nx-tx__stats-link{display:inline-flex;align-items:center;gap:.4rem;padding:.5rem 1rem;border-radius:9px;font-size:.78rem;font-weight:600;color:var(--na-blue);background:rgba(43,125,233,.07);border:1px solid rgba(43,125,233,.18);cursor:pointer}
 .nx-tx__stats-panel{display:none;background:linear-gradient(180deg,#f8fbff 0%,#eef5fd 100%);border-radius:18px;padding:1rem 1.1rem;border:1px solid #dce7f4;box-shadow:var(--na-shadow)}.nx-tx__stats-panel.is-open{display:block;animation:nxTxReveal .35s ease}
 .nx-tx__stats-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1rem;flex-wrap:wrap}.nx-tx__stats-head h3{margin:0 0 .2rem;font-size:1rem;font-weight:800;color:var(--na-txt)}.nx-tx__stats-head p{margin:0;color:var(--na-muted);font-size:.76rem}.nx-tx__stats-close{width:38px;height:38px;border:none;border-radius:12px;background:#fff;color:var(--na-muted);cursor:pointer;border:1px solid var(--na-border)}
@@ -49,28 +50,207 @@
 .nx-tx__stats-dot{width:10px;height:10px;border-radius:999px;display:inline-block;margin-right:.55rem;vertical-align:middle}
 .nx-tx__kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}.nx-tx__kpi{background:var(--na-surface);border:1px solid var(--na-border);border-radius:var(--na-radius);padding:1.1rem 1.25rem;box-shadow:var(--na-shadow);display:flex;align-items:center;gap:1rem;position:relative}.nx-tx__kpi::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:3px 0 0 3px}.nx-tx__kpi:nth-child(1)::after{background:var(--na-teal)}.nx-tx__kpi:nth-child(2)::after{background:var(--na-blue)}.nx-tx__kpi:nth-child(3)::after{background:var(--na-gold)}
 .nx-tx__kpi-icon{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;font-size:1.05rem}.nx-tx__kpi:nth-child(1) .nx-tx__kpi-icon{background:rgba(17,183,170,.1);color:var(--na-teal)}.nx-tx__kpi:nth-child(2) .nx-tx__kpi-icon{background:rgba(43,125,233,.1);color:var(--na-blue)}.nx-tx__kpi:nth-child(3) .nx-tx__kpi-icon{background:rgba(232,162,2,.1);color:var(--na-gold)}.nx-tx__kpi-body strong{display:block;font-size:1.5rem;font-weight:800;color:var(--na-txt);line-height:1;margin-bottom:.18rem}.nx-tx__kpi-body small{font-size:.73rem;color:var(--na-muted);font-weight:500}
-.nx-tx__grid{display:grid;grid-template-columns:280px 1fr;gap:1.15rem;align-items:start}.nx-tx__panel{background:var(--na-surface);border:1px solid var(--na-border);border-radius:var(--na-radius);box-shadow:var(--na-shadow);display:flex;flex-direction:column;overflow:hidden}.nx-tx__panel-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:1rem 1.2rem;border-bottom:1px solid var(--na-border);background:linear-gradient(to right,#fafcff,#f5f8fd);flex-wrap:wrap}.nx-tx__panel-head-left h3{font-size:.9rem;font-weight:700;color:var(--na-txt);margin:0 0 .12rem}.nx-tx__panel-head-left p{font-size:.72rem;color:var(--na-muted);margin:0}
-.nx-tx__form{display:flex;flex-direction:column;gap:.7rem;padding:1rem 1.15rem 1.15rem}.nx-tx__form label{display:flex;flex-direction:column;gap:.3rem;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.45px;color:var(--na-muted)}.nx-tx__form input[type="text"],.nx-tx__form input[type="number"],.nx-tx__form input[type="date"],.nx-tx__form select,.nx-tx__form textarea{width:100%;box-sizing:border-box;border:1px solid var(--na-border);border-radius:9px;font-size:.82rem;color:var(--na-txt);background:var(--na-bg);outline:none;font-family:inherit}.nx-tx__form input[type="text"],.nx-tx__form input[type="number"],.nx-tx__form input[type="date"],.nx-tx__form select{height:38px;padding:0 .8rem}.nx-tx__form textarea{padding:.7rem .8rem;min-height:88px;resize:vertical}.nx-tx__form input:focus,.nx-tx__form select:focus,.nx-tx__form textarea:focus,.nx-tx__search-input:focus,.nx-tx__sort-select:focus{border-color:var(--na-teal);box-shadow:0 0 0 3px rgba(17,183,170,.12);background:#fff}
+.nx-tx__grid{display:grid;grid-template-columns:420px 1fr;gap:1.15rem;align-items:start}
+.nx-tx__grid--full{grid-template-columns:1fr}.nx-tx__panel{background:var(--na-surface);border:1px solid var(--na-border);border-radius:var(--na-radius);box-shadow:0 4px 20px rgba(0,0,0,.08);display:flex;flex-direction:column;overflow:hidden;transition:all .3s ease}.nx-tx__panel:hover{box-shadow:0 6px 28px rgba(0,0,0,.12)}.nx-tx__panel-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:1.2rem 1.5rem;border-bottom:2px solid var(--na-border);background:linear-gradient(135deg,#f8fbff 0%,#f0f7ff 100%);flex-wrap:wrap}.nx-tx__panel-head-left h3{font-size:1rem;font-weight:800;color:var(--na-txt);margin:0 0 .15rem;display:flex;align-items:center;gap:.5rem}.nx-tx__panel-head-left p{font-size:.75rem;color:var(--na-muted);margin:0}
+.nx-tx__form{display:flex;flex-direction:column;gap:.9rem;padding:1.3rem 1.5rem 1.5rem}.nx-tx__form label{display:flex;flex-direction:column;gap:.4rem;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.45px;color:var(--na-muted)}.nx-tx__form input[type="text"],.nx-tx__form input[type="number"],.nx-tx__form input[type="date"],.nx-tx__form select,.nx-tx__form textarea{width:100%;box-sizing:border-box;border:2px solid var(--na-border);border-radius:10px;font-size:.85rem;color:var(--na-txt);background:#fff;outline:none;font-family:inherit;transition:all .2s ease}.nx-tx__form input[type="text"],.nx-tx__form input[type="number"],.nx-tx__form input[type="date"],.nx-tx__form select{height:42px;padding:0 1rem}.nx-tx__form textarea{padding:.8rem 1rem;min-height:95px;resize:vertical}.nx-tx__form input:focus,.nx-tx__form select:focus,.nx-tx__form textarea:focus,.nx-tx__search-input:focus,.nx-tx__sort-select:focus{border-color:var(--na-teal);box-shadow:0 0 0 4px rgba(17,183,170,.15);background:#fff}
 .nx-tx__field-feedback{font-size:.7rem;font-weight:600;line-height:1.3;min-height:1rem;text-transform:none;letter-spacing:0}
 .nx-tx__field-feedback.is-error{color:#dc2626}
 .nx-tx__field-feedback.is-valid{color:#16a34a}
 .nx-tx__field-feedback.is-neutral{color:var(--na-muted)}
 .nx-tx__field-input.is-error,.nx-tx__field-input.is-error:focus{border-color:#f87171;box-shadow:0 0 0 3px rgba(248,113,113,.14);background:#fff}
 .nx-tx__field-input.is-valid,.nx-tx__field-input.is-valid:focus{border-color:#4ade80;box-shadow:0 0 0 3px rgba(74,222,128,.14);background:#fff}
-.nx-tx__form-divider{height:1px;background:var(--na-border)}.nx-tx__form-label-id{display:flex;align-items:center;gap:.45rem;font-size:.72rem;font-weight:700;color:var(--na-blue);padding:.5rem .7rem;background:rgba(43,125,233,.06);border:1px solid rgba(43,125,233,.14);border-radius:8px}.nx-tx__form-actions .na-btn{flex:1;justify-content:center}
-.nx-tx__table-wrap{overflow-x:auto}.nx-tx__table{width:100%;border-collapse:collapse;font-size:.8rem}.nx-tx__table thead th{padding:.68rem .9rem;text-align:left;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.55px;color:var(--na-muted);background:var(--na-bg);border-bottom:1px solid var(--na-border);white-space:nowrap}.nx-tx__table tbody td{padding:.78rem .9rem;border-bottom:1px solid var(--na-border);vertical-align:middle;color:var(--na-txt)}
-.nx-tx__table tbody tr:last-child td{border-bottom:none}.nx-tx__table tbody tr{cursor:pointer;transition:background .18s ease,box-shadow .18s ease}.nx-tx__table tbody tr:hover td{background:rgba(17,183,170,.03)}.nx-tx__table tbody tr.is-selected td{background:rgba(17,183,170,.08)}.nx-tx__table tbody tr.is-selected{box-shadow:inset 4px 0 0 var(--na-teal)}
-.nx-tx__search{padding:.75rem 1rem;border-bottom:1px solid var(--na-border)}.nx-tx__search-box{position:relative;flex:1;min-width:190px}.nx-tx__search-wrap{position:relative}.nx-tx__search-wrap i{position:absolute;left:.75rem;top:50%;transform:translateY(-50%);color:var(--na-muted);font-size:.78rem}.nx-tx__search-input{width:100%;height:36px;padding:0 .8rem 0 2rem;border:1px solid var(--na-border);border-radius:8px;font-size:.8rem;color:var(--na-txt);background:var(--na-bg);outline:none;box-sizing:border-box;font-family:inherit}
+.nx-tx__form-divider{height:2px;background:linear-gradient(90deg,transparent,var(--na-border),transparent);margin:.3rem 0}.nx-tx__form-label-id{display:flex;align-items:center;gap:.5rem;font-size:.78rem;font-weight:700;color:#fff;padding:.7rem 1rem;background:linear-gradient(135deg,var(--na-blue),#1d4ed8);border:none;border-radius:10px;box-shadow:0 4px 12px rgba(43,125,233,.3)}.nx-tx__form-label-id i{font-size:1rem}.nx-tx__form-actions .na-btn{flex:1;justify-content:center}
+.nx-tx__table-wrap{overflow-x:auto;background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.nx-tx__table{width:100%;border-collapse:separate;border-spacing:0;font-size:.82rem}
+.nx-tx__table thead th{padding:.75rem 1rem;text-align:left;font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:#fff;background:linear-gradient(135deg,#1a2b3c 0%,#2d4a5e 100%);white-space:nowrap;position:relative}
+.nx-tx__table thead th:first-child{border-radius:12px 0 0 0}
+.nx-tx__table thead th:last-child{border-radius:0 12px 0 0}
+.nx-tx__table thead th::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--na-teal),var(--na-blue),var(--na-gold))}
+.nx-tx__table tbody td{padding:.65rem 1rem;border-bottom:1px solid #f0f4f9;vertical-align:middle;color:var(--na-txt);background:#fff;transition:all .3s ease}
+.nx-tx__table tbody tr:last-child td:first-child{border-radius:0 0 0 12px}
+.nx-tx__table tbody tr:last-child td:last-child{border-radius:0 0 12px 0}
+.nx-tx__table tbody tr:last-child td{border-bottom:none}
+.nx-tx__table tbody tr:last-child td{border-bottom:none}.nx-tx__table tbody tr{cursor:pointer;transition:all .3s cubic-bezier(0.4, 0, 0.2, 1);position:relative;animation:tableRowFadeIn .5s ease-out backwards}
+.nx-tx__table tbody tr:nth-child(1){animation-delay:.05s}
+.nx-tx__table tbody tr:nth-child(2){animation-delay:.1s}
+.nx-tx__table tbody tr:nth-child(3){animation-delay:.15s}
+.nx-tx__table tbody tr:nth-child(4){animation-delay:.2s}
+.nx-tx__table tbody tr:nth-child(5){animation-delay:.25s}
+.nx-tx__table tbody tr::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:linear-gradient(180deg,var(--na-teal),var(--na-blue));opacity:0;transition:opacity .3s ease;border-radius:0 4px 4px 0}
+.nx-tx__table tbody tr:hover{transform:scale(1.01);box-shadow:0 4px 20px rgba(17,183,170,.15);z-index:1}
+.nx-tx__table tbody tr:hover::before{opacity:1}
+.nx-tx__table tbody tr:hover td{background:linear-gradient(90deg,rgba(17,183,170,.08) 0%,rgba(17,183,170,.02) 50%,#fff 100%)}
+.nx-tx__table tbody tr.is-selected{box-shadow:0 6px 24px rgba(17,183,170,.25);z-index:2}
+.nx-tx__table tbody tr.is-selected::before{opacity:1;width:5px;background:linear-gradient(180deg,var(--na-teal),var(--na-teal-dk))}
+.nx-tx__table tbody tr.is-selected td{background:linear-gradient(90deg,rgba(17,183,170,.15) 0%,rgba(17,183,170,.08) 50%,rgba(17,183,170,.03) 100%);font-weight:600}
+@keyframes tableRowFadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.nx-tx__search{padding:.9rem 1.2rem;border-bottom:2px solid var(--na-border);background:linear-gradient(to bottom,#fafcff,#f8fbff)}.nx-tx__search-box{position:relative;flex:1;min-width:220px}.nx-tx__search-wrap{position:relative}.nx-tx__search-wrap i{position:absolute;left:.9rem;top:50%;transform:translateY(-50%);color:var(--na-teal);font-size:.85rem}.nx-tx__search-input{width:100%;height:40px;padding:0 1rem 0 2.5rem;border:2px solid var(--na-border);border-radius:10px;font-size:.82rem;color:var(--na-txt);background:#fff;outline:none;box-sizing:border-box;font-family:inherit;transition:all .2s ease}.nx-tx__search-input:focus{border-color:var(--na-teal);box-shadow:0 0 0 4px rgba(17,183,170,.12)}
 .nx-tx__suggestions{position:absolute;left:0;right:0;top:calc(100% + .45rem);background:#fff;border:1px solid var(--na-border);border-radius:14px;box-shadow:0 18px 38px rgba(15,23,42,.12);padding:.45rem;display:grid;gap:.28rem;z-index:20}.nx-tx__suggestions[hidden]{display:none !important}.nx-tx__suggestion{display:flex;align-items:center;justify-content:space-between;gap:.7rem;padding:.58rem .72rem;border:none;border-radius:10px;background:transparent;color:var(--na-txt);text-align:left;cursor:pointer;font-family:inherit}.nx-tx__suggestion:hover{background:rgba(43,125,233,.07)}.nx-tx__suggestion span{font-size:.76rem;color:var(--na-muted)}
-.nx-tx__row-count{font-size:.71rem;font-weight:600;color:var(--na-muted);background:var(--na-bg);border:1px solid var(--na-border);border-radius:20px;padding:.2rem .65rem;white-space:nowrap}.nx-tx__sort-select{height:36px;min-width:170px;padding:0 .8rem;border:1px solid var(--na-border);border-radius:8px;background:var(--na-bg);font-size:.78rem;color:var(--na-txt)}.nx-tx__sort-dir{width:36px;height:36px;border-radius:8px;border:1px solid var(--na-border);background:var(--na-bg);color:var(--na-muted);display:grid;place-items:center;cursor:pointer}
-.nx-tx__num{font-size:.78rem;color:var(--na-blue);font-weight:700}.nx-tx__amount{font-weight:700;color:var(--na-txt)}.nx-tx__amount em{font-style:normal;font-size:.7rem;color:var(--na-muted);margin-left:.12rem}
-.nx-tx__tag{display:inline-flex;align-items:center;padding:.18rem .62rem;border-radius:999px;font-size:.69rem;font-weight:700;border:1px solid transparent}.nx-tx__tag.is-credit{background:rgba(67,160,71,.12);color:#2e7d32;border-color:rgba(67,160,71,.3)}.nx-tx__tag.is-debit{background:rgba(229,57,53,.12);color:#c62828;border-color:rgba(229,57,53,.3)}.nx-tx__tag.cat-alimentation{background:rgba(22,163,74,.12);color:#2e7d32;border-color:rgba(22,163,74,.24)}.nx-tx__tag.cat-education{background:rgba(37,99,235,.1);color:#1d4ed8;border-color:rgba(37,99,235,.24)}.nx-tx__tag.cat-loyer{background:rgba(124,58,237,.1);color:#6d28d9;border-color:rgba(124,58,237,.22)}.nx-tx__tag.cat-restaurant{background:rgba(234,88,12,.12);color:#c2410c;border-color:rgba(234,88,12,.24)}.nx-tx__tag.cat-vetements{background:rgba(219,39,119,.1);color:#be185d;border-color:rgba(219,39,119,.22)}.nx-tx__tag.cat-assurance-sante{background:rgba(8,145,178,.1);color:#0e7490;border-color:rgba(8,145,178,.24)}.nx-tx__tag.cat-default{background:rgba(100,116,139,.1);color:#475569;border-color:rgba(100,116,139,.2)}.nx-tx__tag.rec-echec-de-montant{background:rgba(239,68,68,.12);color:#b91c1c;border-color:rgba(239,68,68,.26)}.nx-tx__tag.rec-virement-non-recu{background:rgba(59,130,246,.12);color:#1d4ed8;border-color:rgba(59,130,246,.24)}.nx-tx__tag.rec-erreur-de-transaction{background:rgba(245,158,11,.14);color:#b45309;border-color:rgba(245,158,11,.28)}.nx-tx__tag.rec-probleme-de-connexion-au-compte{background:rgba(139,92,246,.12);color:#6d28d9;border-color:rgba(139,92,246,.25)}
-.nx-tx__act-btn{width:30px;height:30px;border-radius:8px;border:none;display:grid;place-items:center;cursor:pointer;font-size:.8rem;transition:all .18s ease;text-decoration:none}.nx-tx__act-btn.edit{background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7}.nx-tx__act-btn.del{background:#ffebee;color:#c62828;border:1px solid #ef9a9a}.nx-tx__act-btn.view{background:#fff8e1;color:#e65100;border:1px solid #ffcc80}
+.nx-tx__row-count{font-size:.74rem;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--na-teal),var(--na-teal-dk));border:none;border-radius:20px;padding:.35rem .85rem;white-space:nowrap;box-shadow:0 2px 8px rgba(17,183,170,.25)}.nx-tx__sort-select{height:40px;min-width:180px;padding:0 1rem;border:2px solid var(--na-border);border-radius:10px;background:#fff;font-size:.8rem;color:var(--na-txt);font-weight:600;transition:all .2s ease;cursor:pointer}.nx-tx__sort-select:focus{border-color:var(--na-teal);box-shadow:0 0 0 4px rgba(17,183,170,.12)}.nx-tx__sort-dir{width:40px;height:40px;border-radius:10px;border:2px solid var(--na-border);background:#fff;color:var(--na-teal);display:grid;place-items:center;cursor:pointer;transition:all .2s ease;font-size:.9rem}.nx-tx__sort-dir:hover{border-color:var(--na-teal);background:rgba(17,183,170,.05);transform:translateY(-2px)}
+.nx-tx__num{font-size:.78rem;color:#fff;font-weight:800;background:linear-gradient(135deg,var(--na-blue),#1d4ed8);padding:.25rem .65rem;border-radius:7px;display:inline-block;box-shadow:0 2px 8px rgba(43,125,233,.25);transition:all .2s ease}
+.nx-tx__num:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(43,125,233,.35)}
+.nx-tx__amount{font-weight:800;color:var(--na-txt);font-size:.85rem;display:flex;align-items:baseline;gap:.2rem}
+.nx-tx__amount em{font-style:normal;font-size:.7rem;color:var(--na-muted);font-weight:600}
+.nx-tx__date{display:inline-flex;align-items:center;gap:.35rem;font-size:.76rem;color:#475569;font-weight:600;background:linear-gradient(135deg,rgba(100,116,139,.08),rgba(100,116,139,.03));padding:.25rem .6rem;border-radius:7px;border:1px solid rgba(100,116,139,.15)}
+.nx-tx__date::before{content:'\f073';font-family:'Font Awesome 6 Free';font-weight:400;color:#64748b;font-size:.7rem}
+.nx-tx__paid{display:inline-flex;align-items:baseline;gap:.2rem;font-size:.78rem;color:#16a34a;font-weight:700;background:linear-gradient(135deg,rgba(22,163,74,.1),rgba(22,163,74,.05));padding:.25rem .6rem;border-radius:7px;border:1px solid rgba(22,163,74,.2)}
+.nx-tx__paid em{font-style:normal;font-size:.68rem;color:#15803d;font-weight:600}
+.nx-tx__desc{display:block;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.76rem;color:#64748b;font-style:italic}
+.nx-tx__tag{display:inline-flex;align-items:center;gap:.35rem;padding:.25rem .7rem;border-radius:18px;font-size:.7rem;font-weight:800;border:2px solid transparent;box-shadow:0 2px 8px rgba(0,0,0,.08);transition:all .2s ease;text-transform:uppercase;letter-spacing:.3px}
+.nx-tx__tag:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.15)}
+.nx-tx__tag i{font-size:.85rem}
+.nx-tx__tag.is-credit{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border-color:#16a34a;box-shadow:0 3px 10px rgba(34,197,94,.35)}
+.nx-tx__tag.is-credit::before{content:'\f062';font-family:'Font Awesome 6 Free';font-weight:900;margin-right:.25rem}
+.nx-tx__tag.is-debit{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;border-color:#dc2626;box-shadow:0 3px 10px rgba(239,68,68,.35)}
+.nx-tx__tag.is-debit::before{content:'\f063';font-family:'Font Awesome 6 Free';font-weight:900;margin-right:.25rem}
+.nx-tx__tag.is-virement{background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border-color:#2563eb;box-shadow:0 3px 10px rgba(59,130,246,.35)}
+.nx-tx__tag.is-virement::before{content:'\f362';font-family:'Font Awesome 6 Free';font-weight:900;margin-right:.25rem}
+.nx-tx__tag.cat-alimentation{background:linear-gradient(135deg,rgba(22,163,74,.2),rgba(22,163,74,.1));color:#15803d;border-color:#16a34a}
+.nx-tx__tag.cat-education{background:linear-gradient(135deg,rgba(37,99,235,.2),rgba(37,99,235,.1));color:#1e40af;border-color:#2563eb}
+.nx-tx__tag.cat-loyer{background:linear-gradient(135deg,rgba(124,58,237,.2),rgba(124,58,237,.1));color:#6d28d9;border-color:#7c3aed}
+.nx-tx__tag.cat-restaurant{background:linear-gradient(135deg,rgba(234,88,12,.2),rgba(234,88,12,.1));color:#c2410c;border-color:#ea580c}
+.nx-tx__tag.cat-vetements{background:linear-gradient(135deg,rgba(219,39,119,.2),rgba(219,39,119,.1));color:#be185d;border-color:#db2777}
+.nx-tx__tag.cat-assurance-sante{background:linear-gradient(135deg,rgba(8,145,178,.2),rgba(8,145,178,.1));color:#0e7490;border-color:#0891b2}
+.nx-tx__tag.cat-default{background:linear-gradient(135deg,rgba(100,116,139,.2),rgba(100,116,139,.1));color:#475569;border-color:#64748b}
+.nx-tx__tag.rec-echec-de-montant{background:linear-gradient(135deg,rgba(239,68,68,.2),rgba(239,68,68,.1));color:#b91c1c;border-color:#ef4444}
+.nx-tx__tag.rec-virement-non-recu{background:linear-gradient(135deg,rgba(59,130,246,.2),rgba(59,130,246,.1));color:#1d4ed8;border-color:#3b82f6}
+.nx-tx__tag.rec-erreur-de-transaction{background:linear-gradient(135deg,rgba(245,158,11,.25),rgba(245,158,11,.15));color:#b45309;border-color:#f59e0b}
+.nx-tx__tag.rec-probleme-de-connexion-au-compte{background:linear-gradient(135deg,rgba(139,92,246,.2),rgba(139,92,246,.1));color:#6d28d9;border-color:#8b5cf6}
+.nx-tx__act-btn{width:34px;height:34px;border-radius:9px;border:none;display:grid;place-items:center;cursor:pointer;font-size:.85rem;transition:all .25s cubic-bezier(0.4, 0, 0.2, 1);text-decoration:none;box-shadow:0 3px 8px rgba(0,0,0,.12);position:relative;overflow:hidden}
+.nx-tx__act-btn::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.3),transparent);opacity:0;transition:opacity .25s ease}
+.nx-tx__act-btn:hover::before{opacity:1}
+.nx-tx__act-btn.edit{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:2px solid #16a34a}
+.nx-tx__act-btn.edit:hover{transform:translateY(-3px) scale(1.05);box-shadow:0 6px 16px rgba(34,197,94,.4)}
+.nx-tx__act-btn.del{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;border:2px solid #dc2626}
+.nx-tx__act-btn.del:hover{transform:translateY(-3px) scale(1.05);box-shadow:0 6px 16px rgba(239,68,68,.4)}
+.nx-tx__act-btn.view{background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:2px solid #d97706}
+.nx-tx__act-btn.view:hover{transform:translateY(-3px) scale(1.05);box-shadow:0 6px 16px rgba(245,158,11,.4)}
+.nx-tx__act-btn:active{transform:translateY(-1px) scale(0.98)}
 .nx-tx__modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:1.5rem;background:rgba(15,23,42,.4);backdrop-filter:blur(8px);z-index:1200}.nx-tx__modal.is-open{display:flex}.nx-tx__modal-dialog{width:min(760px,100%);max-height:min(88vh,860px);overflow:auto;border-radius:24px;background:linear-gradient(180deg,#fdfefe 0%,#f5f9ff 100%);box-shadow:0 30px 90px rgba(15,23,42,.22);border:1px solid rgba(255,255,255,.7)}.nx-tx__modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;padding:1.2rem 1.2rem 1rem;background:linear-gradient(135deg,#10243b 0%,#17395f 55%,#135c7a 100%);color:#fff;position:relative;overflow:hidden}.nx-tx__modal-head::after{content:'';position:absolute;right:-40px;top:-50px;width:180px;height:180px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.16) 0%,transparent 68%)}
 .nx-tx__modal-title{position:relative;z-index:1;display:flex;align-items:flex-start;gap:.85rem}.nx-tx__modal-icon{width:48px;height:48px;border-radius:16px;display:grid;place-items:center;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.18);font-size:1.1rem}.nx-tx__modal-copy h3{margin:0 0 .2rem;font-size:1.05rem;font-weight:800}.nx-tx__modal-copy p{margin:0;color:rgba(255,255,255,.72);font-size:.76rem}.nx-tx__modal-close{position:relative;z-index:1;width:40px;height:40px;border:none;border-radius:12px;display:grid;place-items:center;background:rgba(255,255,255,.14);color:#fff;cursor:pointer}
 .nx-tx__modal-body{padding:1.1rem 1.2rem 1.25rem;display:flex;flex-direction:column;gap:1rem}.nx-tx__modal-banner{display:grid;grid-template-columns:1.35fr .85fr;gap:.9rem}.nx-tx__spotlight{border-radius:20px;padding:1rem 1.05rem;background:linear-gradient(135deg,rgba(17,183,170,.1) 0%,rgba(43,125,233,.1) 100%);border:1px solid rgba(17,183,170,.16)}.nx-tx__spotlight small,.nx-tx__mini-card small,.nx-tx__modal-field small{display:block;font-size:.66rem;text-transform:uppercase;letter-spacing:.5px;color:var(--na-muted);margin-bottom:.2rem}.nx-tx__spotlight strong{display:block;font-size:1.65rem;font-weight:800;color:var(--na-txt);line-height:1.1}.nx-tx__spotlight p{margin:.32rem 0 0;color:var(--na-muted);font-size:.78rem}.nx-tx__mini-stack{display:grid;gap:.9rem}.nx-tx__mini-card{border-radius:18px;padding:.92rem 1rem;background:#fff;border:1px solid var(--na-border);box-shadow:0 10px 22px rgba(148,163,184,.1)}.nx-tx__mini-card strong{display:block;font-size:1rem;color:var(--na-txt)}
 .nx-tx__modal-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.85rem}.nx-tx__modal-field{padding:.92rem 1rem;border-radius:18px;background:#fff;border:1px solid var(--na-border);box-shadow:0 10px 22px rgba(148,163,184,.08)}.nx-tx__modal-field strong{display:block;font-size:.94rem;color:var(--na-txt);word-break:break-word}.nx-tx__modal-field.is-wide{grid-column:1 / -1}
-.nx-tx__empty{text-align:center;padding:2.2rem 1rem;color:var(--na-muted);font-size:.81rem}.nx-tx__empty i{display:block;font-size:1.8rem;opacity:.22;margin-bottom:.5rem}
+.nx-tx__empty{text-align:center;padding:3rem 1.5rem;color:var(--na-muted);font-size:.85rem;background:linear-gradient(135deg,rgba(17,183,170,.03),rgba(43,125,233,.03));border-radius:12px;margin:1rem}
+.nx-tx__empty i{display:block;font-size:3rem;opacity:.25;margin-bottom:.8rem;color:var(--na-teal);animation:emptyPulse 2s ease-in-out infinite}
+@keyframes emptyPulse{0%,100%{opacity:.25;transform:scale(1)}50%{opacity:.35;transform:scale(1.05)}}
+/* ── Reclamation table enhancements ── */
+.nx-rec__table thead th{background:linear-gradient(to bottom,#f5f8fd,#eef3fb);color:#4a6080}
+.nx-rec__table tbody tr:hover td{background:rgba(232,162,2,.04)}
+.nx-rec__table tbody tr.is-selected{box-shadow:inset 4px 0 0 var(--na-gold)}
+.nx-rec__table tbody tr.is-selected td{background:rgba(232,162,2,.07)}
+
+.rec-status-badge{display:inline-flex;align-items:center;gap:.35rem;padding:.22rem .72rem;border-radius:999px;font-size:.69rem;font-weight:700;border:1px solid transparent;white-space:nowrap}
+.rec-status--valide{background:rgba(22,163,74,.12);color:#15803d;border-color:rgba(22,163,74,.28)}
+.rec-status--ferme{background:rgba(220,38,38,.1);color:#b91c1c;border-color:rgba(220,38,38,.24)}
+.rec-status--attende{background:rgba(234,179,8,.12);color:#a16207;border-color:rgba(234,179,8,.28)}
+
+.rec-date{font-size:.78rem;color:var(--na-muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+.rec-user-cell{display:flex;align-items:center;gap:.5rem}
+.rec-user-avatar{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--na-teal),var(--na-blue));color:#fff;font-size:.65rem;font-weight:800;display:grid;place-items:center;flex-shrink:0}
+.rec-user-name{font-size:.78rem;color:var(--na-txt);font-weight:500;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.rec-desc{font-size:.77rem;color:var(--na-muted);max-width:200px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ── Type Radio Buttons Enhanced ── */
+.type-radio-label{position:relative;display:flex;align-items:center;justify-content:center;padding:.85rem .7rem;border:2px solid var(--na-border);border-radius:10px;cursor:pointer;background:#fff;transition:all .25s ease;overflow:hidden}
+.type-radio-label input[type="radio"]{position:absolute;opacity:0;pointer-events:none}
+.type-radio-content{display:flex;flex-direction:column;align-items:center;gap:.35rem;font-size:.78rem;font-weight:700;color:var(--na-muted);transition:all .25s ease}
+.type-radio-content i{font-size:1.3rem;transition:all .25s ease}
+.type-radio-label:hover{border-color:var(--na-teal);transform:translateY(-2px);box-shadow:0 4px 12px rgba(17,183,170,.15)}
+.type-radio-depot input:checked ~ .type-radio-content{color:#16a34a}
+.type-radio-depot input:checked ~ .type-radio-content i{color:#16a34a}
+.type-radio-depot:has(input:checked){background:linear-gradient(135deg,rgba(22,163,74,.12),rgba(22,163,74,.05));border-color:#16a34a;box-shadow:0 4px 12px rgba(22,163,74,.25)}
+.type-radio-retrait input:checked ~ .type-radio-content{color:#dc2626}
+.type-radio-retrait input:checked ~ .type-radio-content i{color:#dc2626}
+.type-radio-retrait:has(input:checked){background:linear-gradient(135deg,rgba(220,38,38,.12),rgba(220,38,38,.05));border-color:#dc2626;box-shadow:0 4px 12px rgba(220,38,38,.25)}
+.type-radio-virement input:checked ~ .type-radio-content{color:#2563eb}
+.type-radio-virement input:checked ~ .type-radio-content i{color:#2563eb}
+.type-radio-virement:has(input:checked){background:linear-gradient(135deg,rgba(37,99,235,.12),rgba(37,99,235,.05));border-color:#2563eb;box-shadow:0 4px 12px rgba(37,99,235,.25)}
+.type-radio-paiement input:checked ~ .type-radio-content{color:#7c3aed}
+.type-radio-paiement input:checked ~ .type-radio-content i{color:#7c3aed}
+.type-radio-paiement:has(input:checked){background:linear-gradient(135deg,rgba(124,58,237,.12),rgba(124,58,237,.05));border-color:#7c3aed;box-shadow:0 4px 12px rgba(124,58,237,.25)}
+
+/* ── Badword Moderation Styles ── */
+.rec-row-inappropriate{background:rgba(239,68,68,.03) !important;border-left:3px solid #ef4444}
+.rec-desc-wrapper{display:flex;flex-direction:column;gap:.35rem}
+.rec-badword-badge{display:inline-flex;align-items:center;gap:.3rem;padding:.2rem .55rem;border-radius:12px;font-size:.68rem;font-weight:700;background:linear-gradient(135deg,#fee2e2,#fecaca);color:#b91c1c;border:1px solid #fca5a5;animation:badwordPulse 2s ease-in-out infinite}
+@keyframes badwordPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.85;transform:scale(1.02)}}
+.rec-desc-blurred{filter:blur(4px);user-select:none;cursor:not-allowed;color:#94a3b8 !important}
+.rec-moderate-actions{display:flex;gap:.4rem;align-items:center}
+.rec-moderate-btn{width:32px;height:32px;border-radius:8px;border:2px solid;display:grid;place-items:center;cursor:pointer;font-size:.8rem;transition:all .25s cubic-bezier(0.4,0,0.2,1);position:relative;overflow:hidden}
+.rec-moderate-btn::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.3),transparent);opacity:0;transition:opacity .25s ease}
+.rec-moderate-btn:hover::before{opacity:1}
+.rec-moderate-btn--accept{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border-color:#16a34a}
+.rec-moderate-btn--accept:hover{transform:translateY(-2px) scale(1.05);box-shadow:0 4px 12px rgba(34,197,94,.4)}
+.rec-moderate-btn--blur{background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border-color:#d97706}
+.rec-moderate-btn--blur:hover{transform:translateY(-2px) scale(1.05);box-shadow:0 4px 12px rgba(245,158,11,.4)}
+.rec-moderate-btn:active{transform:translateY(-1px) scale(0.98)}
+.rec-moderated-badge{display:inline-flex;align-items:center;gap:.3rem;padding:.25rem .6rem;border-radius:12px;font-size:.7rem;font-weight:700;background:linear-gradient(135deg,#d1fae5,#a7f3d0);color:#065f46;border:1px solid #6ee7b7}
+
+/* ── Reclamation Cards Layout ── */
+.rec-cards-container{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:.85rem;padding:1rem;background:var(--na-bg)}
+.rec-card{background:#fff;border-radius:12px;border:2px solid var(--na-border);box-shadow:0 2px 12px rgba(0,0,0,.05);overflow:hidden;transition:all .3s cubic-bezier(0.4,0,0.2,1);position:relative;animation:cardFadeIn .4s ease backwards}
+.rec-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.1);border-color:var(--na-teal)}
+.rec-card.is-inappropriate{border-color:#ef4444;background:linear-gradient(180deg,#fff 0%,#fef2f2 100%)}
+.rec-card.is-inappropriate::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#ef4444,#f87171,#ef4444);animation:warningGlow 2s ease-in-out infinite}
+@keyframes cardFadeIn{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}
+@keyframes warningGlow{0%,100%{opacity:.6}50%{opacity:1}}
+.rec-card__header{padding:.85rem 1rem;background:linear-gradient(135deg,#1e293b 0%,#334155 100%);color:#fff;position:relative;overflow:hidden}
+.rec-card__header::after{content:'';position:absolute;top:-40%;right:-15%;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.06) 0%,transparent 70%)}
+.rec-card__id{display:inline-flex;align-items:center;gap:.3rem;font-size:.72rem;font-weight:800;color:#fff;background:rgba(255,255,255,.12);padding:.25rem .6rem;border-radius:15px;margin-bottom:.4rem;backdrop-filter:blur(4px)}
+.rec-card__type{font-size:.9rem;font-weight:800;color:#fff;margin:0;line-height:1.2}
+.sentiment-emoji{font-size:1.3rem;margin-right:.5rem;display:inline-block;animation:sentimentPop .5s cubic-bezier(0.68,-0.55,0.265,1.55);filter:drop-shadow(0 2px 4px rgba(0,0,0,.2))}
+@keyframes sentimentPop{0%{transform:scale(0) rotate(-180deg);opacity:0}50%{transform:scale(1.2) rotate(10deg)}100%{transform:scale(1) rotate(0);opacity:1}}
+.rec-card__body{padding:.9rem 1rem}
+.rec-card__row{display:flex;align-items:flex-start;gap:.6rem;margin-bottom:.7rem;padding-bottom:.7rem;border-bottom:1px solid #f1f5f9}
+.rec-card__row:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none}
+.rec-card__icon{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;font-size:.85rem;flex-shrink:0;background:linear-gradient(135deg,rgba(17,183,170,.12),rgba(17,183,170,.05));color:var(--na-teal)}
+.rec-card__icon.icon-user{background:linear-gradient(135deg,rgba(59,130,246,.12),rgba(59,130,246,.05));color:#3b82f6}
+.rec-card__icon.icon-date{background:linear-gradient(135deg,rgba(139,92,246,.12),rgba(139,92,246,.05));color:#8b5cf6}
+.rec-card__icon.icon-tx{background:linear-gradient(135deg,rgba(245,158,11,.12),rgba(245,158,11,.05));color:#f59e0b}
+.rec-card__content{flex:1;min-width:0}
+.rec-card__label{font-size:.65rem;text-transform:uppercase;letter-spacing:.4px;color:var(--na-muted);font-weight:700;margin-bottom:.2rem}
+.rec-card__value{font-size:.8rem;color:var(--na-txt);font-weight:600;word-break:break-word}
+.rec-card__desc{background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-radius:10px;padding:.75rem;margin-top:.7rem;border:1px solid #e2e8f0}
+.rec-card__desc-label{font-size:.65rem;text-transform:uppercase;letter-spacing:.4px;color:var(--na-muted);font-weight:700;margin-bottom:.4rem;display:flex;align-items:center;gap:.3rem}
+.rec-card__desc-text{font-size:.78rem;color:#475569;line-height:1.5;font-style:italic}
+.rec-card__footer{padding:.75rem 1rem;background:#fafbfc;border-top:2px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;gap:.8rem;flex-wrap:wrap}
+.rec-card__status{display:inline-flex;align-items:center;gap:.3rem;padding:.3rem .7rem;border-radius:15px;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.25px}
+.rec-card__status.status-valide{background:linear-gradient(135deg,#d1fae5,#a7f3d0);color:#065f46;border:2px solid #6ee7b7}
+.rec-card__status.status-ferme{background:linear-gradient(135deg,#fee2e2,#fecaca);color:#991b1b;border:2px solid #fca5a5}
+.rec-card__status.status-attende{background:linear-gradient(135deg,#fef3c7,#fde68a);color:#92400e;border:2px solid #fcd34d}
+.rec-card__status.status-signalee{background:linear-gradient(135deg,#fee2e2,#fecaca);color:#b91c1c;border:2px solid #f87171;animation:statusPulse 2s ease-in-out infinite}
+@keyframes statusPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+.rec-card__actions{display:flex;gap:.4rem}
+.rec-card__btn{width:32px;height:32px;border-radius:8px;border:2px solid;display:grid;place-items:center;cursor:pointer;font-size:.8rem;transition:all .25s cubic-bezier(0.4,0,0.2,1);position:relative;overflow:hidden;background:#fff}
+.rec-card__btn::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.5),transparent);opacity:0;transition:opacity .25s ease}
+.rec-card__btn:hover::before{opacity:1}
+.rec-card__btn.btn-edit{border-color:#22c55e;color:#16a34a}
+.rec-card__btn.btn-edit:hover{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;transform:translateY(-2px);box-shadow:0 3px 10px rgba(34,197,94,.3)}
+.rec-card__btn.btn-ai{border-color:#8b5cf6;color:#7c3aed;position:relative;overflow:hidden}
+.rec-card__btn.btn-ai::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(139,92,246,.1),transparent);opacity:0;transition:opacity .3s ease}
+.rec-card__btn.btn-ai:hover{background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;transform:translateY(-2px);box-shadow:0 3px 10px rgba(139,92,246,.4);animation:aiGlow 1.5s ease-in-out infinite}
+.rec-card__btn.btn-ai:hover::after{opacity:1}
+@keyframes aiGlow{0%,100%{box-shadow:0 3px 10px rgba(139,92,246,.4)}50%{box-shadow:0 3px 16px rgba(139,92,246,.6)}}
+.rec-card__btn.btn-delete{border-color:#ef4444;color:#dc2626}
+.rec-card__btn.btn-delete:hover{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;transform:translateY(-2px);box-shadow:0 3px 10px rgba(239,68,68,.3)}
+.rec-card__btn.btn-view{border-color:#f59e0b;color:#d97706}
+.rec-card__btn.btn-view:hover{background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;transform:translateY(-2px);box-shadow:0 3px 10px rgba(245,158,11,.3)}
+.rec-card__moderation{width:100%;margin-top:.6rem;padding-top:.6rem;border-top:2px dashed #fca5a5;display:flex;align-items:center;justify-content:space-between;gap:.6rem}
+.rec-card__mod-label{font-size:.65rem;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:.3px;display:flex;align-items:center;gap:.3rem}
+.rec-card__mod-actions{display:flex;gap:.4rem}
+.rec-empty-state{text-align:center;padding:3rem 1.5rem;color:var(--na-muted)}
+.rec-empty-state i{font-size:3.5rem;opacity:.2;margin-bottom:.8rem;display:block;color:var(--na-teal)}
+.rec-empty-state p{font-size:.88rem;margin:0}
+
+/* ── Section Headers with Icons ── */
+.section-depot,.section-retrait,.section-virement,.section-paiement{background:linear-gradient(135deg,rgba(17,183,170,.03),rgba(17,183,170,.01));border-radius:12px;padding:1rem;border:1px solid rgba(17,183,170,.15)}
+.section-depot{background:linear-gradient(135deg,rgba(22,163,74,.05),rgba(22,163,74,.02));border-color:rgba(22,163,74,.2)}
+.section-retrait{background:linear-gradient(135deg,rgba(220,38,38,.05),rgba(220,38,38,.02));border-color:rgba(220,38,38,.2)}
+.section-virement{background:linear-gradient(135deg,rgba(37,99,235,.05),rgba(37,99,235,.02));border-color:rgba(37,99,235,.2)}
+.section-paiement{background:linear-gradient(135deg,rgba(124,58,237,.05),rgba(124,58,237,.02));border-color:rgba(124,58,237,.2)}
+
 @keyframes nxTxReveal{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
 @media (max-width:1100px){.nx-tx__grid{grid-template-columns:1fr}.nx-tx__kpis{grid-template-columns:1fr 1fr}.nx-tx__stats-card{grid-template-columns:1fr}.nx-tx__modal-banner{grid-template-columns:1fr}.nx-tx__modal-grid{grid-template-columns:1fr 1fr}}
 @media (max-width:760px){.nx-tx{padding:1rem}.nx-tx__hero{flex-direction:column;align-items:flex-start}.nx-tx__kpis{grid-template-columns:1fr}.nx-tx__tabs{gap:.25rem}.nx-tx__search{flex-direction:column;align-items:stretch}.nx-tx__sort-select,.nx-tx__sort-dir{width:100%}.nx-tx__stats-donut{width:138px;height:138px}.nx-tx__stats-row{grid-template-columns:1fr auto}.nx-tx__modal{padding:1rem}.nx-tx__modal-head,.nx-tx__modal-body{padding:1rem}.nx-tx__modal-grid{grid-template-columns:1fr}}
@@ -165,17 +345,170 @@
           <input type="hidden" name="q" value="{{ transaction_query.q }}">
           <input type="hidden" name="sort" value="{{ transaction_query.sort }}">
           <input type="hidden" name="dir" value="{{ transaction_query.dir }}">
-          <div class="nx-tx__form-label-id"><i class="fa-solid fa-pen-to-square"></i><span id="f-mode-label">{{ tx.idTransaction is defined ? 'Modification transaction #' ~ tx.idTransaction : 'Nouvelle transaction' }}</span></div>
+          
+          <div class="nx-tx__form-label-id">
+            <i class="fa-solid fa-pen-to-square"></i>
+            <span id="f-mode-label">{{ tx.idTransaction is defined ? 'Modification transaction #' ~ tx.idTransaction : 'Nouvelle transaction' }}</span>
+          </div>
+          
           <div class="nx-tx__form-divider"></div>
-          <label><span>Numero de Compte</span><select name="idCompte" id="f-idCompte" class="nx-tx__field-input" required><option value="">-- Selectionner --</option>{% for account in accounts %}<option value="{{ account.idCompte }}" {{ tx.idCompte|default('') == account.idCompte ? 'selected' : '' }}>{{ account.numeroCompte }}</option>{% endfor %}</select><small class="nx-tx__field-feedback is-neutral" id="f-idCompte-feedback">Veuillez selectionner un compte.</small></label>
-          <label><span>Categorie</span><select name="categorie" id="f-categorie" class="nx-tx__field-input" required><option value="">-- Selectionner --</option>{% for category in transaction_categories %}<option value="{{ category }}" {{ tx.categorie|default('') == category ? 'selected' : '' }}>{{ category }}</option>{% endfor %}</select><small class="nx-tx__field-feedback is-neutral" id="f-categorie-feedback">Veuillez selectionner une categorie.</small></label>
-          <label><span>Date Transaction</span><input type="date" name="dateTransaction" id="f-dateTransaction" class="nx-tx__field-input" value="{{ tx.dateTransaction|default('now'|date('Y-m-d')) }}" required><small class="nx-tx__field-feedback is-neutral" id="f-dateTransaction-feedback">Veuillez choisir une date valide.</small></label>
-          <label><span>Montant (DT)</span><input type="number" step="0.01" min="0" name="montant" id="f-montant" class="nx-tx__field-input" value="{{ tx.montant_value|default('') }}" placeholder="0.00" required><small class="nx-tx__field-feedback is-neutral" id="f-montant-feedback">Le montant doit etre superieur a 0.</small></label>
-          <label><span>Type Transaction</span><select name="typeTransaction" id="f-typeTransaction" class="nx-tx__field-input" required><option value="">-- Selectionner --</option>{% for type in transaction_types %}<option value="{{ type }}" {{ tx.typeTransaction|default('') == type ? 'selected' : '' }}>{{ type }}</option>{% endfor %}</select><small class="nx-tx__field-feedback is-neutral" id="f-typeTransaction-feedback">Veuillez selectionner un type de transaction.</small></label>
-          <label><span>Solde Apres (DT)</span><input type="number" step="0.01" name="soldeApres" id="f-soldeApres" class="nx-tx__field-input" value="{{ tx.soldeApres|default('') }}" placeholder="0.00"><small class="nx-tx__field-feedback is-neutral" id="f-soldeApres-feedback">Champ optionnel. Si rempli, la valeur doit etre positive.</small></label>
-          <label><span>Description</span><textarea name="description" id="f-description" class="nx-tx__field-input" placeholder="Description de la transaction">{{ tx.description|default('') }}</textarea><small class="nx-tx__field-feedback is-neutral" id="f-description-feedback">Champ optionnel. Si rempli, au moins 10 caracteres.</small></label>
-          <label><span>Montant Paye (DT)</span><input type="number" step="0.01" min="0" name="montantPaye" id="f-montantPaye" class="nx-tx__field-input" value="{{ tx.montantPaye_value|default('') }}" placeholder="0.00"><small class="nx-tx__field-feedback is-neutral" id="f-montantPaye-feedback">Champ optionnel. Si rempli, la valeur doit etre positive.</small></label>
-          <div class="nx-tx__form-actions"><button class="na-btn na-btn--save" type="submit"><i class="fa-solid fa-floppy-disk"></i> Enregistrer</button><button class="na-btn na-btn--reset" type="button" onclick="nxResetTransactionForm()"><i class="fa-solid fa-rotate-left"></i> Annuler</button></div>
+          
+          {# Champs de base #}
+          <label>
+            <span>Compte source <em style="color:#dc2626">*</em></span>
+            <select name="compte" id="f-compte" class="nx-tx__field-input" required>
+              <option value="">-- Selectionner --</option>
+              {% for account in accounts %}
+                <option value="{{ account.idCompte }}" data-solde="{{ account.solde }}" {{ tx.idCompte|default('') == account.idCompte ? 'selected' : '' }}>
+                  {{ account.numeroCompte }} ({{ account.solde }} DT)
+                </option>
+              {% endfor %}
+            </select>
+            <small class="nx-tx__field-feedback is-neutral" id="f-compte-feedback">Veuillez selectionner un compte.</small>
+          </label>
+          
+          <label>
+            <span>Date Transaction <em style="color:#dc2626">*</em></span>
+            <input type="date" name="dateTransaction" id="f-dateTransaction" class="nx-tx__field-input" value="{{ tx.dateTransaction|default('now'|date('Y-m-d')) }}" required>
+            <small class="nx-tx__field-feedback is-neutral" id="f-dateTransaction-feedback">Veuillez choisir une date valide.</small>
+          </label>
+          
+          <label>
+            <span>Description</span>
+            <textarea name="description" id="f-description" class="nx-tx__field-input" placeholder="Description de la transaction">{{ tx.description|default('') }}</textarea>
+            <small class="nx-tx__field-feedback is-neutral" id="f-description-feedback">Champ optionnel.</small>
+          </label>
+          
+          <div class="nx-tx__form-divider"></div>
+          
+          {# Type de transaction - Boutons radio améliorés #}
+          <label>
+            <span>Type Transaction <em style="color:#dc2626">*</em></span>
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:.65rem;margin-top:.6rem">
+              <label class="type-radio-label type-radio-depot">
+                <input type="radio" name="typeTransaction" value="DEPOT" {{ not tx or tx.typeTransaction|default('DEPOT')|upper == 'DEPOT' ? 'checked' : '' }}>
+                <span class="type-radio-content">
+                  <i class="fa-solid fa-arrow-down"></i>
+                  <span>DÉPÔT</span>
+                </span>
+              </label>
+              <label class="type-radio-label type-radio-retrait">
+                <input type="radio" name="typeTransaction" value="RETRAIT" {{ tx and tx.typeTransaction|default('')|upper == 'RETRAIT' ? 'checked' : '' }}>
+                <span class="type-radio-content">
+                  <i class="fa-solid fa-arrow-up"></i>
+                  <span>RETRAIT</span>
+                </span>
+              </label>
+              <label class="type-radio-label type-radio-virement">
+                <input type="radio" name="typeTransaction" value="VIREMENT" {{ tx and tx.typeTransaction|default('')|upper == 'VIREMENT' ? 'checked' : '' }}>
+                <span class="type-radio-content">
+                  <i class="fa-solid fa-right-left"></i>
+                  <span>VIREMENT</span>
+                </span>
+              </label>
+              <label class="type-radio-label type-radio-paiement">
+                <input type="radio" name="typeTransaction" value="PAIEMENT" {{ tx and tx.typeTransaction|default('')|upper == 'PAIEMENT' ? 'checked' : '' }}>
+                <span class="type-radio-content">
+                  <i class="fa-solid fa-credit-card"></i>
+                  <span>PAIEMENT</span>
+                </span>
+              </label>
+            </div>
+            <small class="nx-tx__field-feedback is-neutral" id="f-typeTransaction-feedback">Veuillez selectionner un type.</small>
+          </label>
+          
+          <div class="nx-tx__form-divider"></div>
+          
+          {# Section DEPOT #}
+          <div class="section-depot" style="display:none">
+            <label>
+              <span>Montant <em style="color:#dc2626">*</em></span>
+              <input type="number" step="0.01" min="0" name="montant" id="f-montant-depot" class="nx-tx__field-input" placeholder="0.00" value="{{ tx and tx.typeTransaction|upper == 'DEPOT' ? tx.montant_value|default('') : '' }}">
+              <small class="nx-tx__field-feedback is-neutral" id="f-montant-depot-feedback">Le montant doit etre superieur a 0.</small>
+            </label>
+          </div>
+          
+          {# Section RETRAIT #}
+          <div class="section-retrait" style="display:none">
+            <label>
+              <span>Montant <em style="color:#dc2626">*</em></span>
+              <input type="number" step="0.01" min="0" name="montant" id="f-montant-retrait" class="nx-tx__field-input" placeholder="0.00" value="{{ tx and tx.typeTransaction|upper == 'RETRAIT' ? tx.montant_value|default('') : '' }}">
+              <small class="nx-tx__field-feedback is-neutral" id="f-montant-retrait-feedback">Le montant doit etre superieur a 0.</small>
+            </label>
+            <small style="font-size:.72rem;color:#ff9800;margin-top:8px;display:block">
+              <i class="fa-solid fa-triangle-exclamation"></i> Solde disponible: <strong id="solde-disponible">0.00 DT</strong>
+            </small>
+          </div>
+          
+          {# Section VIREMENT #}
+          <div class="section-virement" style="display:none">
+            <label>
+              <span>Numéro compte destinataire <em style="color:#dc2626">*</em></span>
+              <input type="text" name="compteDestinataire" id="f-compteDestinataire" class="nx-tx__field-input" placeholder="Ex: 1234567890" value="{{ tx and tx.typeTransaction|upper == 'VIREMENT' ? tx.idCompteDestinataire|default('') : '' }}">
+              <small class="nx-tx__field-feedback is-neutral" id="f-compteDestinataire-feedback">Minimum 5 chiffres.</small>
+            </label>
+            <label>
+              <span>Nom destinataire <em style="color:#dc2626">*</em></span>
+              <input type="text" name="nomDestinataire" id="f-nomDestinataire" class="nx-tx__field-input" placeholder="Nom complet" value="{{ tx and tx.typeTransaction|upper == 'VIREMENT' ? tx.nomDestinataire|default('') : '' }}">
+              <small class="nx-tx__field-feedback is-neutral" id="f-nomDestinataire-feedback">Minimum 3 caracteres.</small>
+            </label>
+            <label>
+              <span>Email destinataire</span>
+              <input type="email" name="emailDestinataire" id="f-emailDestinataire" class="nx-tx__field-input" placeholder="email@example.com" value="{{ tx and tx.typeTransaction|upper == 'VIREMENT' ? tx.emailDestinataire|default('') : '' }}">
+              <small class="nx-tx__field-feedback is-neutral" id="f-emailDestinataire-feedback">Optionnel.</small>
+            </label>
+            <label>
+              <span>Montant <em style="color:#dc2626">*</em></span>
+              <input type="number" step="0.01" min="0" name="montant" id="f-montant-virement" class="nx-tx__field-input" placeholder="0.00" value="{{ tx and tx.typeTransaction|upper == 'VIREMENT' ? tx.montant_value|default('') : '' }}">
+              <small class="nx-tx__field-feedback is-neutral" id="f-montant-virement-feedback">Le montant doit etre superieur a 0.</small>
+            </label>
+          </div>
+          
+          {# Section PAIEMENT #}
+          <div class="section-paiement" style="display:none">
+            <label>
+              <span>Catégorie <em style="color:#dc2626">*</em></span>
+              <select name="categorie" id="f-categorie" class="nx-tx__field-input">
+                <option value="">-- Selectionner --</option>
+                {% for category in transaction_categories %}
+                  <option value="{{ category }}" {{ tx and tx.categorie == category ? 'selected' : '' }}>{{ category }}</option>
+                {% endfor %}
+              </select>
+              <small class="nx-tx__field-feedback is-neutral" id="f-categorie-feedback">Veuillez selectionner une categorie.</small>
+            </label>
+            <label>
+              <span>Montant à payer <em style="color:#dc2626">*</em></span>
+              <input type="number" step="0.01" min="0" name="montantPaye" id="f-montantPaye" class="nx-tx__field-input" placeholder="0.00" value="{{ tx and tx.typeTransaction|upper == 'PAIEMENT' ? tx.montantPaye_value|default('') : '' }}">
+              <small class="nx-tx__field-feedback is-neutral" id="f-montantPaye-feedback">Le montant doit etre superieur a 0.</small>
+            </label>
+            <label>
+              <span>Bénéficiaire</span>
+              <input type="text" name="nomDestinataire" id="f-nomBenef" class="nx-tx__field-input" placeholder="Nom (optionnel)" value="{{ tx and tx.typeTransaction|upper == 'PAIEMENT' ? tx.nomDestinataire|default('') : '' }}">
+            </label>
+            <label>
+              <span>Email bénéficiaire</span>
+              <input type="email" name="emailDestinataire" id="f-emailBenef" class="nx-tx__field-input" placeholder="email@example.com (optionnel)" value="{{ tx and tx.typeTransaction|upper == 'PAIEMENT' ? tx.emailDestinataire|default('') : '' }}">
+              <small class="nx-tx__field-feedback is-neutral" id="f-emailBenef-feedback">Optionnel.</small>
+            </label>
+            
+            <div style="margin-top:15px;padding:12px;background:rgba(99,102,241,0.1);border-radius:8px;border:1px solid rgba(99,102,241,0.3)">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                <i class="fa-solid fa-shield-halved" style="color:#6366f1;font-size:18px"></i>
+                <strong style="color:#4f46e5;font-size:.85rem">Paiement sécurisé via Stripe</strong>
+              </div>
+              <p style="font-size:.75rem;color:#6b7280;margin:0 0 12px 0">
+                Après enregistrement, vous serez redirigé vers Stripe pour payer.
+              </p>
+              <button type="button" id="btn-payer-stripe" class="na-btn na-btn--save" style="width:100%;background:linear-gradient(135deg,#6366f1 0%,#4f46e5 100%)">
+                <i class="fa-solid fa-lock"></i> Enregistrer et payer avec Stripe
+              </button>
+            </div>
+          </div>
+          
+          <div class="nx-tx__form-actions">
+            <button class="na-btn na-btn--save" type="submit"><i class="fa-solid fa-floppy-disk"></i> Enregistrer</button>
+            <button class="na-btn na-btn--reset" type="button" onclick="nxResetTransactionForm()"><i class="fa-solid fa-rotate-left"></i> Annuler</button>
+          </div>
         </form>
       </article>
       <article class="nx-tx__panel" id="nx-tx-table-panel">
@@ -208,30 +541,30 @@
           <table class="nx-tx__table" id="nx-tx-table">
             <thead>
               <tr>
-                <th>N Compte</th>
-                <th>Categorie</th>
-                <th>Date</th>
-                <th>Montant</th>
-                <th>Type</th>
-                <th>Solde Apres</th>
-                <th>Montant Paye</th>
-                <th>Description</th>
-                <th>Actions</th>
+                <th><i class="fa-solid fa-building-columns" style="margin-right:.4rem;opacity:.7"></i>N° Compte</th>
+                <th><i class="fa-solid fa-paper-plane" style="margin-right:.4rem;opacity:.7"></i>Compte Dest.</th>
+                <th><i class="fa-solid fa-tag" style="margin-right:.4rem;opacity:.7"></i>Catégorie</th>
+                <th><i class="fa-regular fa-calendar" style="margin-right:.4rem;opacity:.7"></i>Date</th>
+                <th><i class="fa-solid fa-coins" style="margin-right:.4rem;opacity:.7"></i>Montant</th>
+                <th><i class="fa-solid fa-layer-group" style="margin-right:.4rem;opacity:.7"></i>Type</th>
+                <th><i class="fa-solid fa-wallet" style="margin-right:.4rem;opacity:.7"></i>Montant Payé</th>
+                <th><i class="fa-solid fa-align-left" style="margin-right:.4rem;opacity:.7"></i>Description</th>
+                <th><i class="fa-solid fa-bolt" style="margin-right:.4rem;opacity:.7"></i>Actions</th>
               </tr>
             </thead>
             <tbody>
               {% for item in transaction_items %}
                 {% set type_key = item.typeTransaction|default('')|lower %}
                 {% set category_key = item.categorie|default('')|lower|replace({' ': '-', 'ê': 'e', 'é': 'e', 'è': 'e', 'à': 'a', 'â': 'a', 'ù': 'u'}) %}
-                <tr tabindex="0" data-id="{{ item.idTransaction }}" data-user-id="{{ item.resolved_user_id|default(item.idUser|default('')) }}" data-id-compte="{{ item.idCompte|default('') }}" data-numero-compte="{{ item.numeroCompte|default('') }}" data-categorie="{{ item.categorie|default('') }}" data-date="{{ item.dateTransaction|default('') }}" data-montant="{{ item.montant_value|default(0) }}" data-type="{{ item.typeTransaction|default('') }}" data-solde-apres="{{ item.soldeApres|default('') }}" data-montant-paye="{{ item.montantPaye_value|default(0) }}" data-description="{{ item.description|default('') }}" data-user-name="{{ item.user_name|default('') }}" data-account-type="{{ item.linked_account.typeCompte|default('') }}" data-account-status="{{ item.linked_account.statutCompte|default('') }}" data-account-solde="{{ item.linked_account.solde|default('') }}">
+                <tr tabindex="0" data-id="{{ item.idTransaction }}" data-user-id="{{ item.resolved_user_id|default(item.idUser|default('')) }}" data-id-compte="{{ item.idCompte|default('') }}" data-numero-compte="{{ item.numeroCompte|default('') }}" data-compte-dest="{{ item.idCompteDestinataire|default('') }}" data-numero-compte-dest="{{ item.numeroCompteDestinataire|default('') }}" data-categorie="{{ item.categorie|default('') }}" data-date="{{ item.dateTransaction|default('') }}" data-montant="{{ item.montant_value|default(0) }}" data-type="{{ item.typeTransaction|default('') }}" data-montant-paye="{{ item.montantPaye_value|default(0) }}" data-description="{{ item.description|default('') }}" data-user-name="{{ item.user_name|default('') }}" data-account-type="{{ item.linked_account.typeCompte|default('') }}" data-account-status="{{ item.linked_account.statutCompte|default('') }}" data-account-solde="{{ item.linked_account.solde|default('') }}">
                   <td><span class="nx-tx__num">{{ item.numeroCompte|default('-') }}</span></td>
+                  <td><span class="nx-tx__num">{{ item.numeroCompteDestinataire|default('-') }}</span></td>
                   <td><span class="nx-tx__tag {{ category_key ? 'cat-' ~ category_key : 'cat-default' }}">{{ item.categorie|default('-') }}</span></td>
-                  <td>{{ item.dateTransaction|default('-') }}</td>
-                  <td class="nx-tx__amount">{{ item.montant_value|default(0)|number_format(2, '.', ' ') }} <em>DT</em></td>
-                  <td><span class="nx-tx__tag is-{{ 'debit' in type_key ? 'debit' : 'credit' }}">{{ item.typeTransaction|default('-') }}</span></td>
-                  <td>{{ item.soldeApres is not null ? item.soldeApres|number_format(2, '.', ' ') ~ ' DT' : '-' }}</td>
-                  <td>{{ item.montantPaye_value|default(0)|number_format(2, '.', ' ') }} DT</td>
-                  <td>{{ item.description|default('-') }}</td>
+                  <td><span class="nx-tx__date">{{ item.dateTransaction|default('-') }}</span></td>
+                  <td><span class="nx-tx__amount">{{ item.montant_value|default(0)|number_format(2, '.', ' ') }} <em>DT</em></span></td>
+                  <td><span class="nx-tx__tag is-{{ 'paiement' in type_key ? 'debit' : ('virement' in type_key ? 'virement' : 'credit') }}">{{ item.typeTransaction|default('-') }}</span></td>
+                  <td><span class="nx-tx__paid">{{ item.montantPaye_value|default(0)|number_format(2, '.', ' ') }} <em>DT</em></span></td>
+                  <td><span class="nx-tx__desc">{{ item.description|default('-') }}</span></td>
                   <td>
                     <div class="nx-tx__act-group">
                       <button type="button" class="nx-tx__act-btn edit" title="Modifier" onclick="nxEditTransaction(this.closest('tr'))"><i class="fa-solid fa-pen-to-square"></i></button>
@@ -255,6 +588,51 @@
             </tbody>
           </table>
         </div>
+        
+        {# Pagination Controls #}
+        {% set pagination = support.pagination|default({ current_page: 1, total_pages: 1, total_items: 0, per_page: 3, has_prev: false, has_next: false }) %}
+        {% if pagination.total_pages > 1 %}
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.2rem;border-top:1px solid var(--na-border);background:var(--na-bg)">
+            <span style="font-size:.78rem;color:var(--na-muted)">
+              Page <strong>{{ pagination.current_page }}</strong> sur <strong>{{ pagination.total_pages }}</strong> 
+              ({{ pagination.total_items }} transaction{{ pagination.total_items > 1 ? 's' : '' }})
+            </span>
+            <div style="display:flex;gap:.5rem">
+              {% if pagination.has_prev %}
+                <a href="{{ path(route_name, { tab: 'transactions', panel: 'transaction', page: pagination.current_page - 1, q: transaction_query.q, sort: transaction_query.sort, dir: transaction_query.dir }) }}" 
+                   class="na-btn na-btn--ghost" style="padding:.4rem .8rem;font-size:.75rem">
+                  <i class="fa-solid fa-chevron-left"></i> Précédent
+                </a>
+              {% else %}
+                <button disabled class="na-btn na-btn--ghost" style="padding:.4rem .8rem;font-size:.75rem;opacity:.4;cursor:not-allowed">
+                  <i class="fa-solid fa-chevron-left"></i> Précédent
+                </button>
+              {% endif %}
+              
+              {% for page in 1..pagination.total_pages %}
+                {% if page == pagination.current_page %}
+                  <button class="na-btn na-btn--primary" style="padding:.4rem .8rem;font-size:.75rem;min-width:36px">{{ page }}</button>
+                {% elseif page == 1 or page == pagination.total_pages or (page >= pagination.current_page - 1 and page <= pagination.current_page + 1) %}
+                  <a href="{{ path(route_name, { tab: 'transactions', panel: 'transaction', page: page, q: transaction_query.q, sort: transaction_query.sort, dir: transaction_query.dir }) }}" 
+                     class="na-btn na-btn--ghost" style="padding:.4rem .8rem;font-size:.75rem;min-width:36px">{{ page }}</a>
+                {% elseif page == pagination.current_page - 2 or page == pagination.current_page + 2 %}
+                  <span style="padding:.4rem .4rem;color:var(--na-muted)">...</span>
+                {% endif %}
+              {% endfor %}
+              
+              {% if pagination.has_next %}
+                <a href="{{ path(route_name, { tab: 'transactions', panel: 'transaction', page: pagination.current_page + 1, q: transaction_query.q, sort: transaction_query.sort, dir: transaction_query.dir }) }}" 
+                   class="na-btn na-btn--ghost" style="padding:.4rem .8rem;font-size:.75rem">
+                  Suivant <i class="fa-solid fa-chevron-right"></i>
+                </a>
+              {% else %}
+                <button disabled class="na-btn na-btn--ghost" style="padding:.4rem .8rem;font-size:.75rem;opacity:.4;cursor:not-allowed">
+                  Suivant <i class="fa-solid fa-chevron-right"></i>
+                </button>
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
       </article>
     </div>
   {% else %}
@@ -263,32 +641,8 @@
       <div class="nx-tx__kpi"><span class="nx-tx__kpi-icon"><i class="fa-solid fa-right-left"></i></span><div class="nx-tx__kpi-body"><strong>{{ all_transaction_items|length }}</strong><small>Transactions reliees</small></div></div>
       <div class="nx-tx__kpi"><span class="nx-tx__kpi-icon"><i class="fa-solid fa-flag"></i></span><div class="nx-tx__kpi-body"><strong id="nx-rec-lines">{{ reclamation_items|length }}</strong><small>Lignes affichees</small></div></div>
     </div>
-    <div class="nx-tx__grid">
-      <article class="nx-tx__panel" id="nx-rec-form-panel">
-        <div class="nx-tx__panel-head">
-          <div class="nx-tx__panel-head-left">
-            <h3><i class="fa-solid fa-comments" style="color:var(--na-teal);margin-right:.4rem"></i>Reclamation</h3>
-            <p>Ajouter ou modifier une reclamation</p>
-          </div>
-        </div>
-        <form method="post" class="nx-tx__form" id="nx-reclamation-form" novalidate>
-          <input type="hidden" name="tab" value="transactions">
-          <input type="hidden" name="panel" value="reclamation">
-          <input type="hidden" name="action" value="reclamation_save">
-          <input type="hidden" name="idReclamation" id="r-idReclamation" value="{{ rec.idReclamation|default('') }}">
-          <input type="hidden" name="q" value="{{ reclamation_query.q }}">
-          <input type="hidden" name="sort" value="{{ reclamation_query.sort }}">
-          <input type="hidden" name="dir" value="{{ reclamation_query.dir }}">
-          <div class="nx-tx__form-label-id"><i class="fa-solid fa-pen-to-square"></i><span id="r-mode-label">{{ rec.idReclamation is defined ? 'Modification reclamation #' ~ rec.idReclamation : 'Nouvelle reclamation' }}</span></div>
-          <div class="nx-tx__form-divider"></div>
-          <label><span>Date Reclamation</span><input type="date" name="dateReclamation" id="r-dateReclamation" class="nx-tx__field-input" value="{{ rec.dateReclamation|default('now'|date('Y-m-d')) }}" required><small class="nx-tx__field-feedback is-neutral" id="r-dateReclamation-feedback">Veuillez choisir une date valide.</small></label>
-          <label><span>Type Reclamation</span><select name="typeReclamation" id="r-typeReclamation" class="nx-tx__field-input" required><option value="">-- Selectionner --</option>{% for type in reclamation_types %}<option value="{{ type }}" {{ rec.typeReclamation|default('') == type ? 'selected' : '' }}>{{ type }}</option>{% endfor %}</select><small class="nx-tx__field-feedback is-neutral" id="r-typeReclamation-feedback">Veuillez selectionner un type de reclamation.</small></label>
-          <label><span>Description</span><textarea name="description" id="r-description" class="nx-tx__field-input" placeholder="Description de la reclamation" required>{{ rec.description|default('') }}</textarea><small class="nx-tx__field-feedback is-neutral" id="r-description-feedback">La description doit contenir au moins 10 caracteres.</small></label>
-          <label><span>Status</span><select name="status" id="r-status" class="nx-tx__field-input" required><option value="">-- Selectionner --</option>{% for status in reclamation_statuses %}<option value="{{ status }}" {{ rec.status|default('') == status ? 'selected' : '' }}>{{ status }}</option>{% endfor %}</select><small class="nx-tx__field-feedback is-neutral" id="r-status-feedback">Veuillez selectionner un status.</small></label>
-          <label><span>ID Transaction</span><select name="idTransaction" id="r-idTransaction" class="nx-tx__field-input" required><option value="">-- Selectionner --</option>{% for transaction in reclamation_transactions %}<option value="{{ transaction.idTransaction }}" {{ rec.idTransaction|default('') == transaction.idTransaction ? 'selected' : '' }}>#{{ transaction.idTransaction }}</option>{% endfor %}</select><small class="nx-tx__field-feedback is-neutral" id="r-idTransaction-feedback">Veuillez selectionner une transaction.</small></label>
-          <div class="nx-tx__form-actions"><button class="na-btn na-btn--save" type="submit"><i class="fa-solid fa-floppy-disk"></i> Enregistrer</button><button class="na-btn na-btn--reset" type="button" onclick="nxResetReclamationForm()"><i class="fa-solid fa-rotate-left"></i> Annuler</button></div>
-        </form>
-      </article>
+    <div class="nx-tx__grid nx-tx__grid--full">
+      {# ── Tableau réclamations ── #}
       <article class="nx-tx__panel" id="nx-rec-table-panel">
         <div class="nx-tx__panel-head">
           <div class="nx-tx__panel-head-left">
@@ -296,6 +650,10 @@
             <p>Gestion complete des reclamations bancaires</p>
           </div>
           <span class="nx-tx__row-count" id="nx-rec-count">{{ reclamation_items|length }} reclamation{{ reclamation_items|length != 1 ? 's' : '' }}</span>
+          <button type="button" id="btn-analyse-reclamations"
+                  style="display:inline-flex;align-items:center;gap:.5rem;padding:.5rem 1.1rem;border-radius:9px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;font-size:.82rem;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(99,102,241,.35);transition:all .2s ease;">
+            <i class="fa-solid fa-brain"></i> Analyse IA
+          </button>
         </div>
         <form method="get" class="nx-tx__search" id="nx-rec-search-form">
           <input type="hidden" name="tab" value="transactions">
@@ -303,7 +661,7 @@
           <div class="nx-tx__search-box">
             <div class="nx-tx__search-wrap">
               <i class="fa-solid fa-magnifying-glass"></i>
-              <input class="nx-tx__search-input" type="text" name="q" id="nx-rec-search-input" value="{{ reclamation_query.q }}" placeholder="Recherche avancee: transaction, type, status, description, utilisateur...">
+              <input class="nx-tx__search-input" type="text" name="q" id="nx-rec-search-input" value="{{ reclamation_query.q }}" placeholder="Recherche: type, status, transaction, utilisateur...">
             </div>
             <div class="nx-tx__suggestions" id="nx-rec-suggestions" hidden></div>
           </div>
@@ -315,33 +673,167 @@
           <input type="hidden" id="nx-rec-dir-input" name="dir" value="{{ reclamation_query.dir|default('desc') }}">
           <button class="nx-tx__sort-dir" id="nx-rec-sort-dir" title="Ordre" type="button"><i class="fa-solid {{ reclamation_query.dir == 'asc' ? 'fa-arrow-up-a-z' : 'fa-arrow-down-z-a' }}"></i></button>
         </form>
-        <div class="nx-tx__table-wrap">
-          <table class="nx-tx__table" id="nx-rec-table">
-            <thead>
-              <tr><th>Date</th><th>Type</th><th>Status</th><th>ID Transaction</th><th>Description</th><th>Actions</th></tr>
-            </thead>
-            <tbody>
-              {% for item in reclamation_items %}
-                {% set status_key = item.status|default('')|lower|replace({' ': '-', 'é': 'e', 'è': 'e', 'ê': 'e'}) %}
-                {% set type_key = item.typeReclamation|default('')|lower|replace({' ': '-', 'é': 'e', 'è': 'e', 'ê': 'e', 'à': 'a'}) %}
-                <tr tabindex="0" data-id="{{ item.idReclamation }}" data-date="{{ item.dateReclamation|default('') }}" data-type="{{ item.typeReclamation|default('') }}" data-status="{{ item.status|default('') }}" data-id-transaction="{{ item.idTransaction|default('') }}" data-numero-compte="{{ item.numeroCompte|default('') }}" data-user-id="{{ item.resolved_user_id|default(item.idUser|default('')) }}" data-user-name="{{ item.user_name|default('') }}" data-description="{{ item.description|default('') }}" data-inappropriate="{{ item.is_inappropriate|default(0) }}" data-blurred="{{ item.is_blurred|default(0) }}" data-transaction-type="{{ item.transaction_type|default('') }}" data-transaction-category="{{ item.transaction_category|default('') }}">
-                  <td>{{ item.dateReclamation|default('-') }}</td><td><span class="nx-tx__tag {{ type_key ? 'rec-' ~ type_key : 'cat-default' }}">{{ item.typeReclamation|default('-') }}</span></td><td><span class="nx-tx__tag {{ status_key in ['valide'] ? 'is-credit' : (status_key in ['ferme'] ? 'is-debit' : 'cat-default') }}">{{ item.status|default('-') }}</span></td><td>#{{ item.idTransaction|default('-') }}</td><td>{{ item.description|default('-') }}</td>
-                  <td>
-                    <div class="nx-tx__act-group">
-                      <button type="button" class="nx-tx__act-btn edit" title="Modifier" onclick="nxEditReclamation(this.closest('tr'))"><i class="fa-solid fa-pen-to-square"></i></button>
-                      <form method="post" style="display:inline">
-                        <input type="hidden" name="tab" value="transactions"><input type="hidden" name="panel" value="reclamation"><input type="hidden" name="action" value="reclamation_delete"><input type="hidden" name="idReclamation" value="{{ item.idReclamation }}"><input type="hidden" name="q" value="{{ reclamation_query.q }}"><input type="hidden" name="sort" value="{{ reclamation_query.sort }}"><input type="hidden" name="dir" value="{{ reclamation_query.dir }}">
-                        <button type="submit" class="nx-tx__act-btn del" title="Supprimer" onclick="return confirm('Supprimer cette reclamation ?')"><i class="fa-solid fa-trash-can"></i></button>
-                      </form>
-                      <button type="button" class="nx-tx__act-btn view" title="Voir" onclick="nxViewReclamation(this.closest('tr'))"><i class="fa-solid fa-eye"></i></button>
+        <div class="rec-cards-container" id="nx-rec-cards">
+          {% for item in reclamation_items %}
+            {% set status_key = item.status|default('')|lower|replace({' ': '-', 'é': 'e', 'è': 'e', 'ê': 'e'}) %}
+            {% set type_key = item.typeReclamation|default('')|lower|replace({' ': '-', 'é': 'e', 'è': 'e', 'ê': 'e', 'à': 'a'}) %}
+            {% set status_class = status_key in ['valide'] ? 'status-valide' : (status_key in ['ferme'] ? 'status-ferme' : (status_key in ['signalee'] ? 'status-signalee' : 'status-attende')) %}
+            {% set is_inappropriate = item.is_inappropriate|default(0) == 1 %}
+            {% set is_blurred = item.is_blurred|default(0) == 1 %}
+            
+            <div class="rec-card {{ is_inappropriate ? 'is-inappropriate' : '' }}"
+                 data-id="{{ item.idReclamation }}"
+                 data-date="{{ item.dateReclamation|default('') }}"
+                 data-type="{{ item.typeReclamation|default('') }}"
+                 data-status="{{ item.status|default('') }}"
+                 data-id-transaction="{{ item.idTransaction|default('') }}"
+                 data-numero-compte="{{ item.numeroCompte|default('') }}"
+                 data-user-id="{{ item.resolved_user_id|default(item.idUser|default('')) }}"
+                 data-user-name="{{ item.user_name|default('') }}"
+                 data-description="{{ item.description|default('') }}"
+                 data-inappropriate="{{ item.is_inappropriate|default(0) }}"
+                 data-blurred="{{ item.is_blurred|default(0) }}"
+                 data-transaction-type="{{ item.transaction_type|default('') }}"
+                 data-transaction-category="{{ item.transaction_category|default('') }}"
+                 style="animation-delay:{{ loop.index0 * 0.05 }}s">
+              
+              <div class="rec-card__header">
+                <div class="rec-card__id">
+                  <i class="fa-solid fa-hashtag"></i>
+                  <span>{{ item.idReclamation }}</span>
+                </div>
+                <h4 class="rec-card__type">
+                  {% set sentiment_emoji = {
+                    'angry': '😠',
+                    'sad': '😢',
+                    'worried': '😰',
+                    'neutral': '😐',
+                    'happy': '😊'
+                  } %}
+                  <span class="sentiment-emoji" title="Sentiment: {{ item.sentiment|default('neutral') }}">
+                    {{ sentiment_emoji[item.sentiment|default('neutral')] ?? '😐' }}
+                  </span>
+                  <i class="fa-solid fa-flag" style="margin-right:.4rem;opacity:.8"></i>
+                  {{ item.typeReclamation|default('Type inconnu') }}
+                </h4>
+              </div>
+              
+              <div class="rec-card__body">
+                <div class="rec-card__row">
+                  <div class="rec-card__icon icon-user">
+                    <i class="fa-solid fa-user"></i>
+                  </div>
+                  <div class="rec-card__content">
+                    <div class="rec-card__label">Utilisateur</div>
+                    <div class="rec-card__value">{{ item.user_name|default('Inconnu') }}</div>
+                  </div>
+                </div>
+                
+                <div class="rec-card__row">
+                  <div class="rec-card__icon icon-date">
+                    <i class="fa-regular fa-calendar"></i>
+                  </div>
+                  <div class="rec-card__content">
+                    <div class="rec-card__label">Date de réclamation</div>
+                    <div class="rec-card__value">{{ item.dateReclamation|date('d/m/Y') }}</div>
+                  </div>
+                </div>
+                
+                <div class="rec-card__row">
+                  <div class="rec-card__icon icon-tx">
+                    <i class="fa-solid fa-right-left"></i>
+                  </div>
+                  <div class="rec-card__content">
+                    <div class="rec-card__label">Transaction liée</div>
+                    <div class="rec-card__value">#{{ item.idTransaction|default('-') }}</div>
+                  </div>
+                </div>
+                
+                <div class="rec-card__desc">
+                  <div class="rec-card__desc-label">
+                    <i class="fa-solid fa-align-left"></i>
+                    Description
+                    {% if is_inappropriate %}
+                      <span class="rec-badword-badge" style="margin-left:auto">
+                        <i class="fa-solid fa-triangle-exclamation"></i> Badword
+                      </span>
+                    {% endif %}
+                  </div>
+                  <div class="rec-card__desc-text {{ is_blurred ? 'rec-desc-blurred' : '' }}">
+                    {{ is_blurred ? '[CONTENU MODÉRÉ PAR L\'ADMINISTRATEUR]' : (item.description|default('Aucune description')) }}
+                  </div>
+                </div>
+              </div>
+              
+              <div class="rec-card__footer">
+                <div style="flex:1">
+                  <span class="rec-card__status {{ status_class }}">
+                    {% if status_key == 'valide' %}<i class="fa-solid fa-circle-check"></i>
+                    {% elseif status_key == 'ferme' %}<i class="fa-solid fa-circle-xmark"></i>
+                    {% elseif status_key == 'signalee' %}<i class="fa-solid fa-triangle-exclamation"></i>
+                    {% else %}<i class="fa-solid fa-clock"></i>{% endif %}
+                    {{ item.status|default('En attente') }}
+                  </span>
+                </div>
+                
+                <div class="rec-card__actions">
+                  <button type="button" class="rec-card__btn btn-ai" title="Répondre avec IA" onclick="respondWithAI({{ item.idReclamation }}, '{{ item.user_name|default('Utilisateur')|e('js') }}', '{{ item.typeReclamation|default('')|e('js') }}', '{{ item.description|default('')|e('js') }}')">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                  </button>
+                  <button type="button" class="rec-card__btn btn-edit" title="Modifier" onclick="nxEditReclamation(this.closest('.rec-card'))">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                  </button>
+                  <button type="button" class="rec-card__btn btn-view" title="Voir détails" onclick="nxViewReclamation(this.closest('.rec-card'))">
+                    <i class="fa-solid fa-eye"></i>
+                  </button>
+                  <form method="post" style="display:inline">
+                    <input type="hidden" name="tab" value="transactions">
+                    <input type="hidden" name="panel" value="reclamation">
+                    <input type="hidden" name="action" value="reclamation_delete">
+                    <input type="hidden" name="idReclamation" value="{{ item.idReclamation }}">
+                    <input type="hidden" name="q" value="{{ reclamation_query.q }}">
+                    <input type="hidden" name="sort" value="{{ reclamation_query.sort }}">
+                    <input type="hidden" name="dir" value="{{ reclamation_query.dir }}">
+                    <button type="submit" class="rec-card__btn btn-delete" title="Supprimer" onclick="return confirm('Supprimer cette réclamation ?')">
+                      <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                  </form>
+                </div>
+                
+                {% if is_inappropriate and not is_blurred %}
+                  <div class="rec-card__moderation">
+                    <div class="rec-card__mod-label">
+                      <i class="fa-solid fa-shield-halved"></i>
+                      Modération requise
                     </div>
-                  </td>
-                </tr>
-              {% else %}
-                <tr><td colspan="6" class="nx-tx__empty"><i class="fa-solid fa-flag"></i>Aucune reclamation enregistree.</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
+                    <div class="rec-card__mod-actions">
+                      <button type="button" class="rec-moderate-btn rec-moderate-btn--accept" 
+                              onclick="moderateReclamation({{ item.idReclamation }}, 'accept')"
+                              title="Accepter la réclamation">
+                        <i class="fa-solid fa-check"></i>
+                      </button>
+                      <button type="button" class="rec-moderate-btn rec-moderate-btn--blur" 
+                              onclick="moderateReclamation({{ item.idReclamation }}, 'blur')"
+                              title="Flouter le contenu">
+                        <i class="fa-solid fa-eye-slash"></i>
+                      </button>
+                    </div>
+                  </div>
+                {% elseif is_blurred %}
+                  <div class="rec-card__moderation">
+                    <span class="rec-moderated-badge">
+                      <i class="fa-solid fa-check-circle"></i> Contenu modéré
+                    </span>
+                  </div>
+                {% endif %}
+              </div>
+            </div>
+          {% else %}
+            <div class="rec-empty-state" style="grid-column:1/-1">
+              <i class="fa-solid fa-flag"></i>
+              <p>Aucune réclamation enregistrée</p>
+            </div>
+          {% endfor %}
         </div>
       </article>
     </div>
@@ -370,7 +862,7 @@
           <strong id="d-montant">{{ detail_tx.montant_value|default(0)|number_format(2, '.', ' ') }} DT</strong>
           <p>
             <span class="nx-tx__tag {{ detail_category_key ? 'cat-' ~ detail_category_key : 'cat-default' }}" id="d-categorie-badge">{{ detail_tx.categorie|default('-') }}</span>
-            <span class="nx-tx__tag {{ 'debit' in detail_type_key ? 'is-debit' : 'is-credit' }}" id="d-type-badge">{{ detail_tx.typeTransaction|default('-') }}</span>
+            <span class="nx-tx__tag {{ 'paiement' in detail_type_key ? 'is-debit' : ('virement' in detail_type_key ? 'is-virement' : 'is-credit') }}" id="d-type-badge">{{ detail_tx.typeTransaction|default('-') }}</span>
           </p>
         </div>
         <div class="nx-tx__mini-stack">
@@ -380,10 +872,10 @@
       </div>
       <div class="nx-tx__modal-grid">
         <div class="nx-tx__modal-field"><small>Date transaction</small><strong id="d-date">{{ detail_tx.dateTransaction|default('-') }}</strong></div>
-        <div class="nx-tx__modal-field"><small>ID compte</small><strong id="d-idcompte">{{ detail_tx.idCompte|default('-') }}</strong></div>
+        <div class="nx-tx__modal-field"><small>Compte source</small><strong id="d-idcompte">{{ detail_tx.numeroCompte|default(detail_tx.idCompte|default('-')) }}</strong></div>
+        <div class="nx-tx__modal-field"><small>Compte destinataire</small><strong id="d-comptedestinataire">{{ detail_tx.numeroCompteDestinataire|default('-') }}</strong></div>
         <div class="nx-tx__modal-field"><small>ID utilisateur</small><strong id="d-userid">{{ detail_tx.resolved_user_id|default(detail_tx.idUser|default('-')) }}</strong></div>
         <div class="nx-tx__modal-field"><small>Utilisateur</small><strong id="d-username">{{ detail_tx.user_name|default('-') }}</strong></div>
-        <div class="nx-tx__modal-field"><small>Solde apres</small><strong id="d-soldeapres">{{ detail_tx.soldeApres is defined and detail_tx.soldeApres is not null ? detail_tx.soldeApres|number_format(2, '.', ' ') ~ ' DT' : '-' }}</strong></div>
         <div class="nx-tx__modal-field"><small>Montant paye</small><strong id="d-montantpaye">{{ detail_tx.montantPaye_value|default(0)|number_format(2, '.', ' ') }} DT</strong></div>
         <div class="nx-tx__modal-field"><small>Type compte lie</small><strong id="d-typecompte">{{ detail_account.typeCompte|default('-') }}</strong></div>
         <div class="nx-tx__modal-field"><small>Statut compte lie</small><strong id="d-statutcompte">{{ detail_account.statutCompte|default('-') }}</strong></div>
@@ -433,6 +925,105 @@
     </div>
   </div>
 </div>
+
+{# ═══ MODAL RÉPONSE IA ═══ #}
+<div class="ai-response-modal" id="ai-response-modal" aria-hidden="true">
+  <div class="ai-response-modal__overlay" onclick="closeAIResponseModal()"></div>
+  <div class="ai-response-modal__dialog">
+    <div class="ai-response-modal__header">
+      <div class="ai-response-modal__icon">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+      </div>
+      <div class="ai-response-modal__title">
+        <h3>Réponse générée par IA</h3>
+        <p>Modifiez la réponse si nécessaire avant de l'envoyer</p>
+      </div>
+      <button type="button" class="ai-response-modal__close" onclick="closeAIResponseModal()" aria-label="Fermer">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    
+    <div class="ai-response-modal__body">
+      <div class="ai-response-modal__info">
+        <div class="ai-response-modal__info-item">
+          <i class="fa-solid fa-user"></i>
+          <span id="ai-user-name">-</span>
+        </div>
+        <div class="ai-response-modal__info-item">
+          <i class="fa-solid fa-envelope"></i>
+          <span id="ai-user-email">-</span>
+        </div>
+        <div class="ai-response-modal__info-item">
+          <i class="fa-solid fa-flag"></i>
+          <span id="ai-reclamation-type">-</span>
+        </div>
+      </div>
+      
+      <div class="ai-response-modal__content">
+        <label for="ai-response-text">
+          <i class="fa-solid fa-pen-to-square"></i>
+          Réponse à envoyer
+        </label>
+        <textarea id="ai-response-text" rows="12" placeholder="Génération de la réponse en cours..."></textarea>
+        <div class="ai-response-modal__char-count">
+          <span id="ai-char-count">0</span> caractères
+        </div>
+      </div>
+    </div>
+    
+    <div class="ai-response-modal__footer">
+      <button type="button" class="ai-response-modal__btn ai-response-modal__btn--cancel" onclick="closeAIResponseModal()">
+        <i class="fa-solid fa-xmark"></i>
+        Annuler
+      </button>
+      <button type="button" class="ai-response-modal__btn ai-response-modal__btn--regenerate" onclick="regenerateAIResponse()">
+        <i class="fa-solid fa-rotate"></i>
+        Régénérer
+      </button>
+      <button type="button" class="ai-response-modal__btn ai-response-modal__btn--send" onclick="sendAIResponse()">
+        <i class="fa-solid fa-paper-plane"></i>
+        Envoyer l'email
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+.ai-response-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:2000;animation:fadeIn .3s ease}
+.ai-response-modal.is-open{display:flex}
+.ai-response-modal__overlay{position:absolute;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(8px)}
+.ai-response-modal__dialog{position:relative;width:min(700px,90vw);max-height:85vh;background:#fff;border-radius:20px;box-shadow:0 25px 50px rgba(0,0,0,.25);overflow:hidden;animation:slideUp .4s cubic-bezier(0.34,1.56,0.64,1)}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(30px) scale(0.95)}to{opacity:1;transform:translateY(0) scale(1)}}
+.ai-response-modal__header{background:linear-gradient(135deg,#8b5cf6 0%,#7c3aed 100%);color:#fff;padding:1.5rem 1.8rem;display:flex;align-items:center;gap:1rem;position:relative;overflow:hidden}
+.ai-response-modal__header::before{content:'';position:absolute;top:-50%;right:-10%;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.15) 0%,transparent 70%);animation:pulse 3s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:.5}50%{transform:scale(1.1);opacity:.8}}
+.ai-response-modal__icon{width:50px;height:50px;border-radius:14px;background:rgba(255,255,255,.2);display:grid;place-items:center;font-size:1.4rem;flex-shrink:0;position:relative;z-index:1}
+.ai-response-modal__title{flex:1;position:relative;z-index:1}
+.ai-response-modal__title h3{margin:0 0 .3rem;font-size:1.15rem;font-weight:800}
+.ai-response-modal__title p{margin:0;font-size:.8rem;opacity:.9}
+.ai-response-modal__close{width:40px;height:40px;border:none;border-radius:12px;background:rgba(255,255,255,.15);color:#fff;cursor:pointer;display:grid;place-items:center;font-size:1.1rem;transition:all .2s;position:relative;z-index:1}
+.ai-response-modal__close:hover{background:rgba(255,255,255,.25);transform:rotate(90deg)}
+.ai-response-modal__body{padding:1.8rem;max-height:calc(85vh - 200px);overflow-y:auto}
+.ai-response-modal__info{display:flex;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap}
+.ai-response-modal__info-item{display:flex;align-items:center;gap:.5rem;padding:.6rem 1rem;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-radius:10px;font-size:.85rem;color:#475569;font-weight:600;border:1px solid #e2e8f0}
+.ai-response-modal__info-item i{color:#8b5cf6;font-size:1rem}
+.ai-response-modal__content label{display:flex;align-items:center;gap:.5rem;font-size:.85rem;font-weight:700;color:#334155;margin-bottom:.8rem;text-transform:uppercase;letter-spacing:.5px}
+.ai-response-modal__content label i{color:#8b5cf6}
+.ai-response-modal__content textarea{width:100%;padding:1rem;border:2px solid #e2e8f0;border-radius:12px;font-size:.9rem;font-family:inherit;line-height:1.6;color:#1e293b;resize:vertical;transition:all .2s;box-sizing:border-box}
+.ai-response-modal__content textarea:focus{outline:none;border-color:#8b5cf6;box-shadow:0 0 0 4px rgba(139,92,246,.1)}
+.ai-response-modal__char-count{text-align:right;font-size:.75rem;color:#94a3b8;margin-top:.5rem}
+.ai-response-modal__footer{padding:1.2rem 1.8rem;background:#f8fafc;border-top:2px solid #e2e8f0;display:flex;gap:.8rem;justify-content:flex-end}
+.ai-response-modal__btn{display:inline-flex;align-items:center;gap:.5rem;padding:.7rem 1.3rem;border-radius:10px;font-size:.85rem;font-weight:700;border:none;cursor:pointer;transition:all .2s;font-family:inherit}
+.ai-response-modal__btn--cancel{background:#fff;color:#64748b;border:2px solid #e2e8f0}
+.ai-response-modal__btn--cancel:hover{border-color:#cbd5e1;transform:translateY(-2px)}
+.ai-response-modal__btn--regenerate{background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;box-shadow:0 4px 12px rgba(245,158,11,.3)}
+.ai-response-modal__btn--regenerate:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(245,158,11,.4)}
+.ai-response-modal__btn--send{background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;box-shadow:0 4px 12px rgba(139,92,246,.3)}
+.ai-response-modal__btn--send:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(139,92,246,.4)}
+.ai-response-modal__btn:disabled{opacity:.5;cursor:not-allowed;transform:none !important}
+</style>
+
 <script>
 (() => {
   const form = document.getElementById('nx-transaction-form');
@@ -452,21 +1043,105 @@
   const modalClose = document.getElementById('nx-tx-modal-close');
   if (!form) return;
 
+  // ═══ GESTION DES SECTIONS CONDITIONNELLES ═══
+  const typeRadios = document.querySelectorAll('input[name="typeTransaction"]');
+  const sectionDepot = document.querySelector('.section-depot');
+  const sectionRetrait = document.querySelector('.section-retrait');
+  const sectionVirement = document.querySelector('.section-virement');
+  const sectionPaiement = document.querySelector('.section-paiement');
+  const btnPayerStripe = document.getElementById('btn-payer-stripe');
+  const compteSelect = document.getElementById('f-compte');
+  const soldeDisplay = document.getElementById('solde-disponible');
+
+  function hideAllSections() {
+    if (sectionDepot) sectionDepot.style.display = 'none';
+    if (sectionRetrait) sectionRetrait.style.display = 'none';
+    if (sectionVirement) sectionVirement.style.display = 'none';
+    if (sectionPaiement) sectionPaiement.style.display = 'none';
+  }
+
+  function showSectionForType(type) {
+    hideAllSections();
+    switch(type) {
+      case 'DEPOT':
+        if (sectionDepot) sectionDepot.style.display = 'block';
+        break;
+      case 'RETRAIT':
+        if (sectionRetrait) sectionRetrait.style.display = 'block';
+        updateSoldeDisplay();
+        break;
+      case 'VIREMENT':
+        if (sectionVirement) sectionVirement.style.display = 'block';
+        break;
+      case 'PAIEMENT':
+        if (sectionPaiement) sectionPaiement.style.display = 'block';
+        break;
+    }
+  }
+
+  function updateSoldeDisplay() {
+    if (!compteSelect || !soldeDisplay) return;
+    const selectedOption = compteSelect.options[compteSelect.selectedIndex];
+    const solde = selectedOption?.dataset?.solde || '0';
+    soldeDisplay.textContent = `${Number(solde).toFixed(2)} DT`;
+  }
+
+  typeRadios.forEach(radio => {
+    radio.addEventListener('change', () => {
+      showSectionForType(radio.value);
+    });
+  });
+
+  if (compteSelect) {
+    compteSelect.addEventListener('change', updateSoldeDisplay);
+  }
+
+  // Bouton Stripe pour PAIEMENT
+  if (btnPayerStripe) {
+    btnPayerStripe.addEventListener('click', () => {
+      console.log('[Stripe] Bouton cliqué');
+      
+      // Ajouter le champ action pour indiquer qu'on veut payer
+      let actionInput = form.querySelector('input[name="action"]');
+      if (!actionInput) {
+        actionInput = document.createElement('input');
+        actionInput.type = 'hidden';
+        actionInput.name = 'action';
+        form.appendChild(actionInput);
+      }
+      actionInput.value = 'transaction_save';
+      
+      console.log('[Stripe] Soumission du formulaire');
+      form.submit();
+    });
+  }
+
+  // Afficher la section appropriée au chargement
+  const checkedRadio = document.querySelector('input[name="typeTransaction"]:checked');
+  if (checkedRadio) {
+    showSectionForType(checkedRadio.value);
+  }
+  updateSoldeDisplay();
+
   let selectedRow = null;
   let searchTimer = null;
 
   const setValue = (id, value) => { const el = document.getElementById(id); if (el) el.value = value ?? ''; };
   const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value ?? '-'; };
-  const transactionFieldIds = ['f-idCompte','f-categorie','f-dateTransaction','f-montant','f-typeTransaction','f-soldeApres','f-description','f-montantPaye'];
+  const transactionFieldIds = ['f-compte','f-compteDestinataire','f-nomDestinataire','f-emailDestinataire','f-emailBenef','f-categorie','f-dateTransaction','f-montant-depot','f-montant-retrait','f-montant-virement','f-description','f-montantPaye'];
   const transactionNeutralMessages = {
-    'f-idCompte': 'Veuillez selectionner un compte.',
+    'f-compte': 'Veuillez selectionner un compte.',
+    'f-compteDestinataire': 'Optionnel. Compte destinataire pour un virement.',
+    'f-nomDestinataire': 'Minimum 2 caracteres.',
+    'f-emailDestinataire': 'Optionnel.',
+    'f-emailBenef': 'Optionnel.',
     'f-categorie': 'Veuillez selectionner une categorie.',
     'f-dateTransaction': 'Veuillez choisir une date valide.',
-    'f-montant': 'Le montant doit etre superieur a 0.',
-    'f-typeTransaction': 'Veuillez selectionner un type de transaction.',
-    'f-soldeApres': 'Champ optionnel. Si rempli, la valeur doit etre positive.',
-    'f-description': 'Champ optionnel. Si rempli, au moins 10 caracteres.',
-    'f-montantPaye': 'Champ optionnel. Si rempli, la valeur doit etre positive.',
+    'f-montant-depot': 'Le montant doit etre superieur a 0.',
+    'f-montant-retrait': 'Le montant doit etre superieur a 0.',
+    'f-montant-virement': 'Le montant doit etre superieur a 0.',
+    'f-description': 'Champ optionnel.',
+    'f-montantPaye': 'Le montant doit etre superieur a 0.',
   };
   let transactionValidationStarted = false;
   const formatMoney = (value) => { const amount = Number(value); return Number.isFinite(amount) ? `${amount.toFixed(2)} DT` : '-'; };
@@ -495,40 +1170,121 @@
     });
   };
   const today = '{{ 'now'|date('Y-m-d') }}';
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  const ACCOUNT_RE = /^[a-zA-Z0-9\-]{3,30}$/;
+  const isSectionVisible = (selector) => { const s = document.querySelector(selector); return s && s.style.display !== 'none'; };
   const validateTransactionField = (id) => {
-    const value = String(document.getElementById(id)?.value ?? '').trim();
+    const element = document.getElementById(id);
+    // Skip validation si le champ est dans une section cachée
+    if (element && element.closest('.section-depot, .section-retrait, .section-virement, .section-paiement')) {
+      const section = element.closest('.section-depot, .section-retrait, .section-virement, .section-paiement');
+      if (section.style.display === 'none') return true;
+    }
+    const value = String(element?.value ?? '').trim();
     switch (id) {
-      case 'f-idCompte':
+      case 'f-compte':
         return value !== '' ? setFieldState(id, 'valid', 'Compte valide.') : setFieldState(id, 'error', 'Veuillez selectionner un compte.');
+      case 'f-compteDestinataire':
+        if (isSectionVisible('.section-virement')) {
+          if (value === '') return setFieldState(id, 'error', 'Le compte destinataire est obligatoire pour un virement.');
+          if (!ACCOUNT_RE.test(value)) return setFieldState(id, 'error', 'Numero invalide — 3 a 30 caracteres alphanumeriques.');
+          return setFieldState(id, 'valid', 'Compte destinataire valide.');
+        }
+        return setFieldState(id, 'valid', 'Champ optionnel.');
+      case 'f-nomDestinataire':
+        if (isSectionVisible('.section-virement')) {
+          if (value === '') return setFieldState(id, 'error', 'Le nom du destinataire est obligatoire pour un virement.');
+          if (value.length < 2) return setFieldState(id, 'error', 'Le nom doit contenir au moins 2 caracteres.');
+          if (value.length > 100) return setFieldState(id, 'error', 'Le nom ne doit pas depasser 100 caracteres.');
+          return setFieldState(id, 'valid', 'Nom destinataire valide.');
+        }
+        return true;
+      case 'f-emailDestinataire':
+        if (value === '') return setFieldState(id, 'valid', 'Champ optionnel.');
+        if (!EMAIL_RE.test(value)) return setFieldState(id, 'error', 'Format email invalide (ex: nom@domaine.com).');
+        return setFieldState(id, 'valid', 'Email valide.');
+      case 'f-emailBenef':
+        if (value === '') return setFieldState(id, 'valid', 'Champ optionnel.');
+        if (!EMAIL_RE.test(value)) return setFieldState(id, 'error', 'Format email invalide (ex: nom@domaine.com).');
+        return setFieldState(id, 'valid', 'Email valide.');
       case 'f-categorie':
-        return value !== '' ? setFieldState(id, 'valid', 'Categorie valide.') : setFieldState(id, 'error', 'Veuillez selectionner une categorie.');
+        if (isSectionVisible('.section-paiement')) {
+          return value !== '' ? setFieldState(id, 'valid', 'Categorie valide.') : setFieldState(id, 'error', 'Veuillez selectionner une categorie.');
+        }
+        return true;
       case 'f-dateTransaction':
         if (value === '') return setFieldState(id, 'error', 'La date de transaction est obligatoire.');
         if (value > today) return setFieldState(id, 'error', 'La date ne doit pas etre dans le futur.');
         return setFieldState(id, 'valid', 'Date valide.');
-      case 'f-montant':
+      case 'f-montant-depot':
+      case 'f-montant-retrait':
+      case 'f-montant-virement': {
         if (value === '') return setFieldState(id, 'error', 'Le montant est obligatoire.');
-        if (Number(value) <= 0) return setFieldState(id, 'error', 'Le montant doit etre superieur a 0.');
-        return setFieldState(id, 'valid', 'Montant valide.');
+        const num = Number(value);
+        if (num <= 0) return setFieldState(id, 'error', 'Le montant doit etre superieur a 0.');
+        if (num > 1000000) return setFieldState(id, 'error', 'Montant trop eleve (max 1 000 000).');
+        const dec = (value.split('.')[1] || '').length;
+        if (dec > 2) return setFieldState(id, 'error', 'Maximum 2 decimales autorisees.');
+        if (id === 'f-montant-retrait') {
+          const compteEl = document.getElementById('f-compte');
+          const solde = parseFloat(compteEl?.options[compteEl.selectedIndex]?.dataset.solde || 0);
+          if (num > solde) return setFieldState(id, 'error', `Solde insuffisant — disponible : ${solde.toFixed(2)} DT.`);
+        }
+        return setFieldState(id, 'valid', `${num.toFixed(2)} DT (valide).`);
+      }
+      case 'f-montant':
+        if (element && element.closest('.section-depot, .section-retrait, .section-virement')) {
+          const section = element.closest('.section-depot, .section-retrait, .section-virement');
+          if (section.style.display !== 'none') {
+            if (value === '') return setFieldState(id, 'error', 'Le montant est obligatoire.');
+            if (Number(value) <= 0) return setFieldState(id, 'error', 'Le montant doit etre superieur a 0.');
+            if (Number(value) > 1000000) return setFieldState(id, 'error', 'Montant trop eleve (max 1 000 000).');
+            return setFieldState(id, 'valid', 'Montant valide.');
+          }
+        }
+        return true;
       case 'f-typeTransaction':
         return value !== '' ? setFieldState(id, 'valid', 'Type de transaction valide.') : setFieldState(id, 'error', 'Veuillez selectionner un type de transaction.');
-      case 'f-soldeApres':
-        if (value === '') return setFieldState(id, 'valid', 'Champ optionnel.');
-        if (Number(value) < 0) return setFieldState(id, 'error', 'Le solde apres doit etre positif ou egal a 0.');
-        return setFieldState(id, 'valid', 'Solde apres valide.');
       case 'f-description':
         if (value === '') return setFieldState(id, 'valid', 'Champ optionnel.');
-        if (value.length < 10) return setFieldState(id, 'error', 'La description doit contenir au moins 10 caracteres.');
-        return setFieldState(id, 'valid', 'Description valide.');
+        if (value.length > 255) return setFieldState(id, 'error', `Maximum 255 caracteres (${value.length}/255).`);
+        return setFieldState(id, 'valid', `${value.length}/255 caracteres.`);
       case 'f-montantPaye':
-        if (value === '') return setFieldState(id, 'valid', 'Champ optionnel.');
-        if (Number(value) < 0) return setFieldState(id, 'error', 'Le montant paye doit etre positif ou egal a 0.');
-        return setFieldState(id, 'valid', 'Montant paye valide.');
+        if (isSectionVisible('.section-paiement')) {
+          if (value === '') return setFieldState(id, 'error', 'Le montant a payer est obligatoire.');
+          if (Number(value) <= 0) return setFieldState(id, 'error', 'Le montant doit etre superieur a 0.');
+          if (Number(value) > 1000000) return setFieldState(id, 'error', 'Montant trop eleve (max 1 000 000).');
+          return setFieldState(id, 'valid', 'Montant a payer valide.');
+        }
+        return true;
       default:
         return true;
     }
   };
-  const validateTransactionForm = () => transactionFieldIds.every(validateTransactionField);
+  const validateTransactionForm = () => {
+    const commonFields = ['f-compte', 'f-dateTransaction', 'f-description'];
+    const selectedType = document.querySelector('input[name="typeTransaction"]:checked')?.value;
+    let fieldsToValidate = [...commonFields];
+    switch(selectedType) {
+      case 'DEPOT':
+        fieldsToValidate.push('f-montant-depot');
+        break;
+      case 'RETRAIT':
+        fieldsToValidate.push('f-montant-retrait');
+        break;
+      case 'VIREMENT':
+        fieldsToValidate.push('f-compteDestinataire', 'f-nomDestinataire', 'f-emailDestinataire', 'f-montant-virement');
+        break;
+      case 'PAIEMENT':
+        fieldsToValidate.push('f-categorie', 'f-montantPaye', 'f-emailBenef');
+        break;
+    }
+    return fieldsToValidate.every(fieldId => {
+      const element = document.getElementById(fieldId);
+      if (!element) return true;
+      return validateTransactionField(fieldId);
+    });
+  };
   const categoryClass = (value) => {
     const normalized = String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-');
     return normalized ? `cat-${normalized}` : 'cat-default';
@@ -542,11 +1298,16 @@
     'Assurance sante': '#ca8a04',
     'Autre': '#64748b',
   };
-  const canonicalType = (value) => String(value || '').toLowerCase().includes('debit') ? 'debit' : 'credit';
+  const canonicalType = (value) => {
+    const v = String(value || '').toLowerCase();
+    if (v.includes('paiement')) return 'debit';
+    if (v.includes('virement')) return 'virement';
+    return 'credit';
+  };
   const openModal = () => { if (!modal) return; modal.classList.add('is-open'); modal.setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden'; };
   const closeModal = () => { if (!modal) return; modal.classList.remove('is-open'); modal.setAttribute('aria-hidden', 'true'); document.body.style.overflow = ''; };
   const visibleRows = () => Array.from(table?.querySelectorAll('tbody tr') || []).filter((row) => row.children.length > 1 && row.style.display !== 'none');
-  const searchValueForRow = (row) => [row.dataset.id,row.dataset.userId,row.dataset.userName,row.dataset.idCompte,row.dataset.numeroCompte,row.dataset.categorie,row.dataset.date,row.dataset.montant,row.dataset.type,row.dataset.soldeApres,row.dataset.montantPaye,row.dataset.description,row.dataset.accountType,row.dataset.accountStatus,row.textContent].join(' ').toLowerCase();
+  const searchValueForRow = (row) => [row.dataset.id,row.dataset.userId,row.dataset.userName,row.dataset.idCompte,row.dataset.numeroCompte,row.dataset.compteDest,row.dataset.numeroCompteDest,row.dataset.categorie,row.dataset.date,row.dataset.montant,row.dataset.type,row.dataset.montantPaye,row.dataset.description,row.dataset.accountType,row.dataset.accountStatus,row.textContent].join(' ').toLowerCase();
   const buildExportUrl = () => {
     const params = new URLSearchParams();
     params.set('q', searchInput?.value || '');
@@ -664,12 +1425,12 @@
 
   window.nxResetTransactionForm = () => {
     setValue('f-idTransaction', '');
-    setValue('f-idCompte', '');
+    setValue('f-compte', '');
+    setValue('f-compteDestinataire', '');
     setValue('f-categorie', '');
     setValue('f-dateTransaction', '{{ 'now'|date('Y-m-d') }}');
     setValue('f-montant', '');
     setValue('f-typeTransaction', '');
-    setValue('f-soldeApres', '');
     setValue('f-description', '');
     setValue('f-montantPaye', '');
     const label = document.getElementById('f-mode-label');
@@ -680,12 +1441,12 @@
   window.nxEditTransaction = (row) => {
     if (!row) return;
     setValue('f-idTransaction', row.dataset.id);
-    setValue('f-idCompte', row.dataset.idCompte);
+    setValue('f-compte', row.dataset.idCompte);
+    setValue('f-compteDestinataire', row.dataset.compteDest);
     setValue('f-categorie', row.dataset.categorie);
     setValue('f-dateTransaction', row.dataset.date);
     setValue('f-montant', row.dataset.montant);
     setValue('f-typeTransaction', row.dataset.type);
-    setValue('f-soldeApres', row.dataset.soldeApres);
     setValue('f-description', row.dataset.description);
     setValue('f-montantPaye', row.dataset.montantPaye);
     const label = document.getElementById('f-mode-label');
@@ -701,20 +1462,20 @@
     setText('d-id', row.dataset.id ? `#${row.dataset.id}` : '-');
     setText('d-date', row.dataset.date || '-');
     setText('d-numero', row.dataset.numeroCompte || '-');
-    setText('d-idcompte', row.dataset.idCompte || '-');
+    setText('d-idcompte', row.dataset.numeroCompte || row.dataset.idCompte || '-');
+    setText('d-comptedestinataire', row.dataset.numeroCompteDest || '-');
     setText('d-userid', row.dataset.userId || '-');
     setText('d-username', row.dataset.userName || '-');
     setText('d-typecompte', row.dataset.accountType || '-');
     setText('d-statutcompte', row.dataset.accountStatus || '-');
     setText('d-soldecompte', row.dataset.accountSolde ? formatMoney(row.dataset.accountSolde) : '-');
     setText('d-montant', formatMoney(row.dataset.montant));
-    setText('d-soldeapres', row.dataset.soldeApres ? formatMoney(row.dataset.soldeApres) : '-');
     setText('d-montantpaye', formatMoney(row.dataset.montantPaye));
     setText('d-description', row.dataset.description || '-');
     const categoryBadge = document.getElementById('d-categorie-badge');
     if (categoryBadge) { categoryBadge.textContent = row.dataset.categorie || '-'; categoryBadge.className = `nx-tx__tag ${categoryClass(row.dataset.categorie)}`; }
     const typeBadge = document.getElementById('d-type-badge');
-    if (typeBadge) { const typeValue = row.dataset.type || '-'; typeBadge.textContent = typeValue; typeBadge.className = `nx-tx__tag ${canonicalType(typeValue) === 'debit' ? 'is-debit' : 'is-credit'}`; }
+    if (typeBadge) { const typeValue = row.dataset.type || '-'; typeBadge.textContent = typeValue; typeBadge.className = `nx-tx__tag ${canonicalType(typeValue) === 'debit' ? 'is-debit' : (canonicalType(typeValue) === 'virement' ? 'is-virement' : 'is-credit')}`; }
     openModal();
   };
 
@@ -835,32 +1596,32 @@
     }
   };
   const validateReclamationForm = () => reclamationFieldIds.every(validateReclamationField);
-  const visibleRows = () => Array.from(table?.querySelectorAll('tbody tr') || []).filter((row) => row.children.length > 1 && row.style.display !== 'none');
-  const haystack = (row) => [row.dataset.id,row.dataset.date,row.dataset.type,row.dataset.status,row.dataset.idTransaction,row.dataset.numeroCompte,row.dataset.userId,row.dataset.userName,row.dataset.description,row.dataset.transactionType,row.dataset.transactionCategory,row.textContent].join(' ').toLowerCase();
-  const selectRow = (row) => {
-    if (!row || row.children.length <= 1) return;
-    table?.querySelectorAll('tbody tr').forEach((item) => item.classList.remove('is-selected'));
-    row.classList.add('is-selected');
-    selectedRow = row;
+  const visibleRows = () => Array.from(document.querySelectorAll('.rec-card') || []).filter((card) => card.style.display !== 'none');
+  const haystack = (card) => [card.dataset.id,card.dataset.date,card.dataset.type,card.dataset.status,card.dataset.idTransaction,card.dataset.numeroCompte,card.dataset.userId,card.dataset.userName,card.dataset.description,card.dataset.transactionType,card.dataset.transactionCategory,card.textContent].join(' ').toLowerCase();
+  const selectRow = (card) => {
+    if (!card) return;
+    document.querySelectorAll('.rec-card').forEach((item) => item.classList.remove('is-selected'));
+    card.classList.add('is-selected');
+    selectedRow = card;
   };
-  const renderSuggestions = (rows, query) => {
+  const renderSuggestions = (cards, query) => {
     if (!suggestions) return;
     const q = String(query || '').trim().toLowerCase();
     if (q === '') { suggestions.hidden = true; suggestions.innerHTML = ''; return; }
-    const matches = rows.slice(0, 5);
+    const matches = cards.slice(0, 5);
     if (matches.length === 0) {
       suggestions.hidden = false;
       suggestions.innerHTML = '<div class="nx-tx__suggestion"><strong>Aucun resultat</strong><span>Essayez type, status, transaction ou utilisateur</span></div>';
       return;
     }
     suggestions.hidden = false;
-    suggestions.innerHTML = matches.map((row) => `<button type="button" class="nx-tx__suggestion" data-suggest-id="${row.dataset.id}"><strong>#${row.dataset.id} · ${row.dataset.type || '-'}</strong><span>${row.dataset.status || '-'} · ${row.dataset.userName || '-'}</span></button>`).join('');
+    suggestions.innerHTML = matches.map((card) => `<button type="button" class="nx-tx__suggestion" data-suggest-id="${card.dataset.id}"><strong>#${card.dataset.id} · ${card.dataset.type || '-'}</strong><span>${card.dataset.status || '-'} · ${card.dataset.userName || '-'}</span></button>`).join('');
     suggestions.querySelectorAll('[data-suggest-id]').forEach((button) => {
       button.addEventListener('click', () => {
-        const row = table?.querySelector(`tbody tr[data-id="${button.getAttribute('data-suggest-id')}"]`);
-        if (!row) return;
-        selectRow(row);
-        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const card = document.querySelector(`.rec-card[data-id="${button.getAttribute('data-suggest-id')}"]`);
+        if (!card) return;
+        selectRow(card);
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
         suggestions.hidden = true;
       });
     });
@@ -872,14 +1633,14 @@
     if (lines) lines.textContent = String(visible);
   };
   const applySearch = () => {
-    if (!table || !searchInput) return;
+    if (!searchInput) return;
     const query = searchInput.value.trim().toLowerCase();
-    const rows = Array.from(table.querySelectorAll('tbody tr')).filter((row) => row.children.length > 1);
+    const cards = Array.from(document.querySelectorAll('.rec-card'));
     const matches = [];
-    rows.forEach((row) => {
-      const show = query === '' || haystack(row).includes(query);
-      row.style.display = show ? '' : 'none';
-      if (show) matches.push(row);
+    cards.forEach((card) => {
+      const show = query === '' || haystack(card).includes(query);
+      card.style.display = show ? '' : 'none';
+      if (show) matches.push(card);
     });
     if (selectedRow && selectedRow.style.display === 'none') { selectedRow.classList.remove('is-selected'); selectedRow = null; }
     renderSuggestions(matches, query);
@@ -898,37 +1659,37 @@
     resetReclamationValidationState();
   };
 
-  window.nxEditReclamation = (row) => {
-    if (!row) return;
-    setValue('r-idReclamation', row.dataset.id);
-    setValue('r-dateReclamation', row.dataset.date);
-    setValue('r-typeReclamation', row.dataset.type);
-    setValue('r-description', row.dataset.description);
-    setValue('r-status', row.dataset.status);
-    setValue('r-idTransaction', row.dataset.idTransaction);
+  window.nxEditReclamation = (card) => {
+    if (!card) return;
+    setValue('r-idReclamation', card.dataset.id);
+    setValue('r-dateReclamation', card.dataset.date);
+    setValue('r-typeReclamation', card.dataset.type);
+    setValue('r-description', card.dataset.description);
+    setValue('r-status', card.dataset.status);
+    setValue('r-idTransaction', card.dataset.idTransaction);
     const label = document.getElementById('r-mode-label');
-    if (label) label.textContent = `Modification reclamation #${row.dataset.id}`;
-    selectRow(row);
+    if (label) label.textContent = `Modification reclamation #${card.dataset.id}`;
+    selectRow(card);
     resetReclamationValidationState();
     form.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  window.nxViewReclamation = (row) => {
-    if (!row || !modal) return;
-    selectRow(row);
-    setText('vr-id', row.dataset.id ? `#${row.dataset.id}` : '-');
-    setText('vr-date', row.dataset.date || '-');
-    setText('vr-type', row.dataset.type || '-');
-    setText('vr-status', row.dataset.status || '-');
-    setText('vr-txid', row.dataset.idTransaction ? `#${row.dataset.idTransaction}` : '-');
-    setText('vr-numero', row.dataset.numeroCompte || '-');
-    setText('vr-userid', row.dataset.userId || '-');
-    setText('vr-username', row.dataset.userName || '-');
-    setText('vr-txtype', row.dataset.transactionType || '-');
-    setText('vr-txcat', row.dataset.transactionCategory || '-');
-    setText('vr-inappropriate', row.dataset.inappropriate === '1' ? 'Oui' : 'Non');
-    setText('vr-blurred', row.dataset.blurred === '1' ? 'Oui' : 'Non');
-    setText('vr-description', row.dataset.description || '-');
+  window.nxViewReclamation = (card) => {
+    if (!card || !modal) return;
+    selectRow(card);
+    setText('vr-id', card.dataset.id ? `#${card.dataset.id}` : '-');
+    setText('vr-date', card.dataset.date || '-');
+    setText('vr-type', card.dataset.type || '-');
+    setText('vr-status', card.dataset.status || '-');
+    setText('vr-txid', card.dataset.idTransaction ? `#${card.dataset.idTransaction}` : '-');
+    setText('vr-numero', card.dataset.numeroCompte || '-');
+    setText('vr-userid', card.dataset.userId || '-');
+    setText('vr-username', card.dataset.userName || '-');
+    setText('vr-txtype', card.dataset.transactionType || '-');
+    setText('vr-txcat', card.dataset.transactionCategory || '-');
+    setText('vr-inappropriate', card.dataset.inappropriate === '1' ? 'Oui' : 'Non');
+    setText('vr-blurred', card.dataset.blurred === '1' ? 'Oui' : 'Non');
+    setText('vr-description', card.dataset.description || '-');
     modal.classList.add('is-open');
     modal.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
@@ -969,13 +1730,438 @@
   searchInput?.addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(applySearch, 120); });
   searchInput?.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); applySearch(); } });
   document.addEventListener('click', (event) => { if (suggestions && !event.target.closest('#nx-rec-search-form')) suggestions.hidden = true; });
-  table?.querySelectorAll('tbody tr').forEach((row) => {
-    if (row.children.length <= 1) return;
-    row.addEventListener('click', (event) => { if (event.target.closest('button, a, form')) return; selectRow(row); });
-    row.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectRow(row); } });
+  document.querySelectorAll('.rec-card').forEach((card) => {
+    card.addEventListener('click', (event) => { if (event.target.closest('button, a, form')) return; selectRow(card); });
   });
 
   updateVisibleCount();
   resetReclamationValidationState();
+})();
+
+// ═══ MODERATION FUNCTION ═══
+window.moderateReclamation = async (reclamationId, action) => {
+  if (!reclamationId || !action) {
+    console.error('[Moderation] Invalid parameters:', { reclamationId, action });
+    return;
+  }
+
+  console.log('[Moderation] Starting moderation:', { reclamationId, action });
+
+  try {
+    const formData = new FormData();
+    formData.append('idReclamation', reclamationId);
+    formData.append('action', action);
+
+    const response = await fetch('/portal/api/reclamation/moderate', {
+      method: 'POST',
+      body: formData
+    });
+
+    const data = await response.json();
+    console.log('[Moderation] Response:', data);
+
+    if (data.success) {
+      // Recharger la page pour afficher les changements
+      window.location.reload();
+    } else {
+      alert('Erreur lors de la modération: ' + (data.message || data.error || 'Erreur inconnue'));
+    }
+  } catch (error) {
+    console.error('[Moderation] Error:', error);
+    alert('Erreur lors de la modération. Veuillez réessayer.');
+  }
+};
+
+// ═══ AI RESPONSE FUNCTION ═══
+var currentReclamationData = null;
+
+window.respondWithAI = async (reclamationId, userName, reclamationType, description) => {
+  if (!reclamationId) {
+    alert('ID de réclamation invalide');
+    return;
+  }
+
+  // Stocker les données de la réclamation
+  currentReclamationData = {
+    reclamationId,
+    userName,
+    reclamationType,
+    description
+  };
+
+  // Ouvrir la modal
+  openAIResponseModal();
+
+  // Générer la réponse
+  await generateAIResponseForModal();
+};
+
+function openAIResponseModal() {
+  const modal = document.getElementById('ai-response-modal');
+  if (!modal) return;
+  
+  modal.classList.add('is-open');
+  modal.setAttribute('aria-hidden', 'false');
+  document.body.style.overflow = 'hidden';
+  
+  // Réinitialiser le textarea
+  const textarea = document.getElementById('ai-response-text');
+  if (textarea) {
+    textarea.value = 'Génération de la réponse en cours...';
+    textarea.disabled = true;
+  }
+}
+
+window.closeAIResponseModal = function() {
+  const modal = document.getElementById('ai-response-modal');
+  if (!modal) return;
+  
+  modal.classList.remove('is-open');
+  modal.setAttribute('aria-hidden', 'true');
+  document.body.style.overflow = '';
+  currentReclamationData = null;
+};
+
+async function generateAIResponseForModal() {
+  if (!currentReclamationData) return;
+  
+  const { reclamationId, userName, reclamationType, description } = currentReclamationData;
+  
+  // Mettre à jour les infos dans la modal
+  document.getElementById('ai-user-name').textContent = userName;
+  document.getElementById('ai-reclamation-type').textContent = reclamationType;
+  
+  const textarea = document.getElementById('ai-response-text');
+  
+  try {
+    // Appeler l'API pour générer la réponse (sans envoyer l'email)
+    const formData = new FormData();
+    formData.append('reclamationId', reclamationId);
+    formData.append('userName', userName);
+    formData.append('reclamationType', reclamationType);
+    formData.append('description', description);
+    formData.append('generateOnly', '1'); // Nouveau paramètre pour ne pas envoyer l'email
+
+    const response = await fetch('/admin/api/reclamation/respond-ai', {
+      method: 'POST',
+      body: formData
+    });
+
+    const data = await response.json();
+    console.log('[AI Response] Response:', data);
+
+    if (data.success) {
+      textarea.value = data.response;
+      textarea.disabled = false;
+      document.getElementById('ai-user-email').textContent = data.email || '-';
+      updateCharCount();
+    } else {
+      textarea.value = 'Erreur lors de la génération: ' + (data.message || data.error || 'Erreur inconnue');
+      textarea.disabled = false;
+    }
+  } catch (error) {
+    console.error('[AI Response] Error:', error);
+    textarea.value = 'Erreur lors de la génération de la réponse. Veuillez réessayer.';
+    textarea.disabled = false;
+  }
+}
+
+window.regenerateAIResponse = async function() {
+  const btn = event.target.closest('.ai-response-modal__btn--regenerate');
+  const originalHTML = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Génération...';
+  
+  await generateAIResponseForModal();
+  
+  btn.disabled = false;
+  btn.innerHTML = originalHTML;
+};
+
+window.sendAIResponse = async function() {
+  if (!currentReclamationData) return;
+  
+  const textarea = document.getElementById('ai-response-text');
+  const response = textarea.value.trim();
+  
+  if (!response || response === 'Génération de la réponse en cours...') {
+    alert('Veuillez attendre que la réponse soit générée');
+    return;
+  }
+  
+  if (!confirm('Envoyer cet email à ' + currentReclamationData.userName + ' ?')) {
+    return;
+  }
+  
+  const btn = event.target.closest('.ai-response-modal__btn--send');
+  const originalHTML = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Envoi...';
+  
+  try {
+    const formData = new FormData();
+    formData.append('reclamationId', currentReclamationData.reclamationId);
+    formData.append('userName', currentReclamationData.userName);
+    formData.append('reclamationType', currentReclamationData.reclamationType);
+    formData.append('description', currentReclamationData.description);
+    formData.append('customResponse', response); // Envoyer la réponse modifiée
+    formData.append('sendEmail', '1'); // Indiquer qu'on veut envoyer l'email
+
+    const apiResponse = await fetch('/admin/api/reclamation/respond-ai', {
+      method: 'POST',
+      body: formData
+    });
+
+    const data = await apiResponse.json();
+    console.log('[AI Send] Response:', data);
+
+    if (data.success) {
+      alert('✅ Email envoyé avec succès à ' + currentReclamationData.userName + ' !');
+      closeAIResponseModal();
+    } else {
+      alert('❌ Erreur: ' + (data.message || data.error || 'Erreur inconnue'));
+      btn.disabled = false;
+      btn.innerHTML = originalHTML;
+    }
+  } catch (error) {
+    console.error('[AI Send] Error:', error);
+    alert('❌ Erreur lors de l\'envoi de l\'email. Veuillez réessayer.');
+    btn.disabled = false;
+    btn.innerHTML = originalHTML;
+  }
+};
+
+function updateCharCount() {
+  const textarea = document.getElementById('ai-response-text');
+  const charCount = document.getElementById('ai-char-count');
+  if (textarea && charCount) {
+    charCount.textContent = textarea.value.length;
+  }
+}
+
+// Écouter les changements dans le textarea
+document.addEventListener('DOMContentLoaded', () => {
+  const textarea = document.getElementById('ai-response-text');
+  if (textarea) {
+    textarea.addEventListener('input', updateCharCount);
+  }
+});
+</script>
+
+{# ── MODALE ANALYSE IA RÉCLAMATIONS ── #}
+<div id="modal-analyse-rec" style="display:none;position:fixed;inset:0;z-index:1400;background:rgba(15,23,42,.55);backdrop-filter:blur(6px);">
+  <div style="width:min(700px,100%);max-height:88vh;overflow-y:auto;background:#fff;border-radius:20px;box-shadow:0 24px 64px rgba(15,23,42,.25);display:flex;flex-direction:column;margin:auto;">
+
+    {# Header #}
+    <div style="padding:1.3rem 1.5rem;background:linear-gradient(135deg,#4f46e5,#6366f1);border-radius:20px 20px 0 0;display:flex;align-items:center;gap:12px;flex-shrink:0;">
+      <div style="width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,.2);display:grid;place-items:center;font-size:1.2rem;color:#fff;">
+        <i class="fa-solid fa-brain"></i>
+      </div>
+      <div style="flex:1;">
+        <h3 style="margin:0;color:#fff;font-size:1rem;font-weight:800;">Analyse IA des Réclamations</h3>
+        <p style="margin:0;color:rgba(255,255,255,.7);font-size:.75rem;">Rapport généré par intelligence artificielle</p>
+      </div>
+      <button onclick="document.getElementById('modal-analyse-rec').style.display='none';document.body.style.overflow='';"
+              style="width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.25);color:#fff;cursor:pointer;font-size:.9rem;display:grid;place-items:center;">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    {# Stats rapides #}
+    <div id="analyse-stats" style="display:none;padding:1rem 1.5rem;background:#f8faff;border-bottom:1px solid #e8f0fb;gap:1rem;flex-wrap:wrap;flex-shrink:0;">
+    </div>
+
+    {# Corps #}
+    <div id="analyse-body" style="padding:1.5rem;flex:1;overflow-y:auto;">
+      <div id="analyse-loading" style="text-align:center;padding:3rem 1rem;">
+        <div style="width:52px;height:52px;border:4px solid #e0e7ff;border-top-color:#6366f1;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 1rem;"></div>
+        <p style="color:#6b7280;font-size:.9rem;font-weight:600;">Analyse en cours...</p>
+      </div>
+      <div id="analyse-result" style="display:none;"></div>
+      <div id="analyse-error" style="display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:1rem;color:#dc2626;font-size:.85rem;"></div>
+    </div>
+
+    {# Footer #}
+    <div style="padding:.9rem 1.5rem;background:#f8faff;border-top:1px solid #e8f0fb;display:flex;justify-content:flex-end;flex-shrink:0;border-radius:0 0 20px 20px;">
+      <button onclick="document.getElementById('modal-analyse-rec').style.display='none';document.body.style.overflow='';"
+              style="padding:.5rem 1.4rem;border-radius:9px;background:#1e293b;color:#fff;border:none;font-size:.83rem;font-weight:700;cursor:pointer;">
+        Fermer
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+.analyse-section { margin-bottom: 1.2rem; }
+.analyse-section h4 { font-size: .85rem; font-weight: 800; color: #4f46e5; text-transform: uppercase; letter-spacing: .5px; margin: 0 0 .5rem; display: flex; align-items: center; gap: 6px; }
+.analyse-section p, .analyse-section li { font-size: .85rem; color: #374151; line-height: 1.6; margin: 0 0 .3rem; }
+.analyse-section ul { padding-left: 1.2rem; margin: 0; }
+.analyse-risk-low    { color: #16a34a; font-weight: 700; }
+.analyse-risk-medium { color: #d97706; font-weight: 700; }
+.analyse-risk-high   { color: #dc2626; font-weight: 700; }
+</style>
+
+<script>
+(function() {
+  console.log('[AI Analysis] Script initializing...');
+  var btn = document.getElementById('btn-analyse-reclamations');
+  var modal = document.getElementById('modal-analyse-rec');
+  
+  console.log('[AI Analysis] Button found:', !!btn);
+  console.log('[AI Analysis] Modal found:', !!modal);
+  
+  if (!btn || !modal) {
+    console.error('[AI Analysis] Missing button or modal!');
+    return;
+  }
+
+  btn.addEventListener('click', function() {
+    console.log('[AI Analysis] Button clicked!');
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    runAnalyse();
+  });
+
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) {
+      modal.style.display = 'none';
+      document.body.style.overflow = '';
+    }
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && modal.style.display === 'flex') {
+      modal.style.display = 'none';
+      document.body.style.overflow = '';
+    }
+  });
+
+  function runAnalyse() {
+    console.log('[AI Analysis] Starting analysis...');
+    var loading = document.getElementById('analyse-loading');
+    var result  = document.getElementById('analyse-result');
+    var error   = document.getElementById('analyse-error');
+    var stats   = document.getElementById('analyse-stats');
+
+    console.log('[AI Analysis] Elements:', {
+      loading: !!loading,
+      result: !!result,
+      error: !!error,
+      stats: !!stats
+    });
+
+    loading.style.display = 'block';
+    result.style.display  = 'none';
+    error.style.display   = 'none';
+    stats.style.display   = 'none';
+    result.innerHTML      = '';
+    error.textContent     = '';
+
+    console.log('[AI Analysis] Fetching from API...');
+    fetch('{{ path('admin_api_reclamations_analyse') }}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    })
+    .then(function(r) { 
+      console.log('[AI Analysis] Response status:', r.status);
+      return r.json(); 
+    })
+    .then(function(data) {
+      console.log('[AI Analysis] Data received:', data);
+      loading.style.display = 'none';
+
+      if (data.error) {
+        console.error('[AI Analysis] Error from API:', data.error);
+        error.textContent    = '⚠ ' + data.error;
+        error.style.display  = 'block';
+        return;
+      }
+
+      // Stats rapides
+      if (data.stats) {
+        var s = data.stats;
+        stats.style.display = 'flex';
+        stats.innerHTML = renderStats(s);
+        console.log('[AI Analysis] Stats rendered');
+      }
+
+      // Texte de l'analyse
+      result.style.display = 'block';
+      result.innerHTML = formatAnalyse(data.analyse || '');
+      console.log('[AI Analysis] Analysis rendered');
+    })
+    .catch(function(err) {
+      console.error('[AI Analysis] Fetch error:', err);
+      loading.style.display = 'none';
+      error.textContent     = '⚠ Erreur réseau : ' + err.message;
+      error.style.display   = 'block';
+    });
+  }
+
+  function renderStats(s) {
+    var html = '';
+    var statStyle = 'background:#fff;border:1px solid #e0e7ff;border-radius:10px;padding:.6rem 1rem;text-align:center;min-width:100px;';
+    html += '<div style="' + statStyle + '"><div style="font-size:1.4rem;font-weight:900;color:#4f46e5;">' + s.total + '</div><div style="font-size:.7rem;color:#6b7280;font-weight:600;">Total</div></div>';
+
+    var statusColors = { 'Valide': '#16a34a', 'Ferme': '#dc2626', 'Attende': '#d97706' };
+    Object.keys(s.by_status || {}).forEach(function(k) {
+      var c = statusColors[k] || '#6366f1';
+      html += '<div style="' + statStyle + '"><div style="font-size:1.4rem;font-weight:900;color:' + c + ';">' + s.by_status[k] + '</div><div style="font-size:.7rem;color:#6b7280;font-weight:600;">' + k + '</div></div>';
+    });
+
+    return html;
+  }
+
+  function formatAnalyse(text) {
+    // Convertir le texte structuré en HTML lisible
+    var icons = {
+      '1.': '<i class="fa-solid fa-file-lines"></i>',
+      '2.': '<i class="fa-solid fa-triangle-exclamation"></i>',
+      '3.': '<i class="fa-solid fa-face-meh"></i>',
+      '4.': '<i class="fa-solid fa-lightbulb"></i>',
+      '5.': '<i class="fa-solid fa-shield-halved"></i>',
+    };
+
+    var lines = text.split('\n');
+    var html  = '';
+    var inSection = false;
+
+    lines.forEach(function(line) {
+      line = line.trim();
+      if (!line) return;
+
+      // Titres de section (1. RÉSUMÉ, 2. PROBLÈMES, etc.)
+      var sectionMatch = line.match(/^(\d+)\.\s+(.+)/);
+      if (sectionMatch && parseInt(sectionMatch[1]) <= 5) {
+        if (inSection) html += '</div>';
+        var num = sectionMatch[1] + '.';
+        var icon = icons[num] || '<i class="fa-solid fa-circle"></i>';
+        html += '<div class="analyse-section"><h4>' + icon + ' ' + escHtml(sectionMatch[2]) + '</h4>';
+        inSection = true;
+        return;
+      }
+
+      // Indicateur de risque
+      if (line.toLowerCase().includes('faible')) {
+        html += '<p><span class="analyse-risk-low">🟢 ' + escHtml(line) + '</span></p>';
+      } else if (line.toLowerCase().includes('élevé') || line.toLowerCase().includes('eleve')) {
+        html += '<p><span class="analyse-risk-high">🔴 ' + escHtml(line) + '</span></p>';
+      } else if (line.toLowerCase().includes('moyen')) {
+        html += '<p><span class="analyse-risk-medium">🟡 ' + escHtml(line) + '</span></p>';
+      } else if (line.startsWith('-') || line.startsWith('•')) {
+        html += '<ul><li>' + escHtml(line.replace(/^[-•]\s*/, '')) + '</li></ul>';
+      } else {
+        html += '<p>' + escHtml(line) + '</p>';
+      }
+    });
+
+    if (inSection) html += '</div>';
+    return html || '<p>' + escHtml(text) + '</p>';
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
 })();
 </script>
