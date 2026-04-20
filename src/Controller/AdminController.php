@@ -83,17 +83,11 @@ final class AdminController extends AbstractController
             if ($panel !== '') {
                 $routeParams['panel'] = $panel;
             }
-            foreach (['q', 'filter', 'sort', 'dir', 'edit', 'edit_id', 'view_id'] as $queryKey) {
-                $value = $request->request->get($queryKey);
-                if ($value !== null && $value !== '') {
-                    $routeParams[$queryKey] = $value;
-                }
-            }
 
             return $this->redirectToRoute('admin_dashboard', $routeParams);
         }
 
-        $data = $this->buildAdminTabData($tab, $panel, $request, $bankingService, $notificationService, $user, $editUserId);
+        $data = $this->buildAdminTabData($tab, $panel, $bankingService, $notificationService, $user, $editUserId);
         if ($tab === 'users') {
             $data['support']['ai_assistant'] = $request->getSession()->get('nexora.users_ai_assistant');
             $data['support']['gemini_enabled'] = $geminiService->isConfigured();
@@ -269,49 +263,6 @@ final class AdminController extends AbstractController
         ]);
     }
 
-    #[Route('/admin/transactions/export/pdf', name: 'admin_transactions_export_pdf', methods: ['GET'])]
-    public function exportTransactionsPdf(
-        Request $request,
-        AuthService $authService,
-        BankingService $bankingService,
-        ExportService $exportService,
-    ): Response {
-        $session = $request->getSession();
-        $user = $authService->getAuthenticatedUser($session);
-        if ($user === null) {
-            return $this->redirectToRoute('login');
-        }
-
-        $blockedReason = $authService->getLoginBlockReason($user);
-        if ($blockedReason !== null) {
-            $authService->logoutUser($session);
-            $this->addFlash('error', $blockedReason);
-
-            return $this->redirectToRoute('login');
-        }
-
-        if (strtoupper((string) ($user['role'] ?? '')) !== 'ROLE_ADMIN') {
-            return $this->redirectToRoute('login');
-        }
-
-        $idTransaction = $this->positiveQueryInt($request, 'idTransaction');
-        [$pdfContent, $filename] = $this->transactionsSectionController->buildTransactionPdf(
-            $bankingService,
-            $exportService,
-            $idTransaction,
-            $request->query->all()
-        );
-
-        if ($pdfContent === '') {
-            return new Response('Transaction introuvable.', 404);
-        }
-
-        return new Response($pdfContent, 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => sprintf('inline; filename="%s"', $filename),
-        ]);
-    }
-
     private function handleAdminAction(
         Request $request,
         AuthService $authService,
@@ -328,8 +279,8 @@ final class AdminController extends AbstractController
         try {
             foreach ([
                 $this->usersSectionController->handleAdminAction($action, $request, $bankingService, $geminiService, $profileImagePath),
-                $this->accountsSectionController->handleAdminAction($action, $request, $bankingService, $user),
-                $this->coffrevirtuelleSectionController->handleAdminAction($action, $request, $bankingService, $user),
+                $this->accountsSectionController->handleAdminAction($action, $request, $bankingService),
+                $this->coffrevirtuelleSectionController->handleAdminAction($action, $request, $bankingService),
                 $this->transactionsSectionController->handleAdminAction($action, $request, $bankingService),
                 $this->reclamationSectionController->handleAdminAction($action, $request, $bankingService),
                 $this->creditsSectionController->handleAdminAction($action, $request, $bankingService),
@@ -352,7 +303,6 @@ final class AdminController extends AbstractController
     private function buildAdminTabData(
         string $tab,
         string $panel,
-        Request $request,
         BankingService $bankingService,
         NotificationService $notificationService,
         array $user,
@@ -371,21 +321,17 @@ final class AdminController extends AbstractController
         // Always inject pending accounts so the bell panel works on every tab
         $data['support']['pending_accounts'] = $bankingService->listPendingAccounts();
 
-        // Filter by userId for non-admin users
-        $isAdmin = strtoupper((string) ($user['role'] ?? '')) === 'ROLE_ADMIN';
-        $filterUserId = $isAdmin ? null : (int) $user['idUser'];
-
         if ($tab === 'users') {
             $data = $this->mergeTabData($data, $this->usersSectionController->buildAdminData($bankingService, $editUserId));
         } elseif ($tab === 'accounts') {
-            $accountsData = $this->accountsSectionController->buildAdminData($bankingService, $request, $filterUserId);
-            $vaultsData = $this->coffrevirtuelleSectionController->buildAdminData($bankingService, $filterUserId);
+            $accountsData = $this->accountsSectionController->buildAdminData($bankingService);
+            $vaultsData = $this->coffrevirtuelleSectionController->buildAdminData($bankingService);
             $data = $this->mergeTabData($data, $accountsData);
             $data = $this->mergeTabData($data, $vaultsData);
             $data['items'] = $panel === 'coffre' ? ($vaultsData['items'] ?? []) : ($accountsData['items'] ?? []);
         } elseif ($tab === 'transactions') {
-            $transactionsData = $this->transactionsSectionController->buildAdminData($bankingService, $request->query->all());
-            $complaintsData = $this->reclamationSectionController->buildAdminData($bankingService, $request->query->all());
+            $transactionsData = $this->transactionsSectionController->buildAdminData($bankingService);
+            $complaintsData = $this->reclamationSectionController->buildAdminData($bankingService);
             $data = $this->mergeTabData($data, $transactionsData);
             $data = $this->mergeTabData($data, $complaintsData);
             $data['items'] = $panel === 'reclamation' ? ($complaintsData['items'] ?? []) : ($transactionsData['items'] ?? []);

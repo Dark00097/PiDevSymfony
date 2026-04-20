@@ -1,0 +1,228 @@
+<div class="cashback-details-modal">
+    <div class="details-header">
+        <h3>Détails de la demande de cashback #{{ cashback.id }}</h3>
+    </div>
+
+    <div class="details-content">
+        <div class="details-grid">
+            <div class="detail-section">
+                <h4>Informations générales</h4>
+                <div class="detail-row">
+                    <span class="detail-label">ID Demande:</span>
+                    <span class="detail-value">{{ cashback.id }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Statut:</span>
+                    <span class="detail-value status-{{ cashback.statut|lower }}">{{ cashback.statut }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Date de création:</span>
+                    <span class="detail-value">{{ cashback.date_achat|date('d/m/Y H:i') }}</span>
+                </div>
+            </div>
+
+            <div class="detail-section">
+                <h4>Informations client</h4>
+                {% if user %}
+                <div class="detail-row">
+                    <span class="detail-label">Nom:</span>
+                    <span class="detail-value">{{ user.nom }} {{ user.prenom }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Email:</span>
+                    <span class="detail-value">{{ user.email }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Téléphone:</span>
+                    <span class="detail-value">{{ user.telephone ?: 'N/A' }}</span>
+                </div>
+                {% else %}
+                <div class="detail-row">
+                    <span class="detail-value">Informations client non disponibles</span>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="detail-section">
+                <h4>Détails de l'achat</h4>
+                <div class="detail-row">
+                    <span class="detail-label">Partenaire:</span>
+                    <span class="detail-value">{{ cashback.partenaire_nom }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Montant achat:</span>
+                    <span class="detail-value">{{ cashback.montant_achat|number_format(2, ',', ' ') }} DT</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Taux appliqué:</span>
+                    <span class="detail-value">{{ cashback.taux_applique }}%</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Montant cashback:</span>
+                    <span class="detail-value cashback-amount">{{ cashback.montant_cashback|number_format(2, ',', ' ') }} DT</span>
+                </div>
+            </div>
+
+            {% if partner %}
+            <div class="detail-section">
+                <h4>Informations partenaire</h4>
+                <div class="detail-row">
+                    <span class="detail-label">Nom:</span>
+                    <span class="detail-value">{{ partner.nom }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Rating:</span>
+                    <span class="detail-value">{{ partner.rating }}/5 ★</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Taux max:</span>
+                    <span class="detail-value">{{ partner.taux_max }}%</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Plafond mensuel:</span>
+                    <span class="detail-value">{{ partner.plafond_mensuel|number_format(2, ',', ' ') }} DT</span>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="detail-section">
+                <h4>Dates importantes</h4>
+                <div class="detail-row">
+                    <span class="detail-label">Date achat:</span>
+                    <span class="detail-value">{{ cashback.date_achat|date('d/m/Y') }}</span>
+                </div>
+                {% if cashback.date_credit %}
+                <div class="detail-row">
+                    <span class="detail-label">Date crédit:</span>
+                    <span class="detail-value">{{ cashback.date_credit|date('d/m/Y') }}</span>
+                </div>
+                {% endif %}
+                {% if cashback.date_expiration %}
+                <div class="detail-row">
+                    <span class="detail-label">Date expiration:</span>
+                    <span class="detail-value">{{ cashback.date_expiration|date('d/m/Y') }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if cashback.transaction_ref %}
+        <div class="detail-section">
+            <h4>Référence transaction</h4>
+            <div class="detail-row">
+                <span class="detail-value">{{ cashback.transaction_ref }}</span>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.cashback-details-modal {
+    max-width: 800px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.details-header {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #E5E7EB;
+}
+
+.details-header h3 {
+    margin: 0;
+    color: #111827;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.details-content {
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.details-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.detail-section {
+    background: #F9FAFB;
+    border-radius: 8px;
+    padding: 16px;
+    border: 1px solid #E5E7EB;
+}
+
+.detail-section h4 {
+    margin: 0 0 12px 0;
+    color: #374151;
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    padding: 4px 0;
+}
+
+.detail-row:last-child {
+    margin-bottom: 0;
+}
+
+.detail-label {
+    font-weight: 500;
+    color: #6B7280;
+    font-size: 13px;
+}
+
+.detail-value {
+    font-weight: 600;
+    color: #111827;
+    font-size: 13px;
+}
+
+.cashback-amount {
+    color: #10B981;
+    font-size: 14px;
+}
+
+.status-pending {
+    background-color: #FEF3C7;
+    color: #92400E;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+}
+
+.status-approved {
+    background-color: #D1FAE5;
+    color: #065F46;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+}
+
+.status-rejected {
+    background-color: #FEE2E2;
+    color: #991B1B;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+}
+
+@media (max-width: 768px) {
+    .details-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .cashback-details-modal {
+        margin: 10px;
+    }
+}
+</style>

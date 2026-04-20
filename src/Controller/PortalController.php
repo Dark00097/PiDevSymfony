@@ -100,10 +100,6 @@ final class PortalController extends AbstractController
             $paymentCredit = trim((string) $request->request->get('payment_credit', $request->query->get('payment_credit', '')));
             $this->handlePortalAction($request, $authService, $bankingService, $notificationService, $paymentService, $insightsService, $gamificationService, $user);
 
-            if ($selectedAccount === '' && $action === 'vault_save') {
-                $selectedAccount = trim((string) $request->request->get('idCompte', ''));
-            }
-
             $routeParams = ['tab' => $tab];
             if ($panel !== '') {
                 $routeParams['panel'] = $panel;
@@ -608,12 +604,9 @@ final class PortalController extends AbstractController
                     $request->request->set('documentJustificatif', $uploadedDocument);
                 }
             }
-
-            $accountsFlash = $this->accountsSectionController->handlePortalAction($action, $request, $bankingService, $userId);
-
             foreach ([
-                $accountsFlash,
-                str_starts_with($action, 'vault_') ? null : $this->coffrevirtuelleSectionController->handlePortalAction($action, $request, $bankingService, $userId),
+                $this->accountsSectionController->handlePortalAction($action, $request, $bankingService, $userId),
+                $this->coffrevirtuelleSectionController->handlePortalAction($action, $request, $bankingService, $userId),
                 $this->transactionsSectionController->handlePortalAction($action, $request, $bankingService, $userId),
                 $this->reclamationSectionController->handlePortalAction($action, $request, $bankingService, $userId),
                 $this->creditsSectionController->handlePortalAction($action, $request, $bankingService, $userId),
@@ -693,7 +686,6 @@ final class PortalController extends AbstractController
 
     private function buildPortalTabData(
         string $tab,
-        Request $request,
         BankingService $bankingService,
         NotificationService $notificationService,
         PaymentService $paymentService,
@@ -714,14 +706,13 @@ final class PortalController extends AbstractController
         ];
 
         if ($tab === 'accounts') {
-            $accountsData = $this->accountsSectionController->buildPortalData($bankingService, $activityService, $gamificationService, $userId, $request);
+            $accountsData = $this->accountsSectionController->buildPortalData($bankingService, $activityService, $gamificationService, $userId);
             $vaultsData = $this->coffrevirtuelleSectionController->buildPortalData($bankingService, $userId);
             $data = $this->mergeTabData($data, $accountsData);
             $data = $this->mergeTabData($data, $vaultsData);
             $data['items'] = $accountsData['items'] ?? [];
         } elseif ($tab === 'transactions') {
-            $queryParams = $request->query->all();
-            $data = $this->mergeTabData($data, $this->transactionsSectionController->buildPortalData($bankingService, $userId, $queryParams));
+            $data = $this->mergeTabData($data, $this->transactionsSectionController->buildPortalData($bankingService, $userId));
         } elseif ($tab === 'credits') {
             $creditsData = $this->creditsSectionController->buildPortalData($bankingService, $userId, $request);
             $garantiesData = $this->garantiesSectionController->buildPortalData($bankingService, $userId, $request);
@@ -760,7 +751,7 @@ final class PortalController extends AbstractController
             $data = $this->mergeTabData($data, $this->reclamationSectionController->buildPortalData($bankingService, $userId));
         } elseif ($tab === 'vaults') {
             $vaultsData = $this->coffrevirtuelleSectionController->buildPortalData($bankingService, $userId);
-            $accountsData = $this->accountsSectionController->buildPortalData($bankingService, $activityService, $gamificationService, $userId, $request);
+            $accountsData = $this->accountsSectionController->buildPortalData($bankingService, $activityService, $gamificationService, $userId);
             $data = $this->mergeTabData($data, $accountsData);
             $data = $this->mergeTabData($data, $vaultsData);
             $data['items'] = $vaultsData['items'] ?? [];
@@ -1528,6 +1519,7 @@ SVG;
             'accounts' => ['styles/interfaces/sections/portal-accounts.css'],
             'transactions' => ['styles/interfaces/sections/portal-transactions.css'],
             'credits' => ['styles/interfaces/sections/portal-credits.css'],
+            'cashback' => ['styles/interfaces/sections/portal-cashback.css'],
             'profile' => ['styles/interfaces/sections/portal-profile.css'],
             default => [],
         };
