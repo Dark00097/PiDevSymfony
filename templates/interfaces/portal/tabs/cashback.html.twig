@@ -1,1697 +1,501 @@
-﻿{% set total_cashback = 0 %}
-{% set pending_count = 0 %}
-{% set validated_count = 0 %}
-{% set total_purchases = 0 %}
-{% for item in items %}
-    {% set total_cashback = total_cashback + (item.montant_cashback|default(0)) %}
-    {% set total_purchases = total_purchases + (item.montant_achat|default(0)) %}
-    {% set st = item.statut|default('')|lower %}
-    {% if 'attente' in st %}{% set pending_count = pending_count + 1 %}{% endif %}
-    {% if 'valid' in st or 'approuv' in st %}{% set validated_count = validated_count + 1 %}{% endif %}
-{% endfor %}
+﻿{% set partners = support.partners|default(support.partenaires|default([])) %}
+{% set stats = support.stats|default({}) %}
 
 <div class="cb-root">
+    <section class="cb-page-header">
+        <div>
+            <h1>Recompenses</h1>
+            <p>Cashback et offres exclusives</p>
+        </div>
+    </section>
 
-    {# ── PAGE HEADER ── #}
-    <header class="cb-page-header">
-        <div class="cb-page-header-inner">
-            <div class="cb-page-header-left">
-                <div class="cb-page-icon-ring">
-                    <i class="fa-solid fa-hand-holding-heart"></i>
-                </div>
-                <div>
-                    <h1 class="cb-page-title">Mes Recompenses Cashback</h1>
-                    <p class="cb-page-sub">Suivez vos achats, cumulez des cashbacks et evaluez vos partenaires</p>
-                </div>
-            </div>
-            <div class="cb-page-header-actions">
-                <button type="button" class="cb-hdr-btn cb-hdr-btn-outline" id="cb-dark-toggle" title="Mode sombre">
-                    <i class="fa-solid fa-moon"></i>
-                    <span>Mode sombre</span>
-                </button>
-                <button type="button" class="cb-hdr-btn cb-hdr-btn-outline" id="cb-view-toggle">
-                    <i class="fa-solid fa-table-cells"></i>
-                    <span>Vue tableau</span>
-                </button>
-                <button type="button" class="cb-hdr-btn cb-hdr-btn-primary" id="cb-add-btn">
-                    <i class="fa-solid fa-plus"></i>
-                    <span>Nouveau cashback</span>
-                </button>
-            </div>
+    <section class="cb-summary-cards">
+        <div class="cb-summary-card">
+            <strong>{{ stats.total_rewards|default(0)|number_format(2, '.', ' ') }} DT</strong>
+            <span>Solde disponible</span>
         </div>
-    </header>
+        <div class="cb-summary-card">
+            <strong>{{ stats.month_total|default(0)|number_format(2, '.', ' ') }} DT</strong>
+            <span>Ce mois-ci</span>
+        </div>
+        <div class="cb-summary-card">
+            <strong>{{ stats.week_total|default(0)|number_format(2, '.', ' ') }} DT</strong>
+            <span>Cette semaine</span>
+        </div>
+        <div class="cb-summary-card">
+            <strong>{{ stats.pending_count|default(0) }}</strong>
+            <span>En attente</span>
+        </div>
+    </section>
 
-    {# ── KPI STRIP ── #}
-    <div class="cb-kpi-strip">
-        <div class="cb-kpi-card">
-            <div class="cb-kpi-icon cb-kpi-teal">
-                <i class="fa-solid fa-coins"></i>
-            </div>
-            <div class="cb-kpi-body">
-                <span class="cb-kpi-value">
-                    {{ total_cashback|number_format(2, '.', ' ') }}<small>DT</small>
-                </span>
-                <span class="cb-kpi-label">Total cashback cumule</span>
-            </div>
-            <div class="cb-kpi-trend cb-trend-teal"></div>
-        </div>
-        <div class="cb-kpi-card">
-            <div class="cb-kpi-icon cb-kpi-blue">
-                <i class="fa-solid fa-receipt"></i>
-            </div>
-            <div class="cb-kpi-body">
-                <span class="cb-kpi-value">
-                    {{ total_purchases|number_format(2, '.', ' ') }}<small>DT</small>
-                </span>
-                <span class="cb-kpi-label">Volume d'achats</span>
-            </div>
-            <div class="cb-kpi-trend cb-trend-blue"></div>
-        </div>
-        <div class="cb-kpi-card">
-            <div class="cb-kpi-icon cb-kpi-amber">
-                <i class="fa-solid fa-clock"></i>
-            </div>
-            <div class="cb-kpi-body">
-                <span class="cb-kpi-value">{{ pending_count }}</span>
-                <span class="cb-kpi-label">En attente</span>
-            </div>
-            <div class="cb-kpi-trend cb-trend-amber"></div>
-        </div>
-        <div class="cb-kpi-card">
-            <div class="cb-kpi-icon cb-kpi-green">
-                <i class="fa-solid fa-circle-check"></i>
-            </div>
-            <div class="cb-kpi-body">
-                <span class="cb-kpi-value">{{ validated_count }}</span>
-                <span class="cb-kpi-label">Valides</span>
-            </div>
-            <div class="cb-kpi-trend cb-trend-green"></div>
-        </div>
-        <div class="cb-kpi-card">
-            <div class="cb-kpi-icon cb-kpi-purple">
-                <i class="fa-solid fa-store"></i>
-            </div>
-            <div class="cb-kpi-body">
-                <span class="cb-kpi-value">{{ items|length }}</span>
-                <span class="cb-kpi-label">Total transactions</span>
-            </div>
-            <div class="cb-kpi-trend cb-trend-purple"></div>
-        </div>
-    </div>
-
-    {# ── MAIN SPLIT LAYOUT ── #}
-    <div class="cb-split">
-
-        {# ─── LEFT: FORM ─── #}
-        <aside class="cb-form-col" id="cb-form-col">
-            <div class="cb-form-card" id="cb-form-card">
-
-                <div class="cb-form-card-header">
-                    <div class="cb-fch-top">
-                        <div class="cb-fch-icon">
-                            <i class="fa-solid fa-file-pen"></i>
-                        </div>
-                        <div>
-                            <h2 class="cb-fch-title">Enregistrer un cashback</h2>
-                            <p class="cb-fch-sub">Creer ou modifier une transaction</p>
-                        </div>
-                        <button class="cb-collapse-btn" id="cb-collapse-form" type="button" title="Reduire">
-                            <i class="fa-solid fa-chevron-left"></i>
-                        </button>
+    <div class="cb-layout">
+        <aside class="cb-sidebar">
+            <div class="cb-box cb-box-highlight">
+                <div class="cb-box-title">
+                    <span>+</span>
+                    <div>
+                        <strong>Ajouter une nouvelle entree</strong>
+                        <p>Saisir votre cashback</p>
                     </div>
                 </div>
 
-                <form method="post" class="cb-form" id="cashback-form" novalidate>
+                <form method="post" action="{{ path('portal_dashboard') }}" class="cb-form" id="cashbackForm">
                     <input type="hidden" name="tab" value="cashback">
                     <input type="hidden" name="action" value="cashback_save">
+                    <input type="hidden" name="id_user" value="{{ current_user.idUser }}">
+                    <input type="hidden" name="statut" value="En attente">
 
-                    <div class="cb-form-body">
+                    <label>Selectionner un partenaire</label>
+                    <select name="partenaire_nom" id="partnerSelect" required>
+                        <option value="">-- Selectionnez --</option>
+                        {% for partner in partners %}
+                            <option value="{{ partner.nom }}">{{ partner.nom }}{% if partner.categorie is not empty %} • {{ partner.categorie }}{% endif %}</option>
+                        {% endfor %}
+                    </select>
 
-                        {# Section: Identite #}
-                        <div class="cb-form-section">
-                            <div class="cb-section-label">
-                                <i class="fa-solid fa-circle-info"></i>
-                                <span>Informations de base</span>
-                                <div class="cb-section-line"></div>
-                            </div>
-
-                            <div class="cb-field-group">
-                                <div class="cb-field">
-                                    <label class="cb-label">
-                                        <i class="fa-solid fa-hashtag"></i>
-                                        ID (modification)
-                                    </label>
-                                    <input class="cb-input" type="number" name="id_cashback" id="cb-id-field" placeholder="Laisser vide pour creer">
-                                </div>
-                            </div>
-
-                            <div class="cb-field-group cb-field-group-2">
-                                <div class="cb-field">
-                                    <label class="cb-label">
-                                        <i class="fa-solid fa-store"></i>
-                                        Partenaire existant
-                                    </label>
-                                    <div class="cb-select-wrap">
-                                        <select class="cb-input cb-select" name="id_partenaire">
-                                            <option value="">Partenaire libre</option>
-                                            {% for partner in support.partners|default([]) %}
-                                                <option value="{{ partner.idPartenaire }}">{{ partner.nom }}</option>
-                                            {% endfor %}
-                                        </select>
-                                        <i class="fa-solid fa-chevron-down cb-select-icon"></i>
-                                    </div>
-                                </div>
-                                <div class="cb-field">
-                                    <label class="cb-label">
-                                        <i class="fa-solid fa-pen"></i>
-                                        Nom partenaire <span class="cb-req">*</span>
-                                    </label>
-                                    <input class="cb-input" type="text" name="partenaire_nom" id="cb-partenaire-nom" placeholder="Ex: Carrefour, Amazon…">
-                                    <span id="cb-err-partenaire" class="cb-val-msg"></span>
-                                </div>
+                    <div class="cb-two-columns">
+                        <div>
+                            <label>Montant achat</label>
+                            <div class="cb-input-with-prefix">
+                                <span>DT</span>
+                                <input type="number" name="montant_achat" id="montantInput" step="0.01" min="0" placeholder="0.00" required>
                             </div>
                         </div>
-
-                        {# Section: Transaction #}
-                        <div class="cb-form-section">
-                            <div class="cb-section-label">
-                                <i class="fa-solid fa-money-bill-transfer"></i>
-                                <span>Details de la transaction</span>
-                                <div class="cb-section-line"></div>
-                            </div>
-
-                            <div class="cb-field-group cb-field-group-2">
-                                <div class="cb-field">
-                                    <label class="cb-label">
-                                        <i class="fa-solid fa-cart-shopping"></i>
-                                        Montant achat (TND) <span class="cb-req">*</span>
-                                    </label>
-                                    <div class="cb-input-pfx-wrap">
-                                        <span class="cb-input-pfx">TND</span>
-                                        <input class="cb-input cb-input-pfx-field" type="number" step="0.01" name="montant_achat" id="cb-montant-achat" placeholder="0.00">
-                                    </div>
-                                    <span id="cb-err-montant" class="cb-val-msg"></span>
-                                </div>
-                                <div class="cb-field">
-                                    <label class="cb-label">
-                                        <i class="fa-solid fa-calendar-day"></i>
-                                        Date d'achat
-                                    </label>
-                                    <input class="cb-input" type="date" name="date_achat" value="{{ 'now'|date('Y-m-d') }}">
-                                </div>
-                            </div>
-
-                            <div class="cb-field-group">
-                                <div class="cb-field">
-                                    <label class="cb-label">
-                                        <i class="fa-solid fa-list-check"></i>
-                                        Statut
-                                    </label>
-                                    <div class="cb-select-wrap">
-                                        <select class="cb-input cb-select" name="statut">
-                                            <option value="En attente" selected>En attente</option>
-                                            <option value="Valide">Valide</option>
-                                            <option value="Refuse">Refuse</option>
-                                            <option value="Expire">Expire</option>
-                                        </select>
-                                        <i class="fa-solid fa-chevron-down cb-select-icon"></i>
-                                    </div>
-                                </div>
-                            </div>
+                        <div>
+                            <label>Date achat</label>
+                            <input type="date" name="date_achat" value="{{ 'now'|date('Y-m-d') }}" required>
                         </div>
-
-                        {# Live cashback estimator #}
-                        <div class="cb-estimator" id="cb-estimator">
-                            <div class="cb-estimator-header">
-                                <i class="fa-solid fa-calculator"></i>
-                                <span>Estimateur de cashback</span>
-                            </div>
-                            <div class="cb-estimator-rates">
-                                <button class="cb-rate-chip cb-rate-active" type="button" data-rate="2">2%</button>
-                                <button class="cb-rate-chip" type="button" data-rate="3">3%</button>
-                                <button class="cb-rate-chip" type="button" data-rate="5">5%</button>
-                                <button class="cb-rate-chip" type="button" data-rate="8">8%</button>
-                                <button class="cb-rate-chip" type="button" data-rate="10">10%</button>
-                            </div>
-                            <div class="cb-estimator-result">
-                                <span class="cb-est-label">Cashback estime</span>
-                                <span class="cb-est-value" id="cb-est-value">0.00 DT</span>
-                            </div>
-                        </div>
-
-                    </div>{# /form-body #}
-
-                    <div class="cb-form-footer">
-                        <button class="cb-reset-btn" type="reset">
-                            <i class="fa-solid fa-xmark"></i>
-                            Annuler
-                        </button>
-                        <button class="cb-submit-btn" type="submit">
-                            <i class="fa-solid fa-floppy-disk"></i>
-                            Enregistrer
-                        </button>
                     </div>
+
+                    <div class="cb-two-columns">
+                        <div>
+                            <label>Taux applique</label>
+                            <input type="text" id="tauxDisplay" value="0.00" readonly>
+                            <input type="hidden" name="taux_applique" id="tauxHidden" value="0.00">
+                        </div>
+                        <div>
+                            <label>Montant cashback</label>
+                            <input type="text" id="cashbackDisplay" value="0.00" readonly>
+                            <input type="hidden" name="montant_cashback" id="cashbackHidden" value="0.00">
+                        </div>
+                    </div>
+
+                    <label>Reference transaction (optionnel)</label>
+                    <input type="text" name="transaction_ref" placeholder="Saisir reçu ou numero de transaction">
+
+                    <div class="cb-estimate-box">
+                        <div>
+                            <strong>Cashback estime</strong>
+                            <span>Base sur votre achat</span>
+                        </div>
+                        <strong class="cb-estimate-value" id="estimateValue">+0.00 DT</strong>
+                        <p>Sera credite sous 3-5 jours</p>
+                    </div>
+
+                    <button type="submit" class="cb-button cb-button-primary">Saisir cashback</button>
                 </form>
+
+                <script>
+                    const partnerSelect = document.getElementById('partnerSelect');
+                    const montantInput = document.getElementById('montantInput');
+                    const tauxDisplay = document.getElementById('tauxDisplay');
+                    const cashbackDisplay = document.getElementById('cashbackDisplay');
+                    const tauxHidden = document.getElementById('tauxHidden');
+                    const cashbackHidden = document.getElementById('cashbackHidden');
+                    const estimateValue = document.getElementById('estimateValue');
+
+                    async function calculateCashback() {
+                        const montant = parseFloat(montantInput.value) || 0;
+                        const partner = partnerSelect.value;
+
+                        if (montant <= 0 || !partner) {
+                            tauxDisplay.value = '0.00';
+                            cashbackDisplay.value = '0.00';
+                            tauxHidden.value = '0.00';
+                            cashbackHidden.value = '0.00';
+                            estimateValue.textContent = '+0.00 DT';
+                            return;
+                        }
+
+                        try {
+                            const response = await fetch('{{ path('app_portal_cashback_calculate') }}', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/x-www-form-urlencoded',
+                                    'X-Requested-With': 'XMLHttpRequest'
+                                },
+                                body: new URLSearchParams({
+                                    'montant_achat': montant,
+                                    'partenaire_nom': partner
+                                })
+                            });
+
+                            const data = await response.json();
+                            
+                            if (data.taux !== undefined) {
+                                tauxDisplay.value = data.taux;
+                                tauxHidden.value = data.taux;
+                            }
+                            
+                            if (data.montant_cashback !== undefined) {
+                                cashbackDisplay.value = data.montant_cashback;
+                                cashbackHidden.value = data.montant_cashback;
+                                estimateValue.textContent = '+' + data.montant_cashback + ' DT';
+                            }
+                        } catch (error) {
+                            console.error('Error calculating cashback:', error);
+                        }
+                    }
+
+                    partnerSelect.addEventListener('change', calculateCashback);
+                    montantInput.addEventListener('input', calculateCashback);
+                    montantInput.addEventListener('change', calculateCashback);
+                </script>
+            </div>
+
+            <div class="cb-box">
+                <h2>Commercants partenaires</h2>
+                <div class="cb-partner-grid">
+                    {% for partner in partners %}
+                        <article class="cb-partner-card">
+                            <strong>{{ partner.nom|default('N/A') }}</strong>
+                            <span>Taux cashback Jusqu'a {{ partner.taux_cashback|default(0) }}%</span>
+                            <div class="cb-partner-meta">
+                                <span>Rating</span>
+                                <strong>{{ partner.rating|default(0)|number_format(1, '.', '') }}★</strong>
+                            </div>
+                        </article>
+                    {% else %}
+                        <p>Aucun partenaire disponible.</p>
+                    {% endfor %}
+                </div>
             </div>
         </aside>
 
-        {# ─── RIGHT: CONTENT ─── #}
-        <main class="cb-content-col">
+        <main class="cb-content">
+            {% set bestPartner = '' %}
+            {% set bestEarnings = 0 %}
+            {% for partnerName, amount in support.partner_earnings|default({}) %}
+                {% if amount > bestEarnings %}
+                    {% set bestEarnings = amount %}
+                    {% set bestPartner = partnerName %}
+                {% endif %}
+            {% endfor %}
 
-            {# Toolbar #}
-            <div class="cb-toolbar">
-                <div class="cb-toolbar-left">
-                    <h2 class="cb-content-title">
-                        <i class="fa-solid fa-hand-holding-heart"></i>
-                        Transactions
-                    </h2>
-                    <span class="cb-count-badge">{{ items|length }}</span>
+            <div class="cb-box cb-ai-card">
+                <div class="cb-box-header">
+                    <h2>Analyse cashback</h2>
+                    <span>En direct</span>
                 </div>
-                <div class="cb-toolbar-right">
-                    <div class="cb-search-box">
-                        <i class="fa-solid fa-magnifying-glass"></i>
-                        <input type="text" id="cb-search-input" placeholder="Rechercher partenaire, statut…">
-                        <button class="cb-search-clear" id="cb-search-clear" type="button" hidden>
-                            <i class="fa-solid fa-xmark"></i>
-                        </button>
-                    </div>
-                    <div class="cb-select-wrap cb-sort-wrap">
-                        <select class="cb-input cb-select cb-sort-select" id="cb-sort-select">
-                            <option value="id_desc">Plus recent</option>
-                            <option value="id_asc">Plus ancien</option>
-                            <option value="amount_desc">Montant ↓</option>
-                            <option value="amount_asc">Montant ↑</option>
-                            <option value="cashback_desc">Cashback ↓</option>
-                        </select>
-                        <i class="fa-solid fa-chevron-down cb-select-icon"></i>
-                    </div>
+                <div class="cb-ai-body">
+                    <p>Vos récompenses se mettent à jour dès que vous saisissez un nouveau cashback.</p>
+                    <ul class="cb-insight-list">
+                        <li><strong>{{ items|length|default(0) }}</strong> cashback enregistrés</li>
+                        <li><strong>{{ partners|length|default(0) }}</strong> partenaires actifs</li>
+                        <li><strong>{{ bestEarnings|number_format(2, '.', ' ') }} DT</strong> gagnés avec {{ bestPartner ? bestPartner|title : 'aucun partenaire' }}</li>
+                    </ul>
+                    <button type="button" class="cb-button cb-button-secondary" onclick="window.location.reload()">Rafraîchir</button>
+                </div>
+                <div class="cb-ai-footer">
+                    <span>Dernière mise à jour : {{ 'now'|date('d/m/Y H:i') }}</span>
                 </div>
             </div>
 
-            {# Status filter tabs #}
-            <div class="cb-filter-tabs">
-                <button class="cb-filter-tab cb-filter-active" data-filter="all" type="button">
-                    Tous <span class="cb-tab-count">{{ items|length }}</span>
-                </button>
-                <button class="cb-filter-tab" data-filter="attente" type="button">
-                    En attente <span class="cb-tab-count">{{ pending_count }}</span>
-                </button>
-                <button class="cb-filter-tab" data-filter="valid" type="button">
-                    Valides <span class="cb-tab-count">{{ validated_count }}</span>
-                </button>
-            </div>
+            <div class="cb-box">
+                <div class="cb-box-header">
+                    <h2>Vos recompenses</h2>
+                    <select class="cb-filter-select" id="filterStatus">
+                        <option value="">Toute periode</option>
+                        <option value="Valide">Creditees</option>
+                        <option value="En attente">En attente</option>
+                        <option value="Expire">Expirees</option>
+                    </select>
+                </div>
 
-            {# Cards grid — default view #}
-            <div class="cb-grid" id="cb-grid">
-                {% for item in items %}
-                    {% set st_key = item.statut|default('En attente')|lower %}
-                    {% set st_color = 'attente' in st_key ? 'amber' : ('valid' in st_key or 'approuv' in st_key ? 'green' : 'red') %}
-                    {% set st_icon  = 'attente' in st_key ? 'clock' : ('valid' in st_key or 'approuv' in st_key ? 'circle-check' : 'circle-xmark') %}
-                    <div class="cb-card"
-                         data-cb-id="{{ item.id_cashback }}"
-                         data-cb-partner="{{ item.partenaire_nom|default('')|lower|e('html_attr') }}"
-                         data-cb-status="{{ item.statut|default('')|lower|e('html_attr') }}"
-                         data-cb-amount="{{ item.montant_achat|default(0) }}"
-                         data-cb-cashback="{{ item.montant_cashback|default(0) }}"
-                         data-cb-search="{{ (item.partenaire_nom ~ ' ' ~ item.statut ~ ' ' ~ item.montant_achat)|lower|e('html_attr') }}"
-                    >
-                        {# top accent #}
-                        <div class="cb-card-accent cb-accent-{{ st_color }}"></div>
-
-                        <div class="cb-card-top">
-                            <div class="cb-card-partner">
-                                <div class="cb-partner-avatar">
-                                    {{ item.partenaire_nom|default('?')|first|upper }}
-                                </div>
-                                <div>
-                                    <div class="cb-partner-name">{{ item.partenaire_nom|default('—') }}</div>
-                                    <div class="cb-card-id">#{{ item.id_cashback }}</div>
-                                </div>
-                            </div>
-                            <span class="cb-status-badge cb-status-{{ st_color }}">
-                                <i class="fa-solid fa-{{ st_icon }}"></i>
-                                {{ item.statut|default('En attente') }}
-                            </span>
-                        </div>
-
-                        <div class="cb-card-amounts">
-                            <div class="cb-card-amount-block">
-                                <span class="cb-amount-label">Montant achat</span>
-                                <span class="cb-amount-val">{{ item.montant_achat|default(0)|number_format(2, '.', ' ') }} <small>DT</small></span>
-                            </div>
-                            <div class="cb-card-amount-divider"></div>
-                            <div class="cb-card-amount-block cb-cashback-block">
-                                <span class="cb-amount-label">Cashback recu</span>
-                                <span class="cb-amount-val cb-cashback-val">
-                                    +{{ item.montant_cashback|default(0)|number_format(2, '.', ' ') }} <small>DT</small>
-                                </span>
-                            </div>
-                        </div>
-
-                        {# Cashback progress bar #}
-                        {% set cb_rate = item.montant_achat|default(0) > 0 ? ((item.montant_cashback|default(0) / item.montant_achat|default(1)) * 100)|round(1, 'common') : 0 %}
-                        <div class="cb-card-progress">
-                            <div class="cb-progress-header">
-                                <span class="cb-progress-label">Taux retour</span>
-                                <span class="cb-progress-pct">{{ cb_rate }}%</span>
-                            </div>
-                            <div class="cb-progress-track">
-                                <div class="cb-progress-fill" style="width: {{ cb_rate > 100 ? 100 : (cb_rate < 0 ? 0 : cb_rate) }}%"></div>
-                            </div>
-                        </div>
-
-                        {# Rating form #}
-                        <div class="cb-card-rating">
-                            <div class="cb-rating-header">
-                                <i class="fa-solid fa-star"></i>
-                                <span>Evaluer ce partenaire</span>
-                            </div>
-                            <form method="post" class="cb-rating-form">
-                                <input type="hidden" name="tab" value="cashback">
-                                <input type="hidden" name="action" value="cashback_rating">
-                                <input type="hidden" name="id_cashback" value="{{ item.id_cashback }}">
-
-                                <div class="cb-stars" data-rating-group>
-                                    {% for star in 1..5 %}
-                                        <button class="cb-star-btn" type="button" data-star="{{ star }}">
-                                            <i class="fa-regular fa-star"></i>
-                                        </button>
-                                    {% endfor %}
-                                    <input type="hidden" name="user_rating" class="cb-rating-input" value="">
+                {% if items|length > 0 %}
+                    <div class="cb-rewards-list">
+                        {% for item in items %}
+                            <article class="cb-reward-item" data-status="{{ item.statut|default('') }}">
+                                <div class="cb-reward-header">
+                                    <div class="cb-reward-partner">
+                                        <strong class="cb-partner-name">{{ item.partenaire_nom|default('N/A') }}</strong>
+                                        <span class="cb-status-badge cb-status-{{ item.statut|lower|replace({' ': '-'}) }}">
+                                            {{ item.statut|default('-') }}
+                                        </span>
+                                    </div>
+                                    <div class="cb-reward-actions">
+                                        {% if item.statut == 'En attente' %}
+                                            <button type="button" class="cb-action-btn cb-btn-rate" data-id="{{ item.id_cashback }}" title="Evaluer">Noter</button>
+                                        {% elseif item.statut == 'Valide' %}
+                                            <button type="button" class="cb-action-btn cb-btn-modify" data-id="{{ item.id_cashback }}" data-partner="{{ item.partenaire_nom }}" data-amount="{{ item.montant_achat }}" data-date="{{ item.date_achat }}" data-ref="{{ item.transaction_ref }}" title="Modifier">Modifier ...</button>
+                                        {% endif %}
+                                        <button type="button" class="cb-action-btn cb-btn-delete" data-id="{{ item.id_cashback }}" title="Supprimer">Vider</button>
+                                        {% if item.bonus_decision %}
+                                            <button type="button" class="cb-action-btn cb-btn-bonus" data-id="{{ item.id_cashback }}" title="Bonus" disabled>{{ item.bonus_decision }}</button>
+                                        {% endif %}
+                                    </div>
                                 </div>
 
-                                <input class="cb-input cb-rating-comment" type="text" name="user_rating_comment" placeholder="Laisser un commentaire…">
+                                <div class="cb-reward-details">
+                                    <div class="cb-detail-row">
+                                        <span class="cb-detail-label">Achat :</span>
+                                        <strong>$ {{ item.montant_achat|default(0)|number_format(2, '.', '') }}</strong>
+                                        
+                                        <span class="cb-detail-label">Date :</span>
+                                        <span>{{ item.date_achat|default('-') }}</span>
+                                        
+                                        <span class="cb-detail-label">Ref :</span>
+                                        <span class="cb-transaction-ref">
+                                            {% set ref = item.transaction_ref|default('-') %}
+                                            {% if ref|length > 30 %}
+                                                {{ ref|slice(0, 27) }}...
+                                            {% else %}
+                                                {{ ref }}
+                                            {% endif %}
+                                        </span>
+                                    </div>
 
-                                <div class="cb-rating-actions">
-                                    <button class="cb-rate-submit-btn" type="submit">
-                                        <i class="fa-solid fa-paper-plane"></i>
-                                        Envoyer
-                                    </button>
-                                    <button class="cb-delete-btn"
-                                            type="submit"
-                                            form="cb-delete-{{ item.id_cashback }}"
-                                            onclick="return confirm('Supprimer ce cashback ?');">
-                                        <i class="fa-solid fa-trash-can"></i>
-                                    </button>
-                                    <button class="cb-edit-btn" type="button"
-                                            data-cb-edit="{{ item.id_cashback }}"
-                                            data-partner-id="{{ item.id_partenaire|default('') }}"
-                                            data-partner-nom="{{ item.partenaire_nom|default('')|e('html_attr') }}"
-                                            data-montant="{{ item.montant_achat|default(0) }}"
-                                            data-statut="{{ item.statut|default('En attente')|e('html_attr') }}">
-                                        <i class="fa-solid fa-pen-to-square"></i>
-                                    </button>
+                                    <div class="cb-detail-row">
+                                        <span class="cb-detail-label">Note :</span>
+                                        <span class="cb-rating-display">
+                                            {% if item.user_rating %}
+                                                {% set stars = item.user_rating > 5 ? 5 : item.user_rating %}
+                                                {% for i in 1..5 %}
+                                                    {% if i <= stars %}★{% else %}☆{% endif %}
+                                                {% endfor %}
+                                                ({{ item.user_rating|number_format(1, '.', '') }}/5)
+                                            {% else %}
+                                                ☆☆☆☆☆
+                                            {% endif %}
+                                        </span>
+
+                                        <span class="cb-detail-label">Bonus :</span>
+                                        <span class="cb-bonus-display">
+                                            {% if item.bonus_decision == 'Approved' %}
+                                                <span class="cb-bonus-approved">Approv...</span>
+                                            {% elseif item.bonus_decision == 'Rejected' %}
+                                                <span class="cb-bonus-rejected">Rejete</span>
+                                            {% else %}
+                                                <span class="cb-bonus-pending">Pending</span>
+                                            {% endif %}
+                                        </span>
+
+                                        <span class="cb-detail-label">Taux :</span>
+                                        <strong class="cb-rate-display">{{ item.taux_applique|default(0)|number_format(2, '.', '') }}%</strong>
+                                    </div>
+
+                                    <div class="cb-detail-row">
+                                        <span class="cb-detail-label">Cashback :</span>
+                                        <strong class="cb-cashback-amount">{{ item.montant_cashback|default(0)|number_format(2, '.', '') }} DT</strong>
+                                    </div>
+
+                                    {% if item.bonus_note %}
+                                        <div class="cb-bonus-note">
+                                            <small>📝 {{ item.bonus_note }}</small>
+                                        </div>
+                                    {% endif %}
                                 </div>
-                            </form>
-                            <form method="post" id="cb-delete-{{ item.id_cashback }}" class="cb-delete-form">
-                                <input type="hidden" name="tab" value="cashback">
-                                <input type="hidden" name="action" value="cashback_delete">
-                                <input type="hidden" name="id_cashback" value="{{ item.id_cashback }}">
-                            </form>
-                        </div>
-
+                            </article>
+                        {% endfor %}
                     </div>
                 {% else %}
-                    <div class="cb-empty" id="cb-empty-main">
-                        <div class="cb-empty-icon">
-                            <i class="fa-solid fa-hand-holding-heart"></i>
+                    <div class="cb-empty-state">
+                        <p>Aucune transaction cashback trouvee.</p>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Modify Modal -->
+            <div id="modifyModal" class="cb-modal" style="display: none;">
+                <div class="cb-modal-content">
+                    <div class="cb-modal-header">
+                        <h3>Modifier cette transaction</h3>
+                        <button type="button" class="cb-modal-close" onclick="closeModifyModal()">&times;</button>
+                    </div>
+                    <form id="modifyForm" method="post" action="{{ path('portal_dashboard') }}" class="cb-form cb-modify-form">
+                    </form>
+                </div>
+            </div>
+
+            <!-- Rating Modal -->
+            <div id="ratingModal" class="cb-modal" style="display: none;">
+                <div class="cb-modal-content">
+                    <div class="cb-modal-header">
+                        <h3>Evaluer cette transaction</h3>
+                        <button type="button" class="cb-modal-close" onclick="closeRatingModal()">&times;</button>
+                    </div>
+                    <form id="ratingForm" method="post" action="{{ path('portal_dashboard') }}">
+                        <input type="hidden" name="tab" value="cashback">
+                        <input type="hidden" name="action" value="cashback_rating">
+                        <input type="hidden" name="id_cashback" value="">
+
+                        <div class="cb-form-group">
+                            <label>Votre evaluation</label>
+                            <div class="cb-star-rating">
+                                {% for i in 1..5 %}
+                                    <input type="radio" name="user_rating" value="{{ i }}" id="star{{ i }}" style="display: none;">
+                                    <label for="star{{ i }}" class="cb-star" data-value="{{ i }}">★</label>
+                                {% endfor %}
+                            </div>
                         </div>
-                        <strong>Aucun cashback enregistre</strong>
-                        <span>Utilisez le formulaire pour enregistrer votre premiere transaction cashback.</span>
-                        <button class="cb-empty-cta" type="button" id="cb-empty-add">
-                            <i class="fa-solid fa-plus"></i> Ajouter un cashback
-                        </button>
-                    </div>
-                {% endfor %}
 
-                <div class="cb-empty" id="cb-no-results" hidden>
-                    <div class="cb-empty-icon">
-                        <i class="fa-solid fa-magnifying-glass"></i>
-                    </div>
-                    <strong>Aucun resultat</strong>
-                    <span>Essayez un autre mot-cle ou modifiez les filtres.</span>
+                        <div class="cb-form-group">
+                            <label>Commentaire (optionnel)</label>
+                            <textarea name="user_rating_comment" placeholder="Partagez votre experience..." rows="3"></textarea>
+                        </div>
+
+                        <div class="cb-modal-footer">
+                            <button type="button" class="cb-button cb-button-secondary" onclick="closeRatingModal()">Annuler</button>
+                            <button type="submit" class="cb-button cb-button-primary">Soumettre evaluation</button>
+                        </div>
+                    </form>
                 </div>
             </div>
 
-            {# TABLE VIEW (hidden by default, toggled) #}
-            <div class="cb-table-wrap" id="cb-table-view" hidden>
-                <table class="cb-table">
-                    <thead>
-                        <tr>
-                            <th><span>ID</span></th>
-                            <th><span>Partenaire</span></th>
-                            <th><span>Montant achat</span></th>
-                            <th><span>Cashback</span></th>
-                            <th><span>Taux</span></th>
-                            <th><span>Statut</span></th>
-                            <th><span>Evaluer</span></th>
-                            <th><span>Actions</span></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in items %}
-                            {% set st_key   = item.statut|default('En attente')|lower %}
-                            {% set st_color = 'attente' in st_key ? 'amber' : ('valid' in st_key ? 'green' : 'red') %}
-                            {% set cb_rate  = item.montant_achat|default(0) > 0 ? ((item.montant_cashback|default(0) / item.montant_achat|default(1)) * 100)|round(1, 'common') : 0 %}
-                            <tr class="cb-tr">
-                                <td>
-                                    <span class="cb-id-pill">#{{ item.id_cashback }}</span>
-                                </td>
-                                <td>
-                                    <div class="cb-tbl-partner">
-                                        <div class="cb-tbl-avatar">{{ item.partenaire_nom|default('?')|first|upper }}</div>
-                                        <span>{{ item.partenaire_nom|default('—') }}</span>
-                                    </div>
-                                </td>
-                                <td>
-                                    <span class="cb-tbl-amount">{{ item.montant_achat|default(0)|number_format(2, '.', ' ') }}</span>
-                                    <small class="cb-tbl-cur">DT</small>
-                                </td>
-                                <td>
-                                    <span class="cb-tbl-cashback">+{{ item.montant_cashback|default(0)|number_format(2, '.', ' ') }}</span>
-                                    <small class="cb-tbl-cur">DT</small>
-                                </td>
-                                <td>
-                                    <div class="cb-tbl-rate-wrap">
-                                        <div class="cb-tbl-rate-bar">
-                                               <div class="cb-tbl-rate-fill" style="width:{{ cb_rate > 100 ? 100 : (cb_rate < 0 ? 0 : cb_rate) }}%"></div>
-                                        </div>
-                                        <span class="cb-tbl-rate-pct">{{ cb_rate }}%</span>
-                                    </div>
-                                </td>
-                                <td>
-                                    <span class="cb-status-badge cb-status-{{ st_color }}">
-                                        {{ item.statut|default('—') }}
-                                    </span>
-                                </td>
-                                <td>
-                                    <form method="post" class="cb-tbl-rate-form">
-                                        <input type="hidden" name="tab" value="cashback">
-                                        <input type="hidden" name="action" value="cashback_rating">
-                                        <input type="hidden" name="id_cashback" value="{{ item.id_cashback }}">
-                                        <div class="cb-tbl-rate-row">
-                                            <input class="cb-input cb-tbl-rate-input" type="number" step="0.1" max="5" name="user_rating" placeholder="0-5">
-                                            <input class="cb-input cb-tbl-comment-input" type="text" name="user_rating_comment" placeholder="Commentaire…">
-                                            <button class="cb-tbl-rate-btn" type="submit">
-                                                <i class="fa-solid fa-star"></i>
-                                            </button>
-                                        </div>
-                                    </form>
-                                </td>
-                                <td>
-                                    <div class="cb-tbl-actions">
-                                        <button class="cb-tbl-edit-btn" type="button"
-                                                data-cb-edit="{{ item.id_cashback }}"
-                                                data-partner-id="{{ item.id_partenaire|default('') }}"
-                                                data-partner-nom="{{ item.partenaire_nom|default('')|e('html_attr') }}"
-                                                data-montant="{{ item.montant_achat|default(0) }}"
-                                                data-statut="{{ item.statut|default('En attente')|e('html_attr') }}">
-                                            <i class="fa-solid fa-pen-to-square"></i>
-                                        </button>
-                                        <form method="post" onsubmit="return confirm('Supprimer ?');">
-                                            <input type="hidden" name="tab" value="cashback">
-                                            <input type="hidden" name="action" value="cashback_delete">
-                                            <input type="hidden" name="id_cashback" value="{{ item.id_cashback }}">
-                                            <button class="cb-tbl-del-btn" type="submit">
-                                                <i class="fa-solid fa-trash-can"></i>
-                                            </button>
-                                        </form>
-                                    </div>
-                                </td>
-                            </tr>
-                        {% else %}
-                            <tr>
-                                <td colspan="8">
-                                    <div class="cb-tbl-empty">
-                                        <i class="fa-solid fa-hand-holding-heart"></i>
-                                        <span>Aucun cashback enregistre</span>
-                                    </div>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+            <script>
+                let currentRatingId = null;
 
-            {# Footer stats #}
-            <div class="cb-footer-stats">
-                <div class="cb-fs-item">
-                    <i class="fa-solid fa-layer-group"></i>
-                    <span>Total: <strong>{{ items|length }}</strong></span>
-                </div>
-                <div class="cb-fs-item">
-                    <i class="fa-solid fa-coins"></i>
-                    <span>Cashback total: <strong>{{ total_cashback|number_format(2, '.', ' ') }} DT</strong></span>
-                </div>
-                <div class="cb-fs-item">
-                    <i class="fa-solid fa-clock"></i>
-                    <span>En attente: <strong>{{ pending_count }}</strong></span>
-                </div>
-                <div class="cb-fs-item">
-                    <i class="fa-solid fa-circle-check"></i>
-                    <span>Valides: <strong>{{ validated_count }}</strong></span>
-                </div>
-            </div>
+                // Rating handlers
+                document.querySelectorAll('.cb-btn-rate').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        currentRatingId = this.getAttribute('data-id');
+                        document.querySelector('input[name="id_cashback"]').value = currentRatingId;
+                        document.getElementById('ratingModal').style.display = 'flex';
+                    });
+                });
 
+                // Star rating interaction
+                document.querySelectorAll('.cb-star').forEach(star => {
+                    star.addEventListener('click', function() {
+                        const value = this.getAttribute('data-value');
+                        document.querySelector(`input[value="${value}"]`).checked = true;
+                        
+                        // Update star display
+                        document.querySelectorAll('.cb-star').forEach(s => {
+                            s.classList.remove('cb-star-active');
+                        });
+                        for (let i = 1; i <= value; i++) {
+                            document.querySelector(`label[for="star${i}"]`).classList.add('cb-star-active');
+                        }
+                    });
+                });
+
+                function closeRatingModal() {
+                    document.getElementById('ratingModal').style.display = 'none';
+                    currentRatingId = null;
+                    document.querySelector('input[name="id_cashback"]').value = '';
+                    // Reset form
+                    document.getElementById('ratingForm').reset();
+                    document.querySelectorAll('.cb-star').forEach(s => s.classList.remove('cb-star-active'));
+                }
+
+                // Filter by status
+                document.getElementById('filterStatus').addEventListener('change', function() {
+                    const filterValue = this.value;
+                    document.querySelectorAll('.cb-reward-item').forEach(item => {
+                        if (!filterValue || item.getAttribute('data-status') === filterValue) {
+                            item.style.display = 'block';
+                        } else {
+                            item.style.display = 'none';
+                        }
+                    });
+                });
+
+                // Close modal when clicking outside
+                document.getElementById('ratingModal').addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        closeRatingModal();
+                    }
+                });
+
+                // Delete handler
+                document.querySelectorAll('.cb-btn-delete').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const id = this.getAttribute('data-id');
+                        if (confirm('Êtes-vous sûr de vouloir supprimer cette entree cashback ?')) {
+                            const form = document.createElement('form');
+                            form.method = 'POST';
+                            form.action = '{{ path('portal_dashboard') }}';
+                            form.innerHTML = `
+                                <input type="hidden" name="tab" value="cashback">
+                                <input type="hidden" name="action" value="cashback_delete">
+                                <input type="hidden" name="id_cashback" value="${id}">
+                            `;
+                            document.body.appendChild(form);
+                            form.submit();
+                        }
+                    });
+                });
+
+                // Modify handler
+                document.querySelectorAll('.cb-btn-modify').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const id = this.getAttribute('data-id');
+                        document.getElementById('modifyForm').innerHTML = `
+                            <input type="hidden" name="tab" value="cashback">
+                            <input type="hidden" name="action" value="cashback_save">
+                            <input type="hidden" name="id_cashback" value="${id}">
+                            <input type="hidden" name="id_user" value="{{ current_user.idUser }}">
+                            <input type="hidden" name="statut" value="${this.getAttribute('data-status') || 'Valide'}">
+                            
+                            <label>Selectionner un partenaire</label>
+                            <select name="partenaire_nom" required>
+                                <option value="">-- Selectionnez --</option>
+                                {% for partner in partners %}
+                                    <option value="{{ partner.nom|e('html_attr') }}">{{ partner.nom }}</option>
+                                {% endfor %}
+                            </select>
+                            
+                            <div class="cb-two-columns">
+                                <div>
+                                    <label>Montant achat</label>
+                                    <input type="number" name="montant_achat" step="0.01" min="0" required>
+                                </div>
+                                <div>
+                                    <label>Date achat</label>
+                                    <input type="date" name="date_achat" required>
+                                </div>
+                            </div>
+                            
+                            <label>Reference transaction</label>
+                            <input type="text" name="transaction_ref" placeholder="Saisir reçu ou numero">
+                            
+                            <div class="cb-modal-footer">
+                                <button type="button" class="cb-button cb-button-secondary" onclick="closeModifyModal()">Annuler</button>
+                                <button type="submit" class="cb-button cb-button-primary">Enregistrer modifications</button>
+                            </div>
+                        `;
+                        
+                        // Set pre-filled values
+                        const partner = this.getAttribute('data-partner');
+                        const amount = this.getAttribute('data-amount');
+                        const date = this.getAttribute('data-date');
+                        const ref = this.getAttribute('data-ref');
+                        
+                        document.querySelector('select[name="partenaire_nom"]').value = partner;
+                        document.querySelector('input[name="montant_achat"]').value = amount;
+                        document.querySelector('input[name="date_achat"]').value = date;
+                        document.querySelector('input[name="transaction_ref"]').value = ref || '';
+                        
+                        document.getElementById('modifyModal').style.display = 'flex';
+                    });
+                });
+
+                function closeModifyModal() {
+                    document.getElementById('modifyModal').style.display = 'none';
+                    document.getElementById('modifyForm').innerHTML = '';
+                }
+
+                // Close modify modal when clicking outside
+                const modifyModal = document.getElementById('modifyModal');
+                if (modifyModal) {
+                    modifyModal.addEventListener('click', function(e) {
+                        if (e.target === this) {
+                            closeModifyModal();
+                        }
+                    });
+                }
+            </script>
         </main>
     </div>
-
 </div>
-
-<style>
-/* ══════════════════════════════════════════════════════════════════════
-   CB — CASHBACK PAGE  |  White-background redesign
-   Palette: #0a2540 · #1565c0 · #1e88e5 · #00bcd4 · #14c9b3 · #fff
-   ══════════════════════════════════════════════════════════════════════ */
-
-.cb-root *, .cb-root *::before, .cb-root *::after {
-  box-sizing: border-box; margin: 0; padding: 0;
-}
-
-.cb-root {
-  display: flex;
-  flex-direction: column;
-  background: #f0f4f8;
-  min-height: 100vh;
-  font-family: inherit;
-  color: #0a2540;
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   TOP NAV
-   ══════════════════════════════════════════════════════════════════════ */
-.cb-topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 0 28px;
-  height: 60px;
-  background: #fff;
-  border-bottom: 1px solid #dde8f5;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  box-shadow: 0 2px 12px rgba(10,37,64,.06);
-}
-
-.cb-topbar-left { display: flex; align-items: center; gap: 16px; }
-
-.cb-topbar-logo {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  font-size: 15px;
-  font-weight: 900;
-  color: #0a2540;
-  letter-spacing: -0.3px;
-}
-.cb-topbar-logo i { font-size: 18px; color: #1565c0; }
-
-.cb-topbar-divider { width: 1px; height: 22px; background: #dde8f5; }
-
-.cb-breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 12px;
-  color: #7294ae;
-}
-.cb-breadcrumb i:first-child { color: #1565c0; }
-.cb-bc-sep { font-size: 9px; color: #c0d4e8; }
-.cb-bc-active { color: #0a2540; font-weight: 700; }
-
-.cb-topbar-right { display: flex; align-items: center; gap: 10px; }
-
-.cb-topbar-btn {
-  width: 36px; height: 36px;
-  border-radius: 10px;
-  border: 1px solid #dde8f5;
-  background: #f4f8ff;
-  display: flex; align-items: center; justify-content: center;
-  color: #5b80a0; font-size: 13px;
-  cursor: pointer;
-  transition: background .15s, color .15s;
-}
-.cb-topbar-btn:hover { background: #e8f0fd; color: #1565c0; }
-
-.cb-user-chip {
-  display: flex; align-items: center; gap: 9px;
-  padding: 4px 12px 4px 4px;
-  border: 1px solid #dde8f5; border-radius: 999px;
-  background: #f4f8ff;
-}
-.cb-user-avatar {
-  width: 28px; height: 28px; border-radius: 50%;
-  background: linear-gradient(135deg, #1565c0, #00bcd4);
-  color: #fff; font-size: 11px;
-  display: flex; align-items: center; justify-content: center;
-}
-.cb-user-label { font-size: 12px; font-weight: 700; color: #0a2540; }
-
-/* ══════════════════════════════════════════════════════════════════════
-   PAGE HEADER
-   ══════════════════════════════════════════════════════════════════════ */
-.cb-page-header {
-  background: #fff;
-  border-bottom: 1px solid #dde8f5;
-  padding: 22px 28px;
-}
-.cb-page-header-inner {
-  display: flex; align-items: center;
-  justify-content: space-between; gap: 20px;
-}
-.cb-page-header-left { display: flex; align-items: center; gap: 16px; }
-
-.cb-page-icon-ring {
-  width: 52px; height: 52px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, #00838f, #00bcd4);
-  display: flex; align-items: center; justify-content: center;
-  color: #fff; font-size: 20px;
-  box-shadow: 0 8px 24px rgba(0,188,212,.28);
-  flex-shrink: 0;
-}
-
-.cb-page-title {
-  font-size: clamp(18px,2vw,26px);
-  font-weight: 900; color: #0a2540;
-  letter-spacing: -0.4px; line-height: 1.1;
-}
-.cb-page-sub { font-size: 13px; color: #7294ae; margin-top: 4px; }
-
-.cb-page-header-actions { display: flex; align-items: center; gap: 10px; }
-
-.cb-hdr-btn {
-  display: inline-flex; align-items: center; gap: 8px;
-  min-height: 42px; padding: 0 20px;
-  border-radius: 12px;
-  font: inherit; font-size: 13px; font-weight: 700;
-  cursor: pointer; text-decoration: none; border: none;
-  transition: all .18s;
-}
-.cb-hdr-btn-outline {
-  background: transparent;
-  border: 1.5px solid #c4d9ee;
-  color: #1565c0;
-}
-.cb-hdr-btn-outline:hover { background: #eaf2fd; }
-.cb-hdr-btn-primary {
-  background: linear-gradient(120deg, #00838f, #00bcd4);
-  color: #fff;
-  box-shadow: 0 6px 18px rgba(0,188,212,.28);
-}
-.cb-hdr-btn-primary:hover { opacity: .9; box-shadow: 0 8px 24px rgba(0,188,212,.38); }
-
-/* ══════════════════════════════════════════════════════════════════════
-   KPI STRIP
-   ══════════════════════════════════════════════════════════════════════ */
-.cb-kpi-strip {
-  display: grid;
-  grid-template-columns: repeat(5,1fr);
-  gap: 14px;
-  padding: 18px 28px;
-}
-
-.cb-kpi-card {
-  display: flex; align-items: center; gap: 14px;
-  background: #fff;
-  border-radius: 16px;
-  padding: 18px 20px;
-  border: 1px solid #dde8f5;
-  box-shadow: 0 2px 12px rgba(10,37,64,.05);
-  position: relative; overflow: hidden;
-  transition: box-shadow .2s, transform .2s;
-}
-.cb-kpi-card:hover { box-shadow: 0 8px 24px rgba(10,37,64,.10); transform: translateY(-2px); }
-
-.cb-kpi-icon {
-  width: 44px; height: 44px; border-radius: 14px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 18px; color: #fff; flex-shrink: 0;
-}
-.cb-kpi-teal   { background: linear-gradient(135deg,#00838f,#00bcd4); }
-.cb-kpi-blue   { background: linear-gradient(135deg,#1565c0,#1e88e5); }
-.cb-kpi-amber  { background: linear-gradient(135deg,#f59e0b,#fbbf24); }
-.cb-kpi-green  { background: linear-gradient(135deg,#16a34a,#22c55e); }
-.cb-kpi-purple { background: linear-gradient(135deg,#7c3aed,#a78bfa); }
-
-.cb-kpi-body { display: flex; flex-direction: column; gap: 2px; z-index: 1; }
-
-.cb-kpi-value {
-  font-size: 20px; font-weight: 900;
-  color: #0a2540; line-height: 1; letter-spacing: -0.3px;
-}
-.cb-kpi-value small { font-size: 11px; font-weight: 600; color: #7294ae; margin-left: 2px; }
-.cb-kpi-label { font-size: 11px; color: #7294ae; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-
-.cb-kpi-trend {
-  position: absolute; right: 0; top: 0;
-  width: 4px; height: 100%;
-  border-radius: 0 16px 16px 0;
-}
-.cb-trend-teal   { background: linear-gradient(180deg,#00838f,#00bcd4); }
-.cb-trend-blue   { background: linear-gradient(180deg,#1565c0,#1e88e5); }
-.cb-trend-amber  { background: linear-gradient(180deg,#f59e0b,#fbbf24); }
-.cb-trend-green  { background: linear-gradient(180deg,#16a34a,#22c55e); }
-.cb-trend-purple { background: linear-gradient(180deg,#7c3aed,#a78bfa); }
-
-/* ══════════════════════════════════════════════════════════════════════
-   SPLIT
-   ══════════════════════════════════════════════════════════════════════ */
-.cb-split {
-  display: grid;
-  grid-template-columns: 400px 1fr;
-  gap: 16px;
-  padding: 0 28px 28px;
-  align-items: start;
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   FORM COLUMN
-   ══════════════════════════════════════════════════════════════════════ */
-.cb-form-col { position: sticky; top: 76px; }
-
-.cb-form-card {
-  background: #fff;
-  border-radius: 20px;
-  border: 1px solid #dde8f5;
-  box-shadow: 0 4px 24px rgba(10,37,64,.07);
-  overflow: hidden;
-  display: flex; flex-direction: column;
-}
-
-/* Form Card Header */
-.cb-form-card-header {
-  background: linear-gradient(135deg, #00616a 0%, #00838f 50%, #00bcd4 100%);
-  padding: 22px;
-}
-.cb-fch-top {
-  display: flex; align-items: flex-start; gap: 14px;
-}
-.cb-fch-icon {
-  width: 44px; height: 44px; border-radius: 14px;
-  background: rgba(255,255,255,.15);
-  border: 1px solid rgba(255,255,255,.25);
-  display: flex; align-items: center; justify-content: center;
-  color: #fff; font-size: 17px; flex-shrink: 0;
-}
-.cb-fch-title { font-size: 16px; font-weight: 800; color: #fff; line-height: 1.2; }
-.cb-fch-sub { font-size: 12px; color: rgba(255,255,255,.7); margin-top: 3px; }
-.cb-collapse-btn {
-  margin-left: auto;
-  width: 32px; height: 32px; border-radius: 9px;
-  background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2);
-  color: rgba(255,255,255,.8); font-size: 12px;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; flex-shrink: 0; transition: background .15s;
-}
-.cb-collapse-btn:hover { background: rgba(255,255,255,.2); }
-
-/* Form body */
-.cb-form { display: flex; flex-direction: column; }
-
-.cb-form-body { padding: 20px; display: flex; flex-direction: column; gap: 20px; }
-
-/* Section label */
-.cb-form-section { display: flex; flex-direction: column; gap: 12px; }
-.cb-section-label {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 11px; font-weight: 800; color: #00838f;
-  text-transform: uppercase; letter-spacing: 0.9px;
-}
-.cb-section-label i { font-size: 12px; }
-.cb-section-line { flex: 1; height: 1px; background: linear-gradient(90deg,#b2ebf2,transparent); }
-
-/* Field groups */
-.cb-field-group { display: grid; gap: 12px; }
-.cb-field-group-2 { grid-template-columns: 1fr 1fr; }
-
-.cb-field { display: flex; flex-direction: column; gap: 5px; }
-
-.cb-label {
-  font-size: 11px; font-weight: 700; color: #4e7490;
-  display: flex; align-items: center; gap: 5px;
-}
-.cb-label i { color: #00838f; font-size: 10px; }
-.cb-req { color: #e53935; }
-
-.cb-input {
-  width: 100%; min-height: 40px;
-  border-radius: 11px;
-  border: 1.5px solid #ccddef;
-  background: #f7faff;
-  padding: 0 12px;
-  font: inherit; font-size: 13px; color: #0a2540;
-  outline: none; appearance: none;
-  transition: border-color .18s, box-shadow .18s;
-}
-.cb-input:focus {
-  border-color: #00bcd4;
-  background: #fff;
-  box-shadow: 0 0 0 3px rgba(0,188,212,.12);
-}
-.cb-input::placeholder { color: #aabece; font-size: 12px; }
-
-.cb-select { cursor: pointer; padding-right: 30px; }
-.cb-select-wrap { position: relative; }
-.cb-select-icon {
-  position: absolute; right: 11px; top: 50%;
-  transform: translateY(-50%);
-  color: #8aafc8; font-size: 10px; pointer-events: none;
-}
-
-/* Prefix input */
-.cb-input-pfx-wrap { position: relative; }
-.cb-input-pfx {
-  position: absolute; left: 0; top: 0; height: 100%;
-  padding: 0 10px;
-  display: flex; align-items: center;
-  background: linear-gradient(135deg,#00838f,#00bcd4);
-  color: #fff; font-size: 10px; font-weight: 800;
-  border-radius: 11px 0 0 11px;
-  z-index: 1;
-}
-.cb-input-pfx-field { padding-left: 52px; }
-
-/* ── Cashback Estimator ── */
-.cb-estimator {
-  background: linear-gradient(135deg,#e0f7fa,#b2ebf2);
-  border: 1px solid #80deea;
-  border-radius: 16px;
-  padding: 16px;
-  display: flex; flex-direction: column; gap: 12px;
-}
-.cb-estimator-header {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 12px; font-weight: 800; color: #006064;
-}
-.cb-estimator-header i { color: #00838f; }
-
-.cb-estimator-rates {
-  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-}
-.cb-rate-chip {
-  padding: 5px 12px; border-radius: 999px;
-  background: rgba(255,255,255,.6);
-  border: 1px solid #80deea;
-  color: #006064; font: inherit; font-size: 12px; font-weight: 700;
-  cursor: pointer; transition: all .15s;
-}
-.cb-rate-chip:hover,
-.cb-rate-chip.cb-rate-active {
-  background: linear-gradient(120deg,#00838f,#00bcd4);
-  color: #fff; border-color: transparent;
-  box-shadow: 0 3px 10px rgba(0,188,212,.3);
-}
-
-.cb-estimator-result {
-  display: flex; align-items: center; justify-content: space-between;
-  background: rgba(255,255,255,.7);
-  border-radius: 10px; padding: 10px 14px;
-}
-.cb-est-label { font-size: 12px; font-weight: 700; color: #006064; }
-.cb-est-value { font-size: 18px; font-weight: 900; color: #00838f; letter-spacing: -0.3px; }
-
-/* Form footer */
-.cb-form-footer {
-  display: flex; align-items: center; justify-content: flex-end;
-  gap: 10px; padding: 16px 20px;
-  border-top: 1px solid #edf4fb;
-}
-.cb-reset-btn {
-  display: inline-flex; align-items: center; gap: 7px;
-  min-height: 42px; padding: 0 16px;
-  border-radius: 12px; border: 1.5px solid #cddff0;
-  background: transparent; color: #5b80a0;
-  font: inherit; font-size: 13px; font-weight: 700;
-  cursor: pointer; transition: all .15s;
-}
-.cb-reset-btn:hover { background: #f0f4f8; }
-.cb-submit-btn {
-  display: inline-flex; align-items: center; gap: 8px;
-  min-height: 42px; padding: 0 22px;
-  border-radius: 12px;
-  background: linear-gradient(120deg,#00838f,#00bcd4);
-  color: #fff; font: inherit; font-size: 14px; font-weight: 800;
-  border: none; cursor: pointer;
-  box-shadow: 0 6px 20px rgba(0,188,212,.28);
-  transition: all .18s;
-}
-.cb-submit-btn:hover { opacity: .9; box-shadow: 0 8px 24px rgba(0,188,212,.38); }
-
-/* ══════════════════════════════════════════════════════════════════════
-   CONTENT COLUMN
-   ══════════════════════════════════════════════════════════════════════ */
-.cb-content-col { display: flex; flex-direction: column; gap: 12px; }
-
-/* Toolbar */
-.cb-toolbar {
-  display: flex; align-items: center;
-  justify-content: space-between; gap: 12px;
-  background: #fff;
-  border-radius: 16px; padding: 14px 18px;
-  border: 1px solid #dde8f5;
-  box-shadow: 0 2px 10px rgba(10,37,64,.05);
-  flex-wrap: wrap;
-}
-.cb-toolbar-left { display: flex; align-items: center; gap: 10px; }
-.cb-content-title {
-  font-size: 17px; font-weight: 800; color: #0a2540;
-  display: flex; align-items: center; gap: 9px;
-}
-.cb-content-title i { color: #00838f; }
-.cb-count-badge {
-  padding: 3px 10px; border-radius: 999px;
-  background: linear-gradient(120deg,#00838f,#00bcd4);
-  color: #fff; font-size: 11px; font-weight: 800;
-}
-.cb-toolbar-right { display: flex; align-items: center; gap: 10px; }
-
-.cb-search-box {
-  display: flex; align-items: center; gap: 8px;
-  background: #f7faff; border: 1.5px solid #cddff0;
-  border-radius: 11px; padding: 0 12px; min-height: 40px;
-  transition: border-color .18s;
-}
-.cb-search-box:focus-within {
-  border-color: #00bcd4;
-  box-shadow: 0 0 0 3px rgba(0,188,212,.10);
-}
-.cb-search-box i { color: #8aafc8; font-size: 12px; }
-.cb-search-box input {
-  border: none; outline: none; background: transparent;
-  font: inherit; font-size: 13px; color: #0a2540; width: 180px;
-}
-.cb-search-box input::placeholder { color: #aabece; }
-.cb-search-clear {
-  width: 20px; height: 20px; border-radius: 50%;
-  background: #e2ecf8; border: none; color: #5b80a0;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 11px; cursor: pointer;
-}
-
-.cb-sort-wrap { min-width: 140px; }
-.cb-sort-select { font-size: 12px; min-height: 40px; }
-
-/* Filter tabs */
-.cb-filter-tabs {
-  display: flex; align-items: center; gap: 6px;
-  background: #fff; border-radius: 14px;
-  padding: 10px 14px; border: 1px solid #dde8f5;
-  flex-wrap: wrap;
-}
-.cb-filter-tab {
-  display: inline-flex; align-items: center; gap: 7px;
-  min-height: 34px; padding: 0 14px;
-  border-radius: 9px; background: transparent;
-  border: 1px solid transparent;
-  font: inherit; font-size: 12px; font-weight: 700;
-  color: #7294ae; cursor: pointer; transition: all .15s;
-}
-.cb-filter-tab:hover { background: #f0f4f8; color: #0a2540; }
-.cb-filter-active {
-  background: linear-gradient(120deg,#1565c0,#1e88e5);
-  color: #fff;
-  box-shadow: 0 4px 12px rgba(21,101,192,.2);
-}
-.cb-filter-active:hover { background: linear-gradient(120deg,#1565c0,#1e88e5); color: #fff; }
-.cb-tab-count {
-  background: rgba(255,255,255,.25); border-radius: 999px;
-  padding: 1px 7px; font-size: 10px; font-weight: 800;
-}
-.cb-filter-tab:not(.cb-filter-active) .cb-tab-count {
-  background: #e8f0fb; color: #1565c0;
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   CARDS GRID
-   ══════════════════════════════════════════════════════════════════════ */
-.cb-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
-  gap: 14px;
-}
-
-.cb-card {
-  background: #fff;
-  border-radius: 18px;
-  border: 1px solid #dde8f5;
-  display: flex; flex-direction: column;
-  gap: 12px;
-  box-shadow: 0 2px 12px rgba(10,37,64,.05);
-  transition: box-shadow .2s, transform .2s, border-color .2s;
-  overflow: hidden;
-  position: relative;
-}
-.cb-card:hover {
-  box-shadow: 0 10px 32px rgba(10,37,64,.12);
-  transform: translateY(-3px);
-  border-color: #b8d4f0;
-}
-
-/* Accent strip */
-.cb-card-accent {
-  height: 3px; width: 100%;
-}
-.cb-accent-green  { background: linear-gradient(90deg,#1565c0,#00bcd4); }
-.cb-accent-amber  { background: linear-gradient(90deg,#1565c0,#00bcd4); }
-.cb-accent-red    { background: linear-gradient(90deg,#1565c0,#00bcd4); }
-
-/* Card top */
-.cb-card-top {
-  display: flex; align-items: center;
-  justify-content: space-between; gap: 8px;
-  padding: 14px 16px 10px;
-}
-
-.cb-card-partner { display: flex; align-items: center; gap: 10px; }
-
-.cb-partner-avatar {
-  width: 38px; height: 38px; border-radius: 12px;
-  background: linear-gradient(135deg,#00838f,#00bcd4);
-  color: #fff; font-size: 15px; font-weight: 800;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-}
-
-.cb-partner-name { font-size: 14px; font-weight: 800; color: #0a2540; }
-.cb-card-id { font-size: 11px; color: #9ab4cc; font-weight: 600; margin-top: 1px; }
-
-/* Status badge */
-.cb-status-badge {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 5px 10px; border-radius: 999px;
-  font-size: 11px; font-weight: 800; white-space: nowrap; flex-shrink: 0;
-}
-.cb-status-green  { background: #dcfce7; color: #166534; }
-.cb-status-amber  { background: #fef9c3; color: #854d0e; }
-.cb-status-red    { background: #fee2e2; color: #991b1b; }
-
-/* Amounts */
-.cb-card-amounts {
-  display: flex; align-items: stretch;
-  margin: 0 16px;
-  background: linear-gradient(135deg,#f0f9ff,#e0f7fa);
-  border-radius: 14px;
-  border: 1px solid #b2ebf2;
-  overflow: hidden;
-}
-.cb-card-amount-block {
-  flex: 1; padding: 12px 14px;
-  display: flex; flex-direction: column; gap: 3px;
-}
-.cb-card-amount-divider {
-  width: 1px; background: #b2ebf2;
-}
-.cb-amount-label {
-  font-size: 10px; color: #7294ae;
-  text-transform: uppercase; letter-spacing: 0.4px; font-weight: 700;
-}
-.cb-amount-val {
-  font-size: 18px; font-weight: 900; color: #0a2540; letter-spacing: -0.3px;
-}
-.cb-amount-val small { font-size: 11px; font-weight: 600; color: #7294ae; margin-left: 2px; }
-.cb-cashback-block { background: rgba(0,188,212,.06); }
-.cb-cashback-val { color: #00838f; }
-
-/* Progress */
-.cb-card-progress { padding: 10px 16px; }
-.cb-progress-header {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 5px;
-}
-.cb-progress-label { font-size: 10px; color: #9ab4cc; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
-.cb-progress-pct { font-size: 11px; font-weight: 800; color: #00838f; }
-.cb-progress-track { height: 6px; background: #e0f7fa; border-radius: 999px; overflow: hidden; }
-.cb-progress-fill {
-  height: 100%; border-radius: 999px;
-  background: linear-gradient(90deg,#00838f,#00bcd4);
-  transition: width .6s ease;
-}
-
-/* Rating */
-.cb-card-rating {
-  padding: 12px 16px 16px;
-  border-top: 1px solid #f0f4f8;
-  display: flex; flex-direction: column; gap: 10px;
-}
-.cb-rating-header {
-  display: flex; align-items: center; gap: 7px;
-  font-size: 11px; font-weight: 700; color: #7294ae;
-}
-.cb-rating-header i { color: #f59e0b; }
-
-.cb-rating-form { display: flex; flex-direction: column; gap: 8px; }
-
-/* Stars */
-.cb-stars {
-  display: flex; align-items: center; gap: 4px;
-}
-.cb-star-btn {
-  width: 28px; height: 28px; border-radius: 8px;
-  background: #f7faff; border: 1px solid #dde8f5;
-  color: #c4d4e4; font-size: 13px;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; transition: all .15s;
-}
-.cb-star-btn:hover,
-.cb-star-btn.cb-star-active {
-  background: #fff8e1; border-color: #fbbf24; color: #f59e0b;
-}
-.cb-star-btn.cb-star-filled { color: #f59e0b; background: #fff8e1; border-color: #fde68a; }
-
-.cb-rating-comment { min-height: 36px; font-size: 12px; }
-
-.cb-rating-actions { display: flex; align-items: center; gap: 8px; }
-
-.cb-rate-submit-btn {
-  flex: 1;
-  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-  min-height: 36px; border-radius: 10px;
-  background: linear-gradient(120deg,#00838f,#00bcd4);
-  color: #fff; font: inherit; font-size: 12px; font-weight: 700;
-  border: none; cursor: pointer; transition: opacity .15s;
-}
-.cb-rate-submit-btn:hover { opacity: .88; }
-
-.cb-delete-form { display: none; }
-.cb-delete-btn {
-  width: 36px; height: 36px; border-radius: 10px;
-  background: #fff0f0; border: 1px solid #fecaca;
-  color: #dc2626; display: flex; align-items: center;
-  justify-content: center; cursor: pointer; font-size: 13px;
-  transition: all .15s;
-}
-.cb-delete-btn:hover { background: #dc2626; color: #fff; }
-
-.cb-edit-btn {
-  width: 36px; height: 36px; border-radius: 10px;
-  background: #eaf2fd; border: 1px solid #c3d9f5;
-  color: #1565c0; display: flex; align-items: center;
-  justify-content: center; cursor: pointer; font-size: 13px;
-  transition: all .15s;
-}
-.cb-edit-btn:hover { background: #1565c0; color: #fff; }
-
-/* Empty state */
-.cb-empty {
-  grid-column: 1 / -1;
-  display: flex; flex-direction: column; align-items: center; gap: 10px;
-  padding: 60px 20px;
-  background: #fff; border-radius: 18px;
-  border: 1px dashed #c4d9ee; text-align: center;
-}
-.cb-empty[hidden] { display: none !important; }
-.cb-empty-icon {
-  width: 70px; height: 70px; border-radius: 50%;
-  background: linear-gradient(135deg,#e0f7fa,#b2ebf2);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 28px; color: #7294ae;
-}
-.cb-empty strong { font-size: 17px; color: #0a2540; }
-.cb-empty span { font-size: 13px; color: #7294ae; max-width: 300px; }
-.cb-empty-cta {
-  display: inline-flex; align-items: center; gap: 8px;
-  min-height: 40px; padding: 0 20px; border-radius: 12px;
-  background: linear-gradient(120deg,#00838f,#00bcd4);
-  color: #fff; font: inherit; font-size: 13px; font-weight: 700;
-  border: none; cursor: pointer; margin-top: 6px; transition: opacity .15s;
-}
-.cb-empty-cta:hover { opacity: .88; }
-
-/* ══════════════════════════════════════════════════════════════════════
-   TABLE VIEW
-   ══════════════════════════════════════════════════════════════════════ */
-.cb-table-wrap {
-  background: #fff; border-radius: 18px;
-  border: 1px solid #dde8f5;
-  box-shadow: 0 4px 20px rgba(10,37,64,.07);
-  overflow: auto;
-}
-
-.cb-table { width: 100%; border-collapse: collapse; min-width: 900px; }
-
-.cb-table thead tr { background: linear-gradient(135deg,#f2f8fd,#e8f4fb); }
-.cb-table th {
-  padding: 14px 16px; text-align: left;
-  border-bottom: 2px solid #daeaf6;
-}
-.cb-table th span {
-  font-size: 11px; font-weight: 800; color: #5b80a0;
-  text-transform: uppercase; letter-spacing: 0.7px;
-}
-
-.cb-tr { border-bottom: 1px solid #edf4fb; transition: background .15s; }
-.cb-tr:hover { background: #f5fbff; }
-.cb-tr:last-child { border-bottom: none; }
-.cb-table td { padding: 12px 16px; vertical-align: middle; }
-
-.cb-id-pill {
-  display: inline-block;
-  background: linear-gradient(135deg,#00838f,#00bcd4);
-  color: #fff; font-size: 11px; font-weight: 800;
-  padding: 4px 10px; border-radius: 999px;
-}
-
-.cb-tbl-partner { display: flex; align-items: center; gap: 9px; }
-.cb-tbl-avatar {
-  width: 30px; height: 30px; border-radius: 50%;
-  background: linear-gradient(135deg,#00838f,#00bcd4);
-  color: #fff; font-size: 12px; font-weight: 800;
-  display: flex; align-items: center; justify-content: center;
-}
-.cb-tbl-partner span { font-size: 13px; font-weight: 600; color: #1b3a57; }
-
-.cb-tbl-amount { font-size: 14px; font-weight: 800; color: #0a2540; }
-.cb-tbl-cashback { font-size: 14px; font-weight: 800; color: #00838f; }
-.cb-tbl-cur { font-size: 11px; color: #7294ae; margin-left: 2px; }
-
-.cb-tbl-rate-wrap { display: flex; align-items: center; gap: 8px; min-width: 100px; }
-.cb-tbl-rate-bar { flex: 1; height: 5px; background: #e0f7fa; border-radius: 999px; overflow: hidden; }
-.cb-tbl-rate-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg,#00838f,#00bcd4); }
-.cb-tbl-rate-pct { font-size: 11px; font-weight: 800; color: #00838f; white-space: nowrap; }
-
-.cb-tbl-rate-form { }
-.cb-tbl-rate-row { display: flex; align-items: center; gap: 6px; }
-.cb-tbl-rate-input { width: 60px; min-height: 32px; font-size: 12px; padding: 0 8px; }
-.cb-tbl-comment-input { width: 130px; min-height: 32px; font-size: 12px; padding: 0 8px; }
-.cb-tbl-rate-btn {
-  width: 32px; height: 32px; border-radius: 9px;
-  background: linear-gradient(120deg,#00838f,#00bcd4);
-  border: none; color: #fff; font-size: 13px;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; transition: opacity .15s;
-}
-.cb-tbl-rate-btn:hover { opacity: .85; }
-
-.cb-tbl-actions { display: flex; align-items: center; gap: 6px; }
-.cb-tbl-edit-btn {
-  width: 32px; height: 32px; border-radius: 9px;
-  background: #eaf2fd; border: 1px solid #c3d9f5;
-  color: #1565c0; display: flex; align-items: center;
-  justify-content: center; cursor: pointer; font-size: 13px;
-  transition: all .15s;
-}
-.cb-tbl-edit-btn:hover { background: #1565c0; color: #fff; }
-.cb-tbl-del-btn {
-  width: 32px; height: 32px; border-radius: 9px;
-  background: #fff0f0; border: 1px solid #fecaca;
-  color: #dc2626; display: flex; align-items: center;
-  justify-content: center; cursor: pointer; font-size: 13px;
-  transition: all .15s;
-}
-.cb-tbl-del-btn:hover { background: #dc2626; color: #fff; }
-
-.cb-tbl-empty {
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
-  padding: 48px; color: #7294ae; text-align: center;
-}
-.cb-tbl-empty i { font-size: 28px; color: #b8d4e8; margin-bottom: 4px; }
-.cb-tbl-empty span { font-size: 13px; font-weight: 600; }
-
-/* ══════════════════════════════════════════════════════════════════════
-   FOOTER STATS
-   ══════════════════════════════════════════════════════════════════════ */
-.cb-footer-stats {
-  display: flex; align-items: center;
-  justify-content: space-between; flex-wrap: wrap; gap: 10px;
-  background: #fff; border-radius: 14px;
-  padding: 13px 18px; border: 1px solid #dde8f5;
-}
-.cb-fs-item {
-  display: inline-flex; align-items: center; gap: 7px;
-  font-size: 12px; color: #7294ae; font-weight: 600;
-}
-.cb-fs-item i { color: #1565c0; }
-.cb-fs-item strong { color: #0a2540; }
-
-/* ══════════════════════════════════════════════════════════════════════
-   HIDDEN UTILITY
-   ══════════════════════════════════════════════════════════════════════ */
-.cb-card.cb-hidden { display: none; }
-.cb-form-collapsed .cb-form-body,
-.cb-form-collapsed .cb-form-footer { display: none; }
-
-/* ══════════════════════════════════════════════════════════════════════
-   DARK MODE
-   ══════════════════════════════════════════════════════════════════════ */
-.cb-root.cb-dark {
-  background: #0d1b2e;
-  color: #c8ddf0;
-}
-.cb-root.cb-dark .cb-topbar,
-.cb-root.cb-dark .cb-page-header,
-.cb-root.cb-dark .cb-kpi-card,
-.cb-root.cb-dark .cb-toolbar,
-.cb-root.cb-dark .cb-filter-tabs,
-.cb-root.cb-dark .cb-card,
-.cb-root.cb-dark .cb-empty,
-.cb-root.cb-dark .cb-footer-stats,
-.cb-root.cb-dark .cb-form-card,
-.cb-root.cb-dark .cb-table-wrap {
-  background: #122038;
-  border-color: #1e3655;
-}
-.cb-root.cb-dark .cb-input {
-  background: #0d1b2e;
-  border-color: #1e3655;
-  color: #c8ddf0;
-}
-.cb-root.cb-dark .cb-page-title,
-.cb-root.cb-dark .cb-content-title,
-.cb-root.cb-dark .cb-partner-name,
-.cb-root.cb-dark .cb-kpi-value,
-.cb-root.cb-dark .cb-amount-val {
-  color: #e4f0ff;
-}
-.cb-root.cb-dark .cb-kpi-strip { background: #0d1b2e; }
-.cb-root.cb-dark .cb-search-box { background: #0d1b2e; border-color: #1e3655; }
-.cb-root.cb-dark .cb-search-box input { color: #c8ddf0; }
-.cb-root.cb-dark .cb-card-amounts { background: linear-gradient(135deg,#0d2035,#0d2a30); border-color: #1e3a40; }
-.cb-root.cb-dark .cb-card-rating { border-color: #1e3655; }
-.cb-root.cb-dark .cb-topbar-btn,
-.cb-root.cb-dark .cb-user-chip { background: #1a2f4a; border-color: #1e3655; }
-.cb-root.cb-dark .cb-tr:hover { background: #142540; }
-
-/* ══════════════════════════════════════════════════════════════════════
-   RESPONSIVE
-   ══════════════════════════════════════════════════════════════════════ */
-@media (max-width: 1300px) {
-  .cb-split { grid-template-columns: 360px 1fr; }
-  .cb-kpi-strip { grid-template-columns: repeat(3,1fr); }
-}
-@media (max-width: 1050px) {
-  .cb-split { grid-template-columns: 1fr; }
-  .cb-form-col { position: static; }
-  .cb-kpi-strip { grid-template-columns: repeat(2,1fr); }
-}
-@media (max-width: 700px) {
-  .cb-page-header { padding: 16px; }
-  .cb-kpi-strip { grid-template-columns: 1fr 1fr; padding: 14px 16px; }
-  .cb-split { padding: 0 16px 20px; }
-  .cb-toolbar { flex-direction: column; align-items: stretch; }
-  .cb-toolbar-right { flex-wrap: wrap; }
-  .cb-search-box input { width: 100%; }
-  .cb-field-group-2 { grid-template-columns: 1fr; }
-  .cb-grid { grid-template-columns: 1fr; }
-  .cb-page-header-inner { flex-direction: column; align-items: flex-start; }
-  .cb-footer-stats { flex-direction: column; align-items: flex-start; }
-}
-</style>
-
-<script>
-(() => {
-  'use strict';
-
-  const ready = (fn) => document.readyState === 'loading'
-    ? document.addEventListener('DOMContentLoaded', fn)
-    : fn();
-
-  ready(() => {
-    const root = document.querySelector('.cb-root');
-    if (!root) return;
-
-    const $  = (sel, ctx = root) => ctx.querySelector(sel);
-    const $$ = (sel, ctx = root) => Array.from(ctx.querySelectorAll(sel));
-
-    /* ── DARK MODE ── */
-    const darkBtn  = $('#cb-dark-toggle');
-    const DARK_KEY = 'nexora-cashback-dark';
-
-    const applyDark = (on) => {
-      root.classList.toggle('cb-dark', on);
-      if (darkBtn) {
-        darkBtn.querySelector('i').className = on ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
-      }
-    };
-
-    applyDark(localStorage.getItem(DARK_KEY) === '1');
-    darkBtn?.addEventListener('click', () => {
-      const next = !root.classList.contains('cb-dark');
-      applyDark(next);
-      localStorage.setItem(DARK_KEY, next ? '1' : '0');
-    });
-
-    /* ── FORM COLLAPSE ── */
-    const collapseBtn = $('#cb-collapse-form');
-    const formCard    = $('#cb-form-card');
-
-    collapseBtn?.addEventListener('click', () => {
-      formCard?.classList.toggle('cb-form-collapsed');
-      const i = collapseBtn.querySelector('i');
-      if (i) {
-        i.className = formCard?.classList.contains('cb-form-collapsed')
-          ? 'fa-solid fa-chevron-right'
-          : 'fa-solid fa-chevron-left';
-      }
-    });
-
-    /* ── ADD NEW BUTTON ── */
-    const addBtn      = $('#cb-add-btn');
-    const emptyAddBtn = $('#cb-empty-add');
-    const cashbackForm = $('#cashback-form');
-
-    const resetAndFocus = () => {
-      cashbackForm?.reset();
-      const idFld = $('#cb-id-field');
-      if (idFld) idFld.value = '';
-      updateEstimator();
-      document.getElementById('cb-form-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    };
-
-    addBtn?.addEventListener('click', resetAndFocus);
-    emptyAddBtn?.addEventListener('click', resetAndFocus);
-
-    /* ── EDIT FILL ── */
-    const fillForm = (btn) => {
-      if (!cashbackForm) return;
-      const set = (name, val) => {
-        const f = cashbackForm.querySelector(`[name="${name}"]`);
-        if (f) f.value = val ?? '';
-      };
-      set('id_cashback',    btn.dataset.cbEdit);
-      set('id_partenaire',  btn.dataset.partnerId);
-      set('partenaire_nom', btn.dataset.partnerNom);
-      set('montant_achat',  btn.dataset.montant);
-      set('statut',         btn.dataset.statut);
-      updateEstimator();
-      document.getElementById('cb-form-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    };
-
-    $$('[data-cb-edit]').forEach((btn) => {
-      btn.addEventListener('click', () => fillForm(btn));
-    });
-
-    /* ── CASHBACK ESTIMATOR ── */
-    const montantAchatField = $('#cb-montant-achat');
-    const estValue          = $('#cb-est-value');
-    const rateChips         = $$('.cb-rate-chip');
-    let   activeRate        = 2;
-
-    const updateEstimator = () => {
-      const amount = parseFloat(montantAchatField?.value) || 0;
-      const result = (amount * activeRate / 100);
-      if (estValue) estValue.textContent = result.toLocaleString('fr-TN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' DT';
-    };
-
-    montantAchatField?.addEventListener('input', updateEstimator);
-
-    rateChips.forEach((chip) => {
-      chip.addEventListener('click', () => {
-        rateChips.forEach((c) => c.classList.remove('cb-rate-active'));
-        chip.classList.add('cb-rate-active');
-        activeRate = parseFloat(chip.dataset.rate) || 2;
-        updateEstimator();
-      });
-    });
-
-    updateEstimator();
-
-    /* ── STAR RATING ── */
-    $$('[data-rating-group]').forEach((group) => {
-      const stars = $$('.cb-star-btn', group);
-      const hidden = group.querySelector('.cb-rating-input');
-
-      stars.forEach((star, idx) => {
-        star.addEventListener('mouseenter', () => {
-          stars.forEach((s, i) => {
-            s.querySelector('i').className = i <= idx
-              ? 'fa-solid fa-star'
-              : 'fa-regular fa-star';
-          });
-        });
-
-        star.addEventListener('mouseleave', () => {
-          const selected = parseInt(hidden?.value || '0', 10);
-          stars.forEach((s, i) => {
-            s.querySelector('i').className = i < selected
-              ? 'fa-solid fa-star'
-              : 'fa-regular fa-star';
-            s.classList.toggle('cb-star-filled', i < selected);
-          });
-        });
-
-        star.addEventListener('click', () => {
-          const val = idx + 1;
-          if (hidden) hidden.value = val;
-          stars.forEach((s, i) => {
-            s.querySelector('i').className = i < val
-              ? 'fa-solid fa-star'
-              : 'fa-regular fa-star';
-            s.classList.toggle('cb-star-filled', i < val);
-          });
-        });
-      });
-    });
-
-    /* ── VIEW TOGGLE (Cards ↔ Table) ── */
-    const viewToggleBtn = $('#cb-view-toggle');
-    const gridView      = $('#cb-grid');
-    const tableView     = $('#cb-table-view');
-    let   isTableView   = false;
-
-    viewToggleBtn?.addEventListener('click', () => {
-      isTableView = !isTableView;
-      if (gridView)  gridView.hidden  = isTableView;
-      if (tableView) tableView.hidden = !isTableView;
-      const i = viewToggleBtn.querySelector('i');
-      const s = viewToggleBtn.querySelector('span');
-      if (i) i.className = isTableView ? 'fa-solid fa-table-cells-large' : 'fa-solid fa-table-cells';
-      if (s) s.textContent = isTableView ? 'Vue cartes' : 'Vue tableau';
-    });
-
-    /* ── SEARCH, SORT & FILTER ── */
-    const searchInput = $('#cb-search-input');
-    const searchClear = $('#cb-search-clear');
-    const sortSelect  = $('#cb-sort-select');
-    const filterTabs  = $$('.cb-filter-tab');
-    const allCards    = $$('[data-cb-id]');
-    const noResults   = $('#cb-no-results');
-
-    let activeFilter = 'all';
-
-    const applyState = () => {
-      const kw   = (searchInput?.value ?? '').trim().toLowerCase();
-      const sort = sortSelect?.value ?? 'id_desc';
-
-      if (searchClear) searchClear.hidden = kw === '';
-
-      const parseNum = (v) => { const n = Number(v); return isFinite(n) ? n : 0; };
-
-      const visible = allCards.filter((card) => {
-        const text  = card.dataset.cbSearch ?? '';
-        const st    = card.dataset.cbStatus ?? '';
-        const matchKw = kw === '' || text.includes(kw);
-        const matchFilter = activeFilter === 'all' || st.includes(activeFilter);
-        const show = matchKw && matchFilter;
-        card.classList.toggle('cb-hidden', !show);
-        return show;
-      });
-
-      visible.sort((a, b) => {
-        const idA = parseNum(a.dataset.cbId);
-        const idB = parseNum(b.dataset.cbId);
-        const amA = parseNum(a.dataset.cbAmount);
-        const amB = parseNum(b.dataset.cbAmount);
-        const cbA = parseNum(a.dataset.cbCashback);
-        const cbB = parseNum(b.dataset.cbCashback);
-
-        switch (sort) {
-          case 'id_asc':       return idA - idB;
-          case 'amount_desc':  return amB - amA;
-          case 'amount_asc':   return amA - amB;
-          case 'cashback_desc':return cbB - cbA;
-          default:             return idB - idA;
-        }
-      });
-
-      const grid = $('#cb-grid');
-      if (grid) visible.forEach((c) => grid.appendChild(c));
-
-      if (noResults) noResults.hidden = visible.length > 0;
-    };
-
-    searchInput?.addEventListener('input', applyState);
-    searchClear?.addEventListener('click', () => {
-      if (searchInput) searchInput.value = '';
-      applyState();
-    });
-    sortSelect?.addEventListener('change', applyState);
-
-    filterTabs.forEach((tab) => {
-      tab.addEventListener('click', () => {
-        activeFilter = tab.dataset.filter ?? 'all';
-        filterTabs.forEach((t) => t.classList.remove('cb-filter-active'));
-        tab.classList.add('cb-filter-active');
-        applyState();
-      });
-    });
-
-    applyState();
-  });
-})();
-</script>
-
-<style>
-.cb-val-msg{font-size:12px;font-weight:600;margin-top:4px;display:block;min-height:16px}
-.cb-val-msg.ok{color:#16a34a}
-.cb-val-msg.err{color:#dc2626}
-#cashback-form .cb-input.cb-v-invalid{border-color:#dc2626!important;box-shadow:0 0 0 3px rgba(220,38,38,.12)!important;background:#fff5f5!important}
-#cashback-form .cb-input.cb-v-valid{border-color:#16a34a!important;box-shadow:0 0 0 3px rgba(22,163,74,.1)!important;background:#f0fdf4!important}
-</style>
-<script>
-(function(){
-function g(id){return document.getElementById(id);}
-function setOk(inputId,spanId){
-  var el=g(inputId),s=g(spanId);
-  if(el){el.classList.remove('cb-v-invalid');el.classList.add('cb-v-valid');}
-  if(s){s.className='cb-val-msg ok';s.textContent='✓ Valide';}
-  return true;
-}
-function setErr(inputId,spanId,msg){
-  var el=g(inputId),s=g(spanId);
-  if(el){el.classList.remove('cb-v-valid');el.classList.add('cb-v-invalid');}
-  if(s){s.className='cb-val-msg err';s.textContent='⚠ '+msg;}
-  return false;
-}
-function clr(inputId,spanId){
-  var el=g(inputId),s=g(spanId);
-  if(el){el.classList.remove('cb-v-valid','cb-v-invalid');}
-  if(s){s.className='cb-val-msg';s.textContent='';}
-  return true;
-}
-
-function vPartenaire(){
-  var el=g('cb-partenaire-nom');
-  if(!el)return true;
-  var v=el.value.trim();
-  if(!v)return setErr('cb-partenaire-nom','cb-err-partenaire','Le nom du partenaire est obligatoire.');
-  if(v.length<2)return setErr('cb-partenaire-nom','cb-err-partenaire','Min. 2 caractères.');
-  return setOk('cb-partenaire-nom','cb-err-partenaire');
-}
-function vMontant(){
-  var el=g('cb-montant-achat');
-  if(!el)return true;
-  if(!el.value)return setErr('cb-montant-achat','cb-err-montant','Le montant d\'achat est obligatoire.');
-  var v=parseFloat(el.value);
-  if(isNaN(v)||v<=0)return setErr('cb-montant-achat','cb-err-montant','Doit être un nombre positif.');
-  return setOk('cb-montant-achat','cb-err-montant');
-}
-
-/* Live */
-var pEl=g('cb-partenaire-nom');
-if(pEl){['input','blur'].forEach(function(e){pEl.addEventListener(e,vPartenaire);});}
-var mEl=g('cb-montant-achat');
-if(mEl){['input','blur'].forEach(function(e){mEl.addEventListener(e,vMontant);});}
-
-/* Submit */
-var form=g('cashback-form');
-if(form){
-  form.addEventListener('submit',function(e){
-    var ok=vPartenaire()&vMontant();
-    if(!ok)e.preventDefault();
-  });
-}
-})();
-</script>

@@ -77,58 +77,18 @@ final class PortalController extends AbstractController
         if ($request->isMethod('POST')) {
             $tab = (string) $request->request->get('tab', $tab);
             $panel = trim((string) $request->request->get('panel', ''));
-            $selectedAccount = trim((string) $request->request->get('selected_account', $request->query->get('selected_account', '')));
-            $showVault = trim((string) $request->request->get('show_vault', $request->query->get('show_vault', '')));
-            $editVault = trim((string) $request->request->get('edit_vault', $request->query->get('edit_vault', '')));
-            $editId = trim((string) $request->request->get('edit_id', $request->query->get('edit_id', '')));
-            $searchQuery = trim((string) $request->request->get('q', $request->query->get('q', '')));
-            $searchIn = trim((string) $request->request->get('search_in', $request->query->get('search_in', '')));
-            $filter = trim((string) $request->request->get('filter', $request->query->get('filter', '')));
-            $sort = trim((string) $request->request->get('sort', $request->query->get('sort', '')));
-            $dir = trim((string) $request->request->get('dir', $request->query->get('dir', '')));
-            $action = (string) $request->request->get('action', '');
             $this->handlePortalAction($request, $authService, $bankingService, $notificationService, $insightsService, $gamificationService, $user);
-
-            if ($selectedAccount === '' && $action === 'vault_save') {
-                $selectedAccount = trim((string) $request->request->get('idCompte', ''));
-            }
 
             $routeParams = ['tab' => $tab];
             if ($panel !== '') {
                 $routeParams['panel'] = $panel;
             }
-            if ($selectedAccount !== '') {
-                $routeParams['selected_account'] = $selectedAccount;
-            }
-            if ($showVault !== '') {
-                $routeParams['show_vault'] = $showVault;
-            }
-            if ($editVault !== '') {
-                $routeParams['edit_vault'] = $editVault;
-            }
-            if ($editId !== '') {
-                $routeParams['edit_id'] = $editId;
-            }
-            if ($searchQuery !== '') {
-                $routeParams['q'] = $searchQuery;
-            }
-            if ($searchIn !== '') {
-                $routeParams['search_in'] = $searchIn;
-            }
-            if ($filter !== '') {
-                $routeParams['filter'] = $filter;
-            }
-            if ($sort !== '') {
-                $routeParams['sort'] = $sort;
-            }
-            if ($dir !== '') {
-                $routeParams['dir'] = $dir;
-            }
 
             return $this->redirectToRoute('portal_dashboard', $routeParams);
         }
 
-        $data = $this->buildPortalTabData($tab, $request, $bankingService, $notificationService, $activityService, $gamificationService, $user);
+        $data = $this->buildPortalTabData($tab, $bankingService, $notificationService, $activityService, $gamificationService, $user);
+        
         if ($tab === 'profile') {
             $profileAi = $request->getSession()->get('nexora.profile_ai_data');
             if (!is_array($profileAi)) {
@@ -184,11 +144,9 @@ final class PortalController extends AbstractController
             : null;
 
         try {
-            $accountsFlash = $this->accountsSectionController->handlePortalAction($action, $request, $bankingService, $userId);
-
             foreach ([
-                $accountsFlash,
-                str_starts_with($action, 'vault_') ? null : $this->coffrevirtuelleSectionController->handlePortalAction($action, $request, $bankingService, $userId),
+                $this->accountsSectionController->handlePortalAction($action, $request, $bankingService, $userId),
+                $this->coffrevirtuelleSectionController->handlePortalAction($action, $request, $bankingService, $userId),
                 $this->transactionsSectionController->handlePortalAction($action, $request, $bankingService, $userId),
                 $this->reclamationSectionController->handlePortalAction($action, $request, $bankingService, $userId),
                 $this->creditsSectionController->handlePortalAction($action, $request, $bankingService, $userId),
@@ -221,7 +179,6 @@ final class PortalController extends AbstractController
 
     private function buildPortalTabData(
         string $tab,
-        Request $request,
         BankingService $bankingService,
         NotificationService $notificationService,
         ActivityService $activityService,
@@ -240,14 +197,13 @@ final class PortalController extends AbstractController
         ];
 
         if ($tab === 'accounts') {
-            $accountsData = $this->accountsSectionController->buildPortalData($bankingService, $activityService, $gamificationService, $userId, $request);
+            $accountsData = $this->accountsSectionController->buildPortalData($bankingService, $activityService, $gamificationService, $userId);
             $vaultsData = $this->coffrevirtuelleSectionController->buildPortalData($bankingService, $userId);
             $data = $this->mergeTabData($data, $accountsData);
             $data = $this->mergeTabData($data, $vaultsData);
             $data['items'] = $accountsData['items'] ?? [];
         } elseif ($tab === 'transactions') {
-            $queryParams = $request->query->all();
-            $data = $this->mergeTabData($data, $this->transactionsSectionController->buildPortalData($bankingService, $userId, $queryParams));
+            $data = $this->mergeTabData($data, $this->transactionsSectionController->buildPortalData($bankingService, $userId));
         } elseif ($tab === 'credits') {
             $creditsData = $this->creditsSectionController->buildPortalData($bankingService, $userId);
             $garantiesData = $this->garantiesSectionController->buildPortalData($bankingService, $userId);
@@ -271,7 +227,7 @@ final class PortalController extends AbstractController
             $data = $this->mergeTabData($data, $this->reclamationSectionController->buildPortalData($bankingService, $userId));
         } elseif ($tab === 'vaults') {
             $vaultsData = $this->coffrevirtuelleSectionController->buildPortalData($bankingService, $userId);
-            $accountsData = $this->accountsSectionController->buildPortalData($bankingService, $activityService, $gamificationService, $userId, $request);
+            $accountsData = $this->accountsSectionController->buildPortalData($bankingService, $activityService, $gamificationService, $userId);
             $data = $this->mergeTabData($data, $accountsData);
             $data = $this->mergeTabData($data, $vaultsData);
             $data['items'] = $vaultsData['items'] ?? [];
@@ -377,6 +333,7 @@ final class PortalController extends AbstractController
             'accounts' => ['styles/interfaces/sections/portal-accounts.css'],
             'transactions' => ['styles/interfaces/sections/portal-transactions.css'],
             'credits' => ['styles/interfaces/sections/portal-credits.css'],
+            'cashback' => ['styles/interfaces/sections/portal-cashback.css'],
             'profile' => ['styles/interfaces/sections/portal-profile.css'],
             default => [],
         };

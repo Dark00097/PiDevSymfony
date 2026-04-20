@@ -14,8 +14,6 @@ final class BankingService
         'idiot',
         'hate',
     ];
-    private const ALLOWED_USER_ROLES = ['ROLE_USER', 'ROLE_ADMIN'];
-    private const ALLOWED_USER_STATUS = ['PENDING', 'ACTIVE', 'DECLINED', 'INACTIVE', 'BANNED'];
 
     public function __construct(
         private readonly Connection $connection,
@@ -113,39 +111,20 @@ final class BankingService
         $status = strtoupper(trim((string) ($data['status'] ?? '')));
 
         if ($id === null) {
-            if ($nom === '' || $prenom === '' || $email === '' || $telephone === '') {
-                throw new \InvalidArgumentException('Last name, first name, email and phone are required.');
+            if ($nom === '' || $prenom === '' || $email === '') {
+                throw new \InvalidArgumentException('Nom, prenom and email are required to create a user.');
             }
-
-            $this->assertValidUserName($nom, 'Last name');
-            $this->assertValidUserName($prenom, 'First name');
-            $this->assertValidUserEmail($email);
-            if (!$this->isValidPhone($telephone)) {
-                throw new \InvalidArgumentException('Phone format is invalid.');
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                throw new \InvalidArgumentException('Email format is invalid.');
             }
-
-            $resolvedRole = $role !== '' ? $role : 'ROLE_USER';
-            $resolvedStatus = $status !== '' ? $status : 'PENDING';
-            $this->assertValidUserRole($resolvedRole);
-            $this->assertValidUserStatus($resolvedStatus);
-
-            if ($this->emailExistsForAnotherUser($email, null)) {
-                throw new \InvalidArgumentException('This email is already used by another user.');
-            }
-
-            $plainPassword = (string) ($data['password'] ?? '');
-            if ($plainPassword === '') {
-                throw new \InvalidArgumentException('Password is required to create a user.');
-            }
-            $this->assertStrongPassword($plainPassword);
 
             $payload = [
                 'nom' => $nom,
                 'prenom' => $prenom,
                 'email' => $email,
                 'telephone' => $telephone,
-                'role' => $resolvedRole,
-                'status' => $resolvedStatus,
+                'role' => $role !== '' ? $role : 'ROLE_USER',
+                'status' => $status !== '' ? $status : 'PENDING',
                 'biometric_enabled' => (int) ((string) ($data['biometric_enabled'] ?? '0') === '1'),
             ];
 
@@ -154,7 +133,11 @@ final class BankingService
                 $payload['profile_image_path'] = $profileImagePath !== '' ? $profileImagePath : null;
             }
 
-            $payload['password'] = $this->security->hashPassword($plainPassword);
+            if (($data['password'] ?? '') !== '') {
+                $payload['password'] = $this->security->hashPassword((string) $data['password']);
+            }
+
+            $payload['password'] ??= $this->security->hashPassword('ChangeMe123!');
             $payload['account_opened_from'] = 'Symfony admin';
             $payload['account_opened_location'] = 'Unknown location';
             $payload['profile_image_path'] ??= null;
@@ -165,6 +148,13 @@ final class BankingService
 
         $existing = $this->connection->fetchAssociative('SELECT * FROM users WHERE idUser = ? LIMIT 1', [$id]);
         if (!$existing) {
+            if ($nom !== '' && $prenom !== '' && $email !== '') {
+                // If a non-existing ID was sent while filling the "create" fields, fallback to create mode.
+                $this->saveUser($data, null);
+
+                return;
+            }
+
             throw new \RuntimeException('User not found. Leave ID empty to create a new user.');
         }
 
@@ -180,28 +170,19 @@ final class BankingService
                 : (int) ($existing['biometric_enabled'] ?? 0),
         ];
 
-        $this->assertValidUserName((string) $payload['nom'], 'Last name');
-        $this->assertValidUserName((string) $payload['prenom'], 'First name');
-        $this->assertValidUserEmail((string) $payload['email']);
-        $this->assertValidUserRole((string) $payload['role']);
-        $this->assertValidUserStatus((string) $payload['status']);
-        if (!$this->isValidPhone((string) $payload['telephone'])) {
-            throw new \InvalidArgumentException('Phone format is invalid.');
-        }
-
-        if ($this->emailExistsForAnotherUser((string) $payload['email'], $id)) {
-            throw new \InvalidArgumentException('This email is already used by another user.');
+        if (!filter_var($payload['email'], FILTER_VALIDATE_EMAIL)) {
+            throw new \InvalidArgumentException('Email format is invalid.');
         }
 
         if (array_key_exists('profile_image_path', $data)) {
             $profileImagePath = trim((string) $data['profile_image_path']);
-            $payload['profile_image_path'] = $profileImagePath !== '' ? $profileImagePath : null;
+            if ($profileImagePath !== '') {
+                $payload['profile_image_path'] = $profileImagePath;
+            }
         }
 
         if (($data['password'] ?? '') !== '') {
-            $plainPassword = (string) $data['password'];
-            $this->assertStrongPassword($plainPassword);
-            $payload['password'] = $this->security->hashPassword($plainPassword);
+            $payload['password'] = $this->security->hashPassword((string) $data['password']);
         }
 
         $this->connection->update('users', $payload, ['idUser' => $id]);
@@ -209,17 +190,7 @@ final class BankingService
 
     public function updateUserStatus(int $userId, string $status): void
     {
-        if ($userId <= 0) {
-            throw new \InvalidArgumentException('A valid user ID is required.');
-        }
-
         $normalized = strtoupper(trim($status));
-        $this->assertValidUserStatus($normalized);
-        $exists = (int) $this->connection->fetchOne('SELECT COUNT(*) FROM users WHERE idUser = ?', [$userId]);
-        if ($exists === 0) {
-            throw new \RuntimeException('User not found.');
-        }
-
         $this->connection->update('users', ['status' => $normalized], ['idUser' => $userId]);
         $this->notificationService->notifyUserAccountStatusChanged($userId, $normalized);
     }
@@ -311,7 +282,7 @@ final class BankingService
         foreach ($rows as &$row) {
             $row['montant_value'] = $this->security->decryptAmount($row['montant'] ?? null) ?? 0.0;
             $row['montantPaye_value'] = $this->security->decryptAmount($row['montantPaye'] ?? null) ?? 0.0;
-            $row['is_anomalie'] = $this->isTransactionAnomaly((int) ($row['resolved_user_id'] ?? $row['idUser'] ?? 0), (float) $row['montant_value']);
+            $row['is_anomalie'] = $this->isTransactionAnomaly((int) ($row['idUser'] ?? 0), (float) $row['montant_value']);
         }
 
         return $rows;
@@ -319,48 +290,17 @@ final class BankingService
 
     public function saveTransaction(array $data, ?int $id = null, ?int $forcedUserId = null): void
     {
-        $existing = null;
-        if ($id !== null) {
-            $existing = $this->connection->fetchAssociative(
-                'SELECT * FROM transactions WHERE idTransaction = ? LIMIT 1',
-                [$id]
-            );
-            if (!$existing) {
-                throw new \RuntimeException('Transaction introuvable.');
-            }
-        }
-
-        $accountId = $this->nullableInt($data['idCompte'] ?? null) ?? $this->nullableInt($existing['idCompte'] ?? null);
-        if ($accountId === null) {
-            throw new \InvalidArgumentException('Compte requis pour enregistrer une transaction.');
-        }
-
-        $account = $this->connection->fetchAssociative(
-            'SELECT idCompte, idUser FROM compte WHERE idCompte = ? LIMIT 1',
-            [$accountId]
-        );
-        if (!$account) {
-            throw new \RuntimeException('Compte introuvable.');
-        }
-
-        $accountOwnerId = $this->nullableInt($account['idUser'] ?? null);
-        $userId = $forcedUserId
-            ?? $this->nullableInt($data['idUser'] ?? null)
-            ?? $accountOwnerId
-            ?? $this->nullableInt($existing['idUser'] ?? null);
-        if ($userId === null) {
-            throw new \InvalidArgumentException('Utilisateur introuvable pour cette transaction.');
-        }
-
+        $userId = $forcedUserId ?? (int) ($data['idUser'] ?? 0);
         $amount = (float) ($data['montant'] ?? 0);
         $paidAmount = (float) ($data['montantPaye'] ?? 0);
         $payload = [
-            'idCompte' => $accountId,
+            'idCompte' => $this->nullableInt($data['idCompte'] ?? null),
             'idUser' => $userId,
             'categorie' => trim((string) ($data['categorie'] ?? '')),
             'dateTransaction' => trim((string) ($data['dateTransaction'] ?? date('Y-m-d'))),
             'montant' => $this->security->encryptAmount($amount),
             'typeTransaction' => trim((string) ($data['typeTransaction'] ?? 'Credit')),
+            'statutTransaction' => trim((string) ($data['statutTransaction'] ?? 'Terminee')),
             'soldeApres' => ($data['soldeApres'] ?? '') !== '' ? (float) $data['soldeApres'] : null,
             'description' => trim((string) ($data['description'] ?? '')),
             'montantPaye' => $this->security->encryptAmount($paidAmount),
@@ -956,40 +896,11 @@ final class BankingService
 
     public function saveReclamation(array $data, ?int $id = null, ?int $forcedUserId = null): void
     {
-        $existing = null;
-        if ($id !== null) {
-            $existing = $this->connection->fetchAssociative(
-                'SELECT * FROM reclamation WHERE idReclamation = ? LIMIT 1',
-                [$id]
-            );
-            if (!$existing) {
-                throw new \RuntimeException('Reclamation introuvable.');
-            }
-        }
-
-        $transactionId = $this->nullableInt($data['idTransaction'] ?? null) ?? $this->nullableInt($existing['idTransaction'] ?? null);
-        $resolvedUserId = $forcedUserId ?? $this->nullableInt($data['idUser'] ?? null) ?? $this->nullableInt($existing['idUser'] ?? null);
-
-        if ($transactionId !== null && $resolvedUserId === null) {
-            $transactionOwner = $this->connection->fetchAssociative(
-                'SELECT COALESCE(t.idUser, c.idUser) AS resolved_user_id
-                 FROM transactions t
-                 LEFT JOIN compte c ON c.idCompte = t.idCompte
-                 WHERE t.idTransaction = ? LIMIT 1',
-                [$transactionId]
-            );
-            $resolvedUserId = $this->nullableInt($transactionOwner['resolved_user_id'] ?? null);
-        }
-
-        if ($resolvedUserId === null) {
-            throw new \InvalidArgumentException('Utilisateur introuvable pour cette reclamation.');
-        }
-
         $description = trim((string) ($data['description'] ?? ''));
         $inappropriate = $this->containsBadWord($description);
         $payload = [
-            'idUser' => $resolvedUserId,
-            'idTransaction' => $transactionId,
+            'idUser' => $forcedUserId ?? (int) ($data['idUser'] ?? 0),
+            'idTransaction' => $this->nullableInt($data['idTransaction'] ?? null),
             'dateReclamation' => trim((string) ($data['dateReclamation'] ?? date('Y-m-d'))),
             'typeReclamation' => trim((string) ($data['typeReclamation'] ?? '')),
             'description' => $description,
@@ -1351,80 +1262,6 @@ final class BankingService
         $int = (int) $value;
 
         return $int > 0 ? $int : null;
-    }
-
-    private function assertValidUserName(string $value, string $label): void
-    {
-        $normalized = trim($value);
-        if ($normalized === '' || mb_strlen($normalized) < 2 || mb_strlen($normalized) > 80) {
-            throw new \InvalidArgumentException($label.' must contain between 2 and 80 characters.');
-        }
-
-        if (preg_match("/^[\\p{L}][\\p{L}'\\-\\s]*$/u", $normalized) !== 1) {
-            throw new \InvalidArgumentException($label.' contains invalid characters.');
-        }
-    }
-
-    private function assertValidUserEmail(string $email): void
-    {
-        if (!filter_var(trim($email), FILTER_VALIDATE_EMAIL)) {
-            throw new \InvalidArgumentException('Email format is invalid.');
-        }
-    }
-
-    private function isValidPhone(string $phone): bool
-    {
-        $normalized = trim($phone);
-        if ($normalized === '') {
-            return false;
-        }
-
-        if (!preg_match('/^\+?[0-9][0-9\s\-]{6,19}$/', $normalized)) {
-            return false;
-        }
-
-        $digits = preg_replace('/\D+/', '', $normalized) ?? '';
-
-        return strlen($digits) >= 8 && strlen($digits) <= 15;
-    }
-
-    private function assertStrongPassword(string $password): void
-    {
-        if (
-            strlen($password) < 8
-            || preg_match('/[A-Z]/', $password) !== 1
-            || preg_match('/[a-z]/', $password) !== 1
-            || preg_match('/\d/', $password) !== 1
-        ) {
-            throw new \InvalidArgumentException('Password must contain at least 8 chars, upper, lower and number.');
-        }
-    }
-
-    private function assertValidUserRole(string $role): void
-    {
-        if (!in_array($role, self::ALLOWED_USER_ROLES, true)) {
-            throw new \InvalidArgumentException('Invalid role selected.');
-        }
-    }
-
-    private function assertValidUserStatus(string $status): void
-    {
-        if (!in_array($status, self::ALLOWED_USER_STATUS, true)) {
-            throw new \InvalidArgumentException('Invalid status selected.');
-        }
-    }
-
-    private function emailExistsForAnotherUser(string $email, ?int $excludeUserId): bool
-    {
-        $sql = 'SELECT COUNT(*) FROM users WHERE LOWER(email) = LOWER(?)';
-        $params = [strtolower(trim($email))];
-
-        if ($excludeUserId !== null) {
-            $sql .= ' AND idUser <> ?';
-            $params[] = $excludeUserId;
-        }
-
-        return (int) $this->connection->fetchOne($sql, $params) > 0;
     }
 
     private function resolveStatusForSave(

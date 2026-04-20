@@ -1039,6 +1039,44 @@
             </div>
         </div>
 
+        <header class="nx-page-banner">
+            <div class="nx-page-banner-left">
+                <div class="nx-page-banner-icon"
+                     style="
+                        --nx-accent: {{ current_accent }};
+                        --nx-accent-dark: {{ banner_accent_dark[tab]|default('#0a2540') }};
+                     ">
+                    <i class="fa-solid {{ banner_icons[tab]|default('fa-circle') }}"></i>
+                </div>
+                <div>
+                    <div class="nx-page-banner-title">{{ active_tab_label }}</div>
+                    <div class="nx-page-banner-sub">
+                        {{ page_subtitles[tab]|default('Vue globale de toutes vos activites') }}
+                    </div>
+                </div>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:10px;">
+                <div style="
+                    display:flex; align-items:center; gap:6px;
+                    background:#f7faff; border:1px solid #dde8f5;
+                    border-radius:10px; padding:6px 12px;
+                    font-size:12px; font-weight:600; color:#7294ae;
+                ">
+                    <i class="fa-solid fa-calendar-day" style="color:#1565c0; font-size:12px;"></i>
+                    <span id="nx-live-date">{{ 'now'|date('d/m/Y') }}</span>
+                </div>
+                <div style="
+                    display:flex; align-items:center; gap:6px;
+                    background:#f7faff; border:1px solid #dde8f5;
+                    border-radius:10px; padding:6px 12px;
+                    font-size:12px; font-weight:600; color:#7294ae;
+                ">
+                    <i class="fa-solid fa-clock" style="color:#1565c0; font-size:12px;"></i>
+                    <span id="nx-live-time">--:--</span>
+                </div>
+            </div>
+        </header>
     {% endif %}
 
 
