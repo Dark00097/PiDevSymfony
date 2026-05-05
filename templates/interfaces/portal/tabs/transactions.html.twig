@@ -925,7 +925,7 @@
                 </span>
                 <div class="tnx-pager">
                     {% if pagination.has_prev %}
-                        <a href="{{ path(route_name, { tab: 'transactions', page: pagination.current_page - 1 }) }}" class="tnx-pager-btn" aria-label="Precedent" style="text-decoration:none">
+                        <a href="{{ path(route_name, { tab: 'transactions', page: pagination.current_page - 1, q: support.transaction_query.q, filter: support.transaction_query.filter, sort: support.transaction_query.sort, dir: support.transaction_query.dir }) }}" class="tnx-pager-btn" aria-label="Precedent" style="text-decoration:none">
                             <i class="fa-solid fa-chevron-left"></i>
                         </a>
                     {% else %}
@@ -938,14 +938,14 @@
                         {% if page == pagination.current_page %}
                             <span class="tnx-pager-btn tnx-pager-btn--active">{{ page }}</span>
                         {% elseif page == 1 or page == pagination.total_pages or (page >= pagination.current_page - 1 and page <= pagination.current_page + 1) %}
-                            <a href="{{ path(route_name, { tab: 'transactions', page: page }) }}" class="tnx-pager-btn" style="text-decoration:none">{{ page }}</a>
+                            <a href="{{ path(route_name, { tab: 'transactions', page: page, q: support.transaction_query.q, filter: support.transaction_query.filter, sort: support.transaction_query.sort, dir: support.transaction_query.dir }) }}" class="tnx-pager-btn" style="text-decoration:none">{{ page }}</a>
                         {% elseif page == pagination.current_page - 2 or page == pagination.current_page + 2 %}
                             <span style="padding:0 .3rem;color:#94a3b8">...</span>
                         {% endif %}
                     {% endfor %}
                     
                     {% if pagination.has_next %}
-                        <a href="{{ path(route_name, { tab: 'transactions', page: pagination.current_page + 1 }) }}" class="tnx-pager-btn" aria-label="Suivant" style="text-decoration:none">
+                        <a href="{{ path(route_name, { tab: 'transactions', page: pagination.current_page + 1, q: support.transaction_query.q, filter: support.transaction_query.filter, sort: support.transaction_query.sort, dir: support.transaction_query.dir }) }}" class="tnx-pager-btn" aria-label="Suivant" style="text-decoration:none">
                             <i class="fa-solid fa-chevron-right"></i>
                         </a>
                     {% else %}

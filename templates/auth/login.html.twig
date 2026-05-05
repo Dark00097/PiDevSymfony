@@ -7,6 +7,57 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{ asset('styles/interfaces/auth-login.css?v=20260411-4') }}">
+<style>
+.nx-qr-login {
+  margin-top: 14px;
+  border: 1px solid rgba(21, 101, 192, .18);
+  border-radius: 14px;
+  padding: 12px;
+  background: rgba(240, 247, 255, .7);
+}
+.nx-qr-login-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.nx-qr-login-head strong {
+  font-size: 13px;
+  color: #0a2540;
+}
+.nx-qr-login-head button {
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #1565c0, #0ea5e9);
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.nx-qr-login-panel {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+.nx-qr-login-panel img {
+  width: 180px;
+  height: 180px;
+  border-radius: 8px;
+  border: 1px solid #dce7f5;
+  background: #fff;
+}
+.nx-qr-login-note {
+  margin: 0;
+  font-size: 12px;
+  color: #334155;
+  text-align: center;
+}
+.nx-qr-login-note--muted {
+  color: #64748b;
+}
+</style>
 {% endblock %}
 
 {% block body %}
@@ -242,6 +293,9 @@
       <div class="auth-panel {{ active_login_mode == 'face' ? 'auth-panel--hidden' : '' }}" id="panelPw">
         <form method="post" class="auth-form-body" novalidate>
           <input type="hidden" name="login_mode" value="password">
+          <input type="hidden" name="login_location" value="">
+          <input type="hidden" name="login_lat" value="">
+          <input type="hidden" name="login_lng" value="">
 
           <div class="field-group">
             <label class="field-label" for="f-email">Adresse email</label>
@@ -362,6 +416,9 @@
         <form method="post" class="auth-form-body" id="faceForm" novalidate>
           <input type="hidden" name="login_mode" value="face">
           <input type="hidden" name="face_descriptor" id="faceDescriptor">
+          <input type="hidden" name="login_location" value="">
+          <input type="hidden" name="login_lat" value="">
+          <input type="hidden" name="login_lng" value="">
 
           <div class="field-group">
             <label class="field-label" for="face-email">Adresse email</label>
@@ -521,6 +578,21 @@
         </a>
       </div>
 
+      <section class="nx-qr-login"
+               id="nxQrLogin"
+               data-start-url="{{ path('auth_qr_start') }}"
+               data-poll-url="{{ path('auth_qr_poll') }}">
+        <div class="nx-qr-login-head">
+          <strong>Connexion QR (mobile de confiance)</strong>
+          <button type="button" id="nxQrLoginStart">Generer QR</button>
+        </div>
+        <div class="nx-qr-login-panel" id="nxQrLoginPanel" hidden>
+          <img id="nxQrLoginImage" alt="QR login">
+          <p class="nx-qr-login-note" id="nxQrLoginStatus">Scannez ce QR avec votre application mobile Nexora.</p>
+          <p class="nx-qr-login-note nx-qr-login-note--muted" id="nxQrLoginExpiry"></p>
+        </div>
+      </section>
+
     </div>{# /auth-glass-card #}
   </section>
 
@@ -542,6 +614,9 @@
     initEyeToggles();
     initFieldFocus();
     initFieldValidation();
+    initSubmitValidation();
+    initLoginGeoCapture();
+    initQrLogin();
     initFaceID();
   });
 
@@ -629,9 +704,208 @@
     });
   }
 
+  function initSubmitValidation() {
+    document.querySelectorAll('.auth-form-body').forEach(function (form) {
+      form.addEventListener('submit', function (event) {
+        if (typeof form.reportValidity === 'function' && !form.reportValidity()) {
+          event.preventDefault();
+        }
+      });
+    });
+  }
+
+  function initQrLogin() {
+    var root = document.getElementById('nxQrLogin');
+    if (!root) return;
+
+    var startUrl = root.dataset.startUrl || '';
+    var pollUrl = root.dataset.pollUrl || '';
+    var startBtn = document.getElementById('nxQrLoginStart');
+    var panel = document.getElementById('nxQrLoginPanel');
+    var image = document.getElementById('nxQrLoginImage');
+    var status = document.getElementById('nxQrLoginStatus');
+    var expiry = document.getElementById('nxQrLoginExpiry');
+    var pollTimer = null;
+    var activeToken = '';
+
+    if (!startBtn || !panel || !image || !status || !expiry || !startUrl || !pollUrl) {
+      return;
+    }
+
+    function clearPolling() {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+    }
+
+    function setStatus(text) {
+      status.textContent = text;
+    }
+
+    function startPolling() {
+      clearPolling();
+      pollTimer = setInterval(function () {
+        if (!activeToken) return;
+        fetch(pollUrl + '?token=' + encodeURIComponent(activeToken), {
+          method: 'GET',
+          credentials: 'same-origin',
+          headers: { 'Accept': 'application/json' }
+        })
+          .then(function (response) { return response.json().catch(function () { return {}; }); })
+          .then(function (data) {
+            var s = String(data.status || '').toUpperCase();
+            if (s === 'APPROVED' && data.redirect_url) {
+              clearPolling();
+              window.location.href = String(data.redirect_url);
+              return;
+            }
+            if (s === 'EXPIRED') {
+              clearPolling();
+              setStatus('QR expire. Generez un nouveau code.');
+              return;
+            }
+            if (s === 'PENDING' || s === '') {
+              setStatus('En attente de validation depuis le mobile...');
+              return;
+            }
+            if (data.message) {
+              setStatus(String(data.message));
+            }
+          })
+          .catch(function () {
+            setStatus('Erreur reseau pendant la verification du QR.');
+          });
+      }, 2200);
+    }
+
+    startBtn.addEventListener('click', function () {
+      startBtn.disabled = true;
+      setStatus('Generation du QR...');
+      fetch(startUrl, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' }
+      })
+        .then(function (response) { return response.json().catch(function () { return {}; }); })
+        .then(function (data) {
+          if (!data || !data.ok) {
+            throw new Error(String(data && data.message ? data.message : 'Unable to start QR login.'));
+          }
+          if (data.already_authenticated && data.redirect_url) {
+            window.location.href = String(data.redirect_url);
+            return;
+          }
+
+          activeToken = String(data.token || '');
+          if (!activeToken || !data.qr_svg_data_url) {
+            throw new Error('Invalid QR payload.');
+          }
+
+          panel.hidden = false;
+          image.src = String(data.qr_svg_data_url);
+          expiry.textContent = data.expires_at ? ('Expire le: ' + String(data.expires_at)) : '';
+          setStatus('Scannez ce QR avec un mobile deja truste.');
+          startPolling();
+        })
+        .catch(function (error) {
+          clearPolling();
+          var message = error && error.message ? error.message : 'Unable to start QR login.';
+          setStatus(message);
+        })
+        .finally(function () {
+          startBtn.disabled = false;
+        });
+    });
+
+    window.addEventListener('beforeunload', clearPolling);
+  }
+
   /* ────────────────────────────────────────────
      FACE ID
   ──────────────────────────────────────────── */
+  function initLoginGeoCapture() {
+    var targets = Array.prototype.slice.call(
+      document.querySelectorAll('form.auth-form-body')
+    ).map(function (form) {
+      return {
+        location: form.querySelector('input[name="login_location"]'),
+        lat: form.querySelector('input[name="login_lat"]'),
+        lng: form.querySelector('input[name="login_lng"]')
+      };
+    }).filter(function (entry) {
+      return entry.location && entry.lat && entry.lng;
+    });
+
+    if (!targets.length) {
+      return;
+    }
+
+    function applyValues(lat, lng, label) {
+      targets.forEach(function (entry) {
+        entry.lat.value = Number.isFinite(lat) ? lat.toFixed(7) : '';
+        entry.lng.value = Number.isFinite(lng) ? lng.toFixed(7) : '';
+        entry.location.value = label || '';
+      });
+    }
+
+    function applyFallback() {
+      applyValues(NaN, NaN, '');
+    }
+
+    function reverseLookup(lat, lng) {
+      applyValues(lat, lng, lat.toFixed(5) + ', ' + lng.toFixed(5));
+
+      var url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat='
+        + encodeURIComponent(String(lat))
+        + '&lon='
+        + encodeURIComponent(String(lng));
+
+      fetch(url, { headers: { 'Accept-Language': 'en,fr' } })
+        .then(function (response) {
+          if (!response.ok) {
+            throw new Error('Reverse geocoding failed');
+          }
+
+          return response.json();
+        })
+        .then(function (data) {
+          var label = '';
+          if (data && typeof data.display_name === 'string') {
+            label = data.display_name.trim();
+          }
+          if (!label) {
+            label = lat.toFixed(5) + ', ' + lng.toFixed(5);
+          }
+          applyValues(lat, lng, label);
+        })
+        .catch(function () {
+          applyValues(lat, lng, lat.toFixed(5) + ', ' + lng.toFixed(5));
+        });
+    }
+
+    if (!navigator.geolocation) {
+      applyFallback();
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(function (position) {
+      var lat = Number(position && position.coords ? position.coords.latitude : NaN);
+      var lng = Number(position && position.coords ? position.coords.longitude : NaN);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        applyFallback();
+        return;
+      }
+      reverseLookup(lat, lng);
+    }, function () {
+      applyFallback();
+    }, {
+      maximumAge: 300000,
+      timeout: 4500,
+      enableHighAccuracy: false
+    });
+  }
+
   function initFaceID() {
     var descriptorInput = document.getElementById('faceDescriptor');
     var videoEl         = document.getElementById('faceVideo');

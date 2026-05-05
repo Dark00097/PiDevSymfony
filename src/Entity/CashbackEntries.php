@@ -19,14 +19,14 @@ class CashbackEntries
     #[ORM\Column(name: 'partenaire_nom', type: 'string', length: 120)]
     private string $partenaireNom;
 
-    #[ORM\Column(name: 'montant_achat', type: 'float', precision: 22)]
-    private float $montantAchat;
+    #[ORM\Column(name: 'montant_achat', type: 'decimal', precision: 12, scale: 2)]
+    private string $montantAchat;
 
-    #[ORM\Column(name: 'taux_applique', type: 'float', precision: 22)]
-    private float $tauxApplique;
+    #[ORM\Column(name: 'taux_applique', type: 'decimal', precision: 5, scale: 2)]
+    private string $tauxApplique;
 
-    #[ORM\Column(name: 'montant_cashback', type: 'float', precision: 22)]
-    private float $montantCashback;
+    #[ORM\Column(name: 'montant_cashback', type: 'decimal', precision: 12, scale: 2)]
+    private string $montantCashback;
 
     #[ORM\Column(name: 'date_achat', type: 'date')]
     private \DateTimeInterface $dateAchat;
@@ -58,11 +58,11 @@ class CashbackEntries
     #[ORM\Column(name: 'bonus_note', type: 'string', length: 255, nullable: true)]
     private ?string $bonusNote = null;
 
-    #[ORM\ManyToOne(targetEntity: Users::class)]
+    #[ORM\ManyToOne(targetEntity: Users::class, inversedBy: 'cashbackEntrieses')]
     #[ORM\JoinColumn(name: 'id_user', referencedColumnName: 'idUser', nullable: false)]
     private ?Users $users = null;
 
-    #[ORM\ManyToOne(targetEntity: Partenaire::class)]
+    #[ORM\ManyToOne(targetEntity: Partenaire::class, inversedBy: 'cashbackEntrieses')]
     #[ORM\JoinColumn(name: 'id_partenaire', referencedColumnName: 'idPartenaire', nullable: true)]
     private ?Partenaire $partenaire = null;
 

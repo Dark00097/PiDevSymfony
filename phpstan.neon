@@ -1,0 +1,19 @@
+parameters:
+    level: 8
+    paths:
+        - src/Entity/Compte.php
+        - src/Entity/Coffrevirtuel.php
+        - src/Controller/Sections/AccountsController.php
+        - src/Controller/Sections/CoffrevirtuelleController.php
+        - src/Service/InsightsService.php
+    ignoreErrors:
+        - '#is never assigned .* so it can be removed from the property type#'
+        - '#Expression on left side of \?\? is not nullable#'
+        - '#Strict comparison using === between mixed and null will always evaluate to false#'
+        - '#Strict comparison using !== between mixed and null will always evaluate to true#'
+        - '#Strict comparison using !== between string and null will always evaluate to true#'
+        - '#Offset .* on left side of \?\? always exists and is not nullable#'
+        - '#of array_values is already a list#'
+        - '#return type has no value type specified in iterable type array#'
+        - '#has parameter .* with no value type specified in iterable type array#'
+        - '#Strict comparison using !== between non-empty-list.*and array\{\} will always evaluate to true#'

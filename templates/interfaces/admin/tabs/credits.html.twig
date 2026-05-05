@@ -7,6 +7,26 @@
 {% set garantie_type_stats = support.garantie_type_stats|default([]) %}
 {% set credit_stats = support.credit_stats|default({'total': 0, 'counts': {}, 'amounts': {}, 'colors': {}}) %}
 {% set garantie_stats = support.garantie_stats|default({'total': 0, 'counts': {}, 'amounts': {}, 'total_estimee': 0, 'colors': {}}) %}
+{% set credit_type_choices = support.credit_type_choices|default({
+    'Professionnel': 'Professionnel',
+    'Immobilier': 'Immobilier',
+    'Auto': 'Auto',
+    'Consommation': 'Consommation',
+    'Etudes': 'Etudes',
+    'Travaux': 'Travaux',
+    'Personnel': 'Personnel',
+    'Hypotheque': 'Hypotheque',
+    'Pret auto': 'Pret auto',
+    'Education': 'Education',
+    'Sante': 'Sante',
+    'Autre': 'Autre'
+}) %}
+{% set garantie_type_choices = support.garantie_type_choices|default({
+    'titre_vehicule': 'Titre vehicule',
+    'hypotheque': 'Hypotheque',
+    'caution_bancaire': 'Caution bancaire',
+    'depot_garantie': 'Depot de garantie'
+}) %}
 {% set current_date = 'now'|date('Y-m-d') %}
 {% set stats_section_id = active_panel == 'garantie' ? 'nx-garantie-analytics' : 'nx-credit-analytics' %}
 
@@ -122,6 +142,20 @@
   flex-wrap: wrap;
 }
 
+.nx-hero-ai-btn {
+  width: 46px;
+  min-width: 46px;
+  height: 46px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 14px;
+}
+
+.nx-hero-ai-btn i {
+  font-size: 1.05rem;
+}
+
+
 /* â”€â”€ Shared buttons â”€â”€ */
 .na-btn {
   display: inline-flex;
@@ -185,6 +219,106 @@
   background: var(--na-bg);
   color: var(--na-muted);
   border: 1px solid var(--na-border);
+}
+
+.nx-ai-card { border-radius: 14px; }
+.nx-ai-toolbar {
+  display: flex;
+  align-items: end;
+  gap: .8rem;
+  flex-wrap: wrap;
+  padding: 1rem 1.4rem;
+  border-top: 1px solid var(--na-border);
+  border-bottom: 1px solid var(--na-border);
+  background: #f8fbff;
+}
+.nx-ai-toolbar label, .nx-ai-sim-form label {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  min-width: 260px;
+}
+.nx-ai-toolbar label span, .nx-ai-sim-form label span {
+  font-size: .72rem;
+  color: var(--na-muted);
+  font-weight: 700;
+}
+.nx-ai-toolbar select, .nx-ai-sim-form input {
+  height: 38px;
+  border: 1px solid var(--na-border);
+  border-radius: 9px;
+  padding: 0 .75rem;
+  font-size: .8rem;
+  outline: none;
+  background: #fff;
+}
+.nx-ai-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  gap: 1rem;
+  padding: 1rem 1.4rem;
+}
+.nx-ai-block {
+  border: 1px solid var(--na-border);
+  border-radius: 12px;
+  padding: .9rem 1rem;
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(10,37,64,.04);
+}
+.nx-ai-block h4 {
+  margin: 0 0 .65rem;
+  font-size: .9rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+}
+.nx-ai-block p, .nx-ai-block li {
+  font-size: .78rem;
+  color: #2a3f54;
+  margin: 0 0 .35rem;
+}
+.nx-ai-block ul { margin: 0; padding-left: 1rem; }
+.nx-ai-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: .2rem .65rem;
+  font-size: .72rem;
+  font-weight: 800;
+}
+.nx-ai-badge--green { background: #e8f8ef; color: #127a42; }
+.nx-ai-badge--orange { background: #fff4e6; color: #a65a00; }
+.nx-ai-badge--red { background: #ffe8e8; color: #b3261e; }
+.nx-ai-sim {
+  margin: 0 1.4rem 1.1rem;
+  border: 1px solid var(--na-border);
+  border-radius: 12px;
+  padding: .9rem 1rem;
+  background: #fbfdff;
+}
+.nx-ai-sim h4 {
+  margin: 0 0 .7rem;
+  font-size: .88rem;
+  font-weight: 800;
+}
+.nx-ai-sim-form {
+  display: flex;
+  gap: .75rem;
+  align-items: end;
+  flex-wrap: wrap;
+}
+.nx-ai-sim-result {
+  margin-top: .8rem;
+  border-top: 1px dashed var(--na-border);
+  padding-top: .65rem;
+}
+.nx-ai-sim-result p {
+  margin: 0 0 .35rem;
+  font-size: .78rem;
+}
+@media (max-width: 1100px) {
+  .nx-ai-grid { grid-template-columns: 1fr; }
 }
 .na-btn--reset:hover { background: var(--na-border); color: var(--na-txt); }
 
@@ -785,7 +919,13 @@
 </style>
 
 
-<section class="nx-acc" data-active-panel="{{ active_panel }}" data-current-date="{{ current_date }}">
+<section
+    class="nx-acc"
+    data-active-panel="{{ active_panel }}"
+    data-current-date="{{ current_date }}"
+    data-complement-route-template="{{ path('admin_document_demander_complement', {id: 0}) }}"
+    data-complement-csrf="{{ csrf_token('admin_complement_request') }}"
+>
 
     <!-- ══ HEADER ══ -->
     <header class="nx-acc__hero">
@@ -800,6 +940,9 @@
         </div>
 
         <div class="nx-acc__hero-actions">
+            <a class="na-btn na-btn--ghost nx-hero-ai-btn" href="#nx-ai-workbench" title="Assistant IA">
+                <i class="fa-solid fa-brain"></i>
+            </a>
             <a class="na-btn na-btn--primary" href="#nx-credits-form" id="nx-header-add-btn">
                 <i class="fa-solid fa-plus"></i>
                 <span>Ajouter</span>
@@ -830,6 +973,12 @@
 
 
     </nav>
+
+    {% include 'interfaces/admin/partials/_ai_drawer.html.twig' with {
+        credit_items: credit_items,
+        garantie_items: garantie_items
+    } only %}
+
     <!-- STATS PANEL INJECTED -->
     <div class="nx-stats-panel" id="nx-admin-stats-panel">
       <div class="nx-stats-inner">
@@ -950,267 +1099,13 @@
          GARANTIE PANEL
     ══════════════════════════════════ -->
     {% if active_panel == 'garantie' %}
-
-        <div class="nx-acc__kpis">
-            <article class="nx-acc__kpi">
-                <span class="nx-acc__kpi-icon">
-                    <i class="fa-solid fa-shield-halved"></i>
-                </span>
-                <div class="nx-acc__kpi-body">
-                    <strong>{{ garantie_items|length }}</strong>
-                    <small>Garanties enregistrées</small>
-                </div>
-            </article>
-            <article class="nx-acc__kpi">
-                <span class="nx-acc__kpi-icon">
-                    <i class="fa-solid fa-file-invoice-dollar"></i>
-                </span>
-                <div class="nx-acc__kpi-body">
-                    <strong>{{ credit_items|length }}</strong>
-                    <small>Crédits reliés</small>
-                </div>
-            </article>
-            <article class="nx-acc__kpi">
-                <span class="nx-acc__kpi-icon">
-                    <i class="fa-solid fa-hourglass-half"></i>
-                </span>
-                <div class="nx-acc__kpi-body">
-                    <strong>{{ summary.credits_pending|default(0) }}</strong>
-                    <small>Crédits en attente</small>
-                </div>
-            </article>
-        </div>
-
-        <!-- GARANTIE CONTENT -->
-        <div class="nx-acc__grid">
-            <article class="nx-acc__panel" id="nx-garanties-form">
-                <div class="nx-acc__panel-head">
-                    <div class="nx-acc__panel-head-left">
-                        <h3>Garantie</h3>
-                        <p>Ajouter ou modifier une garantie</p>
-                    </div>
-                </div>
-                <form method="post" id="nx-garantie-form" class="nx-acc__form" enctype="multipart/form-data" novalidate>
-                    <input type="hidden" name="tab" value="credits">
-                    <input type="hidden" name="panel" value="garantie">
-                    <input type="hidden" name="action" value="garantie_save">
-
-                    <label class="nx-acc__form-label-id">
-                        <i class="fa-solid fa-hashtag"></i>
-                        <input type="number" name="idGarantie" id="nx-garantie-id" placeholder="ID (Auto)" readonly 
-                               style="background:transparent; border:none; color:inherit; font-weight:700; width:100%; height:auto; padding:0; box-shadow:none;">
-                    </label>
-
-                    <label>
-                        <span>Crédit Associé *</span>
-                        <select name="idCredit" id="nx-garantie-credit">
-                            <option value="">Sélectionner un crédit</option>
-                            {% for credit in credit_items %}
-                                <option value="{{ credit.idCredit }}">#{{ credit.idCredit }} - {{ credit.user_name|default('Inconnu') }} ({{ credit.typeCredit|default('Sans type') }})</option>
-                            {% endfor %}
-                        </select>
-                        <span id="cr-err-garantie-idCredit" class="nx-field-error"></span>
-                    </label>
-
-                    <label>
-                        <span>Type de Garantie *</span>
-                        <select name="typeGarantie" id="nx-garantie-type">
-                            <option value="">Sélectionner un type</option>
-                            <option value="Hypothèque immobilière">Hypothèque immobilière</option>
-                            <option value="Hypotheque immobiliere">Hypotheque immobiliere (alt)</option>
-                            <option value="Gage de véhicule">Gage de véhicule</option>
-                            <option value="Gage de vehicule">Gage de vehicule (alt)</option>
-                            <option value="Caution solidaire">Caution solidaire</option>
-                            <option value="Nantissement de fonds de commerce">Nantissement de fonds de commerce</option>
-                            <option value="Dépôt au comptant">Dépôt au comptant</option>
-                            <option value="Depot au comptant">Depot au comptant (alt)</option>
-                            <option value="Garantie bancaire">Garantie bancaire</option>
-                            <option value="Assurance crédit">Assurance crédit</option>
-                            <option value="Assurance credit">Assurance credit (alt)</option>
-                            <option value="Autres">Autres</option>
-                        </select>
-                        <span id="cr-err-garantie-typeGarantie" class="nx-field-error"></span>
-                    </label>
-
-                    <label>
-                        <span>Description *</span>
-                        <input type="text" name="description" id="nx-garantie-desc" placeholder="Détails de la garantie">
-                        <span id="cr-err-garantie-description" class="nx-field-error"></span>
-                    </label>
-
-                    <label>
-                        <span>Adresse du Bien *</span>
-                        <input type="text" name="adresseBien" id="nx-garantie-address" placeholder="Ville, quartier, etc.">
-                        <span id="cr-err-garantie-adresseBien" class="nx-field-error"></span>
-                    </label>
-
-                    <label>
-                        <span>Valeur Estimée (DT) *</span>
-                        <input type="number" step="0.01" name="valeurEstimee" id="nx-garantie-estimated" placeholder="0.00">
-                        <span id="cr-err-garantie-valeurEstimee" class="nx-field-error"></span>
-                    </label>
-
-                    <label>
-                        <span>Valeur Retenue (DT) *</span>
-                        <input type="number" step="0.01" name="valeurRetenue" id="nx-garantie-retained" placeholder="0.00" data-manual="0">
-                        <span id="cr-err-garantie-valeurRetenue" class="nx-field-error"></span>
-                    </label>
-
-                    <label>
-                        <span>Date d'Évaluation *</span>
-                        <input type="date" name="dateEvaluation" value="{{ current_date }}" max="{{ current_date }}" id="nx-garantie-date">
-                        <span id="cr-err-garantie-dateEvaluation" class="nx-field-error"></span>
-                    </label>
-
-                    <label>
-                        <span>Nom du Garant *</span>
-                        <input type="text" name="nomGarant" id="nx-garantie-guarantor" placeholder="Prénom Nom" value="N/A">
-                        <span id="cr-err-garantie-nomGarant" class="nx-field-error"></span>
-                    </label>
-
-                    <label>
-                        <span>Statut</span>
-                        <select name="statut" id="nx-garantie-status">
-                            {% for status in ['Soumise', 'En cours_verification', 'Acceptee', 'Rejetee', 'Restituee'] %}
-                                <option value="{{ status }}"{{ status == 'Soumise' ? ' selected' : '' }}>{{ status }}</option>
-                            {% endfor %}
-                        </select>
-                    </label>
-
-                    <label>
-                        <span>Justificatif (Image) *</span>
-                        <input type="file" name="documentJustificatif" id="nx-garantie-file" accept="image/jpeg,image/png,image/webp,image/gif">
-                        <input type="hidden" name="existing_document" id="nx-garantie-file-existing">
-                        <span id="cr-err-garantie-documentJustificatif" class="nx-field-error"></span>
-                    </label>
-
-                    <div class="nx-acc__form-actions">
-                        <button class="na-btn na-btn--save" type="submit">
-                            <i class="fa-solid fa-floppy-disk"></i> Enregistrer
-                        </button>
-                        <button class="na-btn na-btn--reset" type="reset">
-                            <i class="fa-solid fa-rotate-left"></i> Annuler
-                        </button>
-                    </div>
-                </form>
-            </article>
-
-            <!-- Table -->
-            <article class="nx-acc__panel nx-acc__table-wrap">
-                <div class="nx-acc__panel-head">
-                    <div class="nx-acc__panel-head-left">
-                        <h3>Liste des Garanties</h3>
-                        <p>Gestion complète des garanties</p>
-                    </div>
-                </div>
-                <div style="padding: 1rem 1.3rem; border-bottom: 1px solid var(--na-border); display: flex; align-items: center; gap: .75rem;">
-                    <div style="flex:1; position: relative;">
-                         <input type="search" id="nx-garantie-search" placeholder="Rechercher ID, type, garant, adresse..." 
-                            style="width: 100%; height: 38px; border: 1px solid var(--na-border); border-radius: 9px; padding: 0 1rem 0 2rem; outline: none; font-size: .8rem;">
-                         <i class="fa-solid fa-search" style="position: absolute; left: .7rem; top: 12px; color: var(--na-muted);"></i>
-                    </div>
-                    <select id="nx-garantie-sort" style="height: 38px; border: 1px solid var(--na-border); border-radius: 9px; padding: 0 1rem; outline: none; font-size: .8rem; background: var(--na-bg);">
-                        <option value="default">Trier: ordre initial</option>
-                        <option value="id-desc">ID plus récent</option>
-                        <option value="id-asc">ID croissant</option>
-                        <option value="credit-asc">ID Crédit</option>
-                        <option value="type-asc">Type A-Z</option>
-                        <option value="value-desc">Valeur la plus élevée</option>
-                        <option value="status-asc">Statut A-Z</option>
-                    </select>
-                </div>
-                <table class="nx-acc__table">
-                    <thead>
-                        <tr>
-                            <th>N° Garantie</th>
-                            <th>Crédit</th>
-                            <th>Valeur Evaluée</th>
-                            <th>Garant / Date</th>
-                            <th>Type</th>
-                            <th>Statut</th>
-                            <th>Couverture</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="nx-garantie-tbody">
-                        {% for item in garantie_items %}
-                        <tr
-                                class="nx-garantie-row"
-                                data-garantie-id="{{ item.idGarantie }}"
-                                data-garantie-credit-id="{{ item.idCredit|default('') }}"
-                                data-garantie-type="{{ item.typeGarantie|default('')|e('html_attr') }}"
-                                data-garantie-description="{{ item.description|default('')|e('html_attr') }}"
-                                data-garantie-address="{{ item.adresseBien|default('')|e('html_attr') }}"
-                                data-garantie-estimated="{{ item.valeurEstimee|default('') }}"
-                                data-garantie-retained="{{ item.valeurRetenue|default('') }}"
-                                data-garantie-date="{{ item.dateEvaluation|default(current_date)|slice(0, 10) }}"
-                                data-garantie-guarantor="{{ item.nomGarant|default('')|e('html_attr') }}"
-                                data-garantie-status="{{ item.statut|default('')|e('html_attr') }}"
-                                data-garantie-document="{{ item.documentJustificatif|default('')|e('html_attr') }}"
-                                data-search-index="{{ (item.idGarantie ~ ' ' ~ item.idCredit ~ ' ' ~ item.typeGarantie ~ ' ' ~ item.description ~ ' ' ~ item.statut|default('') ~ ' ' ~ item.nomGarant|default('') ~ ' ' ~ item.adresseBien|default(''))|lower|e('html_attr') }}"
-                            >
-                                {% set statusHtml = item.statut|default('Soumise')|lower %}
-                                {% set statusCls = 'is-neutral' %}
-                                {% if 'soumise' in statusHtml or 'attente' in statusHtml %} {% set statusCls = 'is-bloqué' %}
-                                {% elseif 'cours' in statusHtml %} {% set statusCls = 'is-courant' %}
-                                {% elseif 'accep' in statusHtml %} {% set statusCls = 'is-actif' %}
-                                {% elseif 'rejet' in statusHtml %} {% set statusCls = 'is-fermé' %}
-                                {% endif %}
-                                {% set rat = item.valeurEstimee > 0 ? (item.valeurRetenue / item.valeurEstimee * 100)|round : 0 %}
-
-                                <td><span class="nx-acc__num">#{{ item.idGarantie }}</span></td>
-                                <td>
-                                    <div style="font-weight: 600; color: var(--na-blue);">Crédit #{{ item.idCredit }}</div>
-                                    <small style="color: var(--na-muted);">{{ item.credit_type|default('—') }}</small>
-                                </td>
-                                <td>
-                                    <div class="nx-acc__amount">{{ item.valeurEstimee|number_format(2, '.', ' ') }} <em>DT</em></div>
-                                    <small style="color:var(--na-muted); font-size:11px;">Retenue: {{ item.valeurRetenue|number_format(2, '.', ' ') }} DT</small>
-                                </td>
-                                <td>
-                                    <div class="nx-acc__owner">
-                                        <div class="nx-acc__owner-dot">{{ item.nomGarant|default('?')|first|upper }}</div>
-                                        <div class="nx-acc__owner-name" style="display:flex;flex-direction:column;">
-                                            <span>{{ item.nomGarant|default('—') }}</span>
-                                            <span style="font-size:11px;color:var(--na-muted);">{{ item.dateEvaluation|default('—') }}</span>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td><span class="nx-acc__tag is-épargne">{{ item.typeGarantie|default('—') }}</span></td>
-                                <td><span class="nx-acc__tag {{ statusCls }}">{{ item.statut|default('—') }}</span></td>
-                                <td>
-                                    <div class="nx-acc__progress-wrap">
-                                        <div class="nx-acc__progress-bar">
-                                            <div class="nx-acc__progress-fill" style="width: {{ rat > 100 ? 100 : rat }}%;"></div>
-                                        </div>
-                                        <span class="nx-acc__progress-label">{{ rat }}% couvert</span>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div style="display:flex;gap:4px;">
-                                        <button class="na-btn na-btn--ghost-dark nx-garantie-edit-btn" type="button" aria-label="Modifier"><i class="fa-solid fa-pen"></i></button>
-                                        <form method="post" style="margin:0;">
-                                            <input type="hidden" name="tab" value="credits">
-                                            <input type="hidden" name="panel" value="garantie">
-                                            <input type="hidden" name="action" value="garantie_delete">
-                                            <input type="hidden" name="idGarantie" value="{{ item.idGarantie }}">
-                                            <button class="na-btn na-btn--danger" type="submit" onclick="return confirm('Confirmer la suppression ?')"><i class="fa-solid fa-trash"></i></button>
-                                        </form>
-                                    </div>
-                                </td>
-                            </tr>
-                        {% else %}
-                            <tr><td colspan="8" class="nx-acc__empty"><i class="fa-solid fa-folder-open fa-2x"></i><br>Aucune garantie.</td></tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                <div class="nx-table-pager" id="nx-garantie-pager" hidden></div>
-            </article>
-        </div>
-
-    <!-- ══════════════════════════════════
-         CREDITS PANEL 
-    ══════════════════════════════════ -->
+        {% include 'interfaces/admin/tabs/garanties_legacy_block.html.twig' with {
+            items: garantie_items,
+            support: support,
+            summary: summary,
+            tab_context: 'credits',
+            panel_context: 'garantie'
+        } %}
     {% else %}
 
         <div class="nx-acc__kpis">
@@ -1242,6 +1137,140 @@
                 </div>
             </article>
         </div>
+
+        {% set ai_analysis = support.ai_analysis|default(null) %}
+        {% set ai_simulation = support.ai_simulation|default(null) %}
+        {% set ai_credit = support.ai_selected_credit|default(null) %}
+        {% if ai_analysis %}
+            {% set credit_result = ai_analysis.credit_analysis|default({}) %}
+            {% set guarantee_result = ai_analysis.guarantee_analysis|default({}) %}
+            {% set final_result = ai_analysis.final_decision|default({}) %}
+            {% set final_status = final_result.status|default('Reviser') %}
+            {% set final_badge = 'nx-ai-badge nx-ai-badge--orange' %}
+            {% if final_status == 'Accepter' %}
+                {% set final_badge = 'nx-ai-badge nx-ai-badge--green' %}
+            {% elseif final_status == 'Refuser' %}
+                {% set final_badge = 'nx-ai-badge nx-ai-badge--red' %}
+            {% endif %}
+
+            <article class="nx-acc__panel nx-ai-card">
+                <div class="nx-acc__panel-head">
+                    <div class="nx-acc__panel-head-left">
+                        <h3><i class="fa-solid fa-robot"></i> Assistant IA Metier</h3>
+                        <p>Analyste credit et verificateur de garantie (regles metier).</p>
+                    </div>
+                    <span class="{{ final_badge }}">{{ final_status }}</span>
+                </div>
+
+                <form method="get" class="nx-ai-toolbar">
+                    <input type="hidden" name="tab" value="credits">
+                    <input type="hidden" name="panel" value="credit">
+                    <label>
+                        <span>Dossier credit</span>
+                        <select name="ai_credit_id">
+                            {% for c in credit_items %}
+                                <option value="{{ c.idCredit }}" {{ support.ai_selected_credit_id|default(0) == c.idCredit ? 'selected' : '' }}>
+                                    #{{ c.idCredit }} - {{ c.user_name|default('Client') }} - {{ c.montantDemande|default(0)|number_format(0, '.', ' ') }} DT
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <button class="na-btn na-btn--primary" type="submit"><i class="fa-solid fa-wand-magic-sparkles"></i> Analyser</button>
+                </form>
+
+                <div class="nx-ai-grid">
+                    <section class="nx-ai-block">
+                        <h4><i class="fa-solid fa-folder-open"></i> Resume dossier</h4>
+                        <ul>
+                            <li><strong>Nom client:</strong> {{ ai_credit.user_name|default('N/A') }}</li>
+                            <li><strong>Salaire:</strong> {{ ai_credit.salaire|default(0)|number_format(2, '.', ' ') }} DT</li>
+                            <li><strong>Montant credit:</strong> {{ ai_credit.montantDemande|default(0)|number_format(2, '.', ' ') }} DT</li>
+                            <li><strong>Duree:</strong> {{ ai_credit.duree|default('-') }} mois</li>
+                            <li><strong>Mensualite:</strong> {{ credit_result.monthly_payment|default(0)|number_format(2, '.', ' ') }} DT</li>
+                            <li><strong>Type garantie:</strong> {{ guarantee_result.type|default('Non renseigne') }}</li>
+                            <li><strong>Valeur garantie:</strong> {{ guarantee_result.estimated_value|default(0)|number_format(2, '.', ' ') }} DT</li>
+                        </ul>
+                    </section>
+
+                    <section class="nx-ai-block">
+                        <h4><i class="fa-solid fa-chart-line"></i> Analyse IA Credit</h4>
+                        {% set risk_badge = 'nx-ai-badge nx-ai-badge--orange' %}
+                        {% if credit_result.risk_level|default('') == 'Faible' %}
+                            {% set risk_badge = 'nx-ai-badge nx-ai-badge--green' %}
+                        {% elseif credit_result.risk_level|default('') == 'Eleve' %}
+                            {% set risk_badge = 'nx-ai-badge nx-ai-badge--red' %}
+                        {% endif %}
+                        <p><strong>Score:</strong> {{ credit_result.score|default(0) }}/100</p>
+                        <p><strong>Risque:</strong> <span class="{{ risk_badge }}">{{ credit_result.risk_level|default('Moyen') }}</span></p>
+                        <p><strong>Eligibilite:</strong> {{ credit_result.eligible|default(false) ? 'Eligible' : 'Non eligible' }}</p>
+                        <p><strong>Taux endettement:</strong> {{ credit_result.debt_ratio|default(0) }}%</p>
+                        <p><strong>Decision:</strong> {{ credit_result.decision|default('Reviser') }}</p>
+                        <p><strong>Explication:</strong> {{ credit_result.explanation|default('') }}</p>
+                        <p><strong>Anomalies detectees:</strong></p>
+                        <ul>
+                            {% for issue in credit_result.anomalies|default([]) %}
+                                <li>{{ issue }}</li>
+                            {% else %}
+                                <li>Aucune anomalie critique.</li>
+                            {% endfor %}
+                        </ul>
+                    </section>
+
+                    <section class="nx-ai-block">
+                        <h4><i class="fa-solid fa-shield-halved"></i> Analyse Garantie</h4>
+                        {% set cov_badge = 'nx-ai-badge nx-ai-badge--orange' %}
+                        {% if guarantee_result.coverage_level|default('') == 'Suffisante' %}
+                            {% set cov_badge = 'nx-ai-badge nx-ai-badge--green' %}
+                        {% elseif guarantee_result.coverage_level|default('') == 'Insuffisante' %}
+                            {% set cov_badge = 'nx-ai-badge nx-ai-badge--red' %}
+                        {% endif %}
+                        <p><strong>Couverture:</strong> <span class="{{ cov_badge }}">{{ guarantee_result.coverage_level|default('Moyenne') }}</span></p>
+                        <p><strong>Ratio garantie/credit:</strong> {{ guarantee_result.ratio|default(0) }}</p>
+                        <p><strong>Couverture %:</strong> {{ guarantee_result.coverage_percent|default(0) }}%</p>
+                        <p><strong>Risque juridique:</strong> {{ guarantee_result.legal_risk|default('Moyen') }}</p>
+                        <p><strong>Recommandation garantie:</strong> {{ guarantee_result.recommendation|default('Reviser') }}</p>
+                        <p><strong>Documents manquants:</strong></p>
+                        <ul>
+                            {% for doc in guarantee_result.missing_documents|default([]) %}
+                                <li>{{ doc }}</li>
+                            {% else %}
+                                <li>Aucun document manquant.</li>
+                            {% endfor %}
+                        </ul>
+                    </section>
+                </div>
+
+                <section class="nx-ai-sim">
+                    <h4><i class="fa-solid fa-sliders"></i> Simulation scenario</h4>
+                    <form method="get" class="nx-ai-sim-form">
+                        <input type="hidden" name="tab" value="credits">
+                        <input type="hidden" name="panel" value="credit">
+                        <input type="hidden" name="ai_credit_id" value="{{ support.ai_selected_credit_id|default(0) }}">
+                        <label>
+                            <span>Nouveau montant</span>
+                            <input type="number" name="sim_amount" min="1" step="0.01" required value="{{ app.request.query.get('sim_amount', ai_credit.montantDemande|default('')) }}">
+                        </label>
+                        <label>
+                            <span>Nouvelle duree (mois)</span>
+                            <input type="number" name="sim_duration" min="1" required value="{{ app.request.query.get('sim_duration', ai_credit.duree|default('12')) }}">
+                        </label>
+                        <button class="na-btn na-btn--primary" type="submit"><i class="fa-solid fa-calculator"></i> Simuler</button>
+                    </form>
+
+                    {% if ai_simulation %}
+                        {% set sim_credit = ai_simulation.credit_analysis|default({}) %}
+                        {% set sim_final = ai_simulation.final_decision|default({}) %}
+                        <div class="nx-ai-sim-result">
+                            <p><strong>Mensualite estimee:</strong> {{ ai_simulation.simulation.estimated_monthly|default(0)|number_format(2, '.', ' ') }} DT</p>
+                            <p><strong>Nouveau score:</strong> {{ sim_credit.score|default(0) }}/100</p>
+                            <p><strong>Nouveau risque:</strong> {{ sim_credit.risk_level|default('Moyen') }}</p>
+                            <p><strong>Nouvelle decision:</strong> {{ sim_final.status|default('Reviser') }}</p>
+                            <p><small>{{ sim_final.reason|default('') }}</small></p>
+                        </div>
+                    {% endif %}
+                </section>
+            </article>
+        {% endif %}
 
         <!-- CREDIT CONTENT -->
         <div class="nx-acc__grid">
@@ -1289,8 +1318,8 @@
                         <span>Type de Crédit *</span>
                         <select name="typeCredit" id="nx-credit-type">
                             <option value="">Sélectionner un type</option>
-                            {% for type in ['Professionnel', 'Immobilier', 'Consommation', 'Automobile', 'Etudiant', 'Renouvelable'] %}
-                                <option value="{{ type }}">{{ type }}</option>
+                            {% for value, label in credit_type_choices %}
+                                <option value="{{ value }}">{{ label }}</option>
                             {% endfor %}
                         </select>
                         <span id="cr-err-typeCredit" class="nx-field-error"></span>
@@ -1436,7 +1465,7 @@
                                 data-credit-id="{{ item.idCredit }}"
                                 data-credit-user-id="{{ item.idUser|default('') }}"
                                 data-credit-account-id="{{ item.idCompte|default('') }}"
-                                data-credit-type="{{ item.typeCredit|default('')|e('html_attr') }}"
+                                data-credit-type="{{ item.typeCreditValue|default(item.typeCredit|default(''))|e('html_attr') }}"
                                 data-credit-amount="{{ item.montantDemande|default('') }}"
                                 data-credit-autofinancement="{{ item.autofinancement|default('') }}"
                                 data-credit-duration="{{ item.duree|default('') }}"
@@ -1449,7 +1478,7 @@
                                 data-credit-seniority="{{ item.ancienneteAnnees|default('') }}"
                                 data-credit-status="{{ item.statut|default('')|e('html_attr') }}"
                                 data-credit-risk="{{ item.risk_score|default(0) }}"
-                                data-search-index="{{ (item.idCredit ~ ' ' ~ item.user_name|default('') ~ ' ' ~ item.idCompte|default('') ~ ' ' ~ item.compte_numero|default('') ~ ' ' ~ item.typeCredit|default('') ~ ' ' ~ item.statut|default(''))|lower|e('html_attr') }}"
+                                data-search-index="{{ (item.idCredit ~ ' ' ~ item.user_name|default('') ~ ' ' ~ item.idCompte|default('') ~ ' ' ~ item.compte_numero|default('') ~ ' ' ~ item.typeCreditLabel|default(item.typeCredit|default('')) ~ ' ' ~ item.statut|default(''))|lower|e('html_attr') }}"
                             >
                                 {% set creditStatus = item.statut|default('En attente')|lower %}
                                 {% set creditStatusClass = 'nx-acc__tag is-bloqué' %}
@@ -1485,7 +1514,7 @@
                                     </div>
                                 </td>
                                 <td><span class="{{ creditStatusClass }}">{{ item.statut|default('—') }}</span></td>
-                                <td><span class="nx-acc__tag is-épargne">{{ item.typeCredit|default('—') }}</span></td>
+                                <td><span class="nx-acc__tag is-épargne">{{ item.typeCreditLabel|default(item.typeCredit|default('—')) }}</span></td>
                                 <td>
                                     <div class="nx-acc__owner">
                                         <div class="nx-acc__owner-dot">{{ item.user_name|default('?')|first|upper }}</div>
@@ -1567,6 +1596,14 @@
     const scrollToForm = (form) => {
         const card = form?.closest('.nx-acc__panel');
         if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    const isInteractiveRowTarget = (target) => {
+        if (!(target instanceof Element)) return false;
+        return Boolean(target.closest('button, a, form, input, select, textarea, label, [role="button"]'));
+    };
+    const setSelectedRow = (rowClassName, row) => {
+        document.querySelectorAll(`.${rowClassName}`).forEach((r) => r.classList.remove('is-selected'));
+        if (row instanceof HTMLElement) row.classList.add('is-selected');
     };
 
     /* Validation Display Logic */
@@ -1784,40 +1821,50 @@
         });
     }
 
+    const fillCreditFormFromRow = (row) => {
+        if (!creditForm || !(row instanceof HTMLElement)) return;
+
+        setSelectedRow('nx-credit-row', row);
+        creditForm.dataset.filling = '1';
+        setFieldValue(creditForm, 'idCredit', row.dataset.creditId);
+        setFieldValue(creditForm, 'idUser', row.dataset.creditUserId);
+        setFieldValue(creditForm, 'typeCredit', row.dataset.creditType);
+        setFieldValue(creditForm, 'montantDemande', row.dataset.creditAmount);
+        setFieldValue(creditForm, 'autofinancement', row.dataset.creditAutofinancement);
+        setFieldValue(creditForm, 'duree', row.dataset.creditDuration);
+        setFieldValue(creditForm, 'tauxInteret', row.dataset.creditRate);
+        setFieldValue(creditForm, 'mensualite', row.dataset.creditMonthly);
+        setFieldValue(creditForm, 'montantAccorde', row.dataset.creditApproved);
+        setFieldValue(creditForm, 'dateDemande', normalizeIsoDate(row.dataset.creditDate));
+        setFieldValue(creditForm, 'statut', row.dataset.creditStatus || 'En attente');
+        setFieldValue(creditForm, 'salaire', row.dataset.creditSalary);
+        setFieldValue(creditForm, 'typeContrat', row.dataset.creditContract);
+        setFieldValue(creditForm, 'ancienneteAnnees', row.dataset.creditSeniority);
+
+        if (crFields.user) crFields.user.value = row.dataset.creditUserId || '';
+        renderAccountOptions(row.dataset.creditAccountId || '');
+
+        if (crFields.monthly) crFields.monthly.dataset.manual = '1';
+        if (crFields.approved) crFields.approved.dataset.manual = '1';
+
+        delete creditForm.dataset.filling;
+        Object.keys(crFields).forEach(k => { if (crFields[k]) clearFieldValidation(crFields[k], getErrMsg(crFields[k].name)); });
+        ['idUser', 'idCompte', 'typeCredit', 'montantDemande', 'duree', 'tauxInteret', 'salaire', 'typeContrat'].forEach(validateCreditField);
+        scrollToForm(creditForm);
+    };
+
     document.querySelectorAll('.nx-credit-edit-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            if (!creditForm) return;
+        btn.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
             const row = btn.closest('.nx-credit-row');
-            if (!row) return;
-
-            creditForm.dataset.filling = '1';
-            setFieldValue(creditForm, 'idCredit', row.dataset.creditId);
-            setFieldValue(creditForm, 'idUser', row.dataset.creditUserId);
-            setFieldValue(creditForm, 'typeCredit', row.dataset.creditType);
-            setFieldValue(creditForm, 'montantDemande', row.dataset.creditAmount);
-            setFieldValue(creditForm, 'autofinancement', row.dataset.creditAutofinancement);
-            setFieldValue(creditForm, 'duree', row.dataset.creditDuration);
-            setFieldValue(creditForm, 'tauxInteret', row.dataset.creditRate);
-            setFieldValue(creditForm, 'mensualite', row.dataset.creditMonthly);
-            setFieldValue(creditForm, 'montantAccorde', row.dataset.creditApproved);
-            setFieldValue(creditForm, 'dateDemande', normalizeIsoDate(row.dataset.creditDate));
-            setFieldValue(creditForm, 'statut', row.dataset.creditStatus || 'En attente');
-            setFieldValue(creditForm, 'salaire', row.dataset.creditSalary);
-            setFieldValue(creditForm, 'typeContrat', row.dataset.creditContract);
-            setFieldValue(creditForm, 'ancienneteAnnees', row.dataset.creditSeniority);
-
-            if (crFields.user) crFields.user.value = row.dataset.creditUserId || '';
-            renderAccountOptions(row.dataset.creditAccountId || '');
-
-            if (crFields.monthly) crFields.monthly.dataset.manual = '1';
-            if (crFields.approved) crFields.approved.dataset.manual = '1';
-
-            delete creditForm.dataset.filling;
-            Object.keys(crFields).forEach(k => { if(crFields[k]) clearFieldValidation(crFields[k], getErrMsg(crFields[k].name)); });
-            // validate valid fields to show green
-            ['idUser', 'idCompte', 'typeCredit', 'montantDemande', 'duree', 'tauxInteret', 'salaire', 'typeContrat'].forEach(validateCreditField);
-
-            scrollToForm(creditForm);
+            fillCreditFormFromRow(row);
+        });
+    });
+    document.querySelectorAll('.nx-credit-row').forEach((row) => {
+        row.addEventListener('click', (event) => {
+            if (isInteractiveRowTarget(event.target)) return;
+            fillCreditFormFromRow(row);
         });
     });
 
@@ -1836,7 +1883,75 @@
     const gDesc = getField('nx-garantie-desc');
     const gDate = getField('nx-garantie-date');
     const gDoc = getField('nx-garantie-file');
+    const gDocPicker = getField('nx-garantie-file-picker');
     const gDocExisting = getField('nx-garantie-file-existing');
+    const gDocAiSuggestion = getField('nx-garantie-ai-suggestion');
+    const gDocPreviewWrap = getField('nx-garantie-current-preview');
+    const gDocPreviewImage = getField('nx-garantie-current-image');
+    const gDocPreviewLink = getField('nx-garantie-current-link');
+    const gDocPreviewName = getField('nx-garantie-current-name');
+    let gDocObjectUrl = '';
+
+    const clearGarantieDocObjectUrl = () => {
+        if (gDocObjectUrl !== '') {
+            try { URL.revokeObjectURL(gDocObjectUrl); } catch (_error) {}
+            gDocObjectUrl = '';
+        }
+    };
+    const resolveGarantieDocHref = (path) => {
+        const value = String(path || '').trim();
+        if (value === '') return '';
+        if (/^https?:\/\//i.test(value)) return value;
+        return value.startsWith('/') ? value : `/${value}`;
+    };
+    const isGarantieImagePath = (path) => /\.(png|jpe?g|gif|webp)$/i.test(String(path || '').trim());
+    const setLegacyDocAiSuggestion = (value = 'En attente d analyse') => {
+        if (gDocAiSuggestion) {
+            gDocAiSuggestion.textContent = `Suggestion IA: ${value}`;
+        }
+    };
+    const updateGarantieDocumentPreview = (path = '', file = null) => {
+        if (!gDocPreviewWrap || !gDocPreviewLink || !gDocPreviewName || !gDocPreviewImage) return;
+
+        clearGarantieDocObjectUrl();
+        const hasFile = file instanceof File;
+        const fileName = hasFile ? String(file.name || '').trim() : '';
+        const sourcePath = hasFile ? fileName : String(path || '').trim();
+        if (sourcePath === '') {
+            gDocPreviewWrap.style.display = 'none';
+            gDocPreviewLink.setAttribute('href', '#');
+            gDocPreviewName.textContent = 'Voir le justificatif actuel';
+            gDocPreviewImage.style.display = 'none';
+            gDocPreviewImage.setAttribute('src', '');
+            return;
+        }
+
+        gDocPreviewWrap.style.display = 'block';
+        if (hasFile) {
+            gDocPreviewName.textContent = `Fichier sélectionné: ${fileName}`;
+            gDocPreviewLink.setAttribute('href', '#');
+            if (String(file.type || '').startsWith('image/')) {
+                gDocObjectUrl = URL.createObjectURL(file);
+                gDocPreviewImage.setAttribute('src', gDocObjectUrl);
+                gDocPreviewImage.style.display = 'block';
+            } else {
+                gDocPreviewImage.style.display = 'none';
+                gDocPreviewImage.setAttribute('src', '');
+            }
+            return;
+        }
+
+        const href = resolveGarantieDocHref(sourcePath);
+        gDocPreviewLink.setAttribute('href', href || '#');
+        gDocPreviewName.textContent = `Justificatif actuel: ${sourcePath.split('/').pop() || sourcePath}`;
+        if (isGarantieImagePath(sourcePath)) {
+            gDocPreviewImage.setAttribute('src', href);
+            gDocPreviewImage.style.display = 'block';
+        } else {
+            gDocPreviewImage.style.display = 'none';
+            gDocPreviewImage.setAttribute('src', '');
+        }
+    };
 
     const validateGarantieField = (fieldName) => {
         let field = null, err = null, val = '';
@@ -1897,8 +2012,8 @@
         if (fieldName === 'documentJustificatif') {
             const existingPath = gDocExisting ? gDocExisting.value.trim() : '';
             const file = gDoc?.files?.[0];
-            const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-            if (file && !allowed.includes(file.type)) return setFieldError(gDoc, err, 'Image invalide.');
+            const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
+            if (file && !allowed.includes(file.type)) return setFieldError(gDoc, err, 'Document invalide.');
             if (!file && !existingPath) return setFieldError(gDoc, err, 'Justificatif requis.');
             return setFieldOk(gDoc, err);
         }
@@ -1929,7 +2044,23 @@
 
         if (gEstimated) gEstimated.addEventListener('input', () => { syncRetainedValue(); validateGarantieField('valeurEstimee'); validateGarantieField('valeurRetenue'); });
         if (gRetained) gRetained.addEventListener('input', () => { gRetained.dataset.manual = '1'; validateGarantieField('valeurRetenue'); });
-        if (gDoc) gDoc.addEventListener('change', () => validateGarantieField('documentJustificatif'));
+        if (gDocPicker) gDocPicker.addEventListener('click', () => {
+            if (gDoc) gDoc.click();
+        });
+        if (gDoc) gDoc.addEventListener('change', () => {
+            validateGarantieField('documentJustificatif');
+            const file = gDoc.files?.[0] ?? null;
+            updateGarantieDocumentPreview('', file);
+            if (!file) {
+                setLegacyDocAiSuggestion('En attente d analyse');
+            } else if (/(screen|screenshot|capture|captur|ecran|snip|printscreen|whatsapp)/i.test(String(file.name || ''))) {
+                setLegacyDocAiSuggestion('Refuser');
+            } else if (['image/jpeg', 'image/png', 'application/pdf'].includes(String(file.type || '')) && file.size >= 25000) {
+                setLegacyDocAiSuggestion('Valider');
+            } else {
+                setLegacyDocAiSuggestion('Refuser');
+            }
+        });
 
         garantieForm.addEventListener('submit', (e) => {
             syncRetainedValue();
@@ -1945,6 +2076,8 @@
                 if (gDate && gDate.value === '') gDate.value = currentDate;
                 setFieldValue(garantieForm, 'statut', 'Soumise');
                 if (gDocExisting) gDocExisting.value = '';
+                updateGarantieDocumentPreview('');
+                setLegacyDocAiSuggestion('En attente d analyse');
                 hooks.forEach(h => clearFieldValidation(h.f, getErrMsg(`garantie-${h.id}`)));
                 clearFieldValidation(gEstimated, getErrMsg('garantie-valeurEstimee'));
                 clearFieldValidation(gRetained, getErrMsg('garantie-valeurRetenue'));
@@ -1953,31 +2086,50 @@
             }, 0);
         });
     }
+    updateGarantieDocumentPreview(gDocExisting ? gDocExisting.value : '');
+    setLegacyDocAiSuggestion('En attente d analyse');
+
+    const fillGarantieFormFromRow = (row) => {
+        if (!garantieForm || !(row instanceof HTMLElement)) return;
+
+        setSelectedRow('nx-garantie-row', row);
+        setFieldValue(garantieForm, 'idGarantie', row.dataset.garantieId);
+        setFieldValue(garantieForm, 'idCredit', row.dataset.garantieCreditId);
+        setFieldValue(garantieForm, 'typeGarantie', row.dataset.garantieType);
+        setFieldValue(garantieForm, 'description', row.dataset.garantieDescription);
+        setFieldValue(garantieForm, 'adresseBien', row.dataset.garantieAddress);
+        setFieldValue(garantieForm, 'valeurEstimee', row.dataset.garantieEstimated);
+        setFieldValue(garantieForm, 'valeurRetenue', row.dataset.garantieRetained);
+        setFieldValue(garantieForm, 'dateEvaluation', normalizeIsoDate(row.dataset.garantieDate));
+        setFieldValue(garantieForm, 'nomGarant', row.dataset.garantieGuarantor);
+        setFieldValue(garantieForm, 'statut', row.dataset.garantieStatus || 'Soumise');
+
+        if (gRetained && (row.dataset.garantieRetained || '').trim() !== '') gRetained.dataset.manual = '1';
+        const existingDocPath = row.dataset.garantieDocumentUrl || row.dataset.garantieDocument || '';
+        if (gDocExisting) gDocExisting.value = existingDocPath;
+        if (gDoc) gDoc.value = '';
+        updateGarantieDocumentPreview(existingDocPath);
+        const docStatusKey = String(row.dataset.garantieDocumentStatus || '').toLowerCase();
+        if (docStatusKey === 'valide') setLegacyDocAiSuggestion('Valider');
+        else if (docStatusKey === 'refuse' || docStatusKey === 'rejete') setLegacyDocAiSuggestion('Refuser');
+        else setLegacyDocAiSuggestion('En attente d analyse');
+
+        ['idCredit', 'typeGarantie', 'description', 'adresseBien', 'valeurEstimee', 'valeurRetenue', 'dateEvaluation', 'nomGarant', 'documentJustificatif'].forEach(validateGarantieField);
+        scrollToForm(garantieForm);
+    };
 
     document.querySelectorAll('.nx-garantie-edit-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            if (!garantieForm) return;
+        btn.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
             const row = btn.closest('.nx-garantie-row');
-            if (!row) return;
-
-            setFieldValue(garantieForm, 'idGarantie', row.dataset.garantieId);
-            setFieldValue(garantieForm, 'idCredit', row.dataset.garantieCreditId);
-            setFieldValue(garantieForm, 'typeGarantie', row.dataset.garantieType);
-            setFieldValue(garantieForm, 'description', row.dataset.garantieDescription);
-            setFieldValue(garantieForm, 'adresseBien', row.dataset.garantieAddress);
-            setFieldValue(garantieForm, 'valeurEstimee', row.dataset.garantieEstimated);
-            setFieldValue(garantieForm, 'valeurRetenue', row.dataset.garantieRetained);
-            setFieldValue(garantieForm, 'dateEvaluation', normalizeIsoDate(row.dataset.garantieDate));
-            setFieldValue(garantieForm, 'nomGarant', row.dataset.garantieGuarantor);
-            setFieldValue(garantieForm, 'statut', row.dataset.garantieStatus || 'Soumise');
-
-            if (gRetained && (row.dataset.garantieRetained || '').trim() !== '') gRetained.dataset.manual = '1';
-            if (gDocExisting) gDocExisting.value = row.dataset.garantieDocument || '';
-            if (gDoc) gDoc.value = '';
-
-            // Run validation passively
-            ['idCredit', 'typeGarantie', 'description', 'adresseBien', 'valeurEstimee', 'valeurRetenue', 'dateEvaluation', 'nomGarant', 'documentJustificatif'].forEach(validateGarantieField);
-            scrollToForm(garantieForm);
+            fillGarantieFormFromRow(row);
+        });
+    });
+    document.querySelectorAll('.nx-garantie-row').forEach((row) => {
+        row.addEventListener('click', (event) => {
+            if (isInteractiveRowTarget(event.target)) return;
+            fillGarantieFormFromRow(row);
         });
     });
 
@@ -2105,8 +2257,6 @@
     filterTable('nx-credit-search', 'nx-credit-sort', 'nx-credit-tbody', 'nx-credit-row', 'nx-credit-pager');
     filterTable('nx-garantie-search', 'nx-garantie-sort', 'nx-garantie-tbody', 'nx-garantie-row', 'nx-garantie-pager');
 
-    
-    
     /* ========================================================= */
     /* LOGIQUE STATISTIQUES ADMIN                                */
     /* ========================================================= */
@@ -2316,3 +2466,173 @@
     }
 })();
 </script>
+
+<script>
+(() => {
+    const routeTemplate = '{{ path("admin_document_demander_complement", {id: 0}) }}';
+    const csrfToken = '{{ csrf_token("admin_complement_request") }}';
+
+    const normalize = (value) => String(value || '').toLowerCase().trim();
+
+    const parsePositiveInt = (value) => {
+        const parsed = Number.parseInt(String(value || '').trim(), 10);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+    };
+
+    const pickFirstId = (selectors) => {
+        for (const selector of selectors) {
+            const node = document.querySelector(selector);
+            if (!node) continue;
+            const value = 'value' in node ? node.value : node.getAttribute('value');
+            const id = parsePositiveInt(value);
+            if (id > 0) return id;
+        }
+        return 0;
+    };
+
+    const resolveCreditId = () => {
+        const direct = pickFirstId([
+            '#nx-aiw-credit-select',
+            '#nx-credit-id',
+            '#nx-garantie-credit',
+            'select[name="selectedCreditId"]',
+            '.nx-ai-drawer__select[id*="credit"]',
+            '.nx-ai-drawer__select[name*="credit"]'
+        ]);
+        if (direct > 0) return direct;
+
+        const selectedRow = document.querySelector('.nx-credit-row.is-selected');
+        const rowId = parsePositiveInt(selectedRow?.dataset?.creditId || '');
+        if (rowId > 0) return rowId;
+
+        const fallbackRow = document.querySelector('.nx-credit-row[data-credit-id]');
+        return parsePositiveInt(fallbackRow?.dataset?.creditId || '');
+    };
+
+    const resolveGarantieId = () => {
+        const direct = pickFirstId([
+            '#nx-aiw-garantie-select',
+            '#nx-garantie-id',
+            'select[name="selectedGarantieId"]',
+            '.nx-ai-drawer__select[id*="garantie"]',
+            '.nx-ai-drawer__select[name*="garantie"]'
+        ]);
+        if (direct > 0) return direct;
+
+        const selectedRow = document.querySelector('.nx-garantie-row.is-selected');
+        const rowId = parsePositiveInt(selectedRow?.dataset?.garantieId || '');
+        if (rowId > 0) return rowId;
+
+        const fallbackRow = document.querySelector('.nx-garantie-row[data-garantie-id]');
+        return parsePositiveInt(fallbackRow?.dataset?.garantieId || '');
+    };
+
+    const showFallbackFeedback = (message, isError) => {
+        const aiFeedback = document.getElementById('nx-aiw-feedback');
+        if (aiFeedback instanceof HTMLElement) {
+            aiFeedback.classList.remove('is-success', 'is-error');
+            aiFeedback.textContent = message;
+            aiFeedback.style.display = 'block';
+            aiFeedback.classList.add(isError ? 'is-error' : 'is-success');
+            return;
+        }
+
+        if (isError) {
+            window.alert(message);
+        }
+    };
+
+    const setButtonLoading = (button, loading) => {
+        if (!(button instanceof HTMLElement)) return;
+        if (loading) {
+            button.dataset.originalLabel = button.textContent || '';
+            button.textContent = 'Envoi en cours...';
+        } else if (button.dataset.originalLabel) {
+            button.textContent = button.dataset.originalLabel;
+        }
+        if ('disabled' in button) button.disabled = !!loading;
+    };
+
+    const findComplementTrigger = (element) => {
+        if (!(element instanceof HTMLElement)) return null;
+        return element.closest('.nx-ai-conclusion__action, [data-aiw-decision], [data-aiw-action], button, a, [role="button"]');
+    };
+
+    const isComplementButton = (element) => {
+        if (!(element instanceof HTMLElement)) return false;
+        const trigger = findComplementTrigger(element);
+        if (!(trigger instanceof HTMLElement)) return false;
+
+        const explicitAction = normalize(trigger.dataset.aiwAction || trigger.dataset.action || '');
+        if (explicitAction.includes('request-complement') || explicitAction.includes('complement')) return true;
+
+        const decision = normalize(trigger.dataset.aiwDecision || '');
+        if (decision === 'complement') return true;
+
+        const label = normalize(trigger.textContent || '');
+        return label.includes('piece complementaire') || label.includes('pièce complémentaire');
+    };
+
+    document.addEventListener('click', async (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        if (!isComplementButton(target)) return;
+
+        const trigger = findComplementTrigger(target);
+        if (!(trigger instanceof HTMLElement)) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        const creditId = resolveCreditId();
+        if (creditId <= 0) {
+            showFallbackFeedback('Selectionnez un credit avant de demander une piece complementaire.', true);
+            return;
+        }
+
+        const garantieId = resolveGarantieId();
+        const requestUrl = routeTemplate.replace(/0$/, String(creditId));
+        const message = `Votre dossier credit #${creditId} necessite une piece complementaire pour finaliser l'analyse.`;
+
+        setButtonLoading(trigger, true);
+        try {
+            const response = await fetch(requestUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': csrfToken,
+                },
+                body: JSON.stringify({
+                    idGarantie: garantieId,
+                    message,
+                }),
+            });
+
+            const payload = await response.json();
+            if (!response.ok || !payload?.ok) {
+                throw new Error(String(payload?.message || 'Action impossible.'));
+            }
+
+            const creditStatus = document.getElementById('nx-credit-status');
+            if (creditStatus instanceof HTMLSelectElement) {
+                creditStatus.value = 'Piece complementaire demandee';
+                creditStatus.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+
+            const garantieStatus = document.getElementById('nx-garantie-status');
+            if (garantieStatus instanceof HTMLSelectElement) {
+                garantieStatus.value = 'En cours_verification';
+                garantieStatus.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+
+            showFallbackFeedback(String(payload.message || 'Demande envoyee.'), false);
+        } catch (error) {
+            showFallbackFeedback((error && error.message) ? error.message : 'Erreur lors de la demande.', true);
+        } finally {
+            setButtonLoading(trigger, false);
+        }
+    }, true);
+})();
+</script>
+

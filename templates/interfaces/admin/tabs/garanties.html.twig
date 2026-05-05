@@ -1,283 +1,1250 @@
+{% set current_date = 'now'|date('Y-m-d') %}
+{% set credit_list = support.credits|default([]) %}
+{% set garantie_stats = support.garantie_stats|default({'total': 0, 'total_estimee': 0, 'total_retenue': 0, 'counts': {}}) %}
+{% set garantie_type_choices = support.garantie_type_choices|default({
+    'titre_vehicule': 'Titre véhicule',
+    'hypotheque': 'Hypothèque',
+    'caution_bancaire': 'Caution bancaire',
+    'depot_garantie': 'Dépôt de garantie'
+}) %}
+{% set actifs_count = garantie_stats.counts['Actif']|default(0) %}
+{% set pending_count = garantie_stats.counts['En attente']|default(0) %}
+{% set rejected_count = garantie_stats.counts['Rejete']|default(garantie_stats.counts['Rejetee']|default(0)) %}
+{% set tab_context = tab_context|default('garanties') %}
+{% set panel_context = panel_context|default('') %}
+
 <style>
-.nx-crud-pager {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 10px;
-    margin-top: 16px;
-    flex-wrap: wrap;
-}
-
-.nx-crud-pager[hidden] {
-    display: none !important;
-}
-
-.nx-crud-pager-btn {
-    width: 40px;
-    height: 40px;
-    border-radius: 999px;
-    border: 1px solid #d6e2ef;
-    background: #fff;
-    color: #6b85a0;
-    font-size: 14px;
-    font-weight: 800;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-}
-
-.nx-crud-pager-btn.is-active {
-    background: linear-gradient(135deg, #11b7aa, #2b7de9);
-    border-color: transparent;
-    color: #fff;
-}
-
-.nx-crud-pager-btn:disabled {
-    opacity: .45;
-    cursor: default;
-}
-
-tr.nx-page-hidden {
-    display: none;
-}
-
-.nx-admin-map-wrap {
-    margin-top: 14px;
-    padding: 14px;
-    border-radius: 18px;
-    border: 1px solid #dce8f2;
-    background: linear-gradient(180deg, #f9fbff, #eef5fb);
-}
-
-.nx-admin-map-grid {
+.ga-admin {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 18px;
+}
+
+.ga-admin-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 18px 20px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #0a2a4f, #103f6f);
+    color: #f5f8ff;
+}
+
+.ga-admin-head h2 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: 0.2px;
+}
+
+.ga-admin-head p {
+    margin: 6px 0 0;
+    color: rgba(245, 248, 255, 0.84);
+}
+
+.ga-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.ga-kpi {
+    padding: 14px;
+    border-radius: 16px;
+    border: 1px solid #d8e5f1;
+    background: #ffffff;
+}
+
+.ga-kpi small {
+    display: block;
+    color: #5d7590;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+}
+
+.ga-kpi strong {
+    display: block;
+    margin-top: 8px;
+    color: #0e2b4a;
+    font-size: 30px;
+    font-weight: 800;
+    line-height: 1.1;
+}
+
+.ga-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
     gap: 16px;
     align-items: start;
 }
 
-.nx-admin-map-canvas {
-    height: 280px;
-    border-radius: 16px;
-    overflow: hidden;
-    border: 1px solid #d8e3ee;
+.ga-panel {
+    border: 1px solid #d8e5f1;
+    border-radius: 20px;
+    background: #ffffff;
+    box-shadow: 0 10px 28px rgba(15, 48, 80, 0.06);
 }
 
-.nx-admin-map-meta {
-    display: grid;
-    gap: 8px;
+.ga-panel-head {
+    padding: 16px 18px 0;
+}
+
+.ga-panel-head h3 {
+    margin: 0;
+    color: #102f4d;
+    font-size: 20px;
+    font-weight: 800;
+}
+
+.ga-panel-head p {
+    margin: 5px 0 0;
     font-size: 13px;
-    color: #50667d;
+    color: #68819b;
 }
 
-.nx-admin-badge {
+.ga-form {
+    padding: 16px 18px 18px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.ga-field {
+    display: grid;
+    gap: 6px;
+}
+
+.ga-field--full {
+    grid-column: 1 / -1;
+}
+
+.ga-field label {
+    font-size: 12px;
+    color: #4f6d89;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.65px;
+}
+
+.ga-input,
+.ga-select,
+.ga-textarea {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid #cbddee;
+    background: #f9fcff;
+    color: #102f4d;
+    font-size: 15px;
+}
+
+.ga-textarea {
+    min-height: 84px;
+    resize: vertical;
+}
+
+.ga-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.ga-status-chip {
     display: inline-flex;
     align-items: center;
-    padding: 6px 10px;
+    justify-content: center;
     border-radius: 999px;
-    font-size: 11px;
-    font-weight: 700;
+    padding: 6px 11px;
+    font-size: 12px;
+    font-weight: 800;
 }
 
-.nx-admin-badge--verified {
+.ga-status-chip.is-pending {
+    background: #fff4d4;
+    color: #8c5b00;
+}
+
+.ga-status-chip.is-ok {
     background: #dcfce7;
     color: #166534;
 }
 
-.nx-admin-badge--review {
-    background: #fef3c7;
-    color: #92400e;
+.ga-status-chip.is-bad {
+    background: #ffe4e6;
+    color: #be123c;
+}
+
+.ga-suggestions {
+    display: grid;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.ga-suggest-btn {
+    text-align: left;
+    border: 1px solid #d8e5f1;
+    border-radius: 10px;
+    background: #fff;
+    color: #163958;
+    padding: 9px 10px;
+    cursor: pointer;
+}
+
+.ga-suggest-btn:hover {
+    background: #f2f8ff;
+}
+
+.ga-map {
+    height: 250px;
+    border-radius: 14px;
+    border: 1px solid #d4e2ef;
+    overflow: hidden;
+    background: linear-gradient(180deg, #f8fbff, #eaf3fb);
+}
+
+.ga-doc-preview {
+    margin-top: 8px;
+    border: 1px dashed #c9dbeb;
+    border-radius: 12px;
+    background: #f7fbff;
+    padding: 10px;
+}
+
+.ga-doc-preview img {
+    max-width: 100%;
+    max-height: 190px;
+    border-radius: 10px;
+    object-fit: cover;
+}
+
+.ga-doc-shell {
+    display: grid;
+    gap: 10px;
+}
+
+.ga-doc-existing {
+    border: 1px solid #d6e5f3;
+    border-radius: 12px;
+    background: #f8fbff;
+    padding: 10px;
+    display: grid;
+    gap: 8px;
+}
+
+.ga-doc-name {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 700;
+    color: #375b7d;
+    word-break: break-all;
+}
+
+.ga-doc-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.ga-doc-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #23486b;
+    font-weight: 600;
+}
+
+.ga-doc-upload.ga-hidden {
+    display: none;
+}
+
+.ga-doc-error {
+    font-size: 12px;
+    color: #be123c;
+    font-weight: 700;
+}
+
+.ga-form-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.ga-btn {
+    border: 1px solid transparent;
+    border-radius: 12px;
+    min-height: 42px;
+    padding: 0 14px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.ga-btn--primary {
+    background: linear-gradient(135deg, #0ea5a5, #1f6ed4);
+    color: #fff;
+}
+
+.ga-btn--light {
+    background: #f7fbff;
+    border-color: #cadced;
+    color: #1a4264;
+}
+
+.ga-btn--danger {
+    background: #fff1f2;
+    border-color: #fecdd3;
+    color: #be123c;
+}
+
+.ga-summary {
+    padding: 16px 18px 18px;
+    display: grid;
+    gap: 12px;
+}
+
+.ga-summary-card {
+    border: 1px solid #d8e5f1;
+    border-radius: 16px;
+    padding: 14px;
+    background: #f9fcff;
+}
+
+.ga-summary-type {
+    font-size: 26px;
+    font-weight: 800;
+    color: #102f4d;
+    margin: 0;
+}
+
+.ga-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.ga-summary-metric {
+    padding: 11px;
+    border-radius: 12px;
+    background: #fff;
+    border: 1px solid #dce8f3;
+}
+
+.ga-summary-metric small {
+    display: block;
+    font-size: 11px;
+    color: #6a839d;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+}
+
+.ga-summary-metric strong {
+    display: block;
+    margin-top: 6px;
+    color: #0e2b4a;
+    font-size: 24px;
+    font-weight: 800;
+}
+
+.ga-progress {
+    margin-top: 9px;
+    height: 10px;
+    border-radius: 999px;
+    background: #dbe7f3;
+    overflow: hidden;
+}
+
+.ga-progress > span {
+    display: block;
+    height: 100%;
+    width: 0;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #f59e0b, #16a34a);
+    transition: width .2s ease;
+}
+
+.ga-summary-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.ga-summary-actions form,
+.ga-summary-actions a,
+.ga-summary-actions button {
+    width: 100%;
+}
+
+.ga-list {
+    padding: 16px 18px 18px;
+    display: grid;
+    gap: 12px;
+}
+
+.ga-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+}
+
+.ga-item {
+    border: 1px solid #d9e6f2;
+    border-radius: 16px;
+    background: #fff;
+    padding: 12px;
+    display: grid;
+    gap: 10px;
+}
+
+.ga-item-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.ga-item-title {
+    margin: 0;
+    font-size: 21px;
+    font-weight: 800;
+    color: #102f4d;
+}
+
+.ga-item-sub {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: #617d98;
+}
+
+.ga-item-meta {
+    display: flex;
+    gap: 9px;
+    flex-wrap: wrap;
+    color: #496883;
+    font-size: 12px;
+}
+
+.ga-item-foot {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.ga-item-foot form {
+    margin: 0;
+}
+
+.ga-pager {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+}
+
+.ga-pager[hidden] {
+    display: none !important;
+}
+
+.ga-page-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 999px;
+    border: 1px solid #cfdfef;
+    background: #fff;
+    color: #5e7c98;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.ga-page-btn.is-active {
+    border-color: transparent;
+    background: linear-gradient(135deg, #0ea5a5, #1f6ed4);
+    color: #fff;
+}
+
+.ga-hidden {
+    display: none !important;
+}
+
+@media (max-width: 1120px) {
+    .ga-kpis {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .ga-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 680px) {
+    .ga-kpis {
+        grid-template-columns: 1fr;
+    }
+    .ga-form {
+        grid-template-columns: 1fr;
+    }
+    .ga-summary-grid,
+    .ga-summary-actions,
+    .ga-item-foot {
+        grid-template-columns: 1fr;
+    }
 }
 </style>
 
-<section class="panel-card nx-crud-screen">
-    <header class="nx-crud-head">
+<section class="ga-admin">
+    <header class="ga-admin-head">
         <div>
-            <h2>Gestion Garanties</h2>
-            <p>Securisation des dossiers de credit par garanties</p>
+            <h2>Admin Garanties</h2>
+            <p>Meme logique metier que la partie user avec un niveau de controle avance.</p>
+        </div>
+        <div class="ga-inline">
+            <span class="ga-status-chip is-pending">En attente {{ pending_count }}</span>
+            <span class="ga-status-chip is-ok">Actif {{ actifs_count }}</span>
+            <span class="ga-status-chip is-bad">Rejete {{ rejected_count }}</span>
         </div>
     </header>
 
-    <div class="nx-crud-kpis">
-        <article class="nx-crud-kpi">
-            <span class="nx-crud-kpi-icon"><i class="fa-solid fa-shield-halved"></i></span>
-            <div><strong>{{ items|length }}</strong><small>Garanties enregistrees</small></div>
+    <div class="ga-kpis">
+        <article class="ga-kpi">
+            <small>Total garanties</small>
+            <strong>{{ items|length }}</strong>
         </article>
-        <article class="nx-crud-kpi">
-            <span class="nx-crud-kpi-icon"><i class="fa-solid fa-file-invoice-dollar"></i></span>
-            <div><strong>{{ support.credits|default([])|length }}</strong><small>Credits relies</small></div>
+        <article class="ga-kpi">
+            <small>Total estime</small>
+            <strong>{{ garantie_stats.total_estimee|default(0)|number_format(0, '.', ' ') }} DT</strong>
         </article>
-        <article class="nx-crud-kpi">
-            <span class="nx-crud-kpi-icon"><i class="fa-solid fa-hourglass-half"></i></span>
-            <div><strong>{{ summary.credits_pending|default(0) }}</strong><small>Credits en attente</small></div>
+        <article class="ga-kpi">
+            <small>Total retenu</small>
+            <strong>{{ garantie_stats.total_retenue|default(0)|number_format(0, '.', ' ') }} DT</strong>
+        </article>
+        <article class="ga-kpi">
+            <small>Credits relies</small>
+            <strong>{{ credit_list|length }}</strong>
         </article>
     </div>
 
-    <div class="nx-crud-grid">
-        <article class="nx-crud-form-card">
-            <div class="nx-crud-card-head">
-                <h3>Garantie credit</h3>
-                <p>Ajouter ou modifier une garantie</p>
-            </div>
+    <section class="ga-layout">
+        <article class="ga-panel">
+            <header class="ga-panel-head">
+                <h3>Formulaire Garantie</h3>
+                <p>Saisie admin coherente avec la logique metier user.</p>
+            </header>
 
-            <form method="post" class="editor-form nx-crud-form">
-                <input type="hidden" name="tab" value="garanties">
+            <form method="post" class="ga-form" id="ga-admin-form" enctype="multipart/form-data">
+                <input type="hidden" name="tab" value="{{ tab_context }}">
+                {% if panel_context is not empty %}<input type="hidden" name="panel" value="{{ panel_context }}">{% endif %}
                 <input type="hidden" name="action" value="garantie_save">
-                <label><span>ID pour modifier</span><input type="number" name="idGarantie"></label>
-                <label><span>Credit</span>
-                    <select name="idCredit">
-                        {% for credit in support.credits|default([]) %}
-                            <option value="{{ credit.idCredit }}">#{{ credit.idCredit }} - {{ credit.typeCredit }}</option>
+                <input type="hidden" name="latitude" id="ga-latitude" value="">
+                <input type="hidden" name="longitude" id="ga-longitude" value="">
+                <input type="hidden" name="adresseBien" id="ga-address-simple" value="">
+                <input type="hidden" name="statutVerificationAdresse" id="ga-address-verification" value="En attente">
+                <input type="hidden" name="existingDocumentJustificatif" id="ga-existing-document" value="">
+
+                <div class="ga-field">
+                    <label for="ga-id">ID garantie</label>
+                    <input class="ga-input" type="number" name="idGarantie" id="ga-id" placeholder="Laisser vide pour creer">
+                </div>
+                <div class="ga-field">
+                    <label for="ga-credit-id">Credit associe</label>
+                    <select class="ga-select" name="idCredit" id="ga-credit-id">
+                        <option value="">Selectionner un credit</option>
+                        {% for credit in credit_list %}
+                            <option value="{{ credit.idCredit }}">
+                                #{{ credit.idCredit }} - {{ credit.typeCredit|default('Credit') }} - {{ credit.montantDemande|default(0)|number_format(0, '.', ' ') }} DT
+                            </option>
                         {% endfor %}
                     </select>
-                </label>
-                <label><span>Type</span><input type="text" name="typeGarantie" required></label>
-                <label><span>Description</span><input type="text" name="description"></label>
-                <label><span>Adresse</span><input type="text" name="adresseBien"></label>
-                <label style="grid-column:1 / -1;">
-                    <span>Adresse complete OpenStreetMap</span>
-                    <input type="text" name="adresseComplete" id="admin-garantie-address-complete" autocomplete="off">
-                    <div id="admin-garantie-address-suggestions" style="display:grid; gap:6px; margin-top:8px;" hidden></div>
-                </label>
-                <label><span>Ville</span><input type="text" name="ville" id="admin-garantie-city" readonly></label>
-                <label><span>Code postal</span><input type="text" name="codePostal" id="admin-garantie-postal" readonly></label>
-                <label><span>Pays</span><input type="text" name="pays" id="admin-garantie-country" readonly></label>
-                <label><span>Verification adresse</span><input type="text" id="admin-garantie-address-status-label" readonly value="A verifier"></label>
-                <input type="hidden" name="latitude" id="admin-garantie-latitude">
-                <input type="hidden" name="longitude" id="admin-garantie-longitude">
-                <input type="hidden" name="statutVerificationAdresse" id="admin-garantie-address-status" value="A verifier">
-                <label><span>Valeur estimee</span><input type="number" step="0.01" name="valeurEstimee"></label>
-                <label><span>Nom garant</span><input type="text" name="nomGarant"></label>
-                <div class="nx-crud-form-actions">
-                    <button class="btn btn-primary nx-btn-save" type="submit">Enregistrer</button>
-                    <button class="btn btn-secondary" type="reset">Annuler</button>
                 </div>
-            </form>
-            <div class="nx-admin-map-wrap">
-                <div class="nx-admin-map-grid">
-                    <iframe id="admin-garantie-map" class="nx-admin-map-canvas" title="Carte OpenStreetMap" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="about:blank"></iframe>
-                    <div class="nx-admin-map-meta">
-                        <strong id="admin-garantie-map-title">Adresse a verifier</strong>
-                        <span id="admin-garantie-map-address">Aucune adresse selectionnee.</span>
-                        <span id="admin-garantie-map-city">Ville: -</span>
-                        <span id="admin-garantie-map-country">Pays: -</span>
-                        <span id="admin-garantie-map-status" class="nx-admin-badge nx-admin-badge--review">A verifier</span>
+                <div class="ga-field">
+                    <label for="ga-type">Type de garantie</label>
+                    <select class="ga-select" name="typeGarantie" id="ga-type">
+                        <option value="">Selectionner un type</option>
+                        {% for value, label in garantie_type_choices %}
+                            <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="ga-field">
+                    <label for="ga-garant">Nom du garant</label>
+                    <input class="ga-input" type="text" name="nomGarant" id="ga-garant" placeholder="Nom complet">
+                </div>
+                <div class="ga-field">
+                    <label for="ga-date">Date d evaluation</label>
+                    <input class="ga-input" type="date" name="dateEvaluation" id="ga-date" value="{{ current_date }}">
+                </div>
+                <div class="ga-field">
+                    <label for="ga-estimated">Valeur estimee</label>
+                    <input class="ga-input" type="number" step="0.01" name="valeurEstimee" id="ga-estimated" placeholder="0.00">
+                </div>
+                <div class="ga-field">
+                    <label for="ga-retained">Valeur retenue</label>
+                    <input class="ga-input" type="number" step="0.01" name="valeurRetenue" id="ga-retained" placeholder="0.00">
+                </div>
+                <div class="ga-field ga-field--full">
+                    <label for="ga-address">Adresse du bien (auto-completion)</label>
+                    <input class="ga-input" type="text" name="adresseComplete" id="ga-address" autocomplete="off" placeholder="Tapez une adresse...">
+                    <div id="ga-suggestions" class="ga-suggestions" hidden></div>
+                </div>
+                <div class="ga-field">
+                    <label for="ga-city">Ville</label>
+                    <input class="ga-input" type="text" name="ville" id="ga-city" readonly>
+                </div>
+                <div class="ga-field">
+                    <label for="ga-postal">Code postal</label>
+                    <input class="ga-input" type="text" name="codePostal" id="ga-postal" readonly>
+                </div>
+                <div class="ga-field">
+                    <label for="ga-country">Pays</label>
+                    <input class="ga-input" type="text" name="pays" id="ga-country" readonly>
+                </div>
+                <div class="ga-field">
+                    <label for="ga-address-status-label">Verification adresse</label>
+                    <input class="ga-input" type="text" id="ga-address-status-label" value="En attente" readonly>
+                </div>
+                <div class="ga-field ga-field--full">
+                    <label for="ga-document">Justificatif</label>
+                    <div class="ga-doc-shell">
+                        <div id="ga-doc-existing" class="ga-doc-existing ga-hidden">
+                            <p id="ga-document-name" class="ga-doc-name">Aucun document</p>
+                            <div class="ga-doc-actions">
+                                <a id="ga-document-link" class="ga-btn ga-btn--light" href="#" target="_blank" rel="noopener" hidden>Voir</a>
+                                <a id="ga-document-download" class="ga-btn ga-btn--light" href="#" download hidden>Telecharger</a>
+                                <form method="post" id="ga-doc-validate-form" action="{{ path('admin_document_valider', {id: 0}) }}">
+                                    <button class="ga-btn ga-btn--primary" type="submit" id="ga-doc-validate-btn">Valider</button>
+                                </form>
+                                <form method="post" id="ga-doc-reject-form" action="{{ path('admin_document_refuser', {id: 0}) }}">
+                                    <button class="ga-btn ga-btn--danger" type="submit" id="ga-doc-reject-btn">Refuser</button>
+                                </form>
+                            </div>
+                            <label class="ga-doc-toggle">
+                                <input type="checkbox" id="ga-doc-replace-toggle">
+                                Remplacer le document
+                            </label>
+                        </div>
+
+                        <div id="ga-doc-upload-wrap" class="ga-doc-upload">
+                            <input class="ga-input" type="file" name="documentJustificatifFile" id="ga-document" accept="image/png,image/jpeg,application/pdf" style="position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;">
+                            <button type="button" id="ga-document-picker" class="ga-btn ga-btn--light">Choisir un document</button>
+                            <small style="display:block; margin-top:6px; color:#475569;">Regles: document officiel, image nette obligatoire, capture ecran interdite.</small>
+                            <small id="ga-document-ai-suggestion" style="display:block; margin-top:4px; color:#334155;">Suggestion IA: En attente d'analyse.</small>
+                            <div id="ga-document-error" class="ga-doc-error ga-hidden"></div>
+                        </div>
+                    </div>
+                    <div class="ga-inline">
+                        <button type="button" id="ga-document-analyze-btn" class="ga-btn ga-btn--light">Analyser le justificatif</button>
+                        <span id="ga-document-analyze-status" class="ga-status-chip is-pending">En attente</span>
+                        <span id="ga-document-status" class="ga-status-chip is-pending">En attente</span>
+                    </div>
+                    <div id="ga-doc-preview" class="ga-doc-preview ga-hidden">
+                        <img id="ga-doc-preview-img" alt="Apercu justificatif">
                     </div>
                 </div>
-            </div>
+                <div class="ga-field">
+                    <label for="ga-statut">Statut</label>
+                    <select class="ga-select" name="statut" id="ga-statut">
+                        <option value="En attente">En attente</option>
+                        <option value="Actif">Actif</option>
+                        <option value="Rejete">Rejete</option>
+                    </select>
+                </div>
+                <div class="ga-field ga-field--full">
+                    <label for="ga-remarque">Remarque admin</label>
+                    <textarea class="ga-textarea" name="remarqueAdmin" id="ga-remarque" placeholder="Remarques internes sur la verification..."></textarea>
+                </div>
+                <div class="ga-field ga-field--full">
+                    <div id="ga-map" class="ga-map"></div>
+                </div>
+                <div class="ga-form-actions">
+                    <button class="ga-btn ga-btn--primary" type="submit">Enregistrer</button>
+                    <button class="ga-btn ga-btn--light" type="reset">Vider</button>
+                </div>
+            </form>
         </article>
 
-        <article class="nx-crud-table-card">
-            <div class="nx-crud-card-head">
-                <h3>Liste des garanties</h3>
-                <p>Suivi complet des garanties associees aux credits</p>
-            </div>
+        <article class="ga-panel">
+            <header class="ga-panel-head">
+                <h3>Resume dynamique</h3>
+                <p>Synchronise en temps reel avec la saisie admin.</p>
+            </header>
 
-            <div class="table-wrap">
-                <table class="data-table nx-crud-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Credit</th>
-                            <th>Type</th>
-                            <th>Description</th>
-                            <th>Valeur</th>
-                            <th>Adresse</th>
-                            <th>Verification</th>
-                            <th>Statut</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    {% for item in items %}
-                        <tr
-                            data-address-complete="{{ item.adresseComplete|default(item.adresseBien|default(''))|e('html_attr') }}"
-                            data-city="{{ item.ville|default('')|e('html_attr') }}"
-                            data-postal="{{ item.codePostal|default('')|e('html_attr') }}"
-                            data-country="{{ item.pays|default('')|e('html_attr') }}"
-                            data-latitude="{{ item.latitude|default('') }}"
-                            data-longitude="{{ item.longitude|default('') }}"
-                            data-address-status="{{ item.statutVerificationAdresse|default('A verifier')|e('html_attr') }}"
-                        >
-                            <td>{{ item.idGarantie }}</td>
-                            <td>#{{ item.idCredit }}</td>
-                            <td>{{ item.typeGarantie }}</td>
-                            <td>{{ item.description|default('-') }}</td>
-                            <td>{{ item.valeurEstimee|default(0)|number_format(2, '.', ' ') }} DT</td>
-                            <td>{{ item.adresseComplete|default(item.adresseBien|default('-')) }}</td>
-                            <td>
-                                {% set verification = item.statutVerificationAdresse|default('A verifier') %}
-                                <span class="nx-admin-badge {{ verification == 'Verifiee' ? 'nx-admin-badge--verified' : 'nx-admin-badge--review' }}">{{ verification }}</span>
-                            </td>
-                            <td>{{ item.statut }}</td>
-                            <td class="nx-cell-actions">
-                                <form method="post">
-                                    <input type="hidden" name="tab" value="garanties">
-                                    <input type="hidden" name="action" value="garantie_delete">
-                                    <input type="hidden" name="idGarantie" value="{{ item.idGarantie }}">
-                                    <button class="btn btn-danger" type="submit">Supprimer</button>
-                                </form>
-                            </td>
-                        </tr>
-                    {% else %}
-                        <tr><td colspan="9">Aucune garantie enregistree.</td></tr>
-                    {% endfor %}
-                    </tbody>
-                </table>
+            <div class="ga-summary" id="ga-summary">
+                <section class="ga-summary-card">
+                    <div class="ga-inline" style="justify-content:space-between;">
+                        <h4 class="ga-summary-type" id="ga-s-type">Type garantie</h4>
+                        <span class="ga-status-chip is-pending" id="ga-s-status">En attente</span>
+                    </div>
+                    <div class="ga-summary-grid">
+                        <div class="ga-summary-metric">
+                            <small>Valeur estimee</small>
+                            <strong id="ga-s-estimated">0 DT</strong>
+                        </div>
+                        <div class="ga-summary-metric">
+                            <small>Valeur retenue</small>
+                            <strong id="ga-s-retained">0 DT</strong>
+                        </div>
+                    </div>
+                    <div style="margin-top:10px;">
+                        <div class="ga-inline" style="justify-content:space-between;">
+                            <small style="color:#65819b; font-weight:700;">Couverture retenue</small>
+                            <strong id="ga-s-coverage">0%</strong>
+                        </div>
+                        <div class="ga-progress"><span id="ga-s-coverage-bar"></span></div>
+                    </div>
+                </section>
+
+                <section class="ga-summary-card">
+                    <strong style="color:#123655; font-size:14px;">Etat justificatif</strong>
+                    <p id="ga-s-document-text" style="margin:8px 0 0; color:#4f6d89;">Le justificatif est en attente de verification.</p>
+                </section>
+
+                <section class="ga-summary-card">
+                    <strong style="color:#123655; font-size:14px;">Credit lie</strong>
+                    <p id="ga-s-credit" style="margin:8px 0 0; color:#4f6d89;">Aucun credit associe.</p>
+                </section>
+
+                <section class="ga-summary-actions">
+                    <a id="ga-action-view" class="ga-btn ga-btn--light" href="#" target="_blank" rel="noopener">Voir</a>
+                    <button id="ga-action-edit" class="ga-btn ga-btn--light" type="button">Modifier</button>
+                    <form method="post">
+                        <input type="hidden" name="tab" value="{{ tab_context }}">
+                        {% if panel_context is not empty %}<input type="hidden" name="panel" value="{{ panel_context }}">{% endif %}
+                        <input type="hidden" name="action" value="garantie_quick_status">
+                        <input type="hidden" name="idGarantie" id="ga-action-validate-id" value="">
+                        <input type="hidden" name="statut" value="Actif">
+                        <button class="ga-btn ga-btn--primary" type="submit" id="ga-action-validate">Valider</button>
+                    </form>
+                    <form method="post">
+                        <input type="hidden" name="tab" value="{{ tab_context }}">
+                        {% if panel_context is not empty %}<input type="hidden" name="panel" value="{{ panel_context }}">{% endif %}
+                        <input type="hidden" name="action" value="garantie_quick_status">
+                        <input type="hidden" name="idGarantie" id="ga-action-reject-id" value="">
+                        <input type="hidden" name="statut" value="Rejete">
+                        <button class="ga-btn ga-btn--light" type="submit" id="ga-action-reject">Rejeter</button>
+                    </form>
+                    <form method="post" style="grid-column: 1 / -1;">
+                        <input type="hidden" name="tab" value="{{ tab_context }}">
+                        {% if panel_context is not empty %}<input type="hidden" name="panel" value="{{ panel_context }}">{% endif %}
+                        <input type="hidden" name="action" value="garantie_delete">
+                        <input type="hidden" name="idGarantie" id="ga-action-delete-id" value="">
+                        <button class="ga-btn ga-btn--danger" type="submit" id="ga-action-delete" onclick="return confirm('Supprimer cette garantie ?')">Supprimer</button>
+                    </form>
+                </section>
             </div>
-            <div class="nx-crud-pager" id="admin-garanties-pager" hidden></div>
         </article>
-    </div>
+    </section>
+
+    <section class="ga-panel">
+        <header class="ga-panel-head">
+            <h3>Liste des garanties</h3>
+            <p>Cliquez sur une carte pour charger ses donnees dans le formulaire admin.</p>
+        </header>
+
+        <div class="ga-list">
+            <div class="ga-grid" id="ga-grid">
+                {% for item in items %}
+                    {% set docPath = item.documentUrl|default(item.documentJustificatif|default('')) %}
+                    {% set docHref = docPath starts with 'http' ? docPath : (docPath ? asset(docPath) : '') %}
+                    {% set cardStatus = item.statut|default('En attente') %}
+                    {% set cardStatusLower = cardStatus|lower %}
+                    {% set cardClass = 'is-pending' %}
+                    {% if 'actif' in cardStatusLower %}
+                        {% set cardClass = 'is-ok' %}
+                    {% elseif 'rejet' in cardStatusLower %}
+                        {% set cardClass = 'is-bad' %}
+                    {% endif %}
+
+                    <article
+                        class="ga-item"
+                        data-ga-item
+                        data-id="{{ item.idGarantie }}"
+                        data-credit-id="{{ item.idCredit|default('') }}"
+                        data-type="{{ item.typeGarantieValue|default(item.typeGarantie|default(''))|e('html_attr') }}"
+                        data-garant="{{ item.nomGarant|default('')|e('html_attr') }}"
+                        data-date="{{ item.dateEvaluation|default(current_date)|slice(0, 10) }}"
+                        data-estimated="{{ item.valeurEstimee|default(0) }}"
+                        data-retained="{{ item.valeurRetenue|default(0) }}"
+                        data-address="{{ item.adresseComplete|default(item.adresseBien|default(''))|e('html_attr') }}"
+                        data-city="{{ item.ville|default('')|e('html_attr') }}"
+                        data-postal="{{ item.codePostal|default('')|e('html_attr') }}"
+                        data-country="{{ item.pays|default('')|e('html_attr') }}"
+                        data-latitude="{{ item.latitude|default('') }}"
+                        data-longitude="{{ item.longitude|default('') }}"
+                        data-address-status="{{ item.statutVerificationAdresse|default('En attente')|e('html_attr') }}"
+                        data-document="{{ docHref|e('html_attr') }}"
+                        data-document-status="{{ item.statutDocumentLabel|default(item.statutVerificationDocumentLabel|default('En attente'))|e('html_attr') }}"
+                        data-document-status-key="{{ item.statutDocument|default('en_attente')|e('html_attr') }}"
+                        data-statut="{{ cardStatus|e('html_attr') }}"
+                        data-remarque="{{ item.remarqueAdmin|default('')|e('html_attr') }}"
+                        data-description="{{ item.description|default('')|e('html_attr') }}"
+                        data-coverage="{{ item.coveragePercent|default(0) }}"
+                    >
+                        <div class="ga-item-head">
+                            <div>
+                                <h4 class="ga-item-title">#{{ item.idGarantie }}</h4>
+                                <p class="ga-item-sub">{{ item.typeGarantieLabel|default(item.typeGarantie|default('Garantie')) }}</p>
+                            </div>
+                            <span class="ga-status-chip {{ cardClass }}">{{ cardStatus }}</span>
+                        </div>
+                        <div class="ga-item-meta">
+                            <span><i class="fa-solid fa-link"></i> Credit #{{ item.idCredit|default('-') }}</span>
+                            <span><i class="fa-solid fa-calendar"></i> {{ item.dateEvaluation|default('-') }}</span>
+                            <span><i class="fa-solid fa-user-shield"></i> {{ item.nomGarant|default('-') }}</span>
+                        </div>
+                        <div class="ga-item-meta">
+                            <span><strong>{{ item.valeurEstimee|default(0)|number_format(0, '.', ' ') }} DT</strong> estimee</span>
+                            <span><strong>{{ item.valeurRetenue|default(0)|number_format(0, '.', ' ') }} DT</strong> retenue</span>
+                            <span><strong>{{ item.coveragePercent|default(0)|round(0, 'floor') }}%</strong> couverture</span>
+                        </div>
+                        <div class="ga-item-foot">
+                            <button type="button" class="ga-btn ga-btn--light js-ga-edit">Modifier</button>
+                            <form method="post">
+                                <input type="hidden" name="tab" value="{{ tab_context }}">
+                                {% if panel_context is not empty %}<input type="hidden" name="panel" value="{{ panel_context }}">{% endif %}
+                                <input type="hidden" name="action" value="garantie_quick_status">
+                                <input type="hidden" name="idGarantie" value="{{ item.idGarantie }}">
+                                <input type="hidden" name="statut" value="{{ 'actif' in cardStatusLower ? 'Rejete' : 'Actif' }}">
+                                <button type="submit" class="ga-btn ga-btn--light">
+                                    {{ 'actif' in cardStatusLower ? 'Rejeter' : 'Valider' }}
+                                </button>
+                            </form>
+                        </div>
+                    </article>
+                {% else %}
+                    <article class="ga-item"><p style="margin:0; color:#6a839d;">Aucune garantie enregistree.</p></article>
+                {% endfor %}
+            </div>
+            <div class="ga-pager" id="ga-pager" hidden></div>
+        </div>
+    </section>
 </section>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 (() => {
-    const form = document.querySelector('.nx-crud-form');
-    const addressCompleteField = document.getElementById('admin-garantie-address-complete');
-    const cityField = document.getElementById('admin-garantie-city');
-    const postalField = document.getElementById('admin-garantie-postal');
-    const countryField = document.getElementById('admin-garantie-country');
-    const latitudeField = document.getElementById('admin-garantie-latitude');
-    const longitudeField = document.getElementById('admin-garantie-longitude');
-    const addressStatusField = document.getElementById('admin-garantie-address-status');
-    const addressStatusLabel = document.getElementById('admin-garantie-address-status-label');
-    const mapCanvas = document.getElementById('admin-garantie-map');
-    const suggestions = document.getElementById('admin-garantie-address-suggestions');
-    const mapTitle = document.getElementById('admin-garantie-map-title');
-    const mapAddress = document.getElementById('admin-garantie-map-address');
-    const mapCity = document.getElementById('admin-garantie-map-city');
-    const mapCountry = document.getElementById('admin-garantie-map-country');
-    const mapStatus = document.getElementById('admin-garantie-map-status');
-    let addressSearchTimer = null;
+    const form = document.getElementById('ga-admin-form');
+    if (!(form instanceof HTMLFormElement)) return;
 
-    const setAddressStatus = (value) => {
-        const status = String(value ?? '').trim() || 'A verifier';
-        if (addressStatusField instanceof HTMLInputElement) addressStatusField.value = status;
-        if (addressStatusLabel instanceof HTMLInputElement) addressStatusLabel.value = status;
-        if (mapStatus instanceof HTMLElement) {
-            mapStatus.textContent = status;
-            mapStatus.className = `nx-admin-badge ${status === 'Verifiee' ? 'nx-admin-badge--verified' : 'nx-admin-badge--review'}`;
+    const fields = {
+        id: document.getElementById('ga-id'),
+        creditId: document.getElementById('ga-credit-id'),
+        type: document.getElementById('ga-type'),
+        garant: document.getElementById('ga-garant'),
+        date: document.getElementById('ga-date'),
+        estimated: document.getElementById('ga-estimated'),
+        retained: document.getElementById('ga-retained'),
+        address: document.getElementById('ga-address'),
+        addressSimple: document.getElementById('ga-address-simple'),
+        city: document.getElementById('ga-city'),
+        postal: document.getElementById('ga-postal'),
+        country: document.getElementById('ga-country'),
+        latitude: document.getElementById('ga-latitude'),
+        longitude: document.getElementById('ga-longitude'),
+        addressVerification: document.getElementById('ga-address-verification'),
+        addressStatusLabel: document.getElementById('ga-address-status-label'),
+        documentFile: document.getElementById('ga-document'),
+        documentPickerBtn: document.getElementById('ga-document-picker'),
+        existingDocument: document.getElementById('ga-existing-document'),
+        documentExistingWrap: document.getElementById('ga-doc-existing'),
+        documentLink: document.getElementById('ga-document-link'),
+        documentDownload: document.getElementById('ga-document-download'),
+        documentName: document.getElementById('ga-document-name'),
+        documentReplaceToggle: document.getElementById('ga-doc-replace-toggle'),
+        documentUploadWrap: document.getElementById('ga-doc-upload-wrap'),
+        documentValidateForm: document.getElementById('ga-doc-validate-form'),
+        documentRejectForm: document.getElementById('ga-doc-reject-form'),
+        documentValidateBtn: document.getElementById('ga-doc-validate-btn'),
+        documentRejectBtn: document.getElementById('ga-doc-reject-btn'),
+        documentError: document.getElementById('ga-document-error'),
+        documentAnalyzeBtn: document.getElementById('ga-document-analyze-btn'),
+        documentAnalyzeStatus: document.getElementById('ga-document-analyze-status'),
+        documentStatus: document.getElementById('ga-document-status'),
+        documentAiSuggestion: document.getElementById('ga-document-ai-suggestion'),
+        documentPreviewWrap: document.getElementById('ga-doc-preview'),
+        documentPreviewImage: document.getElementById('ga-doc-preview-img'),
+        statut: document.getElementById('ga-statut'),
+        remarque: document.getElementById('ga-remarque'),
+    };
+
+    const suggestions = document.getElementById('ga-suggestions');
+    const mapHost = document.getElementById('ga-map');
+    const pager = document.getElementById('ga-pager');
+    const cards = Array.from(document.querySelectorAll('[data-ga-item]'));
+    const editButtons = Array.from(document.querySelectorAll('.js-ga-edit'));
+    const creditOptions = Array.from(document.querySelectorAll('#ga-credit-id option[value]'));
+
+    const summary = {
+        type: document.getElementById('ga-s-type'),
+        status: document.getElementById('ga-s-status'),
+        estimated: document.getElementById('ga-s-estimated'),
+        retained: document.getElementById('ga-s-retained'),
+        coverage: document.getElementById('ga-s-coverage'),
+        coverageBar: document.getElementById('ga-s-coverage-bar'),
+        documentText: document.getElementById('ga-s-document-text'),
+        credit: document.getElementById('ga-s-credit'),
+        view: document.getElementById('ga-action-view'),
+        edit: document.getElementById('ga-action-edit'),
+        validateId: document.getElementById('ga-action-validate-id'),
+        rejectId: document.getElementById('ga-action-reject-id'),
+        deleteId: document.getElementById('ga-action-delete-id'),
+        validateBtn: document.getElementById('ga-action-validate'),
+        rejectBtn: document.getElementById('ga-action-reject'),
+        deleteBtn: document.getElementById('ga-action-delete'),
+    };
+
+    const formatMoney = (value) => {
+        const num = Number(value);
+        if (!Number.isFinite(num)) return '0 DT';
+        return `${num.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} DT`;
+    };
+
+    const parseNum = (value) => {
+        const normalized = String(value ?? '').replace(',', '.').replace(/\s+/g, '').trim();
+        const num = Number(normalized);
+        return Number.isFinite(num) ? num : 0;
+    };
+
+    const normalizeStatusClass = (status) => {
+        const key = String(status ?? '').toLowerCase();
+        if (key.includes('actif') || key.includes('verif') || key.includes('valid')) return 'is-ok';
+        if (key.includes('rejet') || key.includes('invalid')) return 'is-bad';
+        return 'is-pending';
+    };
+
+    const setChipStatus = (el, status) => {
+        if (!(el instanceof HTMLElement)) return;
+        const text = String(status ?? '').trim() || 'En attente';
+        el.textContent = text;
+        el.classList.remove('is-pending', 'is-ok', 'is-bad');
+        el.classList.add(normalizeStatusClass(text));
+    };
+
+    const setAddressStatus = (status) => {
+        const label = String(status ?? '').trim() || 'En attente';
+        if (fields.addressVerification instanceof HTMLInputElement) fields.addressVerification.value = label;
+        if (fields.addressStatusLabel instanceof HTMLInputElement) fields.addressStatusLabel.value = label;
+        if (fields.addressSimple instanceof HTMLInputElement && fields.address instanceof HTMLInputElement) {
+            fields.addressSimple.value = fields.address.value;
         }
     };
 
-    const buildOsmEmbedUrl = (latValue, lngValue) => {
-        const latitude = Number(latValue);
-        const longitude = Number(lngValue);
-        const hasCoordinates = Number.isFinite(latitude) && Number.isFinite(longitude);
-        const centerLat = hasCoordinates ? latitude : 36.8065;
-        const centerLng = hasCoordinates ? longitude : 10.1815;
-        const delta = hasCoordinates ? 0.015 : 0.35;
-        const west = (centerLng - delta).toFixed(6);
-        const south = (centerLat - delta).toFixed(6);
-        const east = (centerLng + delta).toFixed(6);
-        const north = (centerLat + delta).toFixed(6);
-        const marker = hasCoordinates ? `&marker=${centerLat.toFixed(6)}%2C${centerLng.toFixed(6)}` : '';
-        return `https://www.openstreetmap.org/export/embed.html?bbox=${west}%2C${south}%2C${east}%2C${north}&layer=mapnik${marker}`;
+    const setAnalyzeStatus = (status = 'pending', message = 'En attente') => {
+        if (!(fields.documentAnalyzeStatus instanceof HTMLElement)) return;
+        fields.documentAnalyzeStatus.textContent = message;
+        fields.documentAnalyzeStatus.classList.remove('is-pending', 'is-ok', 'is-bad');
+        if (status === 'valid') {
+            fields.documentAnalyzeStatus.classList.add('is-ok');
+        } else if (status === 'blur' || status === 'suspect') {
+            fields.documentAnalyzeStatus.classList.add('is-bad');
+        } else {
+            fields.documentAnalyzeStatus.classList.add('is-pending');
+        }
     };
 
-    const updateAdminMap = (lat, lng) => {
-        if (!(mapCanvas instanceof HTMLIFrameElement)) return;
-        mapCanvas.src = buildOsmEmbedUrl(lat, lng);
+    const setDocumentError = (message = '') => {
+        if (!(fields.documentError instanceof HTMLElement)) return;
+        const text = String(message ?? '').trim();
+        fields.documentError.textContent = text;
+        fields.documentError.classList.toggle('ga-hidden', text === '');
+    };
+
+    const setDocumentAiSuggestion = (suggestion = 'En attente') => {
+        if (!(fields.documentAiSuggestion instanceof HTMLElement)) return;
+        fields.documentAiSuggestion.textContent = `Suggestion IA: ${suggestion}`;
+    };
+
+    const updateDocumentUiVisibility = () => {
+        const hasExisting = fields.existingDocument instanceof HTMLInputElement
+            ? fields.existingDocument.value.trim() !== ''
+            : false;
+        const wantsReplace = fields.documentReplaceToggle instanceof HTMLInputElement
+            ? fields.documentReplaceToggle.checked
+            : true;
+        if (fields.documentExistingWrap instanceof HTMLElement) {
+            fields.documentExistingWrap.classList.toggle('ga-hidden', !hasExisting);
+        }
+        if (fields.documentUploadWrap instanceof HTMLElement) {
+            fields.documentUploadWrap.classList.toggle('ga-hidden', hasExisting && !wantsReplace);
+        }
+    };
+
+    const isScreenshotName = (name) => /(screen|screenshot|capture|captur|ecran|snip|printscreen|whatsapp)/i.test(String(name || ''));
+
+    const showPreviewFromDataUrl = (dataUrl) => {
+        if (!(fields.documentPreviewWrap instanceof HTMLElement) || !(fields.documentPreviewImage instanceof HTMLImageElement)) return;
+        fields.documentPreviewImage.src = dataUrl;
+        fields.documentPreviewWrap.classList.remove('ga-hidden');
+    };
+
+    const hidePreview = () => {
+        if (!(fields.documentPreviewWrap instanceof HTMLElement) || !(fields.documentPreviewImage instanceof HTMLImageElement)) return;
+        fields.documentPreviewImage.removeAttribute('src');
+        fields.documentPreviewWrap.classList.add('ga-hidden');
+    };
+
+    const computeBlurScore = (img) => {
+        const canvas = document.createElement('canvas');
+        const maxSize = 240;
+        const scale = Math.max(img.naturalWidth / maxSize, img.naturalHeight / maxSize, 1);
+        const width = Math.max(16, Math.floor(img.naturalWidth / scale));
+        const height = Math.max(16, Math.floor(img.naturalHeight / scale));
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) return 0;
+        ctx.drawImage(img, 0, 0, width, height);
+        const pixels = ctx.getImageData(0, 0, width, height).data;
+        let sum = 0;
+        let sumSq = 0;
+        let count = 0;
+        for (let y = 1; y < height - 1; y += 1) {
+            for (let x = 1; x < width - 1; x += 1) {
+                const idx = (y * width + x) * 4;
+                const g = (pixels[idx] + pixels[idx + 1] + pixels[idx + 2]) / 3;
+                const l = ((pixels[(y * width + (x - 1)) * 4] + pixels[(y * width + (x - 1)) * 4 + 1] + pixels[(y * width + (x - 1)) * 4 + 2]) / 3);
+                const r = ((pixels[(y * width + (x + 1)) * 4] + pixels[(y * width + (x + 1)) * 4 + 1] + pixels[(y * width + (x + 1)) * 4 + 2]) / 3);
+                const t = ((pixels[((y - 1) * width + x) * 4] + pixels[((y - 1) * width + x) * 4 + 1] + pixels[((y - 1) * width + x) * 4 + 2]) / 3);
+                const b = ((pixels[((y + 1) * width + x) * 4] + pixels[((y + 1) * width + x) * 4 + 1] + pixels[((y + 1) * width + x) * 4 + 2]) / 3);
+                const lap = Math.abs((4 * g) - l - r - t - b);
+                sum += lap;
+                sumSq += lap * lap;
+                count += 1;
+            }
+        }
+        if (count === 0) return 0;
+        const mean = sum / count;
+
+        return Math.max(0, (sumSq / count) - (mean * mean));
+    };
+
+    const analyzeDocument = async () => {
+        const file = fields.documentFile instanceof HTMLInputElement ? fields.documentFile.files?.[0] ?? null : null;
+        if (!file) {
+            setAnalyzeStatus('pending', 'En attente');
+            setDocumentAiSuggestion('En attente d analyse');
+            return { ok: true };
+        }
+        if (isScreenshotName(file.name)) {
+            setAnalyzeStatus('suspect', 'Capture ecran detectee');
+            setDocumentAiSuggestion('Refuser');
+            return { ok: false, message: 'Capture d ecran interdite.' };
+        }
+        if (!['image/jpeg', 'image/png', 'application/pdf'].includes(file.type)) {
+            setAnalyzeStatus('suspect', 'Format non autorise');
+            setDocumentAiSuggestion('Refuser');
+            return { ok: false, message: 'Formats autorises: JPG, PNG, PDF.' };
+        }
+        if (file.size > 0 && file.size < 25_000) {
+            setAnalyzeStatus('suspect', 'Fichier trop petit');
+            setDocumentAiSuggestion('Refuser');
+            return { ok: false, message: 'Le fichier est trop petit (minimum 25 Ko).' };
+        }
+        if (file.type === 'application/pdf') {
+            setAnalyzeStatus('valid', 'Valide (PDF)');
+            setDocumentAiSuggestion('Valider');
+            return { ok: true };
+        }
+
+        const image = new Image();
+        const dataUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+
+        const loaded = await new Promise((resolve) => {
+            image.onload = () => resolve(true);
+            image.onerror = () => resolve(false);
+            image.src = dataUrl;
+        });
+
+        if (!loaded) {
+            setAnalyzeStatus('suspect', 'Fichier illisible');
+            setDocumentAiSuggestion('Refuser');
+            return { ok: false, message: 'Fichier image illisible.' };
+        }
+
+        showPreviewFromDataUrl(dataUrl);
+        if (image.naturalWidth < 500 || image.naturalHeight < 500) {
+            setAnalyzeStatus('suspect', 'Resolution insuffisante');
+            setDocumentAiSuggestion('Refuser');
+            return { ok: false, message: 'Resolution minimale requise: 500x500.' };
+        }
+
+        const blurScore = computeBlurScore(image);
+        if (blurScore < 45) {
+            setAnalyzeStatus('blur', 'Image floue');
+            setDocumentAiSuggestion('Refuser');
+            return { ok: false, message: 'Image floue detectee. Veuillez envoyer une image nette.' };
+        }
+
+        setAnalyzeStatus('valid', 'Valide');
+        setDocumentAiSuggestion('Valider');
+        return { ok: true };
+    };
+
+    const setDocumentReference = (href = '', label = 'En attente') => {
+        const resolvedHref = String(href ?? '').trim();
+        const hasDoc = resolvedHref !== '';
+        if (fields.existingDocument instanceof HTMLInputElement) fields.existingDocument.value = resolvedHref;
+        if (fields.documentLink instanceof HTMLAnchorElement) {
+            fields.documentLink.hidden = !hasDoc;
+            fields.documentLink.href = hasDoc ? resolvedHref : '#';
+        }
+        if (fields.documentDownload instanceof HTMLAnchorElement) {
+            fields.documentDownload.hidden = !hasDoc;
+            fields.documentDownload.href = hasDoc ? resolvedHref : '#';
+        }
+        if (fields.documentName instanceof HTMLElement) {
+            fields.documentName.textContent = hasDoc ? resolvedHref.split('/').pop() || resolvedHref : 'Aucun document';
+        }
+        setChipStatus(fields.documentStatus, label);
+        const labelKey = String(label ?? '').trim().toLowerCase();
+        if (labelKey.includes('valid')) setDocumentAiSuggestion('Valider');
+        else if (labelKey.includes('refus') || labelKey.includes('rejet')) setDocumentAiSuggestion('Refuser');
+        else setDocumentAiSuggestion('En attente d analyse');
+        if (fields.documentPreviewWrap instanceof HTMLElement && fields.documentPreviewImage instanceof HTMLImageElement) {
+            const lower = resolvedHref.toLowerCase();
+            const isImage = lower.endsWith('.png') || lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.webp') || lower.endsWith('.gif');
+            if (hasDoc && isImage) {
+                fields.documentPreviewImage.src = resolvedHref;
+                fields.documentPreviewWrap.classList.remove('ga-hidden');
+            } else {
+                hidePreview();
+            }
+        }
+        updateDocumentUiVisibility();
+    };
+
+    const resolveCreditLabel = (creditIdValue) => {
+        const creditId = String(creditIdValue ?? '').trim();
+        if (creditId === '') return 'Aucun credit associe.';
+        const option = creditOptions.find((opt) => opt.value === creditId);
+        return option ? option.textContent.trim() : `Credit #${creditId}`;
+    };
+
+    const refreshSummary = () => {
+        const estimated = parseNum(fields.estimated instanceof HTMLInputElement ? fields.estimated.value : 0);
+        const retained = parseNum(fields.retained instanceof HTMLInputElement ? fields.retained.value : 0);
+        const coverage = estimated > 0 ? Math.min(100, Math.round((retained / estimated) * 100)) : 0;
+
+        if (summary.type instanceof HTMLElement) {
+            if (fields.type instanceof HTMLSelectElement && fields.type.value.trim() !== '') {
+                const selected = fields.type.options[fields.type.selectedIndex];
+                summary.type.textContent = selected ? selected.textContent.trim() : 'Type garantie';
+            } else {
+                summary.type.textContent = 'Type garantie';
+            }
+        }
+        setChipStatus(summary.status, fields.statut instanceof HTMLSelectElement ? fields.statut.value : 'En attente');
+        if (summary.estimated instanceof HTMLElement) summary.estimated.textContent = formatMoney(estimated);
+        if (summary.retained instanceof HTMLElement) summary.retained.textContent = formatMoney(retained);
+        if (summary.coverage instanceof HTMLElement) summary.coverage.textContent = `${coverage}%`;
+        if (summary.coverageBar instanceof HTMLElement) summary.coverageBar.style.width = `${coverage}%`;
+        if (summary.documentText instanceof HTMLElement) {
+            const docStatus = fields.documentStatus instanceof HTMLElement ? fields.documentStatus.textContent : 'En attente';
+            summary.documentText.textContent = `Justificatif: ${docStatus || 'En attente'}.`;
+        }
+        if (summary.credit instanceof HTMLElement) {
+            const creditLabel = fields.creditId instanceof HTMLSelectElement ? resolveCreditLabel(fields.creditId.value) : 'Aucun credit associe.';
+            summary.credit.textContent = creditLabel;
+        }
+
+        const idValue = fields.id instanceof HTMLInputElement ? fields.id.value.trim() : '';
+        const hasId = idValue !== '' && Number(idValue) > 0;
+        if (summary.validateId instanceof HTMLInputElement) summary.validateId.value = hasId ? idValue : '';
+        if (summary.rejectId instanceof HTMLInputElement) summary.rejectId.value = hasId ? idValue : '';
+        if (summary.deleteId instanceof HTMLInputElement) summary.deleteId.value = hasId ? idValue : '';
+        if (fields.documentValidateForm instanceof HTMLFormElement) {
+            fields.documentValidateForm.action = hasId
+                ? `{{ path('admin_document_valider', {id: 0}) }}`.replace('/0/', `/${idValue}/`)
+                : `{{ path('admin_document_valider', {id: 0}) }}`;
+        }
+        if (fields.documentRejectForm instanceof HTMLFormElement) {
+            fields.documentRejectForm.action = hasId
+                ? `{{ path('admin_document_refuser', {id: 0}) }}`.replace('/0/', `/${idValue}/`)
+                : `{{ path('admin_document_refuser', {id: 0}) }}`;
+        }
+        if (summary.validateBtn instanceof HTMLButtonElement) summary.validateBtn.disabled = !hasId;
+        if (summary.rejectBtn instanceof HTMLButtonElement) summary.rejectBtn.disabled = !hasId;
+        if (summary.deleteBtn instanceof HTMLButtonElement) summary.deleteBtn.disabled = !hasId;
+        if (fields.documentValidateBtn instanceof HTMLButtonElement) fields.documentValidateBtn.disabled = !hasId;
+        if (fields.documentRejectBtn instanceof HTMLButtonElement) fields.documentRejectBtn.disabled = !hasId;
+        if (summary.view instanceof HTMLAnchorElement) {
+            const href = fields.documentLink instanceof HTMLAnchorElement && !fields.documentLink.hidden ? fields.documentLink.href : '#';
+            summary.view.href = href;
+            summary.view.classList.toggle('ga-hidden', href === '#');
+        }
+    };
+
+    let mapInstance = null;
+    let marker = null;
+    const defaultCenter = { lat: 36.8065, lng: 10.1815, zoom: 11 };
+
+    const ensureMap = () => {
+        if (!(mapHost instanceof HTMLElement)) return false;
+        if (typeof window.L === 'undefined') return false;
+        if (mapInstance) return true;
+        mapInstance = window.L.map(mapHost).setView([defaultCenter.lat, defaultCenter.lng], defaultCenter.zoom);
+        window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap',
+        }).addTo(mapInstance);
+        mapInstance.on('click', (event) => {
+            setCoordinates(event.latlng.lat, event.latlng.lng, true);
+        });
+        window.setTimeout(() => mapInstance.invalidateSize(), 100);
+        return true;
+    };
+
+    const setCoordinates = (lat, lng, reverseLookup = false) => {
+        if (!ensureMap()) return;
+        const latitude = Number(lat);
+        const longitude = Number(lng);
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+            if (marker) {
+                mapInstance.removeLayer(marker);
+                marker = null;
+            }
+            mapInstance.setView([defaultCenter.lat, defaultCenter.lng], defaultCenter.zoom);
+            return;
+        }
+
+        if (!marker) {
+            marker = window.L.marker([latitude, longitude], { draggable: true }).addTo(mapInstance);
+            marker.on('dragend', () => {
+                const p = marker.getLatLng();
+                setCoordinates(p.lat, p.lng, true);
+            });
+        } else {
+            marker.setLatLng([latitude, longitude]);
+        }
+
+        mapInstance.setView([latitude, longitude], 15);
+        if (fields.latitude instanceof HTMLInputElement) fields.latitude.value = latitude.toFixed(6);
+        if (fields.longitude instanceof HTMLInputElement) fields.longitude.value = longitude.toFixed(6);
+
+        if (!reverseLookup) return;
+        setAddressStatus('Verifiee');
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&zoom=18&lat=${encodeURIComponent(latitude.toFixed(6))}&lon=${encodeURIComponent(longitude.toFixed(6))}`, {
+            headers: { 'Accept': 'application/json', 'Accept-Language': 'fr' },
+        })
+            .then((response) => response.ok ? response.json() : null)
+            .then((place) => {
+                if (!place) return;
+                applyPlace(place);
+            })
+            .catch(() => {
+                setAddressStatus('Verifiee');
+            });
     };
 
     const hideSuggestions = () => {
@@ -286,181 +1253,263 @@ tr.nx-page-hidden {
         suggestions.innerHTML = '';
     };
 
-    const renderSuggestions = (items) => {
-        if (!(suggestions instanceof HTMLElement)) return;
-        suggestions.innerHTML = '';
-        if (!Array.isArray(items) || items.length === 0) {
-            suggestions.hidden = true;
-            return;
-        }
-
-        items.forEach((item) => {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'btn btn-secondary';
-            button.style.textAlign = 'left';
-            button.textContent = String(item.display_name ?? '').trim();
-            button.addEventListener('click', () => syncPlaceToFields(item));
-            suggestions.appendChild(button);
-        });
-        suggestions.hidden = false;
-    };
-
-    const syncMapMeta = ({ address = '', city = '', country = '', status = 'A verifier' } = {}) => {
-        if (mapTitle) mapTitle.textContent = address !== '' ? 'Adresse selectionnee' : 'Adresse a verifier';
-        if (mapAddress) mapAddress.textContent = address !== '' ? address : 'Aucune adresse selectionnee.';
-        if (mapCity) mapCity.textContent = `Ville: ${city || '-'}`;
-        if (mapCountry) mapCountry.textContent = `Pays: ${country || '-'}`;
-        setAddressStatus(status);
-    };
-
-    const syncPlaceToFields = (place) => {
-        const formattedAddress = String(place?.display_name || '');
+    const applyPlace = (place) => {
+        const display = String(place?.display_name ?? '').trim();
         const address = place?.address ?? {};
-        const city = String(address.city || address.town || address.village || address.county || address.state || '');
+        const city = String(address.city || address.town || address.village || address.county || '');
         const postal = String(address.postcode || '');
         const country = String(address.country || '');
         const lat = String(place?.lat ?? '');
         const lng = String(place?.lon ?? '');
 
-        if (addressCompleteField instanceof HTMLInputElement) addressCompleteField.value = formattedAddress;
-        if (cityField instanceof HTMLInputElement) cityField.value = city;
-        if (postalField instanceof HTMLInputElement) postalField.value = postal;
-        if (countryField instanceof HTMLInputElement) countryField.value = country;
-        if (latitudeField instanceof HTMLInputElement) latitudeField.value = lat;
-        if (longitudeField instanceof HTMLInputElement) longitudeField.value = lng;
-
-        const status = formattedAddress !== '' && lat !== '' && lng !== '' ? 'Verifiee' : 'A verifier';
-        syncMapMeta({ address: formattedAddress, city, country, status });
-        updateAdminMap(lat, lng);
+        if (fields.address instanceof HTMLInputElement) fields.address.value = display;
+        if (fields.addressSimple instanceof HTMLInputElement) fields.addressSimple.value = display;
+        if (fields.city instanceof HTMLInputElement) fields.city.value = city;
+        if (fields.postal instanceof HTMLInputElement) fields.postal.value = postal;
+        if (fields.country instanceof HTMLInputElement) fields.country.value = country;
+        setAddressStatus(display !== '' && lat !== '' && lng !== '' ? 'Verifiee' : 'En attente');
+        setCoordinates(lat, lng, false);
         hideSuggestions();
     };
 
-    const initAdminGarantieMap = () => {
-        if (!(addressCompleteField instanceof HTMLInputElement)) {
-            return;
-        }
-        updateAdminMap(
-            latitudeField instanceof HTMLInputElement ? latitudeField.value : '',
-            longitudeField instanceof HTMLInputElement ? longitudeField.value : ''
-        );
-        syncMapMeta({
-            address: addressCompleteField instanceof HTMLInputElement ? addressCompleteField.value : '',
-            city: cityField instanceof HTMLInputElement ? cityField.value : '',
-            country: countryField instanceof HTMLInputElement ? countryField.value : '',
-            status: addressStatusField instanceof HTMLInputElement ? addressStatusField.value : 'A verifier',
-        });
-    };
-    if (addressCompleteField instanceof HTMLInputElement) {
-        addressCompleteField.addEventListener('input', () => {
-            window.clearTimeout(addressSearchTimer);
-            setAddressStatus('A verifier');
-            if (latitudeField instanceof HTMLInputElement) latitudeField.value = '';
-            if (longitudeField instanceof HTMLInputElement) longitudeField.value = '';
-            const query = addressCompleteField.value.trim();
+    let suggestionTimer = null;
+        if (fields.address instanceof HTMLInputElement) {
+            fields.address.addEventListener('input', () => {
+                window.clearTimeout(suggestionTimer);
+                if (fields.addressSimple instanceof HTMLInputElement) fields.addressSimple.value = fields.address.value;
+                setAddressStatus('En attente');
+                if (fields.latitude instanceof HTMLInputElement) fields.latitude.value = '';
+            if (fields.longitude instanceof HTMLInputElement) fields.longitude.value = '';
+            const query = fields.address.value.trim();
             if (query.length < 4) {
                 hideSuggestions();
-                updateAdminMap('', '');
                 return;
             }
-            addressSearchTimer = window.setTimeout(async () => {
+            suggestionTimer = window.setTimeout(async () => {
                 try {
                     const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&q=${encodeURIComponent(query)}`, {
-                        headers: {
-                            'Accept': 'application/json',
-                            'Accept-Language': 'fr',
-                        },
+                        headers: { 'Accept': 'application/json', 'Accept-Language': 'fr' },
                     });
-                    if (!response.ok) {
-                        throw new Error('OpenStreetMap indisponible');
+                    if (!response.ok) throw new Error('Nominatim unavailable');
+                    const data = await response.json();
+                    if (!(suggestions instanceof HTMLElement)) return;
+                    suggestions.innerHTML = '';
+                    if (!Array.isArray(data) || data.length === 0) {
+                        suggestions.hidden = true;
+                        return;
                     }
-                    const items = await response.json();
-                    renderSuggestions(items);
+                    data.forEach((place) => {
+                        const button = document.createElement('button');
+                        button.type = 'button';
+                        button.className = 'ga-suggest-btn';
+                        button.textContent = String(place.display_name ?? '').trim();
+                        button.addEventListener('click', () => applyPlace(place));
+                        suggestions.appendChild(button);
+                    });
+                    suggestions.hidden = false;
                 } catch (_error) {
                     hideSuggestions();
                 }
-            }, 350);
+            }, 320);
         });
     }
-    form?.addEventListener('reset', () => {
-        requestAnimationFrame(() => {
-            if (addressCompleteField instanceof HTMLInputElement) addressCompleteField.value = '';
-            if (cityField instanceof HTMLInputElement) cityField.value = '';
-            if (postalField instanceof HTMLInputElement) postalField.value = '';
-            if (countryField instanceof HTMLInputElement) countryField.value = '';
-            if (latitudeField instanceof HTMLInputElement) latitudeField.value = '';
-            if (longitudeField instanceof HTMLInputElement) longitudeField.value = '';
-            syncMapMeta({});
-            updateAdminMap('', '');
-            hideSuggestions();
+
+    if (fields.documentFile instanceof HTMLInputElement) {
+        fields.documentFile.addEventListener('change', async () => {
+            const file = fields.documentFile.files?.[0] ?? null;
+            if (!file) {
+                setDocumentError('');
+                if (fields.existingDocument instanceof HTMLInputElement && fields.existingDocument.value.trim() === '') {
+                    setAnalyzeStatus('pending', 'En attente');
+                }
+                setDocumentAiSuggestion('En attente d analyse');
+                refreshSummary();
+                return;
+            }
+            const result = await analyzeDocument();
+            setDocumentError(result.ok ? '' : (result.message || 'Document invalide.'));
+            refreshSummary();
+        });
+    }
+
+    if (fields.documentPickerBtn instanceof HTMLButtonElement) {
+        fields.documentPickerBtn.addEventListener('click', () => {
+            if (fields.documentFile instanceof HTMLInputElement) {
+                fields.documentFile.click();
+            }
+        });
+    }
+
+    if (fields.documentReplaceToggle instanceof HTMLInputElement) {
+        fields.documentReplaceToggle.addEventListener('change', () => {
+            updateDocumentUiVisibility();
+            if (!fields.documentReplaceToggle.checked && fields.documentFile instanceof HTMLInputElement) {
+                fields.documentFile.value = '';
+                setDocumentError('');
+                setAnalyzeStatus('pending', 'En attente');
+            }
+        });
+    }
+
+    if (fields.documentAnalyzeBtn instanceof HTMLButtonElement) {
+        fields.documentAnalyzeBtn.addEventListener('click', async () => {
+            const result = await analyzeDocument();
+            setDocumentError(result.ok ? '' : (result.message || 'Document invalide.'));
+        });
+    }
+
+    const fillFormFromCard = (card) => {
+        if (!(card instanceof HTMLElement)) return;
+        if (fields.id instanceof HTMLInputElement) fields.id.value = card.dataset.id || '';
+        if (fields.creditId instanceof HTMLSelectElement) fields.creditId.value = card.dataset.creditId || '';
+        if (fields.type instanceof HTMLSelectElement) fields.type.value = card.dataset.type || '';
+        if (fields.garant instanceof HTMLInputElement) fields.garant.value = card.dataset.garant || '';
+        if (fields.date instanceof HTMLInputElement) fields.date.value = card.dataset.date || '';
+        if (fields.estimated instanceof HTMLInputElement) fields.estimated.value = card.dataset.estimated || '';
+        if (fields.retained instanceof HTMLInputElement) fields.retained.value = card.dataset.retained || '';
+        if (fields.address instanceof HTMLInputElement) fields.address.value = card.dataset.address || '';
+        if (fields.addressSimple instanceof HTMLInputElement) fields.addressSimple.value = card.dataset.address || '';
+        if (fields.city instanceof HTMLInputElement) fields.city.value = card.dataset.city || '';
+        if (fields.postal instanceof HTMLInputElement) fields.postal.value = card.dataset.postal || '';
+        if (fields.country instanceof HTMLInputElement) fields.country.value = card.dataset.country || '';
+        if (fields.statut instanceof HTMLSelectElement) fields.statut.value = card.dataset.statut || 'En attente';
+        if (fields.remarque instanceof HTMLTextAreaElement) fields.remarque.value = card.dataset.remarque || '';
+        setAddressStatus(card.dataset.addressStatus || 'En attente');
+        setCoordinates(card.dataset.latitude || '', card.dataset.longitude || '', false);
+        setDocumentReference(card.dataset.document || '', card.dataset.documentStatus || 'En attente');
+        if (fields.documentReplaceToggle instanceof HTMLInputElement) fields.documentReplaceToggle.checked = false;
+        setDocumentError('');
+        setAnalyzeStatus('pending', 'En attente');
+        const documentStatusKey = String(card.dataset.documentStatusKey || '').trim().toLowerCase();
+        if (documentStatusKey === 'valide') setDocumentAiSuggestion('Valider');
+        else if (documentStatusKey === 'refuse') setDocumentAiSuggestion('Refuser');
+        else setDocumentAiSuggestion('En attente d analyse');
+        updateDocumentUiVisibility();
+        refreshSummary();
+        form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    editButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            const card = button.closest('[data-ga-item]');
+            fillFormFromCard(card);
         });
     });
 
-    const pager = document.getElementById('admin-garanties-pager');
-    const rows = Array.from(document.querySelectorAll('.nx-crud-table tbody tr'))
-        .filter((row) => row.querySelector('td') && row.querySelectorAll('td').length > 1);
-    const pageSize = 8;
+    cards.forEach((card) => {
+        card.addEventListener('click', (event) => {
+            const target = event.target;
+            if (target instanceof HTMLElement && target.closest('button, a, form')) return;
+            fillFormFromCard(card);
+        });
+    });
+
+    summary.edit?.addEventListener('click', () => {
+        if (!(fields.id instanceof HTMLInputElement)) return;
+        const id = fields.id.value.trim();
+        if (id === '') return;
+        const card = cards.find((entry) => entry instanceof HTMLElement && entry.dataset.id === id);
+        if (card) {
+            fillFormFromCard(card);
+        }
+    });
+
+    const pageSize = 6;
     let currentPage = 1;
 
-    if (!(pager instanceof HTMLElement) || rows.length === 0) {
-        return;
-    }
-
     const renderPager = () => {
-        const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+        if (!(pager instanceof HTMLElement)) return;
+        const totalPages = Math.max(1, Math.ceil(cards.length / pageSize));
         currentPage = Math.min(Math.max(1, currentPage), totalPages);
         pager.innerHTML = '';
-        pager.hidden = rows.length === 0;
+        pager.hidden = cards.length === 0;
         if (pager.hidden) return;
 
-        const appendButton = (label, page, { icon = '', disabled = false, active = false, ariaLabel = '' } = {}) => {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'nx-crud-pager-btn';
-            btn.disabled = disabled;
-            btn.setAttribute('aria-label', ariaLabel || String(label));
-            btn.innerHTML = icon ? `<i class="${icon}"></i>` : String(label);
-            if (active) btn.classList.add('is-active');
-            btn.addEventListener('click', () => {
+        const addButton = (label, page, disabled = false, active = false) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'ga-page-btn';
+            if (active) button.classList.add('is-active');
+            button.disabled = disabled;
+            button.textContent = label;
+            button.addEventListener('click', () => {
                 if (disabled || page === currentPage) return;
                 currentPage = page;
                 applyPagination();
             });
-            pager.appendChild(btn);
+            pager.appendChild(button);
         };
 
-        appendButton('Prev', Math.max(1, currentPage - 1), { icon: 'fa-solid fa-chevron-left', disabled: currentPage === 1, ariaLabel: 'Page precedente' });
+        addButton('<', Math.max(1, currentPage - 1), currentPage === 1);
         for (let page = 1; page <= totalPages; page += 1) {
-            appendButton(String(page), page, { active: page === currentPage });
+            addButton(String(page), page, false, page === currentPage);
         }
-        appendButton('Next', Math.min(totalPages, currentPage + 1), { icon: 'fa-solid fa-chevron-right', disabled: currentPage === totalPages, ariaLabel: 'Page suivante' });
+        addButton('>', Math.min(totalPages, currentPage + 1), currentPage === totalPages);
     };
 
     const applyPagination = () => {
         const start = (currentPage - 1) * pageSize;
         const end = start + pageSize;
-        rows.forEach((row, index) => row.classList.toggle('nx-page-hidden', index < start || index >= end));
+        cards.forEach((card, index) => {
+            card.classList.toggle('ga-hidden', index < start || index >= end);
+        });
         renderPager();
     };
 
-    document.querySelectorAll('.nx-crud-table tbody tr[data-address-complete]').forEach((row) => {
-        row.addEventListener('click', () => {
-            syncMapMeta({
-                address: row.dataset.addressComplete ?? '',
-                city: row.dataset.city ?? '',
-                country: row.dataset.country ?? '',
-                status: row.dataset.addressStatus ?? 'A verifier',
-            });
-            updateAdminMap(row.dataset.latitude ?? '', row.dataset.longitude ?? '');
-        });
+    [
+        fields.id,
+        fields.creditId,
+        fields.type,
+        fields.garant,
+        fields.date,
+        fields.estimated,
+        fields.retained,
+        fields.statut,
+        fields.remarque,
+    ].forEach((field) => {
+        field?.addEventListener('input', refreshSummary);
+        field?.addEventListener('change', refreshSummary);
     });
 
-    initAdminGarantieMap();
-    applyPagination();
+    form.addEventListener('submit', async (event) => {
+        const file = fields.documentFile instanceof HTMLInputElement ? fields.documentFile.files?.[0] ?? null : null;
+        if (!file) {
+            return;
+        }
+        const result = await analyzeDocument();
+        if (!result.ok) {
+            event.preventDefault();
+            setDocumentError(result.message || 'Document invalide.');
+            fields.documentFile?.focus();
+        } else {
+            setDocumentError('');
+        }
+    });
+
+    form.addEventListener('reset', () => {
+        window.setTimeout(() => {
+            setAddressStatus('En attente');
+            setCoordinates('', '', false);
+            if (fields.documentReplaceToggle instanceof HTMLInputElement) fields.documentReplaceToggle.checked = false;
+            setDocumentReference('', 'En attente');
+            setAnalyzeStatus('pending', 'En attente');
+            setDocumentError('');
+            refreshSummary();
+        }, 0);
+    });
+
     document.addEventListener('click', (event) => {
         if (!(suggestions instanceof HTMLElement) || suggestions.hidden) return;
-        if (suggestions.contains(event.target) || addressCompleteField?.contains(event.target)) return;
+        const target = event.target;
+        if (target instanceof HTMLElement && (suggestions.contains(target) || target === fields.address)) return;
         hideSuggestions();
     });
+
+    ensureMap();
+    if (fields.documentReplaceToggle instanceof HTMLInputElement) fields.documentReplaceToggle.checked = false;
+    setDocumentReference(fields.existingDocument instanceof HTMLInputElement ? fields.existingDocument.value : '', 'En attente');
+    setAnalyzeStatus('pending', 'En attente');
+    refreshSummary();
+    applyPagination();
 })();
 </script>

@@ -27,14 +27,17 @@ class Partenaire
     #[ORM\Column(name: 'description', type: 'string', length: 255, nullable: true)]
     private ?string $description = null;
 
-    #[ORM\Column(name: 'tauxCashback', type: 'float', precision: 22)]
-    private float $tauxcashback;
+    #[ORM\Column(name: 'ville', type: 'string', length: 120, nullable: true)]
+    private ?string $ville = null;
 
-    #[ORM\Column(name: 'tauxCashbackMax', type: 'float', precision: 22)]
-    private float $tauxcashbackmax;
+    #[ORM\Column(name: 'tauxCashback', type: 'decimal', precision: 5, scale: 2)]
+    private string $tauxcashback;
 
-    #[ORM\Column(name: 'plafondMensuel', type: 'float', precision: 22)]
-    private float $plafondmensuel;
+    #[ORM\Column(name: 'tauxCashbackMax', type: 'decimal', precision: 5, scale: 2)]
+    private string $tauxcashbackmax;
+
+    #[ORM\Column(name: 'plafondMensuel', type: 'decimal', precision: 12, scale: 2)]
+    private string $plafondmensuel;
 
     #[ORM\Column(name: 'conditions', type: 'string', length: 255, nullable: true)]
     private ?string $conditions = null;
@@ -51,6 +54,20 @@ class Partenaire
     #[ORM\OneToMany(mappedBy: 'partenaire', targetEntity: CashbackEntries::class)]
     private Collection $cashbackEntrieses;
 
+    public function __construct()
+    {
+        $this->cashbacks         = new ArrayCollection();
+        $this->cashbackEntrieses = new ArrayCollection();
+    }
 
+    public function getCashbacks(): Collection
+    {
+        return $this->cashbacks;
+    }
+
+    public function getCashbackEntrieses(): Collection
+    {
+        return $this->cashbackEntrieses;
+    }
 
 }

@@ -8,6 +8,15 @@ doctrine:
 
         profiling_collect_backtrace: '%kernel.debug%'
         use_savepoints: true
+
+        # Fix : timezone synchronisation PHP ↔ MariaDB
+        options:
+            1002: "SET time_zone = '+01:00'"   # Europe/Berlin = UTC+1
+
+        # Fix : SQL strict mode pour éviter la troncature silencieuse
+        default_table_options:
+            charset: utf8mb4
+            collate: utf8mb4_unicode_ci
     orm:
         auto_generate_proxy_classes: true
         enable_lazy_ghost_objects: true

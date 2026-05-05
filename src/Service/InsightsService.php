@@ -7,6 +7,8 @@ use Doctrine\DBAL\Connection;
 final class InsightsService
 {
     private const SUPERPLUS_NOTIFICATION_TABLE = 'superplus_notifications';
+    private ?bool $superplusNotificationSchemaReady = null;
+    private ?bool $transactionsDestinationColumnExists = null;
 
     public function __construct(
         private readonly Connection $connection,
@@ -16,6 +18,11 @@ final class InsightsService
     ) {
     }
 
+    /**
+     * Analyse la sécurité des comptes d'un utilisateur.
+     *
+     * @return array{score: int, summary: string, sections: array<int, array<string, mixed>>, recommendations: array<int, string>}
+     */
     public function getAccountSecurityAnalysis(int $userId): array
     {
         $user = $this->connection->fetchAssociative('SELECT * FROM users WHERE idUser = ? LIMIT 1', [$userId]) ?: [];
@@ -621,6 +628,7 @@ final class InsightsService
 
     public function detectMonthlySurplus(int $userId): array
     {
+        $this->ensureSuperplusNotificationSchema();
         $currentMonth = $this->currentMonth();
         $alreadyShown = (bool) $this->connection->fetchOne(
             sprintf('SELECT COUNT(*) FROM %s WHERE idUser = ? AND moisAffiche = ?', self::SUPERPLUS_NOTIFICATION_TABLE),
@@ -643,10 +651,7 @@ final class InsightsService
         );
 
         $creditsByMonth = [];
-        $rows = $this->connection->fetchAllAssociative(
-            'SELECT dateTransaction, montant, typeTransaction, idCompte, idCompteDestinataire FROM transactions WHERE idUser = ? ORDER BY idTransaction DESC',
-            [$userId]
-        );
+        $rows = $this->fetchTransactionsForSurplus($userId);
 
         foreach ($rows as $row) {
             $typeRaw = strtolower(trim((string) ($row['typeTransaction'] ?? '')));
@@ -774,6 +779,7 @@ final class InsightsService
 
     public function acknowledgeMonthlySurplus(int $userId, string $month): void
     {
+        $this->ensureSuperplusNotificationSchema();
         $existing = $this->connection->fetchOne(
             sprintf('SELECT COUNT(*) FROM %s WHERE idUser = ? AND moisAffiche = ?', self::SUPERPLUS_NOTIFICATION_TABLE),
             [$userId, $month]
@@ -787,6 +793,74 @@ final class InsightsService
             'idUser' => $userId,
             'moisAffiche' => $month,
         ]);
+    }
+
+    private function ensureSuperplusNotificationSchema(): void
+    {
+        if ($this->superplusNotificationSchemaReady === true) {
+            return;
+        }
+
+        try {
+            $this->connection->executeStatement(
+                'CREATE TABLE IF NOT EXISTS superplus_notifications (
+                    idUser INT NOT NULL,
+                    moisAffiche VARCHAR(7) NOT NULL,
+                    dateCreation DATETIME NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (idUser, moisAffiche)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+            );
+            $this->superplusNotificationSchemaReady = true;
+        } catch (\Throwable $exception) {
+            $this->superplusNotificationSchemaReady = false;
+
+            throw new \RuntimeException(
+                'Unable to initialize superplus_notifications table: '.$exception->getMessage(),
+                0,
+                $exception
+            );
+        }
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function fetchTransactionsForSurplus(int $userId): array
+    {
+        if ($this->hasTransactionsDestinationColumn()) {
+            return $this->connection->fetchAllAssociative(
+                'SELECT dateTransaction, montant, typeTransaction, idCompte, idCompteDestinataire
+                 FROM transactions
+                 WHERE idUser = ?
+                 ORDER BY idTransaction DESC',
+                [$userId]
+            );
+        }
+
+        return $this->connection->fetchAllAssociative(
+            'SELECT dateTransaction, montant, typeTransaction, idCompte, NULL AS idCompteDestinataire
+             FROM transactions
+             WHERE idUser = ?
+             ORDER BY idTransaction DESC',
+            [$userId]
+        );
+    }
+
+    private function hasTransactionsDestinationColumn(): bool
+    {
+        if ($this->transactionsDestinationColumnExists !== null) {
+            return $this->transactionsDestinationColumnExists;
+        }
+
+        try {
+            $columns = $this->connection->createSchemaManager()->listTableColumns('transactions');
+            $normalized = array_change_key_case($columns, CASE_LOWER);
+            $this->transactionsDestinationColumnExists = array_key_exists('idcomptedestinataire', $normalized);
+        } catch (\Throwable) {
+            $this->transactionsDestinationColumnExists = false;
+        }
+
+        return $this->transactionsDestinationColumnExists;
     }
 
     public function transferDetectedMonthlySurplusToVault(int $userId, int $vaultId): array

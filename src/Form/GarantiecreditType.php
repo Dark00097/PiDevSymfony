@@ -2,8 +2,10 @@
 
 namespace App\Form;
 
+use App\Entity\Garantiecredit;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\DateType;
+use Symfony\Component\Form\Extension\Core\Type\FileType;
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\NumberType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
@@ -31,28 +33,12 @@ final class GarantiecreditType extends BaseCrudFormType
             ],
             'typeGarantie' => [
                 'type' => ChoiceType::class,
-                'placeholder' => 'Selectionner',
-                'choices' => [
-                    'Hypotheque immobiliere' => 'Hypotheque immobiliere',
-                    'Titre vehicule' => 'Titre vehicule',
-                    'Caution personnelle' => 'Caution personnelle',
-                    'Garantie bancaire' => 'Garantie bancaire',
-                    'Police assurance' => 'Police assurance',
-                    'Nantissement' => 'Nantissement',
-                    'Autre garantie' => 'Autre garantie',
-                ],
+                'placeholder' => 'Selectionner un type',
+                'choices' => Garantiecredit::getTypeChoices(),
                 'constraints' => [
                     new Assert\NotBlank(message: 'Le type de garantie est obligatoire.'),
                     new Assert\Choice(
-                        choices: [
-                            'Hypotheque immobiliere',
-                            'Titre vehicule',
-                            'Caution personnelle',
-                            'Garantie bancaire',
-                            'Police assurance',
-                            'Nantissement',
-                            'Autre garantie',
-                        ],
+                        choices: Garantiecredit::getAllowedTypeValues(),
                         message: 'Veuillez selectionner un type de garantie valide.'
                     ),
                 ],
@@ -192,12 +178,78 @@ final class GarantiecreditType extends BaseCrudFormType
                 ],
             ],
             'documentJustificatif' => [
-                'type' => TextType::class,
+                'type' => FileType::class,
+                'mapped' => false,
+                'required' => false,
                 'constraints' => [
-                    new Assert\NotBlank(message: 'Le document justificatif est obligatoire.'),
+                    new Assert\File(
+                        maxSize: '5M',
+                        mimeTypes: ['image/jpeg', 'image/png', 'application/pdf'],
+                        mimeTypesMessage: 'Format non autorise. Utilisez uniquement JPG, PNG ou PDF.'
+                    ),
+                ],
+            ],
+            'existingDocumentJustificatif' => [
+                'type' => HiddenType::class,
+                'required' => false,
+            ],
+            'documentUrl' => [
+                'type' => HiddenType::class,
+                'required' => false,
+            ],
+            'documentPublicId' => [
+                'type' => HiddenType::class,
+                'required' => false,
+            ],
+            'documentMimeType' => [
+                'type' => HiddenType::class,
+                'required' => false,
+            ],
+            'documentUploadedAt' => [
+                'type' => HiddenType::class,
+                'required' => false,
+            ],
+            'statutVerificationDocument' => [
+                'type' => ChoiceType::class,
+                'required' => false,
+                'placeholder' => 'Selectionner',
+                'choices' => [
+                    'En attente' => 'en_attente',
+                    'Valide' => 'valide',
+                    'Incomplet' => 'incomplet',
+                    'Rejete' => 'rejete',
+                    'Suspect' => 'suspect',
+                ],
+                'constraints' => [
+                    new Assert\Choice(
+                        choices: ['en_attente', 'valide', 'incomplet', 'rejete', 'suspect'],
+                        message: 'Veuillez selectionner un statut de verification valide.'
+                    ),
+                ],
+            ],
+            'statutDocument' => [
+                'type' => ChoiceType::class,
+                'required' => false,
+                'placeholder' => 'Selectionner',
+                'choices' => [
+                    'En attente' => 'en_attente',
+                    'Valide' => 'valide',
+                    'Refuse' => 'refuse',
+                ],
+                'constraints' => [
+                    new Assert\Choice(
+                        choices: ['en_attente', 'valide', 'refuse'],
+                        message: 'Veuillez selectionner un statut document valide.'
+                    ),
+                ],
+            ],
+            'remarqueAdmin' => [
+                'type' => TextareaType::class,
+                'required' => false,
+                'constraints' => [
                     new Assert\Length(
-                        max: 255,
-                        maxMessage: 'Le nom du document ne peut pas depasser {{ limit }} caracteres.'
+                        max: 500,
+                        maxMessage: 'La remarque admin ne peut pas depasser {{ limit }} caracteres.'
                     ),
                 ],
             ],

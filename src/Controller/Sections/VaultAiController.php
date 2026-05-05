@@ -16,7 +16,6 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 final class VaultAiController extends AbstractController
 {
     private const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-    private const GROQ_API_KEY = 'GROQ_KEY_HERE';
     private const GROQ_MODEL   = 'llama-3.1-8b-instant';
 
     public function __construct(private readonly HttpClientInterface $httpClient)
@@ -116,11 +115,16 @@ Valeurs autorisées pour "priorite"  : haute, moyenne, faible
 PROMPT;
     }
 
+    private function groqApiKey(): string
+    {
+        return (string) ($_ENV['GROQ_API_KEY'] ?? getenv('GROQ_API_KEY') ?: '');
+    }
+
     private function callGroq(string $prompt): string
     {
         $response = $this->httpClient->request('POST', self::GROQ_API_URL, [
             'headers' => [
-                'Authorization' => 'Bearer ' . self::GROQ_API_KEY,
+                'Authorization' => 'Bearer ' . $this->groqApiKey(),
                 'Content-Type'  => 'application/json',
             ],
             'json' => [

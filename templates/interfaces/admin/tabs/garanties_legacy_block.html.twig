@@ -1,0 +1,288 @@
+
+{% set garantie_type_choices = support.garantie_type_choices|default({
+    'titre_vehicule': 'Titre vehicule',
+    'hypotheque': 'Hypotheque',
+    'caution_bancaire': 'Caution bancaire',
+    'depot_garantie': 'Depot de garantie'
+}) %}
+
+        <div class="nx-acc__kpis">
+            <article class="nx-acc__kpi">
+                <span class="nx-acc__kpi-icon">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </span>
+                <div class="nx-acc__kpi-body">
+                    <strong>{{ garantie_items|length }}</strong>
+                    <small>Garanties enregistrées</small>
+                </div>
+            </article>
+            <article class="nx-acc__kpi">
+                <span class="nx-acc__kpi-icon">
+                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                </span>
+                <div class="nx-acc__kpi-body">
+                    <strong>{{ credit_items|length }}</strong>
+                    <small>Crédits reliés</small>
+                </div>
+            </article>
+            <article class="nx-acc__kpi">
+                <span class="nx-acc__kpi-icon">
+                    <i class="fa-solid fa-hourglass-half"></i>
+                </span>
+                <div class="nx-acc__kpi-body">
+                    <strong>{{ summary.credits_pending|default(0) }}</strong>
+                    <small>Crédits en attente</small>
+                </div>
+            </article>
+        </div>
+
+        <!-- GARANTIE CONTENT -->
+        <div class="nx-acc__grid">
+            <article class="nx-acc__panel" id="nx-garanties-form">
+                <div class="nx-acc__panel-head">
+                    <div class="nx-acc__panel-head-left">
+                        <h3>Garantie</h3>
+                        <p>Ajouter ou modifier une garantie</p>
+                    </div>
+                </div>
+                <form method="post" id="nx-garantie-form" class="nx-acc__form" enctype="multipart/form-data" novalidate>
+                    <input type="hidden" name="tab" value="credits">
+                    <input type="hidden" name="panel" value="garantie">
+                    <input type="hidden" name="action" value="garantie_save">
+
+                    <label class="nx-acc__form-label-id">
+                        <i class="fa-solid fa-hashtag"></i>
+                        <input type="number" name="idGarantie" id="nx-garantie-id" placeholder="ID (Auto)" readonly 
+                               style="background:transparent; border:none; color:inherit; font-weight:700; width:100%; height:auto; padding:0; box-shadow:none;">
+                    </label>
+
+                    <label>
+                        <span>Crédit Associé *</span>
+                        <select name="idCredit" id="nx-garantie-credit">
+                            <option value="">Sélectionner un crédit</option>
+                            {% for credit in credit_items %}
+                                <option value="{{ credit.idCredit }}">#{{ credit.idCredit }} - {{ credit.user_name|default('Inconnu') }} ({{ credit.typeCredit|default('Sans type') }})</option>
+                            {% endfor %}
+                        </select>
+                        <span id="cr-err-garantie-idCredit" class="nx-field-error"></span>
+                    </label>
+
+                    <label>
+                        <span>Type de Garantie *</span>
+                        <select name="typeGarantie" id="nx-garantie-type">
+                            <option value="">Sélectionner un type</option>
+                            {% for value, label in garantie_type_choices %}
+                                <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        <span id="cr-err-garantie-typeGarantie" class="nx-field-error"></span>
+                    </label>
+
+                    <label>
+                        <span>Description *</span>
+                        <input type="text" name="description" id="nx-garantie-desc" placeholder="Détails de la garantie">
+                        <span id="cr-err-garantie-description" class="nx-field-error"></span>
+                    </label>
+
+                    <label>
+                        <span>Adresse du Bien *</span>
+                        <input type="text" name="adresseBien" id="nx-garantie-address" placeholder="Ville, quartier, etc.">
+                        <span id="cr-err-garantie-adresseBien" class="nx-field-error"></span>
+                    </label>
+
+                    <label>
+                        <span>Valeur Estimée (DT) *</span>
+                        <input type="number" step="0.01" name="valeurEstimee" id="nx-garantie-estimated" placeholder="0.00">
+                        <span id="cr-err-garantie-valeurEstimee" class="nx-field-error"></span>
+                    </label>
+
+                    <label>
+                        <span>Valeur Retenue (DT) *</span>
+                        <input type="number" step="0.01" name="valeurRetenue" id="nx-garantie-retained" placeholder="0.00" data-manual="0">
+                        <span id="cr-err-garantie-valeurRetenue" class="nx-field-error"></span>
+                    </label>
+
+                    <label>
+                        <span>Date d'Évaluation *</span>
+                        <input type="date" name="dateEvaluation" value="{{ current_date }}" max="{{ current_date }}" id="nx-garantie-date">
+                        <span id="cr-err-garantie-dateEvaluation" class="nx-field-error"></span>
+                    </label>
+
+                    <label>
+                        <span>Nom du Garant *</span>
+                        <input type="text" name="nomGarant" id="nx-garantie-guarantor" placeholder="Prénom Nom" value="N/A">
+                        <span id="cr-err-garantie-nomGarant" class="nx-field-error"></span>
+                    </label>
+
+                    <label>
+                        <span>Statut</span>
+                        <select name="statut" id="nx-garantie-status">
+                            {% for status in ['Soumise', 'En cours_verification', 'Acceptee', 'Rejetee', 'Restituee'] %}
+                                <option value="{{ status }}"{{ status == 'Soumise' ? ' selected' : '' }}>{{ status }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+
+                    <label>
+                        <span>Justificatif (Image/PDF) *</span>
+                        <input type="file" name="documentJustificatifFile" id="nx-garantie-file" accept="image/jpeg,image/png,application/pdf" style="position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;">
+                        <button type="button" id="nx-garantie-file-picker" class="na-btn na-btn--ghost-dark" style="margin-top:.35rem;">
+                            <i class="fa-solid fa-upload"></i>
+                            Choisir un document
+                        </button>
+                        <input type="hidden" name="existingDocumentJustificatif" id="nx-garantie-file-existing">
+                        <div id="nx-garantie-current-preview" style="margin-top:.45rem; display:none;">
+                            <a id="nx-garantie-current-link" href="#" target="_blank" rel="noopener" style="display:inline-flex; align-items:center; gap:.35rem; color:var(--na-blue); font-size:.78rem; margin-bottom:.35rem;">
+                                <i class="fa-solid fa-link"></i>
+                                <span id="nx-garantie-current-name">Voir le justificatif actuel</span>
+                            </a>
+                            <img id="nx-garantie-current-image" src="" alt="Justificatif actuel" style="display:none; max-width:180px; max-height:130px; border-radius:8px; border:1px solid var(--na-border); object-fit:cover;">
+                        </div>
+                        <small id="nx-garantie-ai-suggestion" style="display:block; margin-top:.35rem; color:var(--na-muted);">Suggestion IA: En attente d'analyse.</small>
+                        <span id="cr-err-garantie-documentJustificatif" class="nx-field-error"></span>
+                    </label>
+
+                    <div class="nx-acc__form-actions">
+                        <button class="na-btn na-btn--save" type="submit">
+                            <i class="fa-solid fa-floppy-disk"></i> Enregistrer
+                        </button>
+                        <button class="na-btn na-btn--reset" type="reset">
+                            <i class="fa-solid fa-rotate-left"></i> Annuler
+                        </button>
+                    </div>
+                </form>
+            </article>
+
+            <!-- Table -->
+            <article class="nx-acc__panel nx-acc__table-wrap">
+                <div class="nx-acc__panel-head">
+                    <div class="nx-acc__panel-head-left">
+                        <h3>Liste des Garanties</h3>
+                        <p>Gestion complète des garanties</p>
+                    </div>
+                </div>
+                <div style="padding: 1rem 1.3rem; border-bottom: 1px solid var(--na-border); display: flex; align-items: center; gap: .75rem;">
+                    <div style="flex:1; position: relative;">
+                         <input type="search" id="nx-garantie-search" placeholder="Rechercher ID, type, garant, adresse..." 
+                            style="width: 100%; height: 38px; border: 1px solid var(--na-border); border-radius: 9px; padding: 0 1rem 0 2rem; outline: none; font-size: .8rem;">
+                         <i class="fa-solid fa-search" style="position: absolute; left: .7rem; top: 12px; color: var(--na-muted);"></i>
+                    </div>
+                    <select id="nx-garantie-sort" style="height: 38px; border: 1px solid var(--na-border); border-radius: 9px; padding: 0 1rem; outline: none; font-size: .8rem; background: var(--na-bg);">
+                        <option value="default">Trier: ordre initial</option>
+                        <option value="id-desc">ID plus récent</option>
+                        <option value="id-asc">ID croissant</option>
+                        <option value="credit-asc">ID Crédit</option>
+                        <option value="type-asc">Type A-Z</option>
+                        <option value="value-desc">Valeur la plus élevée</option>
+                        <option value="status-asc">Statut A-Z</option>
+                    </select>
+                </div>
+                <table class="nx-acc__table">
+                    <thead>
+                        <tr>
+                            <th>N° Garantie</th>
+                            <th>Crédit</th>
+                            <th>Valeur Evaluée</th>
+                            <th>Garant / Date</th>
+                            <th>Type</th>
+                            <th>Statut</th>
+                            <th>Doc</th>
+                            <th>Couverture</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="nx-garantie-tbody">
+                        {% for item in garantie_items %}
+                        <tr
+                                class="nx-garantie-row"
+                                data-garantie-id="{{ item.idGarantie }}"
+                                data-garantie-credit-id="{{ item.idCredit|default('') }}"
+                                data-garantie-type="{{ item.typeGarantieValue|default(item.typeGarantie|default(''))|e('html_attr') }}"
+                                data-garantie-description="{{ item.description|default('')|e('html_attr') }}"
+                                data-garantie-address="{{ item.adresseBien|default('')|e('html_attr') }}"
+                                data-garantie-estimated="{{ item.valeurEstimee|default('') }}"
+                                data-garantie-retained="{{ item.valeurRetenue|default('') }}"
+                                data-garantie-date="{{ item.dateEvaluation|default(current_date)|slice(0, 10) }}"
+                                data-garantie-guarantor="{{ item.nomGarant|default('')|e('html_attr') }}"
+                                data-garantie-status="{{ item.statut|default('')|e('html_attr') }}"
+                                data-garantie-document="{{ item.documentJustificatif|default('')|e('html_attr') }}"
+                                data-garantie-document-url="{{ item.documentUrl|default(item.documentJustificatif|default(''))|e('html_attr') }}"
+                                data-garantie-document-status="{{ item.statutDocument|default('en_attente')|e('html_attr') }}"
+                                data-garantie-document-status-label="{{ item.statutDocumentLabel|default(item.statutVerificationDocumentLabel|default('En attente'))|e('html_attr') }}"
+                                data-search-index="{{ (item.idGarantie ~ ' ' ~ item.idCredit ~ ' ' ~ item.typeGarantieLabel|default(item.typeGarantie|default('')) ~ ' ' ~ item.description ~ ' ' ~ item.statut|default('') ~ ' ' ~ item.nomGarant|default('') ~ ' ' ~ item.adresseBien|default(''))|lower|e('html_attr') }}"
+                            >
+                                {% set statusHtml = item.statut|default('Soumise')|lower %}
+                                {% set statusCls = 'is-neutral' %}
+                                {% if 'soumise' in statusHtml or 'attente' in statusHtml %} {% set statusCls = 'is-bloqué' %}
+                                {% elseif 'cours' in statusHtml %} {% set statusCls = 'is-courant' %}
+                                {% elseif 'accep' in statusHtml %} {% set statusCls = 'is-actif' %}
+                                {% elseif 'rejet' in statusHtml %} {% set statusCls = 'is-fermé' %}
+                                {% endif %}
+                                {% set rat = item.valeurEstimee > 0 ? (item.valeurRetenue / item.valeurEstimee * 100)|round : 0 %}
+
+                                <td><span class="nx-acc__num">#{{ item.idGarantie }}</span></td>
+                                <td>
+                                    <div style="font-weight: 600; color: var(--na-blue);">Crédit #{{ item.idCredit }}</div>
+                                    <small style="color: var(--na-muted);">{{ item.credit_type|default('—') }}</small>
+                                </td>
+                                <td>
+                                    <div class="nx-acc__amount">{{ item.valeurEstimee|number_format(2, '.', ' ') }} <em>DT</em></div>
+                                    <small style="color:var(--na-muted); font-size:11px;">Retenue: {{ item.valeurRetenue|number_format(2, '.', ' ') }} DT</small>
+                                </td>
+                                <td>
+                                    <div class="nx-acc__owner">
+                                        <div class="nx-acc__owner-dot">{{ item.nomGarant|default('?')|first|upper }}</div>
+                                        <div class="nx-acc__owner-name" style="display:flex;flex-direction:column;">
+                                            <span>{{ item.nomGarant|default('—') }}</span>
+                                            <span style="font-size:11px;color:var(--na-muted);">{{ item.dateEvaluation|default('—') }}</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td><span class="nx-acc__tag is-épargne">{{ item.typeGarantieLabel|default(item.typeGarantie|default('—')) }}</span></td>
+                                <td><span class="nx-acc__tag {{ statusCls }}">{{ item.statut|default('—') }}</span></td>
+                                <td>
+                                    {% set docStatus = item.statutDocumentLabel|default(item.statutVerificationDocumentLabel|default('En attente')) %}
+                                    {% set docStatusLower = docStatus|lower %}
+                                    {% set docStatusClass = 'is-bloqué' %}
+                                    {% if 'valid' in docStatusLower %}
+                                        {% set docStatusClass = 'is-actif' %}
+                                    {% elseif 'refus' in docStatusLower or 'rejet' in docStatusLower %}
+                                        {% set docStatusClass = 'is-fermé' %}
+                                    {% endif %}
+                                    <span class="nx-acc__tag {{ docStatusClass }}">{{ docStatus }}</span>
+                                </td>
+                                <td>
+                                    <div class="nx-acc__progress-wrap">
+                                        <div class="nx-acc__progress-bar">
+                                            <div class="nx-acc__progress-fill" style="width: {{ rat > 100 ? 100 : rat }}%;"></div>
+                                        </div>
+                                        <span class="nx-acc__progress-label">{{ rat }}% couvert</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div style="display:flex;gap:4px;">
+                                        <button class="na-btn na-btn--ghost-dark nx-garantie-edit-btn" type="button" aria-label="Modifier"><i class="fa-solid fa-pen"></i></button>
+                                        <form method="post" action="{{ path('admin_document_valider', {id: item.idGarantie}) }}" style="margin:0;">
+                                            <button class="na-btn na-btn--save" type="submit" title="Valider le document"><i class="fa-solid fa-check"></i></button>
+                                        </form>
+                                        <form method="post" action="{{ path('admin_document_refuser', {id: item.idGarantie}) }}" style="margin:0;">
+                                            <button class="na-btn na-btn--ghost-dark" type="submit" title="Refuser le document"><i class="fa-solid fa-xmark"></i></button>
+                                        </form>
+                                        <form method="post" style="margin:0;">
+                                            <input type="hidden" name="tab" value="credits">
+                                            <input type="hidden" name="panel" value="garantie">
+                                            <input type="hidden" name="action" value="garantie_delete">
+                                            <input type="hidden" name="idGarantie" value="{{ item.idGarantie }}">
+                                            <button class="na-btn na-btn--danger" type="submit" onclick="return confirm('Confirmer la suppression ?')"><i class="fa-solid fa-trash"></i></button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="9" class="nx-acc__empty"><i class="fa-solid fa-folder-open fa-2x"></i><br>Aucune garantie.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <div class="nx-table-pager" id="nx-garantie-pager" hidden></div>
+            </article>
+        </div>

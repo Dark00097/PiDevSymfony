@@ -22,6 +22,7 @@ final class PartenaireType extends BaseCrudFormType
             'nom' => ['type' => TextType::class],
             'categorie' => ['type' => TextType::class],
             'description' => ['type' => TextareaType::class],
+            'ville' => ['type' => TextType::class],
             'tauxCashback' => ['type' => NumberType::class],
             'tauxCashbackMax' => ['type' => NumberType::class],
             'plafondMensuel' => ['type' => NumberType::class],

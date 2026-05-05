@@ -20,7 +20,7 @@
     {% endif %}
 {% endfor %}
 
-{% set primary_keys = ['dashboard', 'accounts', 'transactions', 'credits', 'cashback'] %}
+{% set primary_keys = ['dashboard', 'accounts', 'transactions', 'credits', 'cashback', 'support'] %}
 {% set secondary_keys = ['garanties', 'complaints', 'vaults', 'profile', 'notifications'] %}
 
 {% set nav_icons = {
@@ -29,6 +29,7 @@
     transactions:  'fa-right-left',
     credits:       'fa-hand-holding-dollar',
     cashback:      'fa-hand-holding-heart',
+    support:       'fa-headset',
     garanties:     'fa-shield-halved',
     complaints:    'fa-comment-dots',
     vaults:        'fa-lock',
@@ -42,6 +43,7 @@
     transactions:  'Consultez l\'historique complet de vos transactions',
     credits:       'Gestion des credits, mensualites et garanties',
     cashback:      'Suivi de vos recompenses et partenaires cashback',
+    support:       'Messagerie directe avec le support client',
     garanties:     'Garanties et couvertures associees a vos credits',
     complaints:    'Suivi et gestion de vos reclamations',
     vaults:        'Objectifs d\'epargne et coffres virtuels',
@@ -56,6 +58,7 @@
     transactions: '#7c3aed',
     credits:      '#1565c0',
     cashback:     '#00838f',
+    support:      '#0f766e',
     garanties:    '#0f6f8e',
     complaints:   '#b91c1c',
     vaults:       '#166534',
@@ -848,6 +851,7 @@
     transactions:  'fa-right-left',
     credits:       'fa-hand-holding-dollar',
     cashback:      'fa-hand-holding-heart',
+    support:       'fa-headset',
     garanties:     'fa-shield-halved',
     complaints:    'fa-comment-dots',
     vaults:        'fa-lock',
@@ -861,6 +865,7 @@
     transactions: '#4527a0',
     credits:      '#0d47a1',
     cashback:     '#004d40',
+    support:      '#134e4a',
     garanties:    '#01579b',
     complaints:   '#7f1d1d',
     vaults:       '#14532d',
@@ -1021,22 +1026,27 @@
     <div class="nx-flashes" id="nx-flashes">
         {% for type, messages in app.flashes(['success', 'error', 'warning', 'info']) %}
             {% for message in messages %}
+                {% set flash_text = message|lower %}
+                {% set garantie_message = 'garantie' in flash_text %}
+                {% set credit_message = 'credit' in flash_text %}
                 {% set flash_icons = {
                     success: 'fa-circle-check',
                     error:   'fa-circle-xmark',
                     warning: 'fa-triangle-exclamation',
                     info:    'fa-circle-info'
                 } %}
-                <div class="nx-alert nx-alert-{{ type }}" role="alert">
-                    <i class="fa-solid {{ flash_icons[type]|default('fa-info') }}"></i>
-                    <span>{{ message }}</span>
-                    <button onclick="this.closest('.nx-alert').remove()"
-                            style="margin-left:auto; background:none; border:none; cursor:pointer;
-                                   color:inherit; font-size:13px; opacity:.6; padding:2px 4px;"
-                            type="button" aria-label="Fermer">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
-                </div>
+                {% if not ((garantie_message and tab != 'credits') or (credit_message and tab != 'credits')) %}
+                    <div class="nx-alert nx-alert-{{ type }}" role="alert">
+                        <i class="fa-solid {{ flash_icons[type]|default('fa-info') }}"></i>
+                        <span>{{ message }}</span>
+                        <button onclick="this.closest('.nx-alert').remove()"
+                                style="margin-left:auto; background:none; border:none; cursor:pointer;
+                                       color:inherit; font-size:13px; opacity:.6; padding:2px 4px;"
+                                type="button" aria-label="Fermer">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                {% endif %}
             {% endfor %}
         {% endfor %}
     </div>
@@ -1065,6 +1075,38 @@
             </a>
         </div>
     </nav>
+
+    <a id="nx-ai-chat-toggle" class="nx-ai-fab" aria-label="Open AI assistant" href="{{ path(route_name, { tab: tab, panel: 'ai_chat' }) }}">
+        <span>Assistante IA</span>
+    </a>
+    <section id="nx-ai-chat-panel" class="nx-ai-chat" {{ app.request.query.get('panel') == 'ai_chat' ? '' : 'hidden' }} aria-live="polite">
+        <header class="nx-ai-chat-head">
+            <div>
+                <strong>Nexora AI Advisor</strong>
+                <small>AI assistant - Final decision requires human review</small>
+            </div>
+            <div class="nx-ai-chat-head-actions">
+                <button type="button" id="nx-ai-chat-theme" title="Toggle theme"><i class="fa-solid fa-moon"></i></button>
+                <button type="button" id="nx-ai-chat-close" title="Close"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        </header>
+        <div class="nx-ai-quick">
+            <button type="button" data-action="my_credits">📂 Mes dossiers</button>
+            <button type="button" data-action="my_guarantees">🛡️ Mes garanties</button>
+            <button type="button" data-action="analyze_profile">📊 Analyser mon dossier</button>
+            <button type="button" data-action="my_simulations">🧮 Mes simulations</button>
+            <button type="button" data-action="improve_score">🚀 Améliorer mon score</button>
+            <button type="button" data-action="future_projection">🔮 Projection future</button>
+            <button type="button" data-action="compare_banks">🏦 Comparer les banques</button>
+        </div>
+        <div id="nx-ai-chat-thread" class="nx-ai-chat-thread"></div>
+        <div class="nx-ai-insights" id="nx-ai-insights"></div>
+        <form id="nx-ai-chat-form" class="nx-ai-chat-form">
+            <button type="button" id="nx-ai-voice" title="Voice input"><i class="fa-solid fa-microphone"></i></button>
+            <input id="nx-ai-chat-input" type="text" placeholder="Ask about loans, guarantees, affordability..." autocomplete="off" required>
+            <button type="submit"><i class="fa-solid fa-paper-plane"></i></button>
+        </form>
+    </section>
 
 </div>
 
@@ -1183,6 +1225,7 @@
                 transactions: 'Transactions',
                 credits: 'Credits',
                 cashback: 'Recompenses',
+                support: 'Support',
                 garanties: 'Garanties',
                 complaints: 'Reclamations',
                 vaults: 'Coffres',
@@ -1204,6 +1247,7 @@
                 transactions: 'Transactions',
                 credits: 'Loans',
                 cashback: 'Rewards',
+                support: 'Support',
                 garanties: 'Guarantees',
                 complaints: 'Complaints',
                 vaults: 'Vaults',
@@ -1276,6 +1320,256 @@
         applyPortalChromeLanguage(event.detail?.language);
     });
 
+})();
+</script>
+
+<style>
+.nx-ai-fab{
+  position:fixed;right:22px;bottom:84px;min-height:46px;padding:0 26px;border:none;border-radius:999px;
+  background:linear-gradient(120deg,#6d28d9,#7c3aed 55%,#2563eb);color:#fff;box-shadow:0 12px 26px rgba(37,99,235,.32);
+  z-index:2147483600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;
+  font-size:16px;font-weight:800;letter-spacing:.2px
+}
+.nx-ai-fab:hover{filter:brightness(1.04)}
+.nx-ai-fab span{font-size:16px;line-height:1}
+.nx-ai-chat{position:fixed;right:22px;bottom:152px;width:min(420px,calc(100vw - 20px));height:min(620px,75vh);background:#fff;border:1px solid #d7e6f5;border-radius:18px;box-shadow:0 24px 48px rgba(10,37,64,.2);display:flex;flex-direction:column;overflow:hidden;z-index:2147483601;pointer-events:auto}
+.nx-ai-chat[hidden]{display:none!important}
+.nx-ai-chat-head{display:flex;justify-content:space-between;gap:8px;padding:12px 14px;background:linear-gradient(120deg,#0a2540,#1565c0);color:#fff}
+.nx-ai-chat-head strong{font-size:13px}.nx-ai-chat-head small{font-size:10px;opacity:.9}
+.nx-ai-chat-head-actions{display:flex;gap:6px}.nx-ai-chat-head-actions button{width:28px;height:28px;border-radius:8px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#fff;cursor:pointer}
+.nx-ai-quick{display:flex;gap:6px;padding:10px 10px;border-bottom:1px solid #ecf2f8;background:#f8fbff;flex-wrap:wrap}
+.nx-ai-quick button{border:1px solid #d9e6f4;background:#fff;border-radius:999px;padding:5px 10px;font-size:11px;font-weight:700;color:#1f4b75;cursor:pointer}
+.nx-ai-chat-thread{flex:1;padding:10px;overflow:auto;display:flex;flex-direction:column;gap:8px;background:#f4f8fc}
+.nx-ai-msg{max-width:86%;padding:9px 10px;border-radius:12px;font-size:12px;line-height:1.4}
+.nx-ai-msg.user{align-self:flex-end;background:#1565c0;color:#fff}
+.nx-ai-msg.bot{align-self:flex-start;background:#fff;border:1px solid #deebf8;color:#1f3950}
+.nx-ai-typing{font-size:11px;color:#5f7f9b;padding:0 10px 6px}
+.nx-ai-insights{padding:0 10px 8px;display:flex;flex-direction:column;gap:6px}
+.nx-ai-card{background:#fff;border:1px solid #dce9f7;border-radius:10px;padding:8px}
+.nx-ai-chip{display:inline-flex;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800}.nx-ai-chip.green{background:#e7f8ef;color:#166534}.nx-ai-chip.orange{background:#fff4e5;color:#9a5b00}.nx-ai-chip.red{background:#feecec;color:#b42318}
+.nx-ai-chat-form{display:flex;gap:7px;padding:10px;border-top:1px solid #eaf1f8;background:#fff}
+.nx-ai-chat-form input{flex:1;height:38px;border:1px solid #d8e5f3;border-radius:11px;padding:0 10px;font-size:12px;outline:none}
+.nx-ai-chat-form button{width:38px;height:38px;border:none;border-radius:11px;background:#1565c0;color:#fff;cursor:pointer}
+.nx-ai-chat.dark{background:#0e2235;border-color:#244661}.nx-ai-chat.dark .nx-ai-chat-thread{background:#0b1a2a}.nx-ai-chat.dark .nx-ai-msg.bot{background:#12283d;border-color:#264b69;color:#d7e8f8}.nx-ai-chat.dark .nx-ai-chat-form{background:#0f2234;border-color:#244661}.nx-ai-chat.dark .nx-ai-chat-form input{background:#0c1b2b;border-color:#264a67;color:#e9f2fb}.nx-ai-chat.dark .nx-ai-quick{background:#0f2234;border-color:#244661}.nx-ai-chat.dark .nx-ai-quick button{background:#12283d;border-color:#2a4d6a;color:#cfe3f6}
+@media (max-width:768px){.nx-ai-fab{right:14px;bottom:78px;padding:0 18px;min-height:42px}.nx-ai-fab span{font-size:15px}.nx-ai-chat{right:10px;left:10px;bottom:96px;width:auto;height:68vh}}
+</style>
+
+<script>
+window.nxToggleAiChat = function () {
+  const panel = document.getElementById('nx-ai-chat-panel');
+  if (!panel) return;
+  panel.hidden = !panel.hidden;
+  panel.style.display = panel.hidden ? 'none' : 'flex';
+};
+
+(() => {
+  const panel = document.getElementById('nx-ai-chat-panel');
+  const toggle = document.getElementById('nx-ai-chat-toggle');
+  const closeBtn = document.getElementById('nx-ai-chat-close');
+  const themeBtn = document.getElementById('nx-ai-chat-theme');
+  const form = document.getElementById('nx-ai-chat-form');
+  const input = document.getElementById('nx-ai-chat-input');
+  const thread = document.getElementById('nx-ai-chat-thread');
+  const insights = document.getElementById('nx-ai-insights');
+  const voiceBtn = document.getElementById('nx-ai-voice');
+  if (!panel || !toggle || !form || !input || !thread || !insights) return;
+
+  let mode = 'simulation';
+  let lastMessageText = '';
+  const addMsg = (role, text) => {
+    const normalized = String(text || '').trim();
+    if (!normalized) return;
+    if (role === 'bot' && lastMessageText === normalized) return;
+    if (role === 'bot') lastMessageText = normalized;
+    const d = document.createElement('div');
+    d.className = `nx-ai-msg ${role}`;
+    d.textContent = normalized;
+    thread.appendChild(d);
+    thread.scrollTop = thread.scrollHeight;
+  };
+  const setTyping = (on) => {
+    let node = document.getElementById('nx-ai-typing');
+    if (on && !node) {
+      node = document.createElement('div');
+      node.id = 'nx-ai-typing';
+      node.className = 'nx-ai-typing';
+      node.textContent = 'AI is typing...';
+      thread.appendChild(node);
+    }
+    if (!on && node) node.remove();
+    thread.scrollTop = thread.scrollHeight;
+  };
+  const chip = (level) => {
+    const v = String(level || '').toLowerCase();
+    if (v.includes('low') || v.includes('appr')) return 'green';
+    if (v.includes('high') || v.includes('reject')) return 'red';
+    return 'orange';
+  };
+  const renderInsights = (data) => {
+    insights.innerHTML = '';
+    if (!data || data.hide_insights === true) return;
+    const card = document.createElement('div');
+    card.className = 'nx-ai-card';
+    card.innerHTML = `
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
+        <strong style="font-size:12px;">Financial Snapshot</strong>
+        <span class="nx-ai-chip ${chip(data.risk_level || data.decision)}">${data.decision || 'Review Needed'}</span>
+      </div>
+      <div style="margin-top:6px;font-size:11px;color:#42607a;">
+        Score: ${data.score ?? '-'} /100 · Monthly: ${data.monthly_payment ?? '-'} DT · Risk: ${data.risk_level ?? '-'}
+      </div>
+      <div style="margin-top:6px;font-size:11px;color:#42607a;">Guarantee: ${data.guarantee_strength ?? '-'} · Coverage: ${data.coverage_percent ?? '-'}%</div>
+    `;
+    insights.appendChild(card);
+    const recs = Array.isArray(data.recommendations) ? data.recommendations.slice(0, 3) : [];
+    recs.forEach((r) => {
+      const li = document.createElement('div');
+      li.className = 'nx-ai-card';
+      li.style.fontSize = '11px';
+      li.textContent = `• ${r}`;
+      insights.appendChild(li);
+    });
+  };
+
+  const sendMessage = async (message) => {
+    addMsg('user', message);
+    setTyping(true);
+    try {
+      const res = await fetch('/api/chatbot/message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, mode })
+      });
+      const data = await res.json();
+      setTyping(false);
+      addMsg('bot', data.message || 'I could not process that request.');
+      renderInsights(data);
+    } catch (_) {
+      setTyping(false);
+      addMsg('bot', 'Service unavailable. Please retry or request human support.');
+    }
+  };
+
+  const fmt = (n) => Number(n || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+  const callJson = async (url) => {
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    return res.json();
+  };
+  const handleAction = async (action) => {
+    setTyping(true);
+    try {
+      if (action === 'my_credits') {
+        mode = 'user_data';
+        const data = await callJson('/api/user/credits');
+        setTyping(false);
+        const items = Array.isArray(data.items) ? data.items : [];
+        if (items.length === 0) return addMsg('bot', 'Vous n’avez aucun dossier de crédit disponible.');
+        const lines = items.map((x) => `- ${x.type} : ${fmt(x.amount)} DT – ${x.status}`);
+        return addMsg('bot', `Voici vos dossiers de crédit :\n${lines.join('\n')}`);
+      }
+      if (action === 'my_guarantees') {
+        mode = 'guarantee';
+        const data = await callJson('/api/user/guarantees');
+        setTyping(false);
+        const items = Array.isArray(data.items) ? data.items : [];
+        if (items.length === 0) return addMsg('bot', 'Vous n’avez aucune garantie enregistrée.');
+        const lines = items.map((x) => `- ${x.type} : ${fmt(x.value)} DT`);
+        return addMsg('bot', `Voici vos garanties disponibles :\n${lines.join('\n')}`);
+      }
+      if (action === 'my_simulations') {
+        mode = 'simulation';
+        const data = await callJson('/api/user/simulations');
+        setTyping(false);
+        const items = Array.isArray(data.items) ? data.items : [];
+        if (items.length === 0) return addMsg('bot', 'Vous n’avez aucune simulation enregistrée.');
+        const lines = items.map((x) => `- ${fmt(x.amount)} DT sur ${x.duration_months/12} ans : mensualité ${fmt(x.monthly_payment)} DT`);
+        return addMsg('bot', `Voici vos dernières simulations :\n${lines.join('\n')}`);
+      }
+      if (action === 'analyze_profile') {
+        mode = 'eligibility';
+        const data = await callJson('/api/user/profile-analysis');
+        setTyping(false);
+        renderInsights(data);
+        const advice = (Array.isArray(data.recommendations) && data.recommendations[0]) ? data.recommendations[0] : 'ajoutez une garantie immobilière pour améliorer votre score.';
+        return addMsg('bot', `Analyse de votre dossier :\nScore : ${data.score ?? 0}/100\nRisque : ${data.risk_level ?? 'Moyen'}\nDécision : ${data.decision ?? 'À étudier'}\nConseil : ${advice}`);
+      }
+      if (action === 'improve_score') {
+        mode = 'eligibility';
+        setTyping(false);
+        return addMsg('bot', 'Pour améliorer votre score, vous pouvez :\n- ajouter une garantie plus forte\n- réduire le montant du crédit\n- allonger la durée\n- ajouter un garant\n- diminuer vos dettes actuelles');
+      }
+      if (action === 'future_projection') {
+        mode = 'projection';
+        const data = await callJson('/api/user/future-projection');
+        setTyping(false);
+        if (!Array.isArray(data.timeline) || data.timeline.length === 0) {
+          return addMsg('bot', data.message || 'Je n’ai pas assez de données pour faire une projection. Faites d’abord une simulation ou ajoutez un dossier de crédit.');
+        }
+        const t = data.timeline;
+        return addMsg('bot', `Projection future de votre crédit :\n- ${t[0]?.label} : ${t[0]?.status ?? 'stable'}\n- ${t[1]?.label} : score estimé ${fmt(t[1]?.score)} /100\n- ${t[2]?.label} : capacité de remboursement améliorée\n- ${t[3]?.label} : risque faible si les paiements restent réguliers\n\nConseil IA :\n${data.advice || 'Gardez un taux d’endettement inférieur à 35% et ajoutez une garantie forte.'}`);
+      }
+      if (action === 'compare_banks') {
+        mode = 'bank_comparison';
+        const data = await callJson('/api/user/bank-comparison');
+        setTyping(false);
+        const rows = Array.isArray(data.table) ? data.table : [];
+        if (rows.length === 0) {
+          return addMsg('bot', 'Je ne peux pas comparer les banques sans dossier ou simulation. Faites d’abord une simulation.');
+        }
+        const best = data.best || rows[0];
+        let tableTxt = 'Banque | Taux | Mensualité | Garantie demandée | Score compatibilité | Avis IA\n';
+        tableTxt += rows.map((r) => `${r.bank} | ${r.rate}% | ${fmt(r.monthly)} DT | ${r.garantie} | ${r.compatibility} | ${r.opinion}`).join('\n');
+        return addMsg('bot', `D’après votre profil, la meilleure banque pour votre crédit est : ${best.bank}.\n\nPourquoi ?\n- taux plus avantageux\n- mensualité plus faible\n- garantie compatible\n- meilleure chance d’acceptation\n\n${tableTxt}`);
+      }
+      setTyping(false);
+    } catch (_) {
+      setTyping(false);
+      addMsg('bot', 'Erreur de chargement des données utilisateur.');
+    }
+  };
+
+  const prefillFromAction = (action) => {
+    const prompts = {
+      my_credits: 'Montre-moi mes dossiers de credit.',
+      my_guarantees: 'Montre-moi mes garanties.',
+      analyze_profile: 'Analyse mon dossier de credit.',
+      my_simulations: 'Montre-moi mes simulations recentes.',
+      improve_score: 'Comment ameliorer mon score de credit ?',
+      future_projection: 'Fais une projection future de mon credit.',
+      compare_banks: 'Compare les banques selon mon profil.'
+    };
+    const text = prompts[action] || '';
+    if (!text) return;
+    input.value = text;
+    input.focus();
+  };
+
+  toggle.addEventListener('click', () => {
+    panel.hidden = !panel.hidden;
+    panel.style.display = panel.hidden ? 'none' : 'flex';
+  });
+  const openByQuery = new URLSearchParams(window.location.search).get('panel') === 'ai_chat';
+  panel.hidden = !openByQuery;
+  panel.style.display = panel.hidden ? 'none' : 'flex';
+  closeBtn?.addEventListener('click', () => { panel.hidden = true; panel.style.display = 'none'; });
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const m = input.value.trim();
+    if (!m) return;
+    input.value = '';
+    sendMessage(m);
+  });
+  document.querySelectorAll('[data-action]').forEach((b) => b.addEventListener('click', () => prefillFromAction(b.getAttribute('data-action') || '')));
+  themeBtn?.addEventListener('click', () => panel.classList.toggle('dark'));
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR || !voiceBtn) { if (voiceBtn) voiceBtn.style.display = 'none'; }
+  else {
+    const rec = new SR();
+    rec.lang = 'fr-FR';
+    rec.onresult = (e) => { input.value = e.results[0][0].transcript || ''; };
+    voiceBtn.addEventListener('click', () => rec.start());
+  }
 })();
 </script>
 

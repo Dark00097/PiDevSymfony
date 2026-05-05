@@ -57,6 +57,49 @@ final class GarantieService
         ];
     }
 
+    /**
+     * @param array<string, mixed> $credit
+     * @param array<string, mixed>|null $garantie
+     * @return array{
+     *   covered: bool,
+     *   coverage_ratio: float,
+     *   estimated_total: float,
+     *   retained_total: float,
+     *   shortfall: float,
+     *   label: string,
+     *   message: string
+     * }
+     */
+    public function analyzeCoverageFromRows(array $credit, ?array $garantie): array
+    {
+        $requestedAmount = max(0.0, (float) ($credit['montantDemande'] ?? 0));
+        if ((float) ($credit['montantAccorde'] ?? 0) > 0) {
+            $requestedAmount = max($requestedAmount, (float) ($credit['montantAccorde'] ?? 0));
+        }
+
+        $estimatedTotal = max(0.0, (float) ($garantie['valeurEstimee'] ?? 0));
+        $retainedTotal = max(0.0, (float) ($garantie['valeurRetenue'] ?? 0));
+        $coverageRatio = $requestedAmount > 0 ? $retainedTotal / $requestedAmount : 0.0;
+        $covered = $requestedAmount > 0 && $retainedTotal >= $requestedAmount;
+
+        $label = $coverageRatio >= 1.0 ? 'Suffisante' : ($coverageRatio >= 0.6 ? 'Partielle' : 'Insuffisante');
+        $message = match ($label) {
+            'Suffisante' => 'La garantie couvre correctement le credit.',
+            'Partielle' => 'La garantie couvre une partie du credit, un renfort est conseille.',
+            default => 'La garantie est insuffisante pour securiser le dossier.',
+        };
+
+        return [
+            'covered' => $covered,
+            'coverage_ratio' => round($coverageRatio * 100, 1),
+            'estimated_total' => round($estimatedTotal, 2),
+            'retained_total' => round($retainedTotal, 2),
+            'shortfall' => round(max(0.0, $requestedAmount - $retainedTotal), 2),
+            'label' => $label,
+            'message' => $message,
+        ];
+    }
+
     private function readGuaranteeFloat(Garantiecredit $garantie, string $property): float
     {
         $reflection = new \ReflectionObject($garantie);

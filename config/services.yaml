@@ -18,19 +18,23 @@ services:
             - '../src/Kernel.php'
 
     App\Service\GeminiService:
-        arguments:
-            $apiKey: '%env(GROK_API_KEY)%'
-            $modelName: ''
+        autowire: true
 
     App\Service\PaymentPredictionService:
+        autowire: true
         arguments:
-            $apiKey: '%env(GROK_API_KEY)%'
+            $apiKey: '%env(GROQ_API_KEY)%'
 
     App\Service\StripeService:
         arguments:
             $secretKey: '%env(STRIPE_SECRET_KEY)%'
-            $webhookSecret: '%env(STRIPE_WEBHOOK_SECRET)%'
 
     App\Service\CurrencyExchangeService:
+        autowire: true
+
+    App\Service\CloudinaryStorageService:
         arguments:
-            $exchangeRateApiKey: '%env(EXCHANGE_RATE_API_KEY)%'
+            $cloudName: '%env(default::CLOUDINARY_CLOUD_NAME)%'
+            $apiKey: '%env(default::CLOUDINARY_API_KEY)%'
+            $apiSecret: '%env(default::CLOUDINARY_API_SECRET)%'
+            $uploadPreset: '%env(default::CLOUDINARY_UPLOAD_PRESET)%'

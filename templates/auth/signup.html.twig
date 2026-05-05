@@ -527,6 +527,7 @@
   function initOtpDigits() {
     var digits  = document.querySelectorAll('.otp-digit');
     var hidden  = document.getElementById('otpHidden');
+    var otpWrap = document.getElementById('otpDigits');
     if (!digits.length || !hidden) return;
 
     var syncHidden = function () {
@@ -536,6 +537,9 @@
       digits.forEach(function (d) {
         d.classList.toggle('otp-digit--filled', d.value.length > 0);
       });
+      if (otpWrap && hidden.value.length === 6) {
+        otpWrap.classList.remove('field-wrap--invalid');
+      }
     };
 
     digits.forEach(function (inp, idx) {
@@ -590,13 +594,60 @@
     var hidden = document.getElementById('otpHidden');
     var digits = document.querySelectorAll('.otp-digit');
     if (!form || !action || !hidden || !digits.length) return;
+    var fullNameInput = document.getElementById('su-name');
+    var emailInput = document.getElementById('su-email');
+    var phoneInput = document.getElementById('su-tel');
+    var passwordInput = document.getElementById('su-pw');
+    var confirmInput = document.getElementById('su-cpw');
+    var termsInput = form.querySelector('input[name="terms"]');
+    var otpWrap = document.getElementById('otpDigits');
+
+    function setRequired(input, required) {
+      if (input instanceof HTMLInputElement) {
+        input.required = !!required;
+      }
+    }
+
+    function setModeRequirements(mode) {
+      var signupMode = mode === 'signup';
+      setRequired(emailInput, true);
+      setRequired(phoneInput, true);
+      setRequired(fullNameInput, signupMode);
+      setRequired(passwordInput, signupMode);
+      setRequired(confirmInput, signupMode);
+      setRequired(termsInput, signupMode);
+    }
+
+    function showOtpRequiredError(message) {
+      if (!digits.length) return;
+      var firstDigit = digits[0];
+      if (!(firstDigit instanceof HTMLInputElement)) return;
+      if (otpWrap) {
+        otpWrap.classList.add('field-wrap--invalid');
+      }
+      firstDigit.setCustomValidity(message);
+      firstDigit.reportValidity();
+      firstDigit.setCustomValidity('');
+      firstDigit.focus();
+    }
+
+    var lastAction = 'signup';
+    form.querySelectorAll('button[type="submit"][name="action"]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (btn.value) {
+          lastAction = btn.value;
+          action.value = btn.value;
+        }
+      });
+    });
 
     form.addEventListener('submit', function (event) {
       var submitter = event.submitter;
       if (submitter && submitter.name === 'action' && submitter.value) {
         action.value = submitter.value;
+        lastAction = submitter.value;
       } else if (!action.value) {
-        action.value = 'signup';
+        action.value = lastAction || 'signup';
       }
 
       var otp = '';
@@ -604,6 +655,43 @@
         otp += (d.value || '').replace(/\D/g, '').slice(-1);
       });
       hidden.value = otp.slice(0, 6);
+      if (otpWrap) {
+        otpWrap.classList.remove('field-wrap--invalid');
+      }
+
+      var currentAction = action.value || 'signup';
+      setModeRequirements(currentAction);
+      if (typeof form.reportValidity === 'function' && !form.reportValidity()) {
+        event.preventDefault();
+        return;
+      }
+      if (currentAction === 'signup' && hidden.value.length !== 6) {
+        event.preventDefault();
+        showOtpRequiredError('Veuillez saisir le code OTP a 6 chiffres.');
+        return;
+      }
+
+      var activeButton = (submitter instanceof HTMLButtonElement)
+        ? submitter
+        : form.querySelector('button[type="submit"][name="action"][value="' + action.value + '"]');
+      if (!activeButton) {
+        activeButton = form.querySelector('button[type="submit"]');
+      }
+      if (!activeButton) return;
+
+      var icon = activeButton.querySelector('svg');
+      var prevOpacity = icon ? icon.style.opacity : '';
+      activeButton.disabled = true;
+      if (icon) {
+        icon.style.opacity = '.45';
+      }
+
+      window.setTimeout(function () {
+        if (document.visibilityState === 'visible') {
+          activeButton.disabled = false;
+          if (icon) icon.style.opacity = prevOpacity;
+        }
+      }, 8000);
     });
   }
 

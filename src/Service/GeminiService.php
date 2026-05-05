@@ -37,6 +37,35 @@ final class GeminiService
     }
 
     /**
+     * Analyse les réclamations et retourne un rapport IA structuré.
+     * Retourne null si l'API est indisponible.
+     */
+    public function analyseReclamations(string $prompt): ?string
+    {
+        return $this->requestGemini($prompt);
+    }
+
+    /**
+     * Améliore le texte d'une réclamation via l'IA.
+     * Retourne un tableau ['improved' => string, 'sentiment' => string, 'severity' => string].
+     */
+    public function improveReclamationDescription(string $description, array $context = []): string
+    {
+        $type      = trim((string) ($context['type']      ?? ''));
+        $categorie = trim((string) ($context['categorie'] ?? ''));
+        $montant   = trim((string) ($context['montant']   ?? ''));
+
+        $prompt = "Tu es un assistant bancaire. Améliore le texte de réclamation suivant pour le rendre plus clair, professionnel et précis. "
+            . "Réponds UNIQUEMENT avec le texte amélioré, sans introduction ni explication.\n\n"
+            . "Contexte : type={$type}, catégorie={$categorie}, montant={$montant} TND\n\n"
+            . "Texte original : {$description}";
+
+        $result = $this->requestGemini($prompt);
+
+        return $result !== null && trim($result) !== '' ? trim($result) : $description;
+    }
+
+    /**
      * Genere un scoring IA pour un dossier de credit via OpenRouter.
      *
      * @return array{provider: string, text: string}
@@ -490,7 +519,7 @@ final class GeminiService
         $recommendations = [];
 
         switch ($intent) {
-            case 'simulate':
+            case 'simulation':
                 $title = 'Simulation de credit';
                 if ($amount <= 0 || $duration <= 0) {
                     $answer = 'Renseignez au minimum le montant et la duree du credit ou choisissez un credit cible pour lancer une simulation fiable et afficher le comparatif des vraies banques.';
@@ -605,7 +634,7 @@ final class GeminiService
                 ];
                 break;
 
-            case 'recommend':
+            case 'recommendation':
             default:
                 $title = 'Recommandations personnalisees';
                 $answer = sprintf(
@@ -675,7 +704,7 @@ final class GeminiService
             "Tu es un chatbot bancaire intelligent integre a une application de credits. Reponds STRICTEMENT en JSON pur, sans markdown.\n".
             "Schema JSON attendu:\n".
             "{\n".
-            "  \"intent\": \"simulate|score|garantie|decision|recommend\",\n".
+            "  \"intent\": \"simulation|score|garantie|decision|recommendation\",\n".
             "  \"title\": \"titre court\",\n".
             "  \"answer\": \"reponse utile en francais, 2 a 5 phrases\",\n".
             "  \"decision\": \"Accepte|Refuse|A etudier\",\n".
@@ -916,11 +945,11 @@ final class GeminiService
         $text = $this->normalizeText(trim((string) ($context['message'] ?? '')));
 
         return match (true) {
-            str_contains($text, 'simul') => 'simulate',
+            str_contains($text, 'simul') => 'simulation',
             str_contains($text, 'score') || str_contains($text, 'scoring') => 'score',
             str_contains($text, 'garant') => 'garantie',
             str_contains($text, 'decision') || str_contains($text, 'accepte') || str_contains($text, 'refuse') => 'decision',
-            default => 'recommend',
+            default => 'recommendation',
         };
     }
 
@@ -929,11 +958,12 @@ final class GeminiService
         $normalized = $this->normalizeText($value);
 
         return match (true) {
-            str_contains($normalized, 'simul') => 'simulate',
+            str_contains($normalized, 'simul') || str_contains($normalized, 'simulation') => 'simulation',
             str_contains($normalized, 'score') => 'score',
             str_contains($normalized, 'garant') => 'garantie',
             str_contains($normalized, 'decision') => 'decision',
-            default => 'recommend',
+            str_contains($normalized, 'recommend') || str_contains($normalized, 'recommand') || str_contains($normalized, 'conseil') => 'recommendation',
+            default => 'recommendation',
         };
     }
 

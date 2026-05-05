@@ -1,0 +1,714 @@
+<section class="nx-ai-workbench" id="nx-ai-workbench">
+  <style>
+    .nx-ai-workbench {
+      border: 1px solid var(--na-border);
+      border-radius: 18px;
+      background: linear-gradient(180deg, #ffffff, #f8fbff);
+      box-shadow: 0 10px 28px rgba(15, 44, 78, 0.08);
+      padding: 14px;
+      margin: 0 0 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .nx-aiw-head {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr auto;
+      gap: 10px;
+      align-items: center;
+      background: #f2f7fc;
+      border: 1px solid #dbe8f4;
+      border-radius: 14px;
+      padding: 10px;
+    }
+
+    .nx-aiw-head strong {
+      font-size: 14px;
+      color: #103152;
+      display: block;
+    }
+
+    .nx-aiw-head small {
+      font-size: 11px;
+      color: #5f7892;
+      display: block;
+      margin-top: 2px;
+    }
+
+    .nx-aiw-select {
+      width: 100%;
+      min-height: 38px;
+      border-radius: 10px;
+      border: 1px solid #cfe0f0;
+      background: #fff;
+      color: #113250;
+      font-size: 13px;
+      padding: 8px 10px;
+    }
+
+    .nx-aiw-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+    }
+
+    .nx-aiw-card {
+      border: 1px solid #d9e7f4;
+      border-radius: 14px;
+      background: #fff;
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      min-height: 240px;
+    }
+
+    .nx-aiw-title {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 800;
+      color: #103152;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .nx-aiw-title i {
+      width: 24px;
+      height: 24px;
+      border-radius: 8px;
+      display: inline-grid;
+      place-items: center;
+      background: #eef5fc;
+      color: #1d4f7d;
+      font-size: 12px;
+    }
+
+    .nx-aiw-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .nx-aiw-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      border-bottom: 1px dashed #e3edf6;
+      padding-bottom: 6px;
+    }
+
+    .nx-aiw-row span {
+      font-size: 11px;
+      color: #67809b;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    .nx-aiw-row strong {
+      font-size: 12px;
+      color: #163a5d;
+      text-align: right;
+      font-weight: 700;
+    }
+
+    .nx-aiw-metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .nx-aiw-metric {
+      border: 1px solid #dce9f6;
+      border-radius: 10px;
+      background: #f9fcff;
+      padding: 8px;
+      display: grid;
+      gap: 3px;
+    }
+
+    .nx-aiw-metric small {
+      font-size: 10px;
+      text-transform: uppercase;
+      color: #6a829b;
+      font-weight: 700;
+      letter-spacing: .04em;
+    }
+
+    .nx-aiw-metric strong {
+      font-size: 13px;
+      color: #113456;
+      font-weight: 800;
+    }
+
+    .nx-aiw-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 11px;
+      font-weight: 800;
+      border: 1px solid transparent;
+      width: fit-content;
+      max-width: 100%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .nx-aiw-badge.is-green { background: #dcfce7; color: #166534; border-color: #86efac; }
+    .nx-aiw-badge.is-amber { background: #fff4d6; color: #8a5a00; border-color: #facc15; }
+    .nx-aiw-badge.is-red { background: #ffe4e6; color: #be123c; border-color: #fda4af; }
+
+    .nx-aiw-explain {
+      border: 1px solid #dce8f4;
+      border-radius: 10px;
+      background: #f8fbff;
+      padding: 9px 10px;
+      font-size: 12px;
+      color: #355773;
+      line-height: 1.5;
+      min-height: 64px;
+    }
+
+    .nx-aiw-final {
+      border-radius: 10px;
+      padding: 9px 10px;
+      font-size: 12px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid #dbe8f4;
+      background: #f2f8ff;
+      color: #0f3d68;
+    }
+
+    .nx-aiw-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      align-content: start;
+    }
+
+    .nx-aiw-btn {
+      border: 1px solid #d4e3f1;
+      border-radius: 10px;
+      background: #fff;
+      min-height: 38px;
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #1a456d;
+      cursor: pointer;
+      transition: all .2s ease;
+      text-align: left;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .nx-aiw-btn:hover {
+      border-color: #92b5d8;
+      background: #eef6ff;
+    }
+
+    .nx-aiw-btn.is-primary {
+      background: linear-gradient(135deg, #12b39f, #0f9f8f);
+      color: #fff;
+      border-color: transparent;
+    }
+
+    .nx-aiw-btn.is-danger {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      color: #fff;
+      border-color: transparent;
+    }
+
+    .nx-aiw-btn.is-warning {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #fff;
+      border-color: transparent;
+    }
+
+    .nx-aiw-statusline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11px;
+      color: #5e7892;
+      border-top: 1px dashed #dce8f4;
+      padding-top: 8px;
+    }
+
+    .nx-aiw-feedback {
+      border-radius: 10px;
+      border: 1px solid #dbe8f4;
+      background: #f2f8ff;
+      color: #0f3d68;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 8px 10px;
+      display: none;
+    }
+
+    .nx-aiw-feedback.is-success {
+      display: block;
+      background: #dcfce7;
+      color: #166534;
+      border-color: #86efac;
+    }
+
+    .nx-aiw-feedback.is-error {
+      display: block;
+      background: #ffe4e6;
+      color: #be123c;
+      border-color: #fda4af;
+    }
+
+    .nx-aiw-btn.is-busy {
+      opacity: .65;
+      pointer-events: none;
+    }
+
+    @media (max-width: 1200px) {
+      .nx-aiw-grid { grid-template-columns: 1fr 1fr; }
+      .nx-aiw-card:last-child { grid-column: 1 / -1; }
+    }
+
+    @media (max-width: 780px) {
+      .nx-aiw-head { grid-template-columns: 1fr; }
+      .nx-aiw-grid { grid-template-columns: 1fr; }
+      .nx-aiw-metrics { grid-template-columns: 1fr; }
+      .nx-aiw-actions { grid-template-columns: 1fr; }
+    }
+  </style>
+
+  <div class="nx-aiw-head">
+    <div>
+      <strong>Assistant Métier Crédit & Garantie</strong>
+      <small>Analyse rapide, synthèse claire et actions admin immédiates.</small>
+    </div>
+    <select class="nx-aiw-select" id="nx-aiw-credit-select">
+      <option value="">Selectionner un credit</option>
+      {% for item in credit_items|default([]) %}
+        <option value="{{ item.idCredit }}">#{{ item.idCredit }} - {{ item.typeCreditLabel|default(item.typeCredit|default('Credit')) }} - {{ item.montantDemande|default(0)|number_format(0, '.', ' ') }} DT</option>
+      {% endfor %}
+    </select>
+    <select class="nx-aiw-select" id="nx-aiw-garantie-select">
+      <option value="">Selectionner une garantie</option>
+      {% for item in garantie_items|default([]) %}
+        <option value="{{ item.idGarantie }}">#{{ item.idGarantie }} - {{ item.typeGarantieLabel|default(item.typeGarantie|default('Garantie')) }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="nx-aiw-grid">
+    <article class="nx-aiw-card">
+      <h3 class="nx-aiw-title"><i class="fa-solid fa-folder-open"></i> Resume dossier</h3>
+      <div class="nx-aiw-list">
+        <div class="nx-aiw-row"><span>Client</span><strong id="nx-aiw-s-client">-</strong></div>
+        <div class="nx-aiw-row"><span>Montant</span><strong id="nx-aiw-s-amount">-</strong></div>
+        <div class="nx-aiw-row"><span>Duree</span><strong id="nx-aiw-s-duration">-</strong></div>
+        <div class="nx-aiw-row"><span>Mensualite</span><strong id="nx-aiw-s-monthly">-</strong></div>
+        <div class="nx-aiw-row"><span>Statut credit</span><strong id="nx-aiw-s-credit-status">-</strong></div>
+        <div class="nx-aiw-row"><span>Statut document</span><strong id="nx-aiw-s-doc-status">-</strong></div>
+        <div class="nx-aiw-row"><span>Garantie liee</span><strong id="nx-aiw-s-garantie">-</strong></div>
+      </div>
+    </article>
+
+    <article class="nx-aiw-card">
+      <h3 class="nx-aiw-title"><i class="fa-solid fa-brain"></i> Analyse IA</h3>
+      <div class="nx-aiw-metrics">
+        <div class="nx-aiw-metric"><small>Score credit</small><strong id="nx-aiw-a-score">-</strong></div>
+        <div class="nx-aiw-metric"><small>Niveau risque</small><strong id="nx-aiw-a-risk">-</strong></div>
+        <div class="nx-aiw-metric"><small>Couverture garantie</small><strong id="nx-aiw-a-coverage">-</strong></div>
+        <div class="nx-aiw-metric"><small>Qualite document</small><strong id="nx-aiw-a-doc-quality">-</strong></div>
+      </div>
+      <span class="nx-aiw-badge is-amber" id="nx-aiw-a-recommendation">Decision recommandee: En attente</span>
+      <div class="nx-aiw-explain" id="nx-aiw-a-explain">Selectionnez un credit et une garantie pour lancer l'analyse.</div>
+      <div class="nx-aiw-final" id="nx-aiw-final">Recommandation finale: En attente</div>
+    </article>
+
+    <article class="nx-aiw-card">
+      <h3 class="nx-aiw-title"><i class="fa-solid fa-bolt"></i> Actions admin</h3>
+      <div class="nx-aiw-actions">
+        <button type="button" class="nx-aiw-btn" data-aiw-intent="documents" data-aiw-label="Verifier document"><i class="fa-solid fa-file-circle-check"></i> Verifier document</button>
+        <button type="button" class="nx-aiw-btn" data-aiw-intent="garantie_check" data-aiw-label="Verifier garantie"><i class="fa-solid fa-shield-halved"></i> Verifier garantie</button>
+        <button type="button" class="nx-aiw-btn" data-aiw-intent="risk" data-aiw-label="Analyse risque"><i class="fa-solid fa-triangle-exclamation"></i> Analyse risque</button>
+        <button type="button" class="nx-aiw-btn" data-aiw-intent="projection" data-aiw-label="Projection future"><i class="fa-solid fa-chart-line"></i> Projection future</button>
+        <button type="button" class="nx-aiw-btn is-primary" data-aiw-decision="accepter"><i class="fa-solid fa-circle-check"></i> Accepter</button>
+        <button type="button" class="nx-aiw-btn is-danger" data-aiw-decision="refuser"><i class="fa-solid fa-circle-xmark"></i> Refuser</button>
+        <button
+          type="button"
+          id="nx-aiw-request-complement"
+          name="request_complement"
+          class="nx-aiw-btn is-warning"
+          data-aiw-decision="complement"
+          data-aiw-action="request-complement"
+        ><i class="fa-solid fa-envelope-open-text"></i> Demander une piece complementaire</button>
+      </div>
+      <div class="nx-aiw-statusline">
+        <span id="nx-aiw-status">Pret</span>
+        <span id="nx-aiw-provider">RuleEngine</span>
+      </div>
+      <div class="nx-aiw-feedback" id="nx-aiw-feedback" role="status" aria-live="polite"></div>
+    </article>
+  </div>
+</section>
+
+<script>
+(() => {
+  const root = document.getElementById('nx-ai-workbench');
+  if (!(root instanceof HTMLElement)) return;
+
+  const credits = {{ credit_items|default([])|json_encode|raw }};
+  const garanties = {{ garantie_items|default([])|json_encode|raw }};
+  const aiChatUrl = '{{ path("admin_ai_chat") }}';
+  const complementUrlTemplate = '{{ path("admin_document_demander_complement", {id: 0}) }}';
+  const complementCsrf = '{{ csrf_token("admin_complement_request") }}';
+
+  const refs = {
+    creditSelect: document.getElementById('nx-aiw-credit-select'),
+    garantieSelect: document.getElementById('nx-aiw-garantie-select'),
+    status: document.getElementById('nx-aiw-status'),
+    provider: document.getElementById('nx-aiw-provider'),
+    feedback: document.getElementById('nx-aiw-feedback'),
+    summary: {
+      client: document.getElementById('nx-aiw-s-client'),
+      amount: document.getElementById('nx-aiw-s-amount'),
+      duration: document.getElementById('nx-aiw-s-duration'),
+      monthly: document.getElementById('nx-aiw-s-monthly'),
+      creditStatus: document.getElementById('nx-aiw-s-credit-status'),
+      docStatus: document.getElementById('nx-aiw-s-doc-status'),
+      garantie: document.getElementById('nx-aiw-s-garantie'),
+    },
+    analysis: {
+      score: document.getElementById('nx-aiw-a-score'),
+      risk: document.getElementById('nx-aiw-a-risk'),
+      coverage: document.getElementById('nx-aiw-a-coverage'),
+      docQuality: document.getElementById('nx-aiw-a-doc-quality'),
+      recommendation: document.getElementById('nx-aiw-a-recommendation'),
+      explain: document.getElementById('nx-aiw-a-explain'),
+      final: document.getElementById('nx-aiw-final'),
+    },
+  };
+
+  const fmtMoney = (value) => {
+    const num = Number(value || 0);
+    if (!Number.isFinite(num) || num <= 0) return '-';
+    return `${num.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} DT`;
+  };
+
+  const normalize = (value) => String(value || '').toLowerCase().trim();
+
+  const findCredit = () => {
+    const selectedId = Number(refs.creditSelect?.value || 0);
+    return credits.find((item) => Number(item?.idCredit || 0) === selectedId) || null;
+  };
+
+  const findGarantie = () => {
+    const selectedId = Number(refs.garantieSelect?.value || 0);
+    return garanties.find((item) => Number(item?.idGarantie || 0) === selectedId) || null;
+  };
+
+  const badgeClass = (text) => {
+    const k = normalize(text);
+    if (k.includes('faible') || k.includes('valide') || k.includes('accepte') || k.includes('accept')) return 'is-green';
+    if (k.includes('eleve') || k.includes('élevé') || k.includes('refus') || k.includes('rejete') || k.includes('rejet')) return 'is-red';
+    return 'is-amber';
+  };
+
+  const setBadge = (el, text) => {
+    if (!(el instanceof HTMLElement)) return;
+    el.textContent = text;
+    el.classList.remove('is-green', 'is-amber', 'is-red');
+    el.classList.add(badgeClass(text));
+  };
+
+  const setFeedback = (message, kind = '') => {
+    if (!(refs.feedback instanceof HTMLElement)) return;
+    refs.feedback.classList.remove('is-success', 'is-error');
+    refs.feedback.textContent = String(message || '').trim();
+    refs.feedback.style.display = '';
+    if (kind === 'success') refs.feedback.classList.add('is-success');
+    if (kind === 'error') refs.feedback.classList.add('is-error');
+    if (kind !== 'success' && kind !== 'error') refs.feedback.style.display = 'none';
+  };
+
+  const setBusy = (btn, isBusy) => {
+    if (!(btn instanceof HTMLButtonElement)) return;
+    btn.disabled = isBusy;
+    btn.classList.toggle('is-busy', isBusy);
+  };
+
+  const computeCoverage = (garantie) => {
+    if (!garantie || typeof garantie !== 'object') return '-';
+    const retained = Number(garantie.valeurRetenue || 0);
+    const estimated = Number(garantie.valeurEstimee || 0);
+    if (!Number.isFinite(retained) || !Number.isFinite(estimated) || estimated <= 0) return '-';
+    const ratio = Math.max(0, Math.min(200, (retained / estimated) * 100));
+    return `${ratio.toFixed(0)}%`;
+  };
+
+  const syncSelections = () => {
+    const credit = findCredit();
+    const garantie = findGarantie();
+
+    if (credit && !garantie) {
+      const linked = garanties.find((item) => Number(item?.idCredit || 0) === Number(credit.idCredit || 0));
+      if (linked && refs.garantieSelect instanceof HTMLSelectElement) {
+        refs.garantieSelect.value = String(linked.idGarantie || '');
+      }
+    }
+
+    if (!credit && garantie && refs.creditSelect instanceof HTMLSelectElement) {
+      const linkedCreditId = Number(garantie.idCredit || 0);
+      if (linkedCreditId > 0) {
+        refs.creditSelect.value = String(linkedCreditId);
+      }
+    }
+  };
+
+  const renderSummary = () => {
+    syncSelections();
+    const credit = findCredit();
+    const garantie = findGarantie();
+
+    const userName = String(credit?.user_name || '').trim();
+    const clientText = userName !== '' ? userName : (credit ? `Utilisateur #${credit.idUser || '-'}` : '-');
+
+    const creditStatus = String(credit?.statut || 'En attente');
+    const docStatus = String(
+      garantie?.statutDocumentLabel
+      || garantie?.statutVerificationDocumentLabel
+      || garantie?.statutVerificationDocument
+      || 'En attente'
+    );
+    const garantieLabel = garantie
+      ? `#${garantie.idGarantie || '-'} - ${garantie.typeGarantieLabel || garantie.typeGarantie || 'Garantie'}`
+      : '-';
+
+    if (refs.summary.client) refs.summary.client.textContent = clientText;
+    if (refs.summary.amount) refs.summary.amount.textContent = fmtMoney(credit?.montantDemande);
+    if (refs.summary.duration) refs.summary.duration.textContent = credit ? `${credit.duree || '-'} mois` : '-';
+    if (refs.summary.monthly) refs.summary.monthly.textContent = fmtMoney(credit?.mensualite);
+    if (refs.summary.creditStatus) refs.summary.creditStatus.textContent = creditStatus;
+    if (refs.summary.docStatus) refs.summary.docStatus.textContent = docStatus;
+    if (refs.summary.garantie) refs.summary.garantie.textContent = garantieLabel;
+
+    if (!credit && !garantie) {
+      if (refs.analysis.explain) refs.analysis.explain.textContent = 'Selectionnez un credit et une garantie pour lancer l\'analyse.';
+      if (refs.analysis.final) refs.analysis.final.textContent = 'Recommandation finale: En attente';
+      setBadge(refs.analysis.recommendation, 'Decision recommandee: En attente');
+    }
+  };
+
+  const applyAssistantResult = (assistant, actionLabel = '') => {
+    const summary = assistant && typeof assistant.summary === 'object' ? assistant.summary : {};
+    const score = Number(assistant?.score || 0);
+    const risk = String(assistant?.risk_level || summary.niveau_risque || 'Moyen');
+    const coverage = String(summary.couverture || computeCoverage(findGarantie()));
+    const docQuality = String(summary.statut_documents || refs.summary.docStatus?.textContent || 'En attente');
+    const decision = String(assistant?.decision || assistant?.recommendation || 'A etudier');
+    const answer = String(assistant?.answer || 'Analyse effectuee.');
+
+    if (refs.analysis.score) refs.analysis.score.textContent = score > 0 ? `${score.toFixed(1)} / 100` : '-';
+    if (refs.analysis.risk) refs.analysis.risk.textContent = risk;
+    if (refs.analysis.coverage) refs.analysis.coverage.textContent = coverage || '-';
+    if (refs.analysis.docQuality) refs.analysis.docQuality.textContent = docQuality;
+    if (refs.analysis.explain) refs.analysis.explain.textContent = answer;
+
+    setBadge(refs.analysis.recommendation, `Decision recommandee: ${decision}`);
+    if (refs.analysis.final) refs.analysis.final.textContent = `Recommandation finale: ${decision}`;
+
+    if (refs.provider) refs.provider.textContent = String(assistant?.assistant_provider || 'RuleEngine');
+    if (refs.status) refs.status.textContent = actionLabel !== '' ? `${actionLabel} termine` : 'Analyse terminee';
+  };
+
+  const fallbackAnalysis = (actionLabel = '') => {
+    const credit = findCredit();
+    const garantie = findGarantie();
+    const ratioEndettement = Number(credit?.ratioEndettement || 0);
+    const score = Math.max(0, Math.min(100, 100 - (ratioEndettement * 1.5)));
+    let risk = 'Moyen';
+    if (score >= 70) risk = 'Faible';
+    if (score <= 45) risk = 'Eleve';
+
+    const docStatus = normalize(garantie?.statutDocument || garantie?.statutVerificationDocument || 'en_attente');
+    const docQuality = docStatus === 'valide' ? 'Valide' : (docStatus === 'refuse' || docStatus === 'rejete' ? 'Refuse' : 'En attente');
+
+    let decision = 'Demander complement';
+    if (risk === 'Faible' && docQuality === 'Valide') decision = 'Accepter';
+    if (risk === 'Eleve' || docQuality === 'Refuse') decision = 'Refuser';
+
+    applyAssistantResult({
+      score,
+      risk_level: risk,
+      decision,
+      recommendation: decision,
+      answer: 'Analyse locale appliquee (mode secours) selon score, risque et statut documentaire.',
+      summary: {
+        couverture: computeCoverage(garantie),
+        statut_documents: docQuality,
+      },
+      assistant_provider: 'RuleEngine',
+    }, actionLabel);
+  };
+
+  const runAction = async (intent, label) => {
+    renderSummary();
+    const credit = findCredit();
+    const garantie = findGarantie();
+    if (!credit && !garantie) {
+      if (refs.status) refs.status.textContent = 'Selection requise';
+      return;
+    }
+
+    if (refs.status) refs.status.textContent = `${label} en cours...`;
+
+    try {
+      const response = await fetch(aiChatUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: label,
+          intent,
+          selectedCreditId: Number(credit?.idCredit || 0),
+          selectedGarantieId: Number(garantie?.idGarantie || 0),
+          horizonMonths: 12,
+          salaryChange: 0,
+          earlyRepayment: 0,
+        }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok || !payload?.ok || !payload?.assistant) {
+        fallbackAnalysis(label);
+        return;
+      }
+
+      applyAssistantResult(payload.assistant, label);
+    } catch (_error) {
+      fallbackAnalysis(label);
+    }
+  };
+
+  const applyManualDecision = (decisionKey) => {
+    const map = {
+      accepter: 'Accepter',
+      refuser: 'Refuser',
+      complement: 'Demander complement',
+    };
+
+    const decision = map[decisionKey] || 'A etudier';
+    setBadge(refs.analysis.recommendation, `Decision recommandee: ${decision}`);
+    if (refs.analysis.final) refs.analysis.final.textContent = `Recommandation finale: ${decision}`;
+    if (refs.analysis.explain) {
+      refs.analysis.explain.textContent = decision === 'Demander complement'
+        ? 'Decision admin: demander des pieces complementaires avant validation finale.'
+        : `Decision admin: ${decision.toLowerCase()} ce dossier.`;
+    }
+
+    const creditStatusField = document.getElementById('nx-credit-status');
+    if (creditStatusField instanceof HTMLSelectElement) {
+      if (decisionKey === 'accepter') creditStatusField.value = 'Accepte';
+      if (decisionKey === 'refuser') creditStatusField.value = 'Rejete';
+      if (decisionKey === 'complement') creditStatusField.value = 'En cours';
+      creditStatusField.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    const garantieStatusField = document.getElementById('nx-garantie-status');
+    if (garantieStatusField instanceof HTMLSelectElement) {
+      if (decisionKey === 'accepter') garantieStatusField.value = 'Acceptee';
+      if (decisionKey === 'refuser') garantieStatusField.value = 'Rejetee';
+      if (decisionKey === 'complement') garantieStatusField.value = 'En cours_verification';
+      garantieStatusField.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    if (refs.status) refs.status.textContent = 'Decision admin appliquee (a enregistrer)';
+  };
+
+  const requestComplement = async (button) => {
+    renderSummary();
+    const credit = findCredit();
+    const garantie = findGarantie();
+
+    if (!credit) {
+      if (refs.status) refs.status.textContent = 'Selection requise';
+      setFeedback('Selectionnez un credit avant de demander une piece complementaire.', 'error');
+      return;
+    }
+
+    const requestUrl = complementUrlTemplate.replace(/0$/, String(Number(credit.idCredit || 0)));
+    const message = `Votre dossier credit #${credit.idCredit || '-'} necessite une piece complementaire pour finaliser l'analyse.`;
+
+    setBusy(button, true);
+    if (refs.status) refs.status.textContent = 'Demande en cours...';
+    setFeedback('');
+
+    try {
+      const response = await fetch(requestUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRF-TOKEN': complementCsrf,
+        },
+        body: JSON.stringify({
+          idGarantie: Number(garantie?.idGarantie || 0),
+          message,
+        }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok || !payload?.ok) {
+        throw new Error(String(payload?.message || 'Action impossible.'));
+      }
+
+      credit.statut = String(payload.creditStatus || 'Piece complementaire demandee');
+      if (garantie) {
+        garantie.statutDocument = String(payload.documentStatus || 'en_attente');
+        garantie.statutVerificationDocument = 'en_attente';
+      }
+
+      applyManualDecision('complement');
+      renderSummary();
+      if (refs.analysis.explain) refs.analysis.explain.textContent = String(payload.messageClient || message);
+      if (refs.status) refs.status.textContent = 'Demande envoyee';
+      setFeedback(String(payload.message || 'La demande a ete envoyee au client.'), 'success');
+    } catch (error) {
+      if (refs.status) refs.status.textContent = 'Echec envoi';
+      setFeedback((error && error.message) ? error.message : 'Erreur lors de la demande.', 'error');
+    } finally {
+      setBusy(button, false);
+    }
+  };
+
+  root.querySelectorAll('[data-aiw-intent]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const intent = String(btn.getAttribute('data-aiw-intent') || 'summary');
+      const label = String(btn.getAttribute('data-aiw-label') || 'Analyse');
+      runAction(intent, label);
+    });
+  });
+
+  root.querySelectorAll('[data-aiw-decision]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const decisionKey = String(btn.getAttribute('data-aiw-decision') || '');
+      if (decisionKey === 'complement') {
+        await requestComplement(btn);
+        return;
+      }
+
+      applyManualDecision(decisionKey);
+    });
+  });
+
+  refs.creditSelect?.addEventListener('change', renderSummary);
+  refs.garantieSelect?.addEventListener('change', renderSummary);
+
+  renderSummary();
+})();
+</script>

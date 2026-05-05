@@ -18,7 +18,7 @@ class SuperplusNotifications
     #[ORM\Column(name: 'dateCreation', type: 'datetime', nullable: true)]
     private ?\DateTimeInterface $datecreation = null;
 
-    #[ORM\ManyToOne(targetEntity: Users::class)]
+    #[ORM\ManyToOne(targetEntity: Users::class, inversedBy: 'superplusNotifications')]
     #[ORM\JoinColumn(name: 'idUser', referencedColumnName: 'idUser', nullable: false)]
     private ?Users $users = null;
 

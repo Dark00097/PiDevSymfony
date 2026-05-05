@@ -72,8 +72,15 @@ final class BankingMlAssistantService
             }
         }
 
-        usort($alerts, fn (array $left, array $right): int => $this->alertPriority($right) <=> $this->alertPriority($left));
-        $alerts = array_slice($alerts, 0, 4);
+        usort($alerts, function (array $left, array $right): int {
+            $priorityDiff = $this->alertPriority($right) <=> $this->alertPriority($left);
+            if ($priorityDiff !== 0) {
+                return $priorityDiff;
+            }
+            // En cas d'égalité de niveau, prioriser par nombre d'anomalies décroissant
+            return (int) ($right['anomaly_count'] ?? 0) <=> (int) ($left['anomaly_count'] ?? 0);
+        });
+        $alerts = array_slice($alerts, 0, 10);
 
         return [
             'overview' => [
@@ -1167,6 +1174,7 @@ final class BankingMlAssistantService
                 'client' => $clientName,
                 'title' => 'Activite inhabituelle detectee',
                 'text' => sprintf('%s presente %d transaction(s) anormale(s) a verifier rapidement.', $clientName, $anomalyCount),
+                'anomaly_count' => $anomalyCount,
             ];
         }
         if ($blockedAccounts > 0 && $segmentKey !== 'premium') {
@@ -1175,6 +1183,7 @@ final class BankingMlAssistantService
                 'client' => $clientName,
                 'title' => 'Compte bloque a surveiller',
                 'text' => sprintf('%s a %d compte(s) bloque(s), ce qui fragilise sa stabilite globale.', $clientName, $blockedAccounts),
+                'anomaly_count' => $anomalyCount,
             ];
         }
         if ($vaultProgress < 25 && $savingsRate < 15) {
@@ -1183,6 +1192,7 @@ final class BankingMlAssistantService
                 'client' => $clientName,
                 'title' => 'Diminution de l epargne',
                 'text' => sprintf('La progression des coffres de %s reste basse (%.1f%%).', $clientName, $vaultProgress),
+                'anomaly_count' => $anomalyCount,
             ];
         }
         if ($transactionCount === 0) {
@@ -1191,6 +1201,7 @@ final class BankingMlAssistantService
                 'client' => $clientName,
                 'title' => 'Activite transactionnelle faible',
                 'text' => sprintf('%s manque encore d historique transactionnel pour une prediction plus fine.', $clientName),
+                'anomaly_count' => $anomalyCount,
             ];
         }
 
