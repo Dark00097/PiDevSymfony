@@ -217,7 +217,7 @@ final class AuthController extends AbstractController
                 if ($fullName === '') {
                     $signupErrors['full_name'] = 'Full name is required.';
                 } elseif (!$this->isValidFullName($fullName)) {
-                    $signupErrors['full_name'] = 'Please enter first and last name (letters only).';
+                    $signupErrors['full_name'] = 'Please enter a valid name (letters only).';
                 }
 
                 if ($email === '') {
@@ -289,32 +289,69 @@ final class AuthController extends AbstractController
     public function forgotPassword(Request $request, AuthService $authService): Response
     {
         $session = $request->getSession();
+        $sessionEmail = (string) $session->get('nexora.reset_email', '');
+        $forgotOld = [
+            'email' => $sessionEmail,
+            'otp' => '',
+        ];
+        $forgotErrors = [];
 
         if ($request->isMethod('POST')) {
             $action = (string) $request->request->get('action', '');
             $email = trim((string) $request->request->get('email', ''));
+            if ($email === '') {
+                $email = $sessionEmail;
+            }
+            $forgotOld['email'] = $email;
 
             if ($action === 'send_otp') {
-                try {
-                    $authService->sendPasswordResetOtp($email, $session);
-                    $session->set('nexora.reset_email', $email);
-                    $this->addFlash('success', 'OTP sent to '.$email.'.');
-                } catch (\Throwable $exception) {
-                    $this->addFlash('error', $exception->getMessage());
+                if ($email === '') {
+                    $forgotErrors['email'] = 'Email is required.';
+                } elseif (!$this->isValidEmail($email)) {
+                    $forgotErrors['email'] = 'Please enter a valid email address.';
+                }
+
+                if ($forgotErrors === []) {
+                    try {
+                        $authService->sendPasswordResetOtp($email, $session);
+                        $session->set('nexora.reset_email', $email);
+                        $forgotOld['email'] = $email;
+                        $this->addFlash('success', 'OTP sent to '.$email.'.');
+                    } catch (\Throwable $exception) {
+                        $this->addFlash('error', $exception->getMessage());
+                    }
                 }
             }
 
             if ($action === 'verify_otp') {
                 $otp = trim((string) $request->request->get('otp', ''));
-                try {
-                    if ($authService->verifyPasswordResetOtp($email, $otp, $session)) {
-                        $session->set('nexora.reset_email', $email);
-                        $this->addFlash('success', 'OTP verified. You can now set a new password.');
-                    } else {
-                        $this->addFlash('error', 'Invalid or expired OTP.');
+                $forgotOld['otp'] = $otp;
+
+                if ($email === '') {
+                    $forgotErrors['email'] = 'Email is required before OTP verification.';
+                } elseif (!$this->isValidEmail($email)) {
+                    $forgotErrors['email'] = 'Please enter a valid email address.';
+                }
+
+                if ($otp === '') {
+                    $forgotErrors['otp'] = 'OTP code is required.';
+                } elseif (!preg_match('/^\d{6}$/', $otp)) {
+                    $forgotErrors['otp'] = 'OTP must contain exactly 6 digits.';
+                }
+
+                if ($forgotErrors === []) {
+                    try {
+                        if ($authService->verifyPasswordResetOtp($email, $otp, $session)) {
+                            $session->set('nexora.reset_email', $email);
+                            $forgotOld['email'] = $email;
+                            $this->addFlash('success', 'OTP verified. You can now set a new password.');
+                        } else {
+                            $forgotErrors['otp'] = 'Invalid or expired OTP.';
+                            $this->addFlash('error', 'Invalid or expired OTP.');
+                        }
+                    } catch (\Throwable $exception) {
+                        $this->addFlash('error', $exception->getMessage());
                     }
-                } catch (\Throwable $exception) {
-                    $this->addFlash('error', $exception->getMessage());
                 }
             }
 
@@ -322,14 +359,27 @@ final class AuthController extends AbstractController
                 $password = (string) $request->request->get('new_password', '');
                 $confirmPassword = (string) $request->request->get('confirm_password', '');
                 $email = $email !== '' ? $email : (string) $session->get('nexora.reset_email', '');
+                $forgotOld['email'] = $email;
 
-                if ($password === '' || $confirmPassword === '') {
-                    $this->addFlash('error', 'Please fill password fields.');
-                } elseif ($password !== $confirmPassword) {
-                    $this->addFlash('error', 'Passwords do not match.');
+                if ($email === '') {
+                    $forgotErrors['email'] = 'Email is required before resetting password.';
+                } elseif (!$this->isValidEmail($email)) {
+                    $forgotErrors['email'] = 'Please enter a valid email address.';
+                }
+
+                if ($password === '') {
+                    $forgotErrors['new_password'] = 'New password is required.';
                 } elseif (strlen($password) < 8) {
-                    $this->addFlash('error', 'New password must be at least 8 characters.');
-                } else {
+                    $forgotErrors['new_password'] = 'New password must be at least 8 characters.';
+                }
+
+                if ($confirmPassword === '') {
+                    $forgotErrors['confirm_password'] = 'Please confirm your new password.';
+                } elseif ($password !== '' && $password !== $confirmPassword) {
+                    $forgotErrors['confirm_password'] = 'Passwords do not match.';
+                }
+
+                if ($forgotErrors === []) {
                     try {
                         $authService->resetPasswordByVerifiedEmail($email, $password, $session);
                         $session->remove('nexora.reset_email');
@@ -341,10 +391,16 @@ final class AuthController extends AbstractController
                     }
                 }
             }
+
+            if ($forgotErrors !== []) {
+                $this->addFlash('error', (string) reset($forgotErrors));
+            }
         }
 
         return $this->render('auth/forgot_password.html.twig', [
             'reset_email' => (string) $session->get('nexora.reset_email', ''),
+            'forgot_old' => $forgotOld,
+            'forgot_errors' => $forgotErrors,
         ]);
     }
 
@@ -359,9 +415,19 @@ final class AuthController extends AbstractController
     private function splitName(string $fullName): array
     {
         $normalized = preg_replace('/\s+/', ' ', trim($fullName)) ?? trim($fullName);
-        $parts = explode(' ', $normalized, 2);
+        if ($normalized === '') {
+            return ['Client', 'Nexora'];
+        }
 
-        return [$parts[0] ?? '-', $parts[1] ?? '-'];
+        $parts = array_values(array_filter(explode(' ', $normalized), static fn (string $part): bool => $part !== ''));
+        if ($parts === []) {
+            return ['Client', 'Nexora'];
+        }
+
+        $nom = $parts[0] ?? 'Client';
+        $prenom = $parts[1] ?? $nom;
+
+        return [$nom, $prenom];
     }
 
     private function collectOtpDigitsFromRequest(Request $request): string
@@ -434,7 +500,7 @@ final class AuthController extends AbstractController
         }
 
         $parts = explode(' ', $normalized);
-        if (count($parts) < 2) {
+        if (count($parts) < 1) {
             return false;
         }
 

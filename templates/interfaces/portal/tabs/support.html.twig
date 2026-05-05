@@ -1,0 +1,540 @@
+{% set schema_ready = support.support_schema_ready|default(false) %}
+{% set schema_message = support.support_schema_message|default('Support chat schema is not ready.') %}
+{% set messages = support.support_messages|default(items|default([])) %}
+{% set latest_message_id = messages|length > 0 ? (messages|last).idSupportMessage|default(0) : 0 %}
+
+<section class="panel-card nx-support-user-card"
+         id="nx-support-root"
+         data-fetch-url="{{ path('portal_support_realtime_messages') }}"
+         data-send-url="{{ path('portal_support_realtime_send') }}"
+         data-last-id="{{ latest_message_id }}">
+    <header class="nx-support-user-head">
+        <div>
+            <h2>Support Chat</h2>
+            <p>Chat directly with the admin support team.</p>
+        </div>
+        <span class="nx-support-user-status {{ schema_ready ? 'is-ok' : 'is-ko' }}">
+            <i class="fa-solid {{ schema_ready ? 'fa-circle-check' : 'fa-triangle-exclamation' }}"></i>
+            {{ schema_ready ? 'Online' : 'Schema missing' }}
+        </span>
+    </header>
+
+    {% if not schema_ready %}
+        <article class="nx-support-alert">
+            <strong>Database update required.</strong>
+            <p>{{ schema_message }}</p>
+        </article>
+    {% else %}
+        <div class="nx-support-thread" id="nx-support-thread">
+            {% for message in messages %}
+                {% set mine = message.sender_role|default('') == 'ROLE_USER' %}
+                <article class="nx-support-msg {{ mine ? 'mine' : 'theirs' }}" data-id="{{ message.idSupportMessage|default(0) }}">
+                    <div class="nx-support-msg-meta">
+                        <strong>{{ message.sender_name|default(mine ? 'You' : 'Admin') }}</strong>
+                        <span>{{ message.created_at|default('') }}</span>
+                    </div>
+                    <p>{{ message.message_text|default('')|nl2br }}</p>
+                </article>
+            {% else %}
+                <div class="nx-support-empty" id="nx-support-empty">
+                    <i class="fa-solid fa-comments"></i>
+                    <p>No messages yet. Start a conversation with support.</p>
+                </div>
+            {% endfor %}
+        </div>
+
+        <form method="post" class="nx-support-form" id="nx-support-form">
+            <input type="hidden" name="tab" value="support">
+            <input type="hidden" name="action" value="support_send">
+            <label for="nx-support-message">Message</label>
+            <div class="nx-support-compose">
+                <textarea id="nx-support-message"
+                          name="message"
+                          rows="3"
+                          maxlength="2000"
+                          placeholder="Describe your issue..."
+                          required></textarea>
+                <button type="submit" class="btn btn-primary nx-support-send-btn">
+                    <i class="fa-solid fa-paper-plane"></i>
+                    Send
+                </button>
+            </div>
+            <small class="nx-support-compose-hint">Press Enter to send, Shift+Enter for a new line.</small>
+        </form>
+    {% endif %}
+</section>
+
+<style>
+.nx-support-user-card {
+    display: grid;
+    gap: 16px;
+    width: min(1200px, calc(100% - 36px));
+    margin: 18px auto 24px;
+    padding: 16px;
+    border-radius: 18px;
+    border: 1px solid #d5e1ee;
+    background: linear-gradient(180deg, #f7fbff 0%, #f2f7fd 100%);
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+}
+
+.nx-support-user-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.nx-support-user-head h2 {
+    margin: 0;
+    font-size: clamp(20px, 2.4vw, 27px);
+    color: #0f172a;
+    letter-spacing: -0.02em;
+}
+
+.nx-support-user-head p {
+    margin: 4px 0 0;
+    color: #475569;
+    font-size: 13px;
+}
+
+.nx-support-user-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border-radius: 999px;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.nx-support-user-status.is-ok {
+    color: #166534;
+    background: #dcfce7;
+    border: 1px solid #bbf7d0;
+}
+
+.nx-support-user-status.is-ko {
+    color: #b45309;
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+}
+
+.nx-support-alert {
+    border-radius: 12px;
+    border: 1px solid #f59e0b;
+    background: #fff7ed;
+    padding: 12px 14px;
+}
+
+.nx-support-alert strong {
+    display: block;
+    color: #92400e;
+    margin-bottom: 4px;
+}
+
+.nx-support-alert p {
+    margin: 0;
+    color: #b45309;
+    font-size: 13px;
+}
+
+.nx-support-thread {
+    border: 1px solid #d0deec;
+    border-radius: 16px;
+    background:
+        radial-gradient(circle at top right, rgba(56, 189, 248, 0.1), transparent 36%),
+        radial-gradient(circle at bottom left, rgba(15, 118, 110, 0.08), transparent 42%),
+        #f8fbff;
+    padding: 16px;
+    min-height: 390px;
+    max-height: min(62vh, 680px);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+    scrollbar-gutter: stable;
+}
+
+.nx-support-msg {
+    max-width: min(78%, 700px);
+    border-radius: 15px;
+    padding: 11px 13px;
+    display: grid;
+    gap: 6px;
+    box-shadow: 0 5px 14px rgba(15, 23, 42, 0.08);
+    animation: nx-msg-in 0.2s ease;
+}
+
+.nx-support-msg.mine {
+    margin-left: auto;
+    background: linear-gradient(145deg, #0f766e, #0b8a80);
+    color: #effcf7;
+    border-bottom-right-radius: 6px;
+}
+
+.nx-support-msg.theirs {
+    margin-right: auto;
+    background: #ffffff;
+    color: #0f172a;
+    border: 1px solid #d5e0ea;
+    border-bottom-left-radius: 6px;
+}
+
+.nx-support-msg-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.nx-support-msg-meta strong {
+    font-size: 12px;
+}
+
+.nx-support-msg-meta span {
+    font-size: 11px;
+    opacity: 0.82;
+    white-space: nowrap;
+}
+
+.nx-support-msg p {
+    margin: 0;
+    line-height: 1.45;
+    font-size: 13px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.nx-support-empty {
+    min-height: 250px;
+    border: 1px dashed #c7d7ea;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    color: #64748b;
+    gap: 8px;
+}
+
+.nx-support-empty i {
+    font-size: 22px;
+}
+
+.nx-support-form {
+    display: grid;
+    gap: 8px;
+    border: 1px solid #d0deec;
+    border-radius: 16px;
+    background: #ffffff;
+    padding: 12px;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+}
+
+.nx-support-form label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #334155;
+    margin-left: 2px;
+}
+
+.nx-support-compose {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: end;
+}
+
+.nx-support-form textarea {
+    border: 1px solid #c7d2df;
+    border-radius: 13px;
+    padding: 12px 13px;
+    font-size: 14px;
+    resize: vertical;
+    min-height: 74px;
+    max-height: 170px;
+    font-family: inherit;
+    background: #f8fafc;
+}
+
+.nx-support-form textarea:focus {
+    outline: none;
+    border-color: #0f766e;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15);
+}
+
+.nx-support-send-btn,
+.nx-support-form .btn {
+    justify-self: end;
+    min-width: 132px;
+    height: 46px;
+    border: none;
+    border-radius: 12px;
+    padding: 0 16px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #ffffff;
+    background: linear-gradient(135deg, #0f766e, #0891b2);
+    box-shadow: 0 8px 16px rgba(8, 145, 178, 0.25);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.nx-support-send-btn:hover,
+.nx-support-form .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 20px rgba(8, 145, 178, 0.32);
+    filter: saturate(1.06);
+}
+
+.nx-support-send-btn:active,
+.nx-support-form .btn:active {
+    transform: translateY(0);
+}
+
+.nx-support-compose-hint {
+    margin-left: 2px;
+    font-size: 11px;
+    color: #64748b;
+}
+
+.nx-support-form .btn[disabled] {
+    opacity: 0.62;
+    pointer-events: none;
+    filter: grayscale(0.1);
+}
+
+.nx-support-thread::-webkit-scrollbar {
+    width: 7px;
+}
+
+.nx-support-thread::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.nx-support-thread::-webkit-scrollbar-thumb {
+    background: #bfd0e3;
+    border-radius: 999px;
+}
+
+@keyframes nx-msg-in {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 860px) {
+    .nx-support-user-card {
+        width: calc(100% - 16px);
+        margin: 10px auto 16px;
+        padding: 12px;
+    }
+
+    .nx-support-user-head {
+        align-items: flex-start;
+    }
+
+    .nx-support-thread {
+        min-height: 330px;
+        max-height: 56vh;
+    }
+
+    .nx-support-compose {
+        grid-template-columns: 1fr;
+    }
+
+    .nx-support-send-btn,
+    .nx-support-form .btn {
+        width: 100%;
+        min-width: 0;
+        height: 42px;
+    }
+
+    .nx-support-msg {
+        max-width: 100%;
+    }
+}
+</style>
+
+<script>
+(function () {
+    const root = document.getElementById('nx-support-root');
+    const thread = document.getElementById('nx-support-thread');
+    const form = document.getElementById('nx-support-form');
+    const messageField = document.getElementById('nx-support-message');
+    const emptyStateId = 'nx-support-empty';
+    if (!root || !thread || !form || !messageField) {
+        return;
+    }
+
+    const fetchUrl = root.dataset.fetchUrl || '';
+    const sendUrl = root.dataset.sendUrl || '';
+    if (fetchUrl === '' || sendUrl === '') {
+        return;
+    }
+
+    let latestId = Number.parseInt(root.dataset.lastId || '0', 10);
+    if (!Number.isFinite(latestId) || latestId < 0) {
+        latestId = 0;
+    }
+
+    let sending = false;
+    let polling = false;
+
+    const removeEmptyState = () => {
+        const empty = document.getElementById(emptyStateId);
+        if (empty) {
+            empty.remove();
+        }
+    };
+
+    const appendMessage = (message) => {
+        const id = Number.parseInt(String(message?.idSupportMessage ?? '0'), 10);
+        if (id > 0 && thread.querySelector(`[data-id="${id}"]`)) {
+            return;
+        }
+
+        removeEmptyState();
+
+        const mine = String(message?.sender_role ?? '').toUpperCase() === 'ROLE_USER';
+        const article = document.createElement('article');
+        article.className = `nx-support-msg ${mine ? 'mine' : 'theirs'}`;
+        if (id > 0) {
+            article.dataset.id = String(id);
+        }
+
+        const meta = document.createElement('div');
+        meta.className = 'nx-support-msg-meta';
+
+        const sender = document.createElement('strong');
+        sender.textContent = String(message?.sender_name ?? (mine ? 'You' : 'Admin'));
+        meta.appendChild(sender);
+
+        const date = document.createElement('span');
+        date.textContent = String(message?.created_at ?? '');
+        meta.appendChild(date);
+
+        const body = document.createElement('p');
+        body.textContent = String(message?.message_text ?? '');
+
+        article.appendChild(meta);
+        article.appendChild(body);
+        thread.appendChild(article);
+        thread.scrollTop = thread.scrollHeight;
+
+        if (id > latestId) {
+            latestId = id;
+        }
+    };
+
+    const pollMessages = async () => {
+        if (polling) {
+            return;
+        }
+        polling = true;
+
+        try {
+            const query = new URLSearchParams({ after_id: String(latestId) });
+            const response = await fetch(`${fetchUrl}?${query.toString()}`, {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' },
+                credentials: 'same-origin',
+                cache: 'no-store',
+            });
+
+            if (!response.ok) {
+                return;
+            }
+
+            const payload = await response.json();
+            const rows = Array.isArray(payload?.messages) ? payload.messages : [];
+            rows.forEach((row) => appendMessage(row));
+
+            const latestFromPayload = Number.parseInt(String(payload?.latest_id ?? latestId), 10);
+            if (Number.isFinite(latestFromPayload) && latestFromPayload > latestId) {
+                latestId = latestFromPayload;
+            }
+        } catch (_error) {
+            // Keep UI responsive even if realtime request fails temporarily.
+        } finally {
+            polling = false;
+        }
+    };
+
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (sending) {
+            return;
+        }
+
+        const value = String(messageField.value ?? '').trim();
+        if (value === '') {
+            return;
+        }
+
+        sending = true;
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.setAttribute('disabled', 'disabled');
+        }
+
+        try {
+            const body = new URLSearchParams();
+            body.set('message', value);
+            const response = await fetch(sendUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                    'Accept': 'application/json',
+                },
+                credentials: 'same-origin',
+                body: body.toString(),
+            });
+
+            const payload = await response.json();
+            if (!response.ok || !payload?.ok) {
+                const errorMessage = String(payload?.message ?? 'Unable to send message right now.');
+                window.alert(errorMessage);
+                return;
+            }
+
+            if (payload?.message) {
+                appendMessage(payload.message);
+            }
+
+            messageField.value = '';
+            await pollMessages();
+        } catch (_error) {
+            window.alert('Network issue while sending support message.');
+        } finally {
+            sending = false;
+            if (submitBtn) {
+                submitBtn.removeAttribute('disabled');
+            }
+        }
+    });
+
+    messageField.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            form.requestSubmit();
+        }
+    });
+
+    thread.scrollTop = thread.scrollHeight;
+
+    pollMessages();
+    window.setInterval(() => {
+        pollMessages();
+    }, 2000);
+})();
+</script>

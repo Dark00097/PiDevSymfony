@@ -14,21 +14,8 @@ final class LegacyBankingSecurity
         if ($amount === null || $amount === '') {
             return null;
         }
-
-        $iv = random_bytes(16);
-        $ciphertext = openssl_encrypt(
-            (string) $amount,
-            'AES-256-CBC',
-            self::AES_KEY,
-            OPENSSL_RAW_DATA,
-            $iv
-        );
-
-        if ($ciphertext === false) {
-            throw new \RuntimeException('Failed to encrypt amount.');
-        }
-
-        return base64_encode($iv).':'.base64_encode($ciphertext);
+        // Stockage direct en nombre (pas de chiffrement)
+        return (string) round((float) $amount, 2);
     }
 
     public function decryptAmount(?string $encryptedData): ?float
@@ -39,8 +26,14 @@ final class LegacyBankingSecurity
 
         $encryptedData = trim($encryptedData);
 
+        // Si c'est déjà un nombre simple, le retourner directement
+        if (is_numeric($encryptedData)) {
+            return (float) $encryptedData;
+        }
+
+        // Compatibilité avec les anciennes valeurs chiffrées en BDD
         if (!str_contains($encryptedData, ':')) {
-            return is_numeric($encryptedData) ? (float) $encryptedData : null;
+            return null;
         }
 
         [$ivPart, $cipherPart] = explode(':', $encryptedData, 2);

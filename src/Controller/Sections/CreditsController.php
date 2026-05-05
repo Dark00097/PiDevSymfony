@@ -1,20 +1,27 @@
 <?php
 
 namespace App\Controller\Sections;
+use App\Entity\Credit;
 use App\Service\ActivityService;
 use App\Service\BankingService;
 use App\Service\ExportService;
+use App\Service\RestructurationService;
 use Symfony\Component\HttpFoundation\Request;
 
 final class CreditsController
 {
+    public function __construct(
+        private readonly RestructurationService $restructurationService,
+    ) {
+    }
+
     // -------------------------------------------------------------------------
     // Admin
     // -------------------------------------------------------------------------
 
     public function buildAdminData(BankingService $bankingService): array
     {
-        $credits = $bankingService->listCredits();
+        $credits = $this->decorateCredits($bankingService->listCredits());
 
         return [
             'items' => $credits,
@@ -22,6 +29,7 @@ final class CreditsController
                 'users'             => $bankingService->listUsers(),
                 'accounts'          => $bankingService->listAccounts(),
                 'credits'           => $credits,
+                'credit_type_choices' => Credit::getTypeChoices(),
                 'credit_type_stats' => $bankingService->getCreditTypeDistribution(),
                 'credit_stats'      => $this->buildCreditStats($credits),
             ],
@@ -33,6 +41,10 @@ final class CreditsController
         switch ($action) {
             case 'credit_save':
                 $data = $request->request->all();
+                $normalizedType = Credit::normalizeTypeCreditValue((string) ($data['typeCredit'] ?? ''));
+                if ($normalizedType !== null) {
+                    $data['typeCredit'] = $normalizedType;
+                }
                 $bankingService->saveCredit($data, $this->requestInt($request, 'idCredit'));
                 $this->logHistory($request, 'credit_save', $data);
 
@@ -58,6 +70,7 @@ final class CreditsController
         $allCredits    = $bankingService->listCredits($userId);
         $creditQuery   = $this->resolvePortalCreditQuery($request);
         $credits       = $this->filterAndSortPortalCredits($allCredits, $creditQuery);
+        $restructuration = $this->restructurationService->buildPortfolioScenarios($allCredits);
 
         $formErrorsCredit = $request !== null ? $this->getFormErrors($request, 'credit') : [];
         $formDataCredit   = $request !== null ? $this->getFormData($request, 'credit') : [];
@@ -78,6 +91,9 @@ final class CreditsController
                 'filtered_credit_count'  => count($credits),
                 'credit_history'         => $request !== null ? $this->getHistory($request) : [],
                 'credit_stats'           => $this->buildCreditStats($allCredits),
+                'restructuration_scenarios' => $restructuration['by_credit'] ?? [],
+                'restructuration_first_eligible_credit_id' => (int) ($restructuration['first_eligible_credit_id'] ?? 0),
+                'restructuration_first_critical_credit_id' => (int) ($restructuration['first_critical_credit_id'] ?? 0),
                 'form_errors_credit'     => $formErrorsCredit,
                 'form_data_credit'       => $formDataCredit,
                 'credit_form_feedback'   => [
@@ -96,13 +112,21 @@ final class CreditsController
                 if (($data['idUser'] ?? '') === '') {
                     $data['idUser'] = (string) $userId;
                 }
+                if (trim((string) ($data['idCompte'] ?? '')) === '') {
+                    $userAccounts = $bankingService->listAccounts($userId);
+                    $firstAccountId = (int) ($userAccounts[0]['idCompte'] ?? 0);
+                    if ($firstAccountId > 0) {
+                        $data['idCompte'] = (string) $firstAccountId;
+                    }
+                }
 
                 $errors = $this->validateCredit($data, $bankingService, $userId);
                 if ($errors !== []) {
                     $request->getSession()->set('nexora.form_errors.credit', $errors);
                     $request->getSession()->set('nexora.form_data.credit', $data);
+                    $firstError = (string) (array_values($errors)[0] ?? 'Erreur de validation.');
 
-                    return ['type' => 'validation_error', 'message' => 'Veuillez corriger les erreurs du formulaire credit.'];
+                    return ['type' => 'validation_error', 'message' => 'Erreur credit: '.$firstError];
                 }
 
                 $request->getSession()->remove('nexora.form_errors.credit');
@@ -165,20 +189,7 @@ final class CreditsController
         $errors = [];
         $today = new \DateTimeImmutable('today');
         $allowedDurations = [6, 12, 18, 24, 36, 48, 60, 72, 84, 120];
-        $allowedTypes = [
-            'Professionnel',
-            'Immobilier',
-            'Auto',
-            'Consommation',
-            'Etudes',
-            'Travaux',
-            'Personnel',
-            'Autre',
-            'Hypotheque',
-            'Pret auto',
-            'Education',
-            'Sante',
-        ];
+        $allowedTypes = Credit::getAllowedTypeValues();
         $allowedContracts = ['CDI', 'CDD', 'Fonctionnaire', 'Profession liberale', 'Profession libérale', 'Autre'];
 
         $accountId = (int) ($data['idCompte'] ?? 0);
@@ -201,8 +212,11 @@ final class CreditsController
         $typeCredit = trim((string) ($data['typeCredit'] ?? ''));
         if ($typeCredit === '') {
             $errors['typeCredit'] = 'Le type de credit est obligatoire.';
-        } elseif (!in_array($typeCredit, $allowedTypes, true)) {
-            $errors['typeCredit'] = 'Veuillez selectionner un type de credit valide.';
+        } else {
+            $normalizedType = Credit::normalizeTypeCreditValue($typeCredit);
+            if ($normalizedType === null || !in_array($normalizedType, $allowedTypes, true)) {
+                $errors['typeCredit'] = 'Veuillez selectionner un type de credit valide.';
+            }
         }
 
         $dateDemande = trim((string) ($data['dateDemande'] ?? ''));
@@ -738,5 +752,24 @@ final class CreditsController
         $intValue = (int) $value;
 
         return $intValue > 0 ? $intValue : null;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $credits
+     * @return array<int, array<string, mixed>>
+     */
+    private function decorateCredits(array $credits): array
+    {
+        foreach ($credits as &$credit) {
+            $rawType = (string) ($credit['typeCredit'] ?? '');
+            $normalized = Credit::normalizeTypeCreditValue($rawType);
+            $credit['typeCreditRaw'] = $rawType;
+            $credit['typeCreditValue'] = $normalized ?? $rawType;
+            $credit['typeCreditLabel'] = Credit::getTypeLabel($rawType);
+            $credit['typeCredit'] = $credit['typeCreditLabel'];
+        }
+        unset($credit);
+
+        return $credits;
     }
 }

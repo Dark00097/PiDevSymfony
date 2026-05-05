@@ -32,23 +32,24 @@ final class DatabaseEntitiesController
             $tableName = $metadata->getTableName();
             $identifierColumns = $metadata->getIdentifierColumnNames();
 
-            $countQuery = $connection->createQueryBuilder()
-                ->select('COUNT(*)')
-                ->from($tableName);
-
-            $totalCount = (int) $countQuery->fetchOne();
-            $totalRows += $totalCount;
-
-            $dataQuery = $connection->createQueryBuilder()
-                ->select('*')
-                ->from($tableName)
-                ->setMaxResults(self::PREVIEW_LIMIT);
-
-            foreach ($identifierColumns as $identifierColumn) {
-                $dataQuery->addOrderBy($identifierColumn, 'DESC');
+            // Sécurité : nom de table validé (issu des métadonnées Doctrine, jamais d'une entrée utilisateur)
+            if (!preg_match('/^[a-zA-Z0-9_]+$/', $tableName)) {
+                continue;
             }
 
-            $rows = $dataQuery->fetchAllAssociative();
+            // Utilisation de SQL natif avec nom de table validé (pas de QueryBuilder pour éviter faux positifs)
+            $totalCount = (int) $connection->fetchOne('SELECT COUNT(*) FROM `' . $tableName . '`');
+            $totalRows += $totalCount;
+
+            $orderBy = '';
+            if (!empty($identifierColumns)) {
+                $cols = array_map(fn(string $c) => '`' . preg_replace('/[^a-zA-Z0-9_]/', '', $c) . '` DESC', $identifierColumns);
+                $orderBy = ' ORDER BY ' . implode(', ', $cols);
+            }
+
+            $rows = $connection->fetchAllAssociative(
+                'SELECT * FROM `' . $tableName . '`' . $orderBy . ' LIMIT ' . self::PREVIEW_LIMIT
+            );
             $columns = $this->collectColumns($rows, $metadata->getColumnNames());
 
             $entities[] = [

@@ -1,0 +1,817 @@
+{% set schema_ready = support.support_schema_ready|default(false) %}
+{% set schema_message = support.support_schema_message|default('Support chat schema is not ready.') %}
+{% set conversations = support.support_conversations|default([]) %}
+{% set selected_user_id = support.support_selected_user_id|default(null) %}
+{% set selected_user = support.support_selected_user|default(null) %}
+{% set messages = support.support_messages|default(items|default([])) %}
+{% set search_query = support.support_search_query|default('') %}
+{% set latest_message_id = messages|length > 0 ? (messages|last).idSupportMessage|default(0) : 0 %}
+
+<section class="panel-card nx-support-admin-card"
+         id="nx-support-admin-root"
+         data-conversations-url="{{ path('admin_support_realtime_conversations') }}"
+         data-messages-url-prefix="{{ path('admin_support_realtime_messages', { userId: 0 })|replace({'/0': '/'}) }}"
+         data-send-url="{{ path('admin_support_realtime_send') }}"
+         data-tab-url="{{ path(route_name, { tab: 'support' }) }}"
+         data-selected-user-id="{{ selected_user_id|default(0) }}"
+         data-last-id="{{ latest_message_id }}"
+         data-search-query="{{ search_query }}">
+    <header class="nx-support-admin-head">
+        <div>
+            <h2>Customer Support Chat</h2>
+            <p>Receive user messages and reply from the admin panel.</p>
+        </div>
+        <span class="nx-support-admin-status {{ schema_ready ? 'is-ok' : 'is-ko' }}">
+            <i class="fa-solid {{ schema_ready ? 'fa-circle-check' : 'fa-triangle-exclamation' }}"></i>
+            {{ schema_ready ? 'Schema ready' : 'Schema missing' }}
+        </span>
+    </header>
+
+    {% if not schema_ready %}
+        <article class="nx-support-admin-alert">
+            <strong>Database update required.</strong>
+            <p>{{ schema_message }}</p>
+        </article>
+    {% else %}
+        <div class="nx-support-admin-grid">
+            <aside class="nx-support-admin-sidebar">
+                <form method="get" class="nx-support-search-form">
+                    <input type="hidden" name="tab" value="support">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" name="q" value="{{ search_query }}" placeholder="Search user...">
+                    <button type="submit">Search</button>
+                </form>
+
+                <div class="nx-support-conversation-list" id="nx-support-conversation-list">
+                    {% for item in conversations %}
+                        {% set params = { tab: 'support', chat_user: item.idUser } %}
+                        {% if search_query != '' %}
+                            {% set params = params|merge({ q: search_query }) %}
+                        {% endif %}
+                        <a class="nx-support-conversation {{ selected_user_id == item.idUser ? 'is-active' : '' }}"
+                           href="{{ path(route_name, params) }}"
+                           data-user-id="{{ item.idUser }}">
+                            <span class="nx-support-conversation-avatar">
+                                {% if item.profile_image_path|default('') %}
+                                    <img src="{{ asset(item.profile_image_path) }}" alt="Avatar">
+                                {% else %}
+                                    {{ item.display_name|default('U')|slice(0,1)|upper }}
+                                {% endif %}
+                            </span>
+                            <span class="nx-support-conversation-body">
+                                <strong>{{ item.display_name|default('User') }}</strong>
+                                <small>{{ item.last_message_preview|default('') }}</small>
+                            </span>
+                            <span class="nx-support-conversation-meta">
+                                {% if item.unread_count|default(0) > 0 %}
+                                    <b>{{ item.unread_count > 99 ? '99+' : item.unread_count }}</b>
+                                {% endif %}
+                                <time>{{ item.last_message_at|default('') }}</time>
+                            </span>
+                        </a>
+                    {% else %}
+                        <div class="nx-support-conversation-empty">
+                            <i class="fa-solid fa-inbox"></i>
+                            <span>No support conversations yet.</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            </aside>
+
+            <article class="nx-support-admin-thread-card">
+                {% if selected_user %}
+                    <header class="nx-support-thread-head">
+                        <div>
+                            <h3>{{ selected_user.display_name|default('User') }}</h3>
+                            <p>{{ selected_user.email|default('') }}</p>
+                        </div>
+                        <span>User #{{ selected_user.idUser|default('-') }}</span>
+                    </header>
+
+                    <div class="nx-support-thread" id="nx-admin-support-thread">
+                        {% for message in messages %}
+                            {% set mine = message.sender_role|default('') == 'ROLE_ADMIN' %}
+                            <article class="nx-support-msg {{ mine ? 'mine' : 'theirs' }}" data-id="{{ message.idSupportMessage|default(0) }}">
+                                <div class="nx-support-msg-meta">
+                                    <strong>{{ message.sender_name|default(mine ? 'Admin' : 'User') }}</strong>
+                                    <span>{{ message.created_at|default('') }}</span>
+                                </div>
+                                <p>{{ message.message_text|default('')|nl2br }}</p>
+                            </article>
+                        {% else %}
+                            <div class="nx-support-thread-empty" id="nx-support-thread-empty">
+                                <i class="fa-solid fa-comments"></i>
+                                <span>No messages in this conversation.</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    <form method="post" class="nx-support-reply-form" id="nx-support-reply-form">
+                        <input type="hidden" name="tab" value="support">
+                        <input type="hidden" name="action" value="support_admin_send">
+                        <input type="hidden" name="user_id" id="nx-support-reply-user-id" value="{{ selected_user.idUser }}">
+                        <input type="hidden" name="chat_user" value="{{ selected_user.idUser }}">
+                        <input type="hidden" name="q" value="{{ search_query }}">
+                        <label for="nx-support-admin-message">Reply message</label>
+                        <textarea id="nx-support-admin-message"
+                                  name="message"
+                                  rows="4"
+                                  maxlength="2000"
+                                  placeholder="Write your reply..."
+                                  required></textarea>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fa-solid fa-paper-plane"></i>
+                            Send reply
+                        </button>
+                    </form>
+                {% else %}
+                    <div class="nx-support-thread-empty">
+                        <i class="fa-solid fa-user-clock"></i>
+                        <span>Select a conversation to open the support thread.</span>
+                    </div>
+                {% endif %}
+            </article>
+        </div>
+    {% endif %}
+</section>
+
+<style>
+.nx-support-admin-card {
+    display: grid;
+    gap: 14px;
+}
+
+.nx-support-admin-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.nx-support-admin-head h2 {
+    margin: 0;
+    font-size: 22px;
+}
+
+.nx-support-admin-head p {
+    margin: 4px 0 0;
+    color: #64748b;
+    font-size: 13px;
+}
+
+.nx-support-admin-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 999px;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.nx-support-admin-status.is-ok {
+    color: #166534;
+    background: #dcfce7;
+    border: 1px solid #bbf7d0;
+}
+
+.nx-support-admin-status.is-ko {
+    color: #b45309;
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+}
+
+.nx-support-admin-alert {
+    border-radius: 12px;
+    border: 1px solid #f59e0b;
+    background: #fff7ed;
+    padding: 12px 14px;
+}
+
+.nx-support-admin-alert strong {
+    display: block;
+    margin-bottom: 5px;
+    color: #92400e;
+}
+
+.nx-support-admin-alert p {
+    margin: 0;
+    color: #b45309;
+}
+
+.nx-support-admin-grid {
+    display: grid;
+    grid-template-columns: 320px minmax(0, 1fr);
+    gap: 14px;
+    min-height: 520px;
+}
+
+.nx-support-admin-sidebar,
+.nx-support-admin-thread-card {
+    background: #fff;
+    border: 1px solid #dbe5f0;
+    border-radius: 14px;
+    min-height: 0;
+}
+
+.nx-support-admin-sidebar {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    overflow: hidden;
+}
+
+.nx-support-search-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px;
+    border-bottom: 1px solid #e5edf7;
+    background: #f8fbff;
+}
+
+.nx-support-search-form i {
+    color: #64748b;
+}
+
+.nx-support-search-form input {
+    flex: 1;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 13px;
+}
+
+.nx-support-search-form input:focus {
+    outline: none;
+    border-color: #0f766e;
+    box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.12);
+}
+
+.nx-support-search-form button {
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: #334155;
+    border-radius: 8px;
+    height: 34px;
+    padding: 0 10px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.nx-support-search-form button:hover {
+    background: #f1f5f9;
+}
+
+.nx-support-conversation-list {
+    overflow-y: auto;
+}
+
+.nx-support-conversation {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    padding: 10px;
+    text-decoration: none;
+    color: #0f172a;
+    border-bottom: 1px solid #eef3f8;
+}
+
+.nx-support-conversation:hover {
+    background: #f8fbff;
+}
+
+.nx-support-conversation.is-active {
+    background: #eff6ff;
+}
+
+.nx-support-conversation-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 999px;
+    background: #e2e8f0;
+    display: grid;
+    place-items: center;
+    font-weight: 800;
+    color: #334155;
+    overflow: hidden;
+}
+
+.nx-support-conversation-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.nx-support-conversation-body {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+}
+
+.nx-support-conversation-body strong {
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.nx-support-conversation-body small {
+    color: #64748b;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.nx-support-conversation-meta {
+    display: grid;
+    justify-items: end;
+    gap: 4px;
+    min-width: 64px;
+}
+
+.nx-support-conversation-meta b {
+    background: #ef4444;
+    color: #fff;
+    border-radius: 999px;
+    font-size: 10px;
+    min-width: 18px;
+    height: 18px;
+    display: grid;
+    place-items: center;
+    padding: 0 5px;
+}
+
+.nx-support-conversation-meta time {
+    font-size: 10px;
+    color: #94a3b8;
+}
+
+.nx-support-conversation-empty {
+    min-height: 240px;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    color: #64748b;
+    gap: 8px;
+}
+
+.nx-support-conversation-empty i {
+    font-size: 22px;
+}
+
+.nx-support-admin-thread-card {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    overflow: hidden;
+}
+
+.nx-support-thread-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid #e5edf7;
+    background: #f8fbff;
+}
+
+.nx-support-thread-head h3 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.nx-support-thread-head p {
+    margin: 2px 0 0;
+    color: #64748b;
+    font-size: 12px;
+}
+
+.nx-support-thread-head span {
+    font-size: 11px;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    padding: 5px 10px;
+    white-space: nowrap;
+}
+
+.nx-support-thread {
+    background: #f8fbff;
+    overflow-y: auto;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.nx-support-msg {
+    max-width: min(76%, 700px);
+    border-radius: 14px;
+    padding: 10px 12px;
+    display: grid;
+    gap: 6px;
+    box-shadow: 0 1px 6px rgba(15, 23, 42, 0.06);
+}
+
+.nx-support-msg.mine {
+    margin-left: auto;
+    background: #1d4ed8;
+    color: #eff6ff;
+}
+
+.nx-support-msg.theirs {
+    margin-right: auto;
+    background: #fff;
+    color: #0f172a;
+    border: 1px solid #d9e2ec;
+}
+
+.nx-support-msg-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.nx-support-msg-meta strong {
+    font-size: 12px;
+}
+
+.nx-support-msg-meta span {
+    font-size: 11px;
+    opacity: 0.82;
+    white-space: nowrap;
+}
+
+.nx-support-msg p {
+    margin: 0;
+    line-height: 1.45;
+    font-size: 13px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.nx-support-reply-form {
+    border-top: 1px solid #e5edf7;
+    padding: 12px;
+    display: grid;
+    gap: 9px;
+    background: #fff;
+}
+
+.nx-support-reply-form label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #334155;
+}
+
+.nx-support-reply-form textarea {
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    padding: 10px 11px;
+    font-size: 14px;
+    resize: vertical;
+    min-height: 92px;
+    font-family: inherit;
+}
+
+.nx-support-reply-form textarea:focus {
+    outline: none;
+    border-color: #1d4ed8;
+    box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.14);
+}
+
+.nx-support-reply-form .btn {
+    justify-self: end;
+}
+
+.nx-support-reply-form .btn[disabled] {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.nx-support-thread-empty {
+    min-height: 280px;
+    margin: 14px;
+    border: 1px dashed #c7d7ea;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    color: #64748b;
+    gap: 8px;
+}
+
+.nx-support-thread-empty i {
+    font-size: 22px;
+}
+
+@media (max-width: 1080px) {
+    .nx-support-admin-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .nx-support-msg {
+        max-width: 100%;
+    }
+}
+</style>
+
+<script>
+(function () {
+    const root = document.getElementById('nx-support-admin-root');
+    const thread = document.getElementById('nx-admin-support-thread');
+    const conversationList = document.getElementById('nx-support-conversation-list');
+    const form = document.getElementById('nx-support-reply-form');
+    const messageField = document.getElementById('nx-support-admin-message');
+    const userIdField = document.getElementById('nx-support-reply-user-id');
+    if (!root || !conversationList) {
+        return;
+    }
+
+    const conversationsUrl = root.dataset.conversationsUrl || '';
+    const messagesUrlPrefix = root.dataset.messagesUrlPrefix || '';
+    const sendUrl = root.dataset.sendUrl || '';
+    const tabUrl = root.dataset.tabUrl || window.location.pathname;
+    const searchQuery = root.dataset.searchQuery || '';
+
+    let selectedUserId = Number.parseInt(root.dataset.selectedUserId || '0', 10);
+    if (!Number.isFinite(selectedUserId) || selectedUserId < 0) {
+        selectedUserId = 0;
+    }
+
+    let latestId = Number.parseInt(root.dataset.lastId || '0', 10);
+    if (!Number.isFinite(latestId) || latestId < 0) {
+        latestId = 0;
+    }
+
+    let pollingMessages = false;
+    let pollingConversations = false;
+    let sending = false;
+
+    const buildConversationUrl = (userId) => {
+        const params = new URLSearchParams({ tab: 'support', chat_user: String(userId) });
+        if (searchQuery !== '') {
+            params.set('q', searchQuery);
+        }
+        return `${tabUrl}?${params.toString()}`;
+    };
+
+    const renderConversationItem = (item) => {
+        const link = document.createElement('a');
+        const userId = Number.parseInt(String(item?.idUser ?? '0'), 10);
+        link.className = `nx-support-conversation ${selectedUserId === userId ? 'is-active' : ''}`;
+        link.href = buildConversationUrl(userId);
+        link.dataset.userId = String(userId);
+
+        const avatar = document.createElement('span');
+        avatar.className = 'nx-support-conversation-avatar';
+        const imagePath = String(item?.profile_image_url ?? item?.profile_image_path ?? '').trim();
+        if (imagePath !== '') {
+            const img = document.createElement('img');
+            img.src = imagePath.includes('://') || imagePath.startsWith('/') ? imagePath : `/${imagePath.replace(/^\/+/, '')}`;
+            img.alt = 'Avatar';
+            avatar.appendChild(img);
+        } else {
+            const name = String(item?.display_name ?? 'U').trim();
+            avatar.textContent = name === '' ? 'U' : name.slice(0, 1).toUpperCase();
+        }
+
+        const body = document.createElement('span');
+        body.className = 'nx-support-conversation-body';
+        const strong = document.createElement('strong');
+        strong.textContent = String(item?.display_name ?? 'User');
+        const small = document.createElement('small');
+        small.textContent = String(item?.last_message_preview ?? '');
+        body.appendChild(strong);
+        body.appendChild(small);
+
+        const meta = document.createElement('span');
+        meta.className = 'nx-support-conversation-meta';
+        const unreadCount = Number.parseInt(String(item?.unread_count ?? '0'), 10);
+        if (Number.isFinite(unreadCount) && unreadCount > 0) {
+            const badge = document.createElement('b');
+            badge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
+            meta.appendChild(badge);
+        }
+        const time = document.createElement('time');
+        time.textContent = String(item?.last_message_at ?? '');
+        meta.appendChild(time);
+
+        link.appendChild(avatar);
+        link.appendChild(body);
+        link.appendChild(meta);
+
+        return link;
+    };
+
+    const renderConversationEmpty = () => {
+        const empty = document.createElement('div');
+        empty.className = 'nx-support-conversation-empty';
+        empty.innerHTML = '<i class="fa-solid fa-inbox"></i><span>No support conversations yet.</span>';
+        return empty;
+    };
+
+    const refreshConversations = async () => {
+        if (pollingConversations || conversationsUrl === '') {
+            return;
+        }
+        pollingConversations = true;
+
+        try {
+            const query = new URLSearchParams();
+            if (searchQuery !== '') {
+                query.set('q', searchQuery);
+            }
+            const response = await fetch(`${conversationsUrl}${query.toString() !== '' ? `?${query.toString()}` : ''}`, {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' },
+                credentials: 'same-origin',
+                cache: 'no-store',
+            });
+            if (!response.ok) {
+                return;
+            }
+
+            const payload = await response.json();
+            if (!payload?.ok) {
+                return;
+            }
+
+            const rows = Array.isArray(payload?.conversations) ? payload.conversations : [];
+            conversationList.innerHTML = '';
+            if (rows.length === 0) {
+                conversationList.appendChild(renderConversationEmpty());
+                return;
+            }
+
+            rows.forEach((item) => {
+                conversationList.appendChild(renderConversationItem(item));
+            });
+        } catch (_error) {
+            // Ignore temporary network failures for realtime refresh.
+        } finally {
+            pollingConversations = false;
+        }
+    };
+
+    const removeThreadEmpty = () => {
+        const empty = document.getElementById('nx-support-thread-empty');
+        if (empty) {
+            empty.remove();
+        }
+    };
+
+    const appendThreadMessage = (message) => {
+        if (!thread) {
+            return;
+        }
+
+        const id = Number.parseInt(String(message?.idSupportMessage ?? '0'), 10);
+        if (id > 0 && thread.querySelector(`[data-id="${id}"]`)) {
+            return;
+        }
+
+        removeThreadEmpty();
+
+        const mine = String(message?.sender_role ?? '').toUpperCase() === 'ROLE_ADMIN';
+        const article = document.createElement('article');
+        article.className = `nx-support-msg ${mine ? 'mine' : 'theirs'}`;
+        if (id > 0) {
+            article.dataset.id = String(id);
+        }
+
+        const meta = document.createElement('div');
+        meta.className = 'nx-support-msg-meta';
+        const sender = document.createElement('strong');
+        sender.textContent = String(message?.sender_name ?? (mine ? 'Admin' : 'User'));
+        const date = document.createElement('span');
+        date.textContent = String(message?.created_at ?? '');
+        meta.appendChild(sender);
+        meta.appendChild(date);
+
+        const body = document.createElement('p');
+        body.textContent = String(message?.message_text ?? '');
+
+        article.appendChild(meta);
+        article.appendChild(body);
+        thread.appendChild(article);
+        thread.scrollTop = thread.scrollHeight;
+
+        if (id > latestId) {
+            latestId = id;
+        }
+    };
+
+    const refreshMessages = async () => {
+        if (pollingMessages || !thread || selectedUserId <= 0 || messagesUrlPrefix === '') {
+            return;
+        }
+        pollingMessages = true;
+
+        try {
+            const query = new URLSearchParams({ after_id: String(latestId) });
+            const response = await fetch(`${messagesUrlPrefix}${selectedUserId}?${query.toString()}`, {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' },
+                credentials: 'same-origin',
+                cache: 'no-store',
+            });
+            if (!response.ok) {
+                return;
+            }
+
+            const payload = await response.json();
+            if (!payload?.ok) {
+                return;
+            }
+
+            const rows = Array.isArray(payload?.messages) ? payload.messages : [];
+            rows.forEach((row) => appendThreadMessage(row));
+
+            const latestFromPayload = Number.parseInt(String(payload?.latest_id ?? latestId), 10);
+            if (Number.isFinite(latestFromPayload) && latestFromPayload > latestId) {
+                latestId = latestFromPayload;
+            }
+        } catch (_error) {
+            // Ignore temporary network failures for realtime refresh.
+        } finally {
+            pollingMessages = false;
+        }
+    };
+
+    if (thread) {
+        thread.scrollTop = thread.scrollHeight;
+    }
+
+    if (form && messageField && userIdField && sendUrl !== '') {
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (sending) {
+                return;
+            }
+
+            const targetUserId = Number.parseInt(String(userIdField.value ?? '0'), 10);
+            const value = String(messageField.value ?? '').trim();
+            if (!Number.isFinite(targetUserId) || targetUserId <= 0 || value === '') {
+                return;
+            }
+
+            sending = true;
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.setAttribute('disabled', 'disabled');
+            }
+
+            try {
+                const body = new URLSearchParams();
+                body.set('user_id', String(targetUserId));
+                body.set('message', value);
+                const response = await fetch(sendUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                        'Accept': 'application/json',
+                    },
+                    credentials: 'same-origin',
+                    body: body.toString(),
+                });
+
+                const payload = await response.json();
+                if (!response.ok || !payload?.ok) {
+                    const errorMessage = String(payload?.message ?? 'Unable to send reply right now.');
+                    window.alert(errorMessage);
+                    return;
+                }
+
+                if (payload?.message) {
+                    appendThreadMessage(payload.message);
+                }
+
+                messageField.value = '';
+                await refreshMessages();
+                await refreshConversations();
+            } catch (_error) {
+                window.alert('Network issue while sending support reply.');
+            } finally {
+                sending = false;
+                if (submitBtn) {
+                    submitBtn.removeAttribute('disabled');
+                }
+            }
+        });
+    }
+
+    refreshMessages();
+    refreshConversations();
+    window.setInterval(() => {
+        refreshMessages();
+    }, 2000);
+    window.setInterval(() => {
+        refreshConversations();
+    }, 4500);
+})();
+</script>

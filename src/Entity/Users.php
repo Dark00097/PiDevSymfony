@@ -8,6 +8,7 @@ use App\Repository\UsersRepository;
 use Doctrine\ORM\Mapping as ORM;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Symfony\Component\Serializer\Annotation\Ignore;
 
 #[ORM\Entity(repositoryClass: UsersRepository::class)]
 #[ORM\Table(name: 'users')]
@@ -37,6 +38,7 @@ class Users
     private string $status;
 
     #[ORM\Column(name: 'password', type: 'string', length: 255)]
+    #[Ignore]
     private string $password;
 
     #[ORM\Column(name: 'created_at', type: 'datetime')]
@@ -90,6 +92,31 @@ class Users
     #[ORM\OneToMany(mappedBy: 'users', targetEntity: Transactions::class)]
     private Collection $transactionses;
 
+    public function __construct()
+    {
+        $this->cashbackEntrieses      = new ArrayCollection();
+        $this->coffrevirtuels         = new ArrayCollection();
+        $this->comptes                = new ArrayCollection();
+        $this->reclamations           = new ArrayCollection();
+        $this->superplusNotifications = new ArrayCollection();
+        $this->transactionses         = new ArrayCollection();
+    }
 
+    public function getCashbackEntrieses(): Collection      { return $this->cashbackEntrieses; }
+    public function getCoffrevirtuels(): Collection         { return $this->coffrevirtuels; }
+    public function getComptes(): Collection                { return $this->comptes; }
+    public function getReclamations(): Collection           { return $this->reclamations; }
+    public function getSuperplusNotifications(): Collection { return $this->superplusNotifications; }
+    public function getTransactionses(): Collection         { return $this->transactionses; }
+    public function getRoueFortunePoints(): ?RoueFortunePoints { return $this->roueFortunePoints; }
+
+    /** Ne jamais exposer le mot de passe en clair dans les logs ou stack traces */
+    public function getPassword(): string { return $this->password; }
+
+    public function setPassword(#[\SensitiveParameter] string $password): self
+    {
+        $this->password = $password;
+        return $this;
+    }
 
 }

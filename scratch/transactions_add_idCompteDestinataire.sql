@@ -1,0 +1,3 @@
+ALTER TABLE transactions
+ADD COLUMN IF NOT EXISTS idCompteDestinataire INT NULL DEFAULT NULL
+AFTER idCompte;

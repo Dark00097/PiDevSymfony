@@ -241,6 +241,8 @@ final class PaymentService
             throw new \InvalidArgumentException('Payment amount must be greater than zero.');
         }
 
+        $this->assertCreditDocumentEligibleForPayment($userId, $creditId);
+
         $providerResult = $this->chargeProvider($userId, $amount, $mode, $paymentMethod);
         $this->recordCreditPayment($userId, $creditId, $accountId, $amount, $providerResult);
 
@@ -272,6 +274,8 @@ final class PaymentService
         if ($amount <= 0) {
             throw new \InvalidArgumentException('Payment amount must be greater than zero.');
         }
+
+        $this->assertCreditDocumentEligibleForPayment($userId, $creditId);
 
         $credit = $this->connection->fetchAssociative('SELECT * FROM credit WHERE idCredit = ? AND idUser = ? LIMIT 1', [$creditId, $userId]);
         $account = $this->connection->fetchAssociative('SELECT * FROM compte WHERE idCompte = ? AND idUser = ? LIMIT 1', [$accountId, $userId]);
@@ -489,6 +493,49 @@ final class PaymentService
         );
 
         return $count > 0;
+    }
+
+    private function assertCreditDocumentEligibleForPayment(int $userId, int $creditId): void
+    {
+        if ($userId <= 0 || $creditId <= 0) {
+            throw new \RuntimeException('Credit invalide pour le paiement.');
+        }
+
+        $garantie = $this->connection->fetchAssociative(
+            'SELECT g.idGarantie,
+                    g.documentJustificatif,
+                    g.statutVerificationDocument,
+                    g.statutDocument
+             FROM garantiecredit g
+             LEFT JOIN credit c ON c.idCredit = g.idCredit
+             WHERE g.idCredit = ?
+               AND (g.idUser = ? OR c.idUser = ?)
+             ORDER BY g.idGarantie DESC
+             LIMIT 1',
+            [$creditId, $userId, $userId]
+        );
+
+        if (!$garantie) {
+            throw new \RuntimeException('Paiement bloque: aucune garantie liee a ce credit.');
+        }
+
+        $verificationStatus = strtolower(trim((string) ($garantie['statutVerificationDocument'] ?? '')));
+        $documentStatus = strtolower(trim((string) ($garantie['statutDocument'] ?? '')));
+        $isValid = in_array($verificationStatus, ['valide', 'verified'], true)
+            || in_array($documentStatus, ['valide', 'valid'], true);
+
+        if (!$isValid) {
+            throw new \RuntimeException('Paiement bloque: le document justificatif doit etre valide.');
+        }
+
+        $documentPath = strtolower(trim((string) ($garantie['documentJustificatif'] ?? '')));
+        if ($documentPath === '') {
+            throw new \RuntimeException('Paiement bloque: document justificatif manquant.');
+        }
+
+        if (preg_match('/(screen|screenshot|capture|captur|ecran|printscreen|snip|whatsapp)/i', $documentPath) === 1) {
+            throw new \RuntimeException('Paiement bloque: capture d ecran detectee. Veuillez televerser un document officiel.');
+        }
     }
 
     public function getWeatherRisk(string $city): array
@@ -711,17 +758,38 @@ final class PaymentService
             return '+'.$digits;
         }
 
-        $defaultCountryCode = $this->getDefaultCountryCode();
+        $defaultCountryCode = $this->getDefaultCountryCode($digits);
         if ($defaultCountryCode !== '' && strlen($digits) <= 10) {
-            return '+'.$defaultCountryCode.$digits;
+            $candidate = '+'.$defaultCountryCode.$digits;
+            $candidateDigits = preg_replace('/\D+/', '', $candidate) ?? '';
+            if (strlen($candidateDigits) >= 8 && strlen($candidateDigits) <= 15) {
+                return $candidate;
+            }
         }
 
         return '+'.$digits;
     }
 
-    private function getDefaultCountryCode(): string
+    private function getDefaultCountryCode(string $localDigits = ''): string
     {
-        return preg_replace('/\D+/', '', (string) ($_ENV['OTP_DEFAULT_COUNTRY_CODE'] ?? $_SERVER['OTP_DEFAULT_COUNTRY_CODE'] ?? '216')) ?? '216';
+        $raw = preg_replace('/\D+/', '', (string) ($_ENV['OTP_DEFAULT_COUNTRY_CODE'] ?? $_SERVER['OTP_DEFAULT_COUNTRY_CODE'] ?? '216')) ?? '216';
+        if ($raw === '') {
+            return '216';
+        }
+
+        // Defensive: some environments mistakenly store a full phone number here.
+        if (strlen($raw) > 4) {
+            if ($localDigits !== '' && str_ends_with($raw, $localDigits) && strlen($raw) > strlen($localDigits)) {
+                $prefix = substr($raw, 0, -strlen($localDigits));
+                if ($prefix !== '' && strlen($prefix) <= 4) {
+                    return $prefix;
+                }
+            }
+
+            return substr($raw, 0, 3);
+        }
+
+        return $raw;
     }
 
     private function getStripeChargeCurrency(): string

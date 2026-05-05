@@ -64,11 +64,11 @@ class Reclamation
     #[ORM\Column(name: 'sentiment', type: 'string', length: 20)]
     private string $sentiment = 'neutral';
 
-    #[ORM\ManyToOne(targetEntity: Users::class)]
+    #[ORM\ManyToOne(targetEntity: Users::class, inversedBy: 'reclamations')]
     #[ORM\JoinColumn(name: 'idUser', referencedColumnName: 'idUser', nullable: true)]
     private ?Users $users = null;
 
-    #[ORM\ManyToOne(targetEntity: Transactions::class)]
+    #[ORM\ManyToOne(targetEntity: Transactions::class, inversedBy: 'reclamations')]
     #[ORM\JoinColumn(name: 'idTransaction', referencedColumnName: 'idTransaction', nullable: true)]
     #[Assert\NotNull(message: 'Veuillez selectionner une transaction.')]
     private ?Transactions $transactions = null;

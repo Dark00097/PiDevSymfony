@@ -26,10 +26,10 @@ final class ActivityService
 
     public function listRecent(int $userId, int $limit = 20): array
     {
-        $limit = max(1, min($limit, 100));
+        $limit = max(1, min($limit, 100)); // valeur entière bornée → injection directe sécurisée
 
         return $this->connection->fetchAllAssociative(
-            'SELECT * FROM user_activity_log WHERE idUser = ? ORDER BY created_at DESC, idAction DESC LIMIT '.$limit,
+            'SELECT * FROM user_activity_log WHERE idUser = ? ORDER BY created_at DESC, idAction DESC LIMIT ' . $limit,
             [$userId]
         );
     }

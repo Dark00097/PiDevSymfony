@@ -8,6 +8,24 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'credit')]
 class Credit
 {
+    /**
+     * @var array<string, string>
+     */
+    public const TYPE_LABELS = [
+        'Professionnel' => 'Professionnel',
+        'Immobilier' => 'Immobilier',
+        'Auto' => 'Auto',
+        'Consommation' => 'Consommation',
+        'Etudes' => 'Etudes',
+        'Travaux' => 'Travaux',
+        'Personnel' => 'Personnel',
+        'Hypotheque' => 'Hypotheque',
+        'Pret auto' => 'Pret auto',
+        'Education' => 'Education',
+        'Sante' => 'Sante',
+        'Autre' => 'Autre',
+    ];
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(name: 'idCredit', type: 'integer')]
@@ -74,7 +92,100 @@ class Credit
     public function setIdUser(?int $idUser): static { $this->idUser = $idUser; return $this; }
 
     public function getTypeCredit(): ?string { return $this->typeCredit; }
-    public function setTypeCredit(?string $typeCredit): static { $this->typeCredit = $typeCredit; return $this; }
+    public function setTypeCredit(?string $typeCredit): static
+    {
+        if ($typeCredit === null) {
+            $this->typeCredit = null;
+
+            return $this;
+        }
+
+        $normalized = self::normalizeTypeCreditValue($typeCredit);
+        $this->typeCredit = $normalized ?? trim($typeCredit);
+
+        return $this;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function getTypeChoices(): array
+    {
+        return self::TYPE_LABELS;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function getAllowedTypeValues(): array
+    {
+        return array_keys(self::TYPE_LABELS);
+    }
+
+    public static function getTypeLabel(?string $value): string
+    {
+        $normalized = self::normalizeTypeCreditValue((string) $value);
+        if ($normalized !== null) {
+            return self::TYPE_LABELS[$normalized];
+        }
+
+        $fallback = trim((string) $value);
+
+        return $fallback !== '' ? $fallback : 'Credit';
+    }
+
+    public static function normalizeTypeCreditValue(string $value): ?string
+    {
+        $raw = trim($value);
+        if ($raw === '') {
+            return null;
+        }
+
+        $normalized = self::normalizeLookup($raw);
+
+        return match ($normalized) {
+            'professionnel' => 'Professionnel',
+            'immobilier' => 'Immobilier',
+            'auto', 'automobile', 'credit auto' => 'Auto',
+            'consommation', 'renouvelable' => 'Consommation',
+            'etudes', 'etudiant', 'etude' => 'Etudes',
+            'travaux' => 'Travaux',
+            'personnel' => 'Personnel',
+            'hypotheque' => 'Hypotheque',
+            'pret auto', 'pretauto' => 'Pret auto',
+            'education' => 'Education',
+            'sante' => 'Sante',
+            'autre' => 'Autre',
+            default => null,
+        };
+    }
+
+    private static function normalizeLookup(string $value): string
+    {
+        $value = mb_strtolower(trim($value), 'UTF-8');
+        $value = strtr($value, [
+            'à' => 'a', 'á' => 'a', 'â' => 'a', 'ä' => 'a', 'ã' => 'a', 'å' => 'a',
+            'ç' => 'c',
+            'è' => 'e', 'é' => 'e', 'ê' => 'e', 'ë' => 'e',
+            'ì' => 'i', 'í' => 'i', 'î' => 'i', 'ï' => 'i',
+            'ñ' => 'n',
+            'ò' => 'o', 'ó' => 'o', 'ô' => 'o', 'ö' => 'o', 'õ' => 'o',
+            'ù' => 'u', 'ú' => 'u', 'û' => 'u', 'ü' => 'u',
+            'ý' => 'y', 'ÿ' => 'y',
+            'œ' => 'oe', 'æ' => 'ae',
+            '’' => "'",
+        ]);
+        $transliterated = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
+        if (is_string($transliterated) && $transliterated !== '') {
+            $value = mb_strtolower($transliterated, 'UTF-8');
+        }
+
+        $value = str_replace("'", '', $value);
+        $value = preg_replace('/[^a-z0-9_]+/', ' ', $value) ?? $value;
+        $value = preg_replace('/\s+/', ' ', $value) ?? $value;
+
+        return trim($value);
+    }
 
     public function getMontantDemande(): ?float { return $this->montantDemande; }
     public function setMontantDemande(?float $montantDemande): static { $this->montantDemande = $montantDemande; return $this; }

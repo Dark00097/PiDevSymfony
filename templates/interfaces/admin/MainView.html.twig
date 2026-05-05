@@ -824,6 +824,7 @@ html, body { height: 100%; background: var(--nx-bg); }
     { key: 'transactions', label: 'Transactions' },
     { key: 'credits', label: 'Gestion Credit' },
     { key: 'cashback', label: 'Gestion Cashback' },
+    { key: 'support', label: 'Support Chat' },
     { key: 'notifications', label: 'Notifications' }
 ] %}
 {% set active_tab_label = tab %}
@@ -835,7 +836,7 @@ html, body { height: 100%; background: var(--nx-bg); }
 
 {% set primary_tab_keys = [
     'dashboard', 'users', 'admin_account', 'accounts',
-    'transactions', 'credits', 'cashback'
+    'transactions', 'credits', 'cashback', 'support'
 ] %}
 
 {% set nav_icons = {
@@ -846,6 +847,7 @@ html, body { height: 100%; background: var(--nx-bg); }
     transactions:  'fa-exchange-alt',
     credits:       'fa-credit-card',
     cashback:      'fa-coins',
+    support:       'fa-headset',
     database:      'fa-database',
     garanties:     'fa-shield-halved',
     partners:      'fa-handshake',
@@ -862,6 +864,7 @@ html, body { height: 100%; background: var(--nx-bg); }
     transactions:  '#f39c12',
     credits:       '#3b82f6',
     cashback:      '#f59e0b',
+    support:       '#0f766e',
     database:      '#0ea5e9'
 } %}
 
@@ -1554,3 +1557,4 @@ function nxRemoveHistory(btn) {
 </script>
 
 {% endblock %}
+

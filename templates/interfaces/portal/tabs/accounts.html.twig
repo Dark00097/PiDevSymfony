@@ -1,4 +1,4 @@
-﻿﻿﻿﻿{% set activity_logs = support.activity|default([]) %}
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿{% set activity_logs = support.activity|default([]) %}
 {% set account_history = support.account_history|default([]) %}
 {% set all_accounts = support.all_accounts|default(items) %}
 {% set account_query = support.account_query|default({ q: '', search_in: 'all', filter: 'all', sort: '', dir: 'asc' }) %}
@@ -45,6 +45,18 @@
 {% set surplus_view = app.request.query.get('show_surplus') == '1' %}
 {% set prediction_view = app.request.query.get('show_prediction') == '1' %}
 {% set assistant_panel_active = assistant_view or wheel_view or surplus_view or prediction_view %}
+
+{% for type, messages in app.flashes %}
+    {% for message in messages %}
+        {% set flash_text = message|lower %}
+        {% if 'garantie' not in flash_text and 'credit' not in flash_text %}
+            <div class="acc-flash acc-flash-{{ type }}" style="margin-bottom:15px;padding:12px 18px;border-radius:12px;background:{{ type == 'success' ? '#ecfdf5' : '#fef2f2' }};color:{{ type == 'success' ? '#065f46' : '#991b1b' }};border:1px solid {{ type == 'success' ? '#10b981' : '#f87171' }};font-size:14px;display:flex;align-items:center;gap:10px;">
+                <i class="fa-solid fa-{{ type == 'success' ? 'circle-check' : 'circle-exclamation' }}"></i>
+                {{ message }}
+            </div>
+        {% endif %}
+    {% endfor %}
+{% endfor %}
 
 <style>
 .acc-page{display:flex;flex-direction:column;gap:22px}
@@ -400,7 +412,9 @@
         </div>
 
         {% set edit_account = null %}
-        {% set edit_id = app.request.query.get('edit_id')|default('') %}
+        {% set request_edit_id = app.request.query.get('edit_id')|default('') %}
+        {% set session_edit_id = account_data.idCompte is defined ? account_data.idCompte : '' %}
+        {% set edit_id = request_edit_id is not empty ? request_edit_id : session_edit_id %}
         {% if edit_id %}
             {% for a in all_accounts %}
                 {% if a.idCompte ~ '' == edit_id ~ '' %}
@@ -416,8 +430,15 @@
         {% set date_value = account_data.dateOuverture is defined ? account_data.dateOuverture : (edit_account ? edit_account.dateOuverture : 'now'|date('Y-m-d')) %}
         {% set retrait_value = account_data.plafondRetrait is defined ? account_data.plafondRetrait : (edit_account ? edit_account.plafondRetrait : '') %}
         {% set virement_value = account_data.plafondVirement is defined ? account_data.plafondVirement : (edit_account ? edit_account.plafondVirement : '') %}
-        {% set is_create_mode = edit_account is null %}
-        <form method="post" class="acc-form" action="{{ path(route_name, query_state) }}" novalidate>
+        {% set is_create_mode = account_id_value is empty %}
+        {% set original_date_value = edit_account ? edit_account.dateOuverture|default('') : date_value %}
+        {% set original_retrait_value = edit_account ? edit_account.plafondRetrait|default('') : retrait_value %}
+        {% set original_virement_value = edit_account ? edit_account.plafondVirement|default('') : virement_value %}
+        {% set status_options = ['Actif','Fermé','Bloqué'] %}
+        {% if statut_value is not empty and statut_value not in status_options %}
+            {% set status_options = [statut_value]|merge(status_options) %}
+        {% endif %}
+        <form method="post" class="acc-form" action="{{ path(route_name, query_state) }}" novalidate data-account-mode="{{ is_create_mode ? 'create' : 'edit' }}">
             <input type="hidden" name="tab"      value="accounts">
             <input type="hidden" name="action"   value="account_save">
             <input type="hidden" name="idCompte" value="{{ account_id_value }}">
@@ -459,7 +480,7 @@
                             {% else %}
                                 <select name="statutCompte" required class="{{ account_errors.statutCompte is defined ? 'acc-invalid' : '' }}">
                                     <option value="">— Sélectionner —</option>
-                                    {% for v in ['Actif','Fermé','Bloqué'] %}
+                                    {% for v in status_options %}
                                         <option value="{{ v }}" {{ statut_value == v ? 'selected' : '' }}>{{ v }}</option>
                                     {% endfor %}
                                 </select>
@@ -487,8 +508,8 @@
                         <div class="acc-field">
                             <label><i class="fa-solid fa-calendar-day"></i> Date d'ouverture</label>
                             <input type="date" name="dateOuverture"
-                                   min="{{ 'now'|date('Y-m-d') }}"
                                    max="{{ 'now'|date('Y-m-d') }}"
+                                   data-original-value="{{ original_date_value }}"
                                    class="{{ account_errors.dateOuverture is defined ? 'acc-invalid' : '' }}"
                                    value="{{ date_value }}">
                             {% if account_errors.dateOuverture is defined %}<div class="acc-field-error">{{ account_errors.dateOuverture }}</div>{% endif %}
@@ -497,14 +518,14 @@
                     <div class="acc-grid-2">
                         <div class="acc-field">
                             <label><i class="fa-solid fa-arrow-down"></i> Plafond retrait (DT)</label>
-                            <input type="number" step="0.01" name="plafondRetrait" class="{{ account_errors.plafondRetrait is defined ? 'acc-invalid' : '' }}"
+                            <input type="number" step="0.01" name="plafondRetrait" data-original-value="{{ original_retrait_value }}" class="{{ account_errors.plafondRetrait is defined ? 'acc-invalid' : '' }}"
                                    placeholder="0.00"
                                    value="{{ retrait_value }}">
                             {% if account_errors.plafondRetrait is defined %}<div class="acc-field-error">{{ account_errors.plafondRetrait }}</div>{% endif %}
                         </div>
                         <div class="acc-field">
                             <label><i class="fa-solid fa-paper-plane"></i> Plafond virement (DT)</label>
-                            <input type="number" step="0.01" name="plafondVirement" class="{{ account_errors.plafondVirement is defined ? 'acc-invalid' : '' }}"
+                            <input type="number" step="0.01" name="plafondVirement" data-original-value="{{ original_virement_value }}" class="{{ account_errors.plafondVirement is defined ? 'acc-invalid' : '' }}"
                                    placeholder="0.00"
                                    value="{{ virement_value }}">
                             {% if account_errors.plafondVirement is defined %}<div class="acc-field-error">{{ account_errors.plafondVirement }}</div>{% endif %}
@@ -516,9 +537,9 @@
             <div class="acc-form-actions">
                 <button type="submit" class="acc-btn acc-btn-save">
                     <i class="fa-solid fa-floppy-disk"></i>
-                    {{ edit_account ? 'Mettre à jour' : 'Ajouter' }}
+                    {{ is_create_mode ? 'Ajouter' : 'Mettre à jour' }}
                 </button>
-                {% if edit_account %}
+                {% if not is_create_mode %}
                     <a href="{{ path(route_name, query_state) }}" class="acc-btn acc-btn-cancel">
                         <i class="fa-solid fa-rotate-left"></i> Annuler
                     </a>
@@ -877,7 +898,13 @@
                             {% set lockIcon = vault.lock_icon|default('fa-lock-open') %}
                             {% set lockClr  = vault.lock_color|default('#22c55e') %}
                             {% set stat_key = vault.status|default('Actif')|lower|replace({'é':'e','è':'e'}) %}
-                            <div style="background:#f8fbff;border:1px solid #dbe8f4;border-radius:16px;overflow:hidden;box-shadow:0 4px 14px rgba(15,40,72,.06);">
+                            <div style="background:#f8fbff;border:1px solid #dbe8f4;border-radius:16px;overflow:hidden;box-shadow:0 4px 14px rgba(15,40,72,.06);position:relative;">
+                                {% set hasActiveStrategy = active_strategies is defined and active_strategies[vault.idCoffre] is defined %}
+                                {% if hasActiveStrategy %}
+                                    <div style="position:absolute;top:10px;right:10px;z-index:10;background:linear-gradient(90deg,#10b981,#059669);color:#fff;font-size:11px;font-weight:900;padding:6px 12px;border-radius:999px;box-shadow:0 6px 16px rgba(16,185,129,.38);letter-spacing:.02em;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,.32);">
+                                        <i class="fa-solid fa-bolt"></i> Stratégie active
+                                    </div>
+                                {% endif %}
                                 <div style="padding:14px 16px;background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff;">
                                     <div style="display:flex;align-items:center;gap:10px;">
                                         <i class="fa-solid {{ lockIcon }}" style="color:{{ lockClr }};font-size:1.1rem;"></i>
@@ -919,19 +946,33 @@
                                        style="background:#eef4ff;color:#2563eb;border:0;border-radius:10px;height:36px;padding:0 12px;font-size:12px;font-weight:800;display:inline-flex;align-items:center;gap:6px;text-decoration:none;">
                                         <i class="fa-solid fa-pen"></i> Modifier
                                     </a>
-                                    <form method="post" style="display:inline"
-                                          onsubmit="return confirm('Supprimer ce coffre ?')">
-                                        <input type="hidden" name="tab"      value="accounts">
-                                        <input type="hidden" name="action"   value="vault_delete">
-                                        <input type="hidden" name="idCoffre" value="{{ vault.idCoffre }}">
-                                        <input type="hidden" name="selected_account" value="{{ selected_id }}">
-                                        <input type="hidden" name="show_vault" value="1">
-                                        <button type="submit"
-                                                style="width:36px;height:36px;border-radius:10px;border:0;background:#fff1f2;color:#e11d48;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:13px;"
-                                                title="Supprimer">
-                                            <i class="fa-solid fa-trash"></i>
+                                    <div style="display:flex;align-items:center;gap:8px;">
+                                        {# ── Smart Financial Strategy Optimizer ── #}
+                                        <button type="button"
+                                                class="sfso-trigger-btn"
+                                                data-coffre-id="{{ vault.idCoffre }}"
+                                                data-coffre-nom="{{ vault.nom|e('html_attr') }}"
+                                                data-user-id="{{ current_user.idUser|default('') }}"
+                                                title="Smart Financial Strategy Optimizer"
+                                                style="height:36px;width:36px;padding:0;border-radius:10px;border:0;background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;font-size:14px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(124,58,237,.3);transition:transform .15s,box-shadow .15s;"
+                                                onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 18px rgba(124,58,237,.4)'"
+                                                onmouseout="this.style.transform='';this.style.boxShadow='0 4px 12px rgba(124,58,237,.3)'">
+                                            <i class="fa-solid fa-brain"></i>
                                         </button>
-                                    </form>
+                                        <form method="post" style="display:inline"
+                                              onsubmit="return confirm('Supprimer ce coffre ?')">
+                                            <input type="hidden" name="tab"      value="accounts">
+                                            <input type="hidden" name="action"   value="vault_delete">
+                                            <input type="hidden" name="idCoffre" value="{{ vault.idCoffre }}">
+                                            <input type="hidden" name="selected_account" value="{{ selected_id }}">
+                                            <input type="hidden" name="show_vault" value="1">
+                                            <button type="submit"
+                                                    style="width:36px;height:36px;border-radius:10px;border:0;background:#fff1f2;color:#e11d48;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:13px;"
+                                                    title="Supprimer">
+                                                <i class="fa-solid fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
                                 </div>
                             </div>
                         {% endfor %}
@@ -953,6 +994,86 @@
 
 </div>
     {% endif %}
+
+{# ══════════════════════════════════════════════════════════════════════════════
+   SMART FINANCIAL STRATEGY OPTIMIZER — Modal principal
+══════════════════════════════════════════════════════════════════════════════ #}
+<style>
+/* ── SFSO Modal ── */
+.sfso-overlay{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px}
+.sfso-overlay[hidden]{display:none}
+.sfso-backdrop{position:absolute;inset:0;background:rgba(10,24,44,.55);backdrop-filter:blur(4px)}
+.sfso-modal{position:relative;width:100%;max-width:680px;background:#fff;border-radius:28px;box-shadow:0 32px 80px rgba(10,24,44,.28);overflow:hidden;animation:sfso-in .25s ease}
+@keyframes sfso-in{from{opacity:0;transform:translateY(20px) scale(.97)}to{opacity:1;transform:none}}
+.sfso-header{padding:22px 26px;background:linear-gradient(135deg,#0a2540,#1e3a5f);color:#fff;display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.sfso-header-left{display:flex;align-items:center;gap:14px}
+.sfso-header-icon{width:48px;height:48px;border-radius:16px;background:linear-gradient(135deg,#7c3aed,#4f46e5);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.sfso-header h3{margin:0;font-size:18px;font-weight:900;color:#fff}
+.sfso-header p{margin:4px 0 0;font-size:12px;color:rgba(255,255,255,.7)}
+.sfso-close{width:38px;height:38px;border-radius:12px;border:0;background:rgba(255,255,255,.12);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.sfso-body{padding:24px 26px;display:flex;flex-direction:column;gap:20px}
+/* Métriques */
+.sfso-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.sfso-metric{background:#f8fbff;border:1px solid #dbe8f4;border-radius:16px;padding:14px 16px;text-align:center}
+.sfso-metric strong{display:block;font-size:20px;font-weight:900;color:#102a43}
+.sfso-metric span{font-size:11px;color:#7c90a4;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+/* Cartes stratégies */
+.sfso-strategies{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.sfso-card{border:2px solid #dbe8f4;border-radius:20px;padding:18px 16px;cursor:pointer;transition:all .2s;position:relative;background:#fff}
+.sfso-card:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(15,40,72,.12)}
+.sfso-card.selected{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.15),0 12px 28px rgba(124,58,237,.12)}
+.sfso-card.recommended-card{border-color:#10b981}
+.sfso-recommended-badge{position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:#10b981;color:#fff;font-size:10px;font-weight:900;padding:3px 10px;border-radius:999px;white-space:nowrap;letter-spacing:.04em}
+.sfso-card-type{font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+.sfso-card-amount{font-size:26px;font-weight:900;line-height:1;margin-bottom:4px}
+.sfso-card-unit{font-size:12px;color:#7c90a4;margin-bottom:14px}
+.sfso-card-detail{display:flex;flex-direction:column;gap:6px;font-size:12px;border-top:1px solid #edf3f8;padding-top:12px}
+.sfso-card-detail div{display:flex;justify-content:space-between}
+.sfso-card-detail span{color:#7c90a4}
+.sfso-card-detail strong{color:#102a43}
+.sfso-card-bar{height:4px;border-radius:4px;margin-top:10px}
+/* Safety check */
+.sfso-safety{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:10px;font-size:13px;color:#166534}
+.sfso-safety i{color:#16a34a;font-size:15px;flex-shrink:0}
+/* Footer */
+.sfso-footer{padding:18px 26px;border-top:1px solid #e7eef6;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#f8fbff}
+.sfso-btn{height:48px;padding:0 22px;border-radius:14px;border:0;font:inherit;font-size:14px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:all .18s}
+.sfso-btn-cancel{background:#fff;color:#627a91;border:1px solid #d5e3ef}
+.sfso-btn-apply{background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;box-shadow:0 10px 24px rgba(124,58,237,.28)}
+.sfso-btn-apply:disabled{opacity:.5;cursor:not-allowed}
+.sfso-btn-apply:not(:disabled):hover{transform:translateY(-1px);box-shadow:0 14px 30px rgba(124,58,237,.36)}
+/* Loading */
+.sfso-loading{padding:60px 26px;text-align:center;color:#7c90a4}
+.sfso-loading i{font-size:2.5rem;color:#7c3aed;animation:sfso-spin 1s linear infinite;display:block;margin-bottom:14px}
+@keyframes sfso-spin{to{transform:rotate(360deg)}}
+/* Confirmation modal */
+.sfso-confirm-modal{position:relative;width:100%;max-width:420px;background:#fff;border-radius:28px;box-shadow:0 32px 80px rgba(10,24,44,.28);overflow:hidden;animation:sfso-in .25s ease;padding:32px 28px;text-align:center}
+.sfso-confirm-icon{width:64px;height:64px;border-radius:50%;background:#fff7ed;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;font-size:26px;color:#f97316}
+.sfso-confirm-modal h4{margin:0 0 10px;font-size:20px;font-weight:900;color:#102a43}
+.sfso-confirm-modal p{margin:0 0 20px;font-size:15px;color:#5a738b;line-height:1.6}
+.sfso-confirm-details{background:#f8fbff;border:1px solid #dbe8f4;border-radius:14px;padding:14px 16px;text-align:left;margin-bottom:22px}
+.sfso-confirm-details div{display:flex;justify-content:space-between;padding:5px 0;font-size:14px;border-bottom:1px solid #edf3f8}
+.sfso-confirm-details div:last-child{border-bottom:0}
+.sfso-confirm-details span{color:#7c90a4}
+.sfso-confirm-details strong{color:#102a43}
+.sfso-confirm-actions{display:flex;gap:12px}
+.sfso-confirm-actions .sfso-btn{flex:1;justify-content:center}
+/* Succès modal */
+.sfso-success-modal{position:relative;width:100%;max-width:400px;background:#fff;border-radius:28px;box-shadow:0 32px 80px rgba(10,24,44,.28);overflow:hidden;animation:sfso-in .25s ease;padding:36px 28px;text-align:center}
+.sfso-success-icon{width:72px;height:72px;border-radius:50%;background:#dcfce7;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:28px;color:#16a34a}
+.sfso-success-modal h4{margin:0 0 12px;font-size:20px;font-weight:900;color:#166534}
+.sfso-success-modal p{margin:0 0 24px;font-size:14px;color:#5a738b;line-height:1.6}
+.sfso-success-modal .sfso-btn{width:100%;justify-content:center}
+</style>
+
+{# ── Overlay principal SFSO ── #}
+<div class="sfso-overlay" id="sfso-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="sfso-title">
+    <button class="sfso-backdrop" type="button" id="sfso-backdrop" aria-label="Fermer"></button>
+    <div class="sfso-modal" id="sfso-modal-main">
+        {# Contenu injecté dynamiquement par JS #}
+    </div>
+</div>
+
 <div class="acc-modal-wrap" id="acc-history-modal" hidden>
     <button class="acc-modal-backdrop" type="button" data-acc-history-close aria-label="Fermer"></button>
     <div class="acc-modal">
@@ -1060,6 +1181,8 @@
 <script>
 (function() {
     var today = new Date(); today.setHours(0,0,0,0);
+    var accountLimitMin = 10;
+    var accountLimitMax = 1000;
 
     function setValid(el, msgEl) {
         el.classList.remove('acc-invalid'); el.classList.add('acc-valid');
@@ -1080,6 +1203,13 @@
         el.parentNode.insertBefore(span, el.nextSibling);
         return span;
     }
+
+    var formInput = document.querySelector('input[name="action"][value="account_save"]');
+    if (!formInput) return;
+    var form = formInput.closest('form');
+    var accountMode = form.dataset.accountMode || ((form.querySelector('input[name="idCompte"]')?.value || '').trim() !== '' ? 'edit' : 'create');
+    var isEditMode = accountMode === 'edit';
+
     function validateField(el) {
         var name = el.name, val = el.value.trim(), msg = getOrCreateMsg(el);
         if (name === 'numeroCompte') {
@@ -1096,20 +1226,45 @@
         }
         if (name === 'dateOuverture') {
             if (!val) return clearState(el, msg);
-            var d = new Date(val); d.setHours(0,0,0,0);
-            var todayStr = today.toISOString().split('T')[0];
-            if (val !== todayStr) return setError(el, msg, 'La date actuelle est obligatoire.');
+            var now = new Date();
+            var todayStr = now.getFullYear() + '-'
+                + String(now.getMonth() + 1).padStart(2, '0') + '-'
+                + String(now.getDate()).padStart(2, '0');
+            var originalDate = (el.dataset.originalValue || '').trim();
+            if (isEditMode) {
+                if (originalDate && val !== originalDate) return setError(el, msg, "La date d'ouverture ne peut pas être modifiée.");
+                return setValid(el, msg);
+            }
+            if (val > todayStr) return setError(el, msg, "La date d'ouverture ne peut pas être dans le futur.");
             return setValid(el, msg);
         }
         if (name === 'plafondRetrait' || name === 'plafondVirement') {
             if (!val) return clearState(el, msg);
-            if (parseFloat(val) < 10 || parseFloat(val) > 1000) return setError(el, msg, 'Doit être entre 10 DT et 1000 DT.');
+            var numericValue = parseFloat(val);
+            if (isNaN(numericValue)) return setError(el, msg, 'Montant invalide.');
+            var originalRawValue = (el.dataset.originalValue || '').trim();
+            var originalNumericValue = originalRawValue === '' ? null : parseFloat(originalRawValue);
+            if (isEditMode && originalNumericValue !== null && !isNaN(originalNumericValue) && numericValue === originalNumericValue) {
+                return setValid(el, msg);
+            }
+            if (numericValue < accountLimitMin || numericValue > accountLimitMax) return setError(el, msg, 'Doit être entre 10 DT et 1000 DT.');
             return setValid(el, msg);
         }
     }
-    var formInput = document.querySelector('input[name="action"][value="account_save"]');
-    if (!formInput) return;
-    var form = formInput.closest('form');
+
+    (function() {
+        var dateEl = form.querySelector('[name="dateOuverture"]');
+        if (!dateEl) return;
+        var now = new Date();
+        var localToday = now.getFullYear() + '-'
+            + String(now.getMonth() + 1).padStart(2, '0') + '-'
+            + String(now.getDate()).padStart(2, '0');
+        dateEl.max = localToday;
+        if (!isEditMode && !dateEl.value) {
+            dateEl.value = localToday;
+        }
+    })();
+
     var fields = ['numeroCompte','typeCompte','statutCompte','solde','dateOuverture','plafondRetrait','plafondVirement'];
     fields.forEach(function(name) {
         var el = form.querySelector('[name="'+name+'"]');
@@ -1117,14 +1272,24 @@
         ['input','change','blur'].forEach(function(ev) { el.addEventListener(ev, function() { validateField(el); }); });
     });
     form.addEventListener('submit', function(e) {
+        console.log('[Form Debug] Submission started');
         var ok = true;
         fields.forEach(function(name) {
             var el = form.querySelector('[name="'+name+'"]');
             if (!el) return;
             validateField(el);
-            if (el.classList.contains('acc-invalid')) ok = false;
+            if (el.classList.contains('acc-invalid')) {
+                console.warn('[Form Debug] Field invalid:', name);
+                ok = false;
+            }
         });
-        if (!ok) e.preventDefault();
+        if (!ok) {
+            console.error('[Form Debug] Submission blocked due to validation errors');
+            e.preventDefault();
+            showToast('Veuillez corriger les champs en rouge avant d\'enregistrer.', 4000);
+        } else {
+            console.log('[Form Debug] Submission valid, sending to server...');
+        }
     });
 })();
 </script>
@@ -1288,203 +1453,60 @@
         return t;
     }
 
-    function wordsToNumber(words) {
-        const cleaned = normalize(words).replace(/[^a-z\s-]/g, ' ').replace(/\s+/g, ' ').trim();
-        if (!cleaned) return null;
-
-        const map = {
-            zero: 0, un: 1, une: 1, deux: 2, trois: 3, quatre: 4, cinq: 5, six: 6, sept: 7, huit: 8, neuf: 9,
-            dix: 10, onze: 11, douze: 12, treize: 13, quatorze: 14, quinze: 15, seize: 16,
-            vingt: 20, trente: 30, quarante: 40, cinquante: 50, soixante: 60,
-            cent: 100, cents: 100, mille: 1000
-        };
-
-        let total = 0;
-        let current = 0;
-
-        cleaned.replace(/-/g, ' ').split(' ').forEach(token => {
-            if (!token || token === 'et' || !Object.prototype.hasOwnProperty.call(map, token)) return;
-            const value = map[token];
-            if (value === 100) {
-                current = current === 0 ? 100 : current * 100;
-            } else if (value === 1000) {
-                current = current === 0 ? 1000 : current * 1000;
-                total += current;
-                current = 0;
-            } else {
-                current += value;
-            }
-        });
-
-        total += current;
-        return total > 0 ? total : null;
-    }
-
-    function extractSegmentAfterLabels(text, labels, stopLabels) {
-        const labelPattern = '(?:' + labels.map(label => label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')';
-        const match = text.match(new RegExp(labelPattern + '\\s*(.+)$', 'i'));
-        if (!match || !match[1]) return '';
-
-        let segment = match[1].trim();
-        if (!segment) return '';
-
-        if (stopLabels.length > 0) {
-            const stopPattern = new RegExp('\\b(?:' + stopLabels.map(label => label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')\\b', 'i');
-            const stopMatch = segment.match(stopPattern);
-            if (stopMatch && typeof stopMatch.index === 'number') {
-                segment = segment.slice(0, stopMatch.index).trim();
-            }
-        }
-
-        return segment.replace(/\b(?:dt|dinar|dinars)\b/gi, ' ').replace(/\s+/g, ' ').trim();
-    }
-
-    function extractLabeledNumber(text, labels, stopLabels) {
-        const directPattern = new RegExp('(?:' + labels.map(label => label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')[^\\d]{0,30}(\\d+\\s+(?:virgule|point)\\s+\\d{1,2}|\\d+\\s+\\d{1,2}|[\\d]+(?:[\\.,]\\d{1,2})?)', 'i');
-        const directMatch = text.match(directPattern);
-        if (directMatch && directMatch[1]) {
-            return normalizeRecognizedNumber(directMatch[1]);
-        }
-
-        const segment = extractSegmentAfterLabels(text, labels, stopLabels);
-        if (!segment) return '';
-
-        const segmentNumber = extractNumericValueFromSegment(segment);
-        if (segmentNumber) {
-            return segmentNumber;
-        }
-
-        const asWords = wordsToNumber(segment);
-        return asWords !== null ? asWords.toFixed(2) : '';
-    }
-
-    function extractNumericValueFromSegment(segment) {
-        const decimalMatch = segment.match(/\b(\d+)\s*(?:[\.,]|virgule|point)\s*(\d{1,2})\b/i);
-        if (decimalMatch) {
-            return decimalMatch[1] + '.' + decimalMatch[2].padEnd(2, '0');
-        }
-
-        const splitDecimalMatch = segment.match(/\b(\d+)\s+(\d{1,2})\b/);
-        if (splitDecimalMatch) {
-            return splitDecimalMatch[1] + '.' + splitDecimalMatch[2].padEnd(2, '0');
-        }
-
-        const plainMatch = segment.match(/\b(\d+(?:[\.,]\d{1,2})?)\b/);
-        return plainMatch ? normalizeRecognizedNumber(plainMatch[1]) : '';
-    }
-
-    function normalizeRecognizedNumber(raw) {
-        const value = String(raw || '').trim();
-        if (!value) return '';
-
-        let match = value.match(/^(\d+)\s*(?:virgule|point)\s*(\d{1,2})$/i);
-        if (match) return match[1] + '.' + match[2].padEnd(2, '0');
-
-        match = value.match(/^(\d+)\s+(\d{1,2})$/);
-        if (match) return match[1] + '.' + match[2].padEnd(2, '0');
-
-        match = value.replace(/\s+/g, '').replace(',', '.').match(/-?\d+(?:\.\d{1,2})?/);
-        return match ? match[0] : '';
-    }
-
-    function extractDateValue(text) {
-        const slashMatch = text.match(/\b(?:date(?:\s+d?\s*ouverture|\s+ouverture)?[^\d]{0,20})?(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})\b/i);
-        if (slashMatch) {
-            let year = parseInt(slashMatch[3], 10);
-            if (year < 100) year += 2000;
-            return [year, slashMatch[2].padStart(2, '0'), slashMatch[1].padStart(2, '0')].join('-');
-        }
-
-        const monthMap = {
-            janvier: '01', fevrier: '02', mars: '03', avril: '04', mai: '05', juin: '06',
-            juillet: '07', aout: '08', septembre: '09', octobre: '10', novembre: '11', decembre: '12'
-        };
-        const longMatch = text.match(/\b(?:date(?:\s+d?\s*ouverture|\s+ouverture)?[^\d]{0,20})?(\d{1,2})\s+(janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)\s+(\d{4})\b/i);
-        if (!longMatch) return '';
-
-        const month = monthMap[normalize(longMatch[2])];
-        return month ? [longMatch[3], month, longMatch[1].padStart(2, '0')].join('-') : '';
-    }
-
-    function buildTranscriptFallbackFields(transcript) {
-        const normalizedText = normalize(transcript).replace(/\bviriment\b/g, 'virement').replace(/\bveriment\b/g, 'virement');
-        const fields = {};
-
-        let match = transcript.match(/cb[-\s]?(\d{2,})/i);
-        if (!match) match = normalizedText.match(/\b(?:numero|num|n)(?:\s+de)?(?:\s+compte)?[^\d]{0,20}(\d{3,})\b/i);
-        if (!match) match = normalizedText.match(/\bcompte[^\d]{0,20}(\d{3,})\b/i);
-        if (match && match[1]) fields.numeroCompte = 'CB-' + match[1];
-
-        if (normalizedText.includes('courant')) fields.typeCompte = 'Courant';
-        else if (normalizedText.includes('professionnel') || normalizedText.includes('compte pro') || normalizedText.includes('pro ')) fields.typeCompte = 'Professionnel';
-        else if (normalizedText.includes('epargne')) fields.typeCompte = 'Épargne';
-
-        if (normalizedText.includes('actif')) fields.statutCompte = 'Actif';
-        else if (normalizedText.includes('ferme')) fields.statutCompte = 'Fermé';
-        else if (normalizedText.includes('bloque')) fields.statutCompte = 'Bloqué';
-
-        const date = extractDateValue(normalizedText);
-        if (date) fields.dateOuverture = date;
-
-        const solde = extractLabeledNumber(normalizedText, ['solde', 'montant'], ['date', 'plafond retrait', 'plafond virement', 'virement', 'retrait']);
-        if (solde) fields.solde = solde;
-
-        const retrait = extractLabeledNumber(normalizedText, ['plafond retrait', 'retrait'], ['plafond virement', 'virement', 'date']);
-        if (retrait) fields.plafondRetrait = retrait;
-
-        const virement = extractLabeledNumber(normalizedText, ['plafond virement', 'virement', 'versement'], ['date']);
-        if (virement) fields.plafondVirement = virement;
-
-        return fields;
-    }
-
     function sanitizeRecognizedValue(key, value) {
-        const raw = String(value || '').trim();
+        let raw = String(value || '').trim();
         if (!raw) return '';
 
         if (key === 'numeroCompte') {
-            const match = raw.match(/(?:cb)?[^\d]{0,4}(\d{3,})/i);
-            return match ? ('CB-' + match[1]) : raw.toUpperCase().replace(/\s+/g, '');
+            // Force le format CB-XXX
+            let digits = raw.replace(/\D/g, '');
+            if (digits.length >= 2) return 'CB-' + digits;
+            // Si pas de chiffres mais contient du texte, on garde tel quel (formaté)
+            return raw.toUpperCase().replace(/\s+/g, '');
         }
 
         if (key === 'solde' || key === 'plafondRetrait' || key === 'plafondVirement') {
-            return normalizeRecognizedNumber(raw);
-        }
-
-        if (key === 'dateOuverture') {
-            const normalizedValue = normalize(raw);
-            const slashMatch = normalizedValue.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
-            if (slashMatch) {
-                let year = parseInt(slashMatch[3], 10);
-                if (year < 100) year += 2000;
-                return [year, slashMatch[2].padStart(2, '0'), slashMatch[1].padStart(2, '0')].join('-');
-            }
-            const isoMatch = normalizedValue.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-            const longDate = extractDateValue(normalizedValue);
-            return isoMatch ? isoMatch[0] : (longDate || '');
+            // Nettoyage complet : garde uniquement chiffres et un seul point
+            let cleaned = raw.replace(/[^\d.,]/g, '').replace(',', '.');
+            let parts = cleaned.split('.');
+            if (parts.length > 2) cleaned = parts[0] + '.' + parts.slice(1).join('');
+            
+            let num = parseFloat(cleaned);
+            if (isNaN(num)) return '';
+            
+            // Retourne une chaîne formatée avec un point décimal
+            return num.toFixed(2);
         }
 
         if (key === 'typeCompte') {
-            const normalizedValue = normalize(raw);
-            if (normalizedValue.includes('courant')) return 'Courant';
-            if (normalizedValue.includes('pro')) return 'Professionnel';
-            if (normalizedValue.includes('epargne')) return 'Épargne';
+            const low = normalize(raw);
+            if (low.includes('courant')) return 'Courant';
+            if (low.includes('pro')) return 'Professionnel';
+            if (low.includes('epargne')) return 'Épargne';
         }
 
         if (key === 'statutCompte') {
-            const normalizedValue = normalize(raw);
-            if (normalizedValue.includes('actif')) return 'Actif';
-            if (normalizedValue.includes('ferme')) return 'Fermé';
-            if (normalizedValue.includes('bloque')) return 'Bloqué';
+            const low = normalize(raw);
+            if (low.includes('actif')) return 'Actif';
+            if (low.includes('ferme')) return 'Fermé';
+            if (low.includes('bloque')) return 'Bloqué';
         }
 
         return raw;
     }
 
     function fillForm(fields) {
+        console.log('[Voice Debug] Fields received:', fields);
         const formInput = document.querySelector('input[name="action"][value="account_save"]');
         if (!formInput) { showToast('Formulaire introuvable.', 3000); return; }
         const form = formInput.closest('form');
+
+        // Sécurité : s'assurer que idUser est présent
+        const idUserInp = form.querySelector('input[name="idUser"]');
+        if (idUserInp && !idUserInp.value) {
+            console.warn('[Voice Debug] idUser was empty, trying to recover...');
+            idUserInp.value = "{{ current_user.idUser|default('') }}";
+        }
 
         const map = {
             numeroCompte:    'input[name="numeroCompte"]',
@@ -1500,9 +1522,16 @@
 
         Object.entries(fields).forEach(([key, value]) => {
             if (!value || !map[key]) return;
+            
+            // On ne laisse pas la voix modifier certains champs critiques si on est en mode création
+            if (key === 'statutCompte' || key === 'dateOuverture') return;
+
             const el = form.querySelector(map[key]);
             if (!el) return;
+            
             const sanitizedValue = sanitizeRecognizedValue(key, value);
+            console.log(`[Voice Debug] Field ${key}: original="${value}", sanitized="${sanitizedValue}"`);
+            
             if (!sanitizedValue) return;
 
             if (el.tagName === 'SELECT') {
@@ -1527,11 +1556,14 @@
                         if (nt.includes(needle) || needle.includes(nt)) { el.value = opt.value; matched = true; break; }
                     }
                 }
-                if (matched) filled++;
-                el.dispatchEvent(new Event('change', { bubbles: true }));
+                if (matched) {
+                    filled++;
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                }
 
             } else {
                 el.value = String(sanitizedValue);
+                // Trigger events to notify validation scripts
                 el.dispatchEvent(new Event('input',  { bubbles: true }));
                 el.dispatchEvent(new Event('change', { bubbles: true }));
                 el.dispatchEvent(new Event('blur',   { bubbles: true }));
@@ -1542,7 +1574,7 @@
         showToast(
             filled > 0
                 ? '✓ ' + filled + ' champ(s) rempli(s) avec succès'
-                : 'Aucun champ reconnu — parlez plus clairement en citant : type, statut, numéro, solde…',
+                : 'Aucun champ reconnu — parlez plus clairement.',
             3500
         );
 
@@ -1555,14 +1587,16 @@
         return new Promise(async (resolve, reject) => {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
                 const source = audioCtx.createMediaStreamSource(stream);
+                
+                // On utilise AudioWorklet si possible, sinon ScriptProcessor
                 const processor = audioCtx.createScriptProcessor(4096, 1, 1);
-                const sampleRate = audioCtx.sampleRate;
                 const chunks = [];
                 const startedAt = Date.now();
                 let lastSoundAt = startedAt;
                 let hasSpeech = false;
+                
                 processor.onaudioprocess = (e) => {
                     const input = e.inputBuffer.getChannelData(0);
                     chunks.push(new Float32Array(input));
@@ -1576,6 +1610,7 @@
                         hasSpeech = true;
                     }
                 };
+                
                 source.connect(processor);
                 processor.connect(audioCtx.destination);
 
@@ -1584,7 +1619,7 @@
                         processor.disconnect();
                         source.disconnect();
                         stream.getTracks().forEach(t => t.stop());
-                        const wavBlob = floatToWav(chunks, sampleRate);
+                        const wavBlob = floatToWav(chunks, 16000);
                         audioCtx.close();
                         return wavBlob;
                     },
@@ -1616,12 +1651,12 @@
         writeString(view, 8, 'WAVE');
         writeString(view, 12, 'fmt ');
         view.setUint32(16, 16, true);
-        view.setUint16(20, 1, true);
-        view.setUint16(22, 1, true);
+        view.setUint16(20, 1, true); // PCM
+        view.setUint16(22, 1, true); // Mono
         view.setUint32(24, sampleRate, true);
         view.setUint32(28, sampleRate * 2, true);
-        view.setUint16(32, 2, true);
-        view.setUint16(34, 16, true);
+        view.setUint16(32, 2, true); // Block align
+        view.setUint16(34, 16, true); // Bits per sample
         writeString(view, 36, 'data');
         view.setUint32(40, pcm.length * 2, true);
         let idx = 44;
@@ -1675,27 +1710,32 @@
             icon.className = 'fa-solid fa-circle-notch fa-spin';
             toastEl?.remove(); toastEl = null;
             toastEl = showToast('Transcription et analyse en cours…', 0);
+            
             const blob = await activeRecording.stop();
             const hadSpeech = typeof activeRecording.hasSpeech === 'function' ? activeRecording.hasSpeech() : true;
 
             if (!hadSpeech) {
-                throw new Error('Aucune voix detectee. Parlez plus pres du micro puis reessayez.');
+                throw new Error('Aucune voix detectee. Parlez plus pres du micro.');
             }
 
             const data = await sendWav(blob);
             toastEl?.remove(); toastEl = null;
 
             const transcript = (data.transcript || '').trim();
-            const fields = { ...buildTranscriptFallbackFields(transcript), ...(data.fields || {}) };
+            const fields = data.fields || {};
 
             if (transcript) {
-                toastEl = showToast('Texte reconnu : "' + transcript + '"', 4500);
+                showToast('Texte reconnu : "' + transcript + '"', 5000);
             }
 
-            fillForm(fields);
+            if (Object.keys(fields).length > 0) {
+                fillForm(fields);
+            } else {
+                showToast('Désolé, je n\'ai pas pu extraire d\'informations. Essayez de citer : type, solde, numéro...', 5000);
+            }
         } catch (e) {
             toastEl?.remove(); toastEl = null;
-            showToast('Erreur audio/STT: ' + (e.message || e), 4000);
+            showToast('Erreur : ' + (e.message || 'Le service est indisponible'), 5000);
             console.error('[Voice]', e);
         } finally {
             clearVoiceTimers();
@@ -1754,3 +1794,350 @@
 })();
 </script>
 {% endif %}
+
+{# ══════════════════════════════════════════════════════════════════════════════
+   SMART FINANCIAL STRATEGY OPTIMIZER — JavaScript
+══════════════════════════════════════════════════════════════════════════════ #}
+<script>
+(function () {
+    'use strict';
+
+    // ── Références DOM ──────────────────────────────────────────────────────
+    const overlay   = document.getElementById('sfso-overlay');
+    const backdrop  = document.getElementById('sfso-backdrop');
+    const modalMain = document.getElementById('sfso-modal-main');
+
+    if (!overlay || !modalMain) return;
+
+    // ── État ────────────────────────────────────────────────────────────────
+    let currentCoffreId   = null;
+    let currentCoffreNom  = '';
+    let currentUserId     = null;
+    let selectedStrategy  = null;
+    let analysisData      = null;
+
+    // ── Couleurs par type ───────────────────────────────────────────────────
+    const TYPE_COLORS = {
+        DOUCE:     { text: '#16a34a', bg: '#dcfce7', bar: '#22c55e' },
+        MODEREE:   { text: '#2563eb', bg: '#dbeafe', bar: '#3b82f6' },
+        AGRESSIVE: { text: '#d97706', bg: '#fef3c7', bar: '#f97316' },
+    };
+
+    // Labels affichés (avec accents)
+    const TYPE_LABELS = {
+        DOUCE:     'DOUCE',
+        MODEREE:   'MODÉRÉE',
+        AGRESSIVE: 'AGRESSIVE',
+    };
+
+    // Risques affichés (avec accents)
+    const RISQUE_LABELS = {
+        'Tres faible': 'Très faible',
+        'Faible':      'Faible',
+        'Modere':      'Modéré',
+        'Eleve':       'Élevé',
+    };
+
+    // ── Ouvrir le modal ─────────────────────────────────────────────────────
+    function openModal(coffreId, coffreNom, userId) {
+        currentCoffreId  = coffreId;
+        currentCoffreNom = coffreNom;
+        currentUserId    = userId;
+        selectedStrategy = null;
+        analysisData     = null;
+
+        overlay.hidden = false;
+        document.body.style.overflow = 'hidden';
+        renderLoading();
+        fetchAnalysis(coffreId, userId);
+    }
+
+    function closeModal() {
+        overlay.hidden = true;
+        document.body.style.overflow = '';
+        modalMain.innerHTML = '';
+        selectedStrategy = null;
+        analysisData     = null;
+    }
+
+    // ── Rendu : chargement ──────────────────────────────────────────────────
+    function renderLoading() {
+        modalMain.innerHTML = `
+            <div class="sfso-header">
+                <div class="sfso-header-left">
+                    <div class="sfso-header-icon"><i class="fa-solid fa-brain"></i></div>
+                    <div>
+                        <h3 id="sfso-title">Smart Financial Strategy Optimizer</h3>
+                        <p>Coffre : ${escHtml(currentCoffreNom)} · Analyse Random Forest ML</p>
+                    </div>
+                </div>
+                <button class="sfso-close" type="button" id="sfso-close-btn" aria-label="Fermer">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="sfso-loading">
+                <i class="fa-solid fa-circle-notch"></i>
+                <strong style="display:block;font-size:15px;color:#102a43;margin-bottom:6px;">Analyse en cours…</strong>
+                <span style="font-size:13px;">Le modèle Random Forest analyse votre profil financier</span>
+            </div>`;
+        document.getElementById('sfso-close-btn')?.addEventListener('click', closeModal);
+    }
+
+    // ── Appel API ───────────────────────────────────────────────────────────
+    async function fetchAnalysis(coffreId, userId) {
+        try {
+            const url = `/api/smart-strategy/analyze/${coffreId}?user_id=${userId}`;
+            const res = await fetch(url, {
+                headers: { 'X-User-Id': String(userId) },
+            });
+            const data = await res.json();
+            if (!res.ok || data.error) throw new Error(data.error || 'Erreur serveur');
+            analysisData = data;
+            renderStrategies(data);
+        } catch (err) {
+            renderError(err.message);
+        }
+    }
+
+    // ── Rendu : stratégies ──────────────────────────────────────────────────
+    function renderStrategies(data) {
+        const strategies = data.strategies || [];
+        const safetySeuil = data.safety_seuil || 50;
+
+        const cardsHtml = strategies.map(s => {
+            const colors  = TYPE_COLORS[s.type] || TYPE_COLORS.MODEREE;
+            const isRec   = s.recommended;
+            const typeLabel = TYPE_LABELS[s.type] || s.type;
+            const risqueLabel = RISQUE_LABELS[s.risque] || s.risque;
+            return `
+            <div class="sfso-card${isRec ? ' recommended-card' : ''}"
+                 data-type="${escHtml(s.type)}"
+                 role="radio" aria-checked="false" tabindex="0"
+                 onclick="sfsoSelectCard(this)"
+                 onkeydown="if(event.key==='Enter'||event.key===' ')sfsoSelectCard(this)">
+                ${isRec ? '<span class="sfso-recommended-badge">Recommandée</span>' : ''}
+                <div class="sfso-card-type" style="color:${colors.text}">${typeLabel}</div>
+                <div class="sfso-card-amount" style="color:${colors.text}">${formatNum(s.montant)} DT</div>
+                <div class="sfso-card-unit">par mois</div>
+                <div class="sfso-card-detail">
+                    <div><span>Durée</span><strong>${s.duree} mois</strong></div>
+                    <div><span>Succès</span><strong style="color:${colors.text}">${s.taux_succes}%</strong></div>
+                    <div><span>Risque</span><strong style="color:${colors.text}">${escHtml(risqueLabel)}</strong></div>
+                </div>
+                <div class="sfso-card-bar" style="background:${colors.bg}">
+                    <div style="height:100%;border-radius:4px;background:${colors.bar};width:${Math.min(s.taux_succes,100)}%;"></div>
+                </div>
+            </div>`;
+        }).join('');
+
+        modalMain.innerHTML = `
+            <div class="sfso-header">
+                <div class="sfso-header-left">
+                    <div class="sfso-header-icon"><i class="fa-solid fa-brain"></i></div>
+                    <div>
+                        <h3 id="sfso-title">Stratégies recommandées par l'IA</h3>
+                        <p>Coffre : ${escHtml(currentCoffreNom)} · Analyse Random Forest ML</p>
+                    </div>
+                </div>
+                <button class="sfso-close" type="button" id="sfso-close-btn" aria-label="Fermer">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="sfso-body">
+                <div class="sfso-metrics">
+                    <div class="sfso-metric">
+                        <strong>${formatNum(data.solde_compte)} DT</strong>
+                        <span>Solde compte</span>
+                    </div>
+                    <div class="sfso-metric">
+                        <strong>${formatNum(data.capacite_mensuelle)} DT</strong>
+                        <span>Capacité mensuelle</span>
+                    </div>
+                    <div class="sfso-metric">
+                        <strong>${data.ratio_epargne}%</strong>
+                        <span>Ratio épargne</span>
+                    </div>
+                </div>
+                <div class="sfso-strategies" id="sfso-strategies-grid">
+                    ${cardsHtml}
+                </div>
+                <div class="sfso-safety">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <span>Safety Check actif — le transfert sera suspendu si le solde descend sous <strong>${formatNum(safetySeuil)} DT</strong>.</span>
+                </div>
+            </div>
+            <div class="sfso-footer">
+                <button class="sfso-btn sfso-btn-cancel" type="button" id="sfso-cancel-btn">Annuler</button>
+                <button class="sfso-btn sfso-btn-apply" type="button" id="sfso-apply-btn" disabled>
+                    <i class="fa-solid fa-check"></i> Appliquer cette stratégie
+                </button>
+            </div>`;
+
+        document.getElementById('sfso-close-btn')?.addEventListener('click', closeModal);
+        document.getElementById('sfso-cancel-btn')?.addEventListener('click', closeModal);
+        document.getElementById('sfso-apply-btn')?.addEventListener('click', onApplyClick);
+    }
+
+    // ── Sélection d'une carte ───────────────────────────────────────────────
+    window.sfsoSelectCard = function(el) {
+        document.querySelectorAll('.sfso-card').forEach(c => {
+            c.classList.remove('selected');
+            c.setAttribute('aria-checked', 'false');
+        });
+        el.classList.add('selected');
+        el.setAttribute('aria-checked', 'true');
+
+        const type = el.dataset.type;
+        selectedStrategy = (analysisData?.strategies || []).find(s => s.type === type) || null;
+
+        const applyBtn = document.getElementById('sfso-apply-btn');
+        if (applyBtn) applyBtn.disabled = !selectedStrategy;
+    };
+
+    // ── Clic "Appliquer" → modal de confirmation ────────────────────────────
+    function onApplyClick() {
+        if (!selectedStrategy || !analysisData) return;
+        renderConfirm(selectedStrategy, analysisData.safety_seuil);
+    }
+
+    // ── Rendu : confirmation ────────────────────────────────────────────────
+    function renderConfirm(strategy, safetySeuil) {
+        const colors      = TYPE_COLORS[strategy.type] || TYPE_COLORS.MODEREE;
+        const typeLabel   = TYPE_LABELS[strategy.type] || strategy.type;
+        const labelCap    = typeLabel.charAt(0) + typeLabel.slice(1).toLowerCase();
+
+        modalMain.innerHTML = `
+            <div class="sfso-confirm-modal">
+                <div class="sfso-confirm-icon"><i class="fa-solid fa-circle-exclamation"></i></div>
+                <h4>Activer cette stratégie ?</h4>
+                <p>Un transfert automatique sera exécuté chaque mois vers ce coffre. Vous pourrez désactiver la stratégie à tout moment.</p>
+                <div class="sfso-confirm-details">
+                    <div><span>Stratégie</span><strong style="color:${colors.text}">${escHtml(labelCap)}</strong></div>
+                    <div><span>Montant mensuel</span><strong style="color:${colors.text}">${formatNum(strategy.montant)} DT</strong></div>
+                    <div><span>Durée estimée</span><strong>${strategy.duree} mois</strong></div>
+                    <div><span>Safety Check</span><strong style="color:#16a34a">Activé (seuil ${formatNum(safetySeuil)} DT)</strong></div>
+                </div>
+                <div class="sfso-confirm-actions">
+                    <button class="sfso-btn sfso-btn-cancel" type="button" id="sfso-back-btn">Annuler</button>
+                    <button class="sfso-btn sfso-btn-apply" type="button" id="sfso-confirm-btn">
+                        <i class="fa-solid fa-check"></i> Confirmer
+                    </button>
+                </div>
+            </div>`;
+
+        document.getElementById('sfso-back-btn')?.addEventListener('click', () => {
+            renderStrategies(analysisData);
+            // Restaurer la sélection
+            setTimeout(() => {
+                const card = document.querySelector(`.sfso-card[data-type="${strategy.type}"]`);
+                if (card) sfsoSelectCard(card);
+            }, 50);
+        });
+        document.getElementById('sfso-confirm-btn')?.addEventListener('click', onConfirmClick);
+    }
+
+    // ── Clic "Confirmer" → appel API activation ─────────────────────────────
+    async function onConfirmClick() {
+        if (!selectedStrategy || !analysisData) return;
+
+        const confirmBtn = document.getElementById('sfso-confirm-btn');
+        if (confirmBtn) {
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Activation…';
+        }
+
+        try {
+            const payload = {
+                idCoffre:      currentCoffreId,
+                typeStrategie: selectedStrategy.type,
+                montantMensuel: selectedStrategy.montant,
+                dureeEstimee:  selectedStrategy.duree,
+                tauxSucces:    selectedStrategy.taux_succes,
+                niveauRisque:  selectedStrategy.risque,
+                safetySeuil:   analysisData.safety_seuil,
+            };
+
+            const res = await fetch('/api/smart-strategy/activate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-User-Id': String(currentUserId),
+                },
+                body: JSON.stringify(payload),
+            });
+
+            const data = await res.json();
+            if (!res.ok || data.error) throw new Error(data.error || 'Erreur serveur');
+
+            renderSuccess(data, selectedStrategy);
+        } catch (err) {
+            renderError(err.message);
+        }
+    }
+
+    // ── Rendu : succès ──────────────────────────────────────────────────────
+    function renderSuccess(data, strategy) {
+        const colors    = TYPE_COLORS[strategy.type] || TYPE_COLORS.MODEREE;
+        const typeLabel = TYPE_LABELS[strategy.type] || strategy.type;
+        const labelCap  = typeLabel.charAt(0) + typeLabel.slice(1).toLowerCase();
+
+        modalMain.innerHTML = `
+            <div class="sfso-success-modal">
+                <div class="sfso-success-icon"><i class="fa-solid fa-check"></i></div>
+                <h4>Stratégie activée avec succès</h4>
+                <p>La stratégie <strong style="color:${colors.text}">${escHtml(labelCap)}</strong>
+                   (${formatNum(strategy.montant)} DT/mois) est maintenant active.
+                   Le prochain transfert aura lieu le <strong>${escHtml(data.dateProchaineExecution || '—')}</strong>
+                   après vérification du Safety Check.</p>
+                <button class="sfso-btn sfso-btn-apply" type="button" id="sfso-done-btn" style="width:100%;justify-content:center;">
+                    Parfait
+                </button>
+            </div>`;
+
+        document.getElementById('sfso-done-btn')?.addEventListener('click', () => {
+            closeModal();
+            // Optionnel : recharger la page pour afficher la stratégie active
+            // window.location.reload();
+        });
+    }
+
+    // ── Rendu : erreur ──────────────────────────────────────────────────────
+    function renderError(message) {
+        modalMain.innerHTML = `
+            <div class="sfso-confirm-modal">
+                <div class="sfso-confirm-icon" style="background:#fee2e2;color:#dc2626;">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <h4 style="color:#dc2626;">Erreur</h4>
+                <p>${escHtml(message)}</p>
+                <button class="sfso-btn sfso-btn-cancel" type="button" id="sfso-err-close" style="width:100%;justify-content:center;">Fermer</button>
+            </div>`;
+        document.getElementById('sfso-err-close')?.addEventListener('click', closeModal);
+    }
+
+    // ── Helpers ─────────────────────────────────────────────────────────────
+    function escHtml(str) {
+        return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function formatNum(n) {
+        return Number(n).toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    }
+
+    // ── Fermeture backdrop ──────────────────────────────────────────────────
+    backdrop?.addEventListener('click', closeModal);
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && !overlay.hidden) closeModal();
+    });
+
+    // ── Délégation : boutons trigger ────────────────────────────────────────
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.sfso-trigger-btn');
+        if (!btn) return;
+        const coffreId  = parseInt(btn.dataset.coffreId, 10);
+        const coffreNom = btn.dataset.coffreNom || '';
+        const userId    = parseInt(btn.dataset.userId, 10) || 0;
+        openModal(coffreId, coffreNom, userId);
+    });
+
+})();
+</script>

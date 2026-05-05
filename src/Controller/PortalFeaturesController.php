@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Entity\Garantiecredit;
 use App\Service\AuthService;
 use App\Service\BankingService;
 use App\Service\ExportService;
@@ -120,7 +121,14 @@ final class PortalFeaturesController extends AbstractController
             'exports_data' => [
                 'transactions' => $bankingService->listTransactions($userId),
                 'credits' => $bankingService->listCredits($userId),
-                'garanties' => $bankingService->listGaranties($userId),
+                'garanties' => array_map(
+                    static function (array $garantie): array {
+                        $garantie['typeGarantieLabel'] = Garantiecredit::typeLabel((string) ($garantie['typeGarantie'] ?? ''));
+
+                        return $garantie;
+                    },
+                    $bankingService->listGaranties($userId)
+                ),
             ],
             'view_state' => $viewState,
         ]);
@@ -181,7 +189,36 @@ final class PortalFeaturesController extends AbstractController
         $itemId = max(0, $request->query->getInt('id', 0));
         $filename = sprintf('nexora-%s.pdf', $kind);
 
-        if ($kind === 'credits') {
+        if ($kind === 'all') {
+            return $this->redirectToRoute('portal_export_pdf');
+        }
+
+        if ($kind === 'accounts') {
+            $accounts = $bankingService->listAccounts($userId);
+            $title = 'Accounts Report';
+            $subtitle = 'Vue synthetique de vos comptes bancaires.';
+            $accent = '#0f766e';
+            $headers = ['ID', 'Numero', 'Type', 'Statut', 'Solde'];
+            $totalBalance = 0.0;
+            foreach ($accounts as $account) {
+                $balance = (float) ($account['solde'] ?? 0);
+                $totalBalance += $balance;
+                $rows[] = [
+                    (string) ($account['idCompte'] ?? '-'),
+                    (string) ($account['numeroCompte'] ?? '-'),
+                    (string) ($account['typeCompte'] ?? '-'),
+                    (string) ($account['statutCompte'] ?? '-'),
+                    number_format($balance, 2, '.', ' '),
+                ];
+            }
+            $stats = [
+                ['label' => 'Total comptes', 'value' => (string) count($accounts)],
+                ['label' => 'Solde total', 'value' => number_format($totalBalance, 2, '.', ' ').' DT'],
+            ];
+            $filename = 'nexora-accounts-all.pdf';
+        }
+
+        elseif ($kind === 'credits') {
             $credits = $bankingService->listCredits($userId);
             if ($itemId > 0) {
                 $credit = null;
@@ -270,7 +307,7 @@ final class PortalFeaturesController extends AbstractController
                 $rows = [
                     ['ID', (string) ($garantie['idGarantie'] ?? '-')],
                     ['Linked credit', (string) ($garantie['idCredit'] ?? '-')],
-                    ['Type', (string) ($garantie['typeGarantie'] ?? '-')],
+                    ['Type', Garantiecredit::typeLabel((string) ($garantie['typeGarantie'] ?? '-'))],
                     ['Estimated value', number_format($estimated, 2, '.', ' ').' DT'],
                     ['Retained value', number_format($retained, 2, '.', ' ').' DT'],
                     ['Evaluation date', (string) ($garantie['dateEvaluation'] ?? '-')],
@@ -279,7 +316,7 @@ final class PortalFeaturesController extends AbstractController
                     ['Status', (string) ($garantie['statut'] ?? '-')],
                 ];
                 $stats = [
-                    ['label' => 'Type', 'value' => (string) ($garantie['typeGarantie'] ?? '-')],
+                    ['label' => 'Type', 'value' => Garantiecredit::typeLabel((string) ($garantie['typeGarantie'] ?? '-'))],
                     ['label' => 'Valeur estimee', 'value' => number_format($estimated, 2, '.', ' ').' DT'],
                     ['label' => 'Valeur retenue', 'value' => number_format($retained, 2, '.', ' ').' DT'],
                 ];
@@ -297,7 +334,7 @@ final class PortalFeaturesController extends AbstractController
                     $retainedTotal += $retained;
                     $rows[] = [
                         $garantie['idGarantie'],
-                        $garantie['typeGarantie'],
+                        Garantiecredit::typeLabel((string) ($garantie['typeGarantie'] ?? '')),
                         number_format($estimated, 2, '.', ' '),
                         number_format($retained, 2, '.', ' '),
                         $garantie['statut'],

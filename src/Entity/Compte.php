@@ -16,6 +16,7 @@ class Compte
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(name: 'idCompte', type: 'integer')]
+    /** @phpstan-ignore-next-line */
     private ?int $idcompte = null;
 
     #[ORM\Column(name: 'numeroCompte', type: 'string', length: 30)]
@@ -43,19 +44,17 @@ class Compte
     #[ORM\JoinColumn(name: 'idUser', referencedColumnName: 'idUser', nullable: true)]
     private ?Users $users = null;
 
+    /** @var Collection<int, Coffrevirtuel> */
     #[ORM\OneToMany(mappedBy: 'compte', targetEntity: Coffrevirtuel::class)]
     private Collection $coffrevirtuels;
 
-    #[ORM\OneToMany(mappedBy: 'compte', targetEntity: Credit::class)]
-    private Collection $credits;
-
+    /** @var Collection<int, Transactions> */
     #[ORM\OneToMany(mappedBy: 'compte', targetEntity: Transactions::class)]
     private Collection $transactionses;
 
     public function __construct()
     {
         $this->coffrevirtuels = new ArrayCollection();
-        $this->credits = new ArrayCollection();
         $this->transactionses = new ArrayCollection();
     }
 
@@ -166,14 +165,6 @@ class Compte
     public function getCoffrevirtuels(): Collection
     {
         return $this->coffrevirtuels;
-    }
-
-    /**
-     * @return Collection<int, Credit>
-     */
-    public function getCredits(): Collection
-    {
-        return $this->credits;
     }
 
     /**

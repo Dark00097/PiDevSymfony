@@ -469,6 +469,80 @@ final class NotificationService
         );
     }
 
+    public function sendVirementEmail(string $recipientEmail, string $recipientName, float $amount, string $currency, array $sender): void
+    {
+        $dsn = $_ENV['MAILER_DSN'] ?? $_SERVER['MAILER_DSN'] ?? '';
+        if ($dsn === '' || str_starts_with($dsn, 'null://')) {
+            return;
+        }
+
+        if (!filter_var($recipientEmail, FILTER_VALIDATE_EMAIL)) {
+            return;
+        }
+
+        $senderEmail = trim((string) ($_ENV['NEXORA_SMTP_EMAIL'] ?? $_SERVER['NEXORA_SMTP_EMAIL'] ?? 'noreply@nexora.local'));
+        $senderName  = trim((string) ($_ENV['NEXORA_SMTP_FROM_NAME'] ?? $_SERVER['NEXORA_SMTP_FROM_NAME'] ?? 'NEXORA Bank'));
+
+        $safeName    = htmlspecialchars($recipientName !== '' ? $recipientName : 'Client', ENT_QUOTES, 'UTF-8');
+        $safeAmount  = number_format($amount, 3, '.', ' ');
+        $safeCurrency = htmlspecialchars($currency, ENT_QUOTES, 'UTF-8');
+        $senderFullName = htmlspecialchars(
+            trim(($sender['prenom'] ?? '').' '.($sender['nom'] ?? '')) ?: 'Un client Nexora',
+            ENT_QUOTES, 'UTF-8'
+        );
+        $date = date('d/m/Y à H:i');
+
+        $html = <<<HTML
+        <div style="font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f9;padding:32px 16px;">
+          <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.10);">
+            <div style="background:linear-gradient(135deg,#0a2540 0%,#0f8a86 100%);padding:28px 32px;text-align:center;">
+              <h1 style="margin:0;color:#fff;font-size:22px;font-weight:800;letter-spacing:.5px;">NEXORA Bank</h1>
+              <p style="margin:6px 0 0;color:rgba(255,255,255,.75);font-size:13px;">Notification de virement reçu</p>
+            </div>
+            <div style="padding:28px 32px;">
+              <p style="margin:0 0 20px;font-size:15px;color:#1a2b3c;">Bonjour <strong>{$safeName}</strong>,</p>
+              <p style="margin:0 0 24px;font-size:14px;color:#4a5568;line-height:1.6;">
+                Vous avez reçu un virement bancaire via <strong>NEXORA Bank</strong>. Voici les détails :
+              </p>
+              <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                <tr style="background:#f8fafc;">
+                  <td style="padding:12px 16px;color:#6b7280;font-weight:600;border-bottom:1px solid #e5e7eb;width:45%;">Expéditeur</td>
+                  <td style="padding:12px 16px;color:#0f172a;font-weight:700;border-bottom:1px solid #e5e7eb;">{$senderFullName}</td>
+                </tr>
+                <tr>
+                  <td style="padding:12px 16px;color:#6b7280;font-weight:600;border-bottom:1px solid #e5e7eb;">Montant</td>
+                  <td style="padding:12px 16px;font-weight:700;border-bottom:1px solid #e5e7eb;">
+                    <span style="background:#dcfce7;color:#16a34a;padding:4px 12px;border-radius:20px;font-size:15px;">{$safeAmount} {$safeCurrency}</span>
+                  </td>
+                </tr>
+                <tr style="background:#f8fafc;">
+                  <td style="padding:12px 16px;color:#6b7280;font-weight:600;">Date</td>
+                  <td style="padding:12px 16px;color:#0f172a;font-weight:700;">{$date}</td>
+                </tr>
+              </table>
+              <p style="margin:24px 0 0;font-size:13px;color:#9ca3af;text-align:center;">
+                Cet email a été envoyé automatiquement par NEXORA Bank. Ne pas répondre.
+              </p>
+            </div>
+            <div style="background:#f8fafc;padding:16px 32px;text-align:center;border-top:1px solid #e5e7eb;">
+              <p style="margin:0;font-size:12px;color:#9ca3af;">© 2026 NEXORA Bank — Tous droits réservés</p>
+            </div>
+          </div>
+        </div>
+        HTML;
+
+        try {
+            $email = (new Email())
+                ->from(new Address($senderEmail, $senderName))
+                ->to($recipientEmail)
+                ->subject('[NEXORA] Vous avez reçu un virement de '.$safeAmount.' '.$safeCurrency)
+                ->html($html);
+            $this->mailer->send($email);
+        } catch (\Throwable) {
+            // L'email ne doit jamais bloquer la transaction
+        }
+    }
+
     private function sendEmailNotification(array $recipientEmails, string $type, string $title, string $message): void
     {
         $dsn = $_ENV['MAILER_DSN'] ?? $_SERVER['MAILER_DSN'] ?? '';

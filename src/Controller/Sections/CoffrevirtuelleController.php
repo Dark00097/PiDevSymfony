@@ -8,6 +8,10 @@ use Symfony\Component\HttpFoundation\Request;
 
 final class CoffrevirtuelleController
 {
+    /**
+     * @param int|null $filterUserId
+     * @return array<string, mixed>
+     */
     public function buildAdminData(BankingService $bankingService, ?int $filterUserId = null): array
     {
         $vaults = $bankingService->listVaults($filterUserId);
@@ -23,6 +27,9 @@ final class CoffrevirtuelleController
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function buildPortalData(BankingService $bankingService, int $userId): array
     {
         $vaults = $bankingService->listVaults($userId);
@@ -39,6 +46,10 @@ final class CoffrevirtuelleController
         ];
     }
 
+    /**
+     * @param array<string, mixed>|null $currentUser
+     * @return array<string, mixed>|null
+     */
     public function handleAdminAction(string $action, Request $request, BankingService $bankingService, ?array $currentUser = null): ?array
     {
         $connectedUserId = $currentUser !== null ? (int) ($currentUser['idUser'] ?? 0) : null;
@@ -62,6 +73,9 @@ final class CoffrevirtuelleController
         return null;
     }
 
+    /**
+     * @return array<string, mixed>|null
+     */
     public function handlePortalAction(string $action, Request $request, BankingService $bankingService, int $userId): ?array
     {
         switch ($action) {

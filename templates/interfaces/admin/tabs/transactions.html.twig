@@ -1,4 +1,4 @@
-{% set active_panel = panel|default(support.active_panel|default('transaction')) %}
+﻿{% set active_panel = panel|default(support.active_panel|default('transaction')) %}
 {% set transaction_items = support.transactions|default(items) %}
 {% set reclamation_items = support.reclamations|default([]) %}
 {% set accounts = support.accounts|default([]) %}
@@ -1949,6 +1949,7 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 
 {# ── MODALE ANALYSE IA RÉCLAMATIONS ── #}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <div id="modal-analyse-rec" style="display:none;position:fixed;inset:0;z-index:1400;background:rgba(15,23,42,.55);backdrop-filter:blur(6px);">
   <div style="width:min(700px,100%);max-height:88vh;overflow-y:auto;background:#fff;border-radius:20px;box-shadow:0 24px 64px rgba(15,23,42,.25);display:flex;flex-direction:column;margin:auto;">
 
@@ -1968,7 +1969,7 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 
     {# Stats rapides #}
-    <div id="analyse-stats" style="display:none;padding:1rem 1.5rem;background:#f8faff;border-bottom:1px solid #e8f0fb;gap:1rem;flex-wrap:wrap;flex-shrink:0;">
+    <div id="analyse-stats" style="display:none;flex-shrink:0;">
     </div>
 
     {# Corps #}
@@ -2081,7 +2082,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Stats rapides
       if (data.stats) {
         var s = data.stats;
-        stats.style.display = 'flex';
+        stats.style.display = 'block';
         stats.innerHTML = renderStats(s);
         console.log('[AI Analysis] Stats rendered');
       }
@@ -2100,68 +2101,122 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderStats(s) {
-    var html = '';
-    var statStyle = 'background:#fff;border:1px solid #e0e7ff;border-radius:10px;padding:.6rem 1rem;text-align:center;min-width:100px;';
-    html += '<div style="' + statStyle + '"><div style="font-size:1.4rem;font-weight:900;color:#4f46e5;">' + s.total + '</div><div style="font-size:.7rem;color:#6b7280;font-weight:600;">Total</div></div>';
 
-    var statusColors = { 'Valide': '#16a34a', 'Ferme': '#dc2626', 'Attende': '#d97706' };
+    var statusColors = {'Valide':'#16a34a','Ferme':'#dc2626','Attende':'#d97706','En attente':'#d97706','Ouvert':'#2563eb'};
+
+    var typeColors   = ['#6366f1','#0ea5e9','#f59e0b','#10b981','#ef4444','#8b5cf6','#ec4899'];
+
+    var kpiHtml = '<div style="display:flex;gap:.8rem;flex-wrap:wrap;padding:1rem 1.5rem;background:#f8faff;border-bottom:1px solid #e8f0fb;">';
+
+    kpiHtml += '<div style="background:#fff;border:1px solid #e0e7ff;border-radius:12px;padding:.7rem 1.2rem;text-align:center;min-width:90px;"><div style="font-size:1.6rem;font-weight:900;color:#4f46e5;">' + s.total + '</div><div style="font-size:.7rem;color:#6b7280;font-weight:700;text-transform:uppercase;">Total</div></div>';
+
     Object.keys(s.by_status || {}).forEach(function(k) {
+
       var c = statusColors[k] || '#6366f1';
-      html += '<div style="' + statStyle + '"><div style="font-size:1.4rem;font-weight:900;color:' + c + ';">' + s.by_status[k] + '</div><div style="font-size:.7rem;color:#6b7280;font-weight:600;">' + k + '</div></div>';
+
+      kpiHtml += '<div style="background:#fff;border:1px solid #e0e7ff;border-radius:12px;padding:.7rem 1.2rem;text-align:center;min-width:90px;"><div style="font-size:1.6rem;font-weight:900;color:' + c + ';">' + s.by_status[k] + '</div><div style="font-size:.7rem;color:#6b7280;font-weight:700;text-transform:uppercase;">' + escHtml(k) + '</div></div>';
+
     });
 
-    return html;
+    kpiHtml += '</div>';
+
+    var chartsHtml = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;padding:1rem 1.5rem;background:#f8faff;border-bottom:1px solid #e8f0fb;">';
+
+    chartsHtml += '<div style="background:#fff;border-radius:14px;padding:1rem;border:1px solid #e8f0fb;"><div style="font-size:.75rem;font-weight:800;color:#4f46e5;text-transform:uppercase;margin-bottom:.6rem;"><i class="fa-solid fa-chart-pie"></i> Statuts</div><canvas id="chart-status" height="160"></canvas></div>';
+
+    chartsHtml += '<div style="background:#fff;border-radius:14px;padding:1rem;border:1px solid #e8f0fb;"><div style="font-size:.75rem;font-weight:800;color:#4f46e5;text-transform:uppercase;margin-bottom:.6rem;"><i class="fa-solid fa-chart-bar"></i> Types</div><canvas id="chart-types" height="160"></canvas></div>';
+
+    chartsHtml += '</div>';
+
+    var tableHtml = '<div style="padding:0 1.5rem 1rem;"><div style="font-size:.75rem;font-weight:800;color:#4f46e5;text-transform:uppercase;margin-bottom:.6rem;"><i class="fa-solid fa-table"></i> Detail par type</div><table style="width:100%;border-collapse:collapse;font-size:.82rem;"><thead><tr style="background:#f1f5f9;"><th style="padding:.5rem .8rem;text-align:left;color:#374151;font-weight:800;">Type</th><th style="padding:.5rem .8rem;text-align:center;color:#374151;font-weight:800;">Nb</th><th style="padding:.5rem .8rem;text-align:left;color:#374151;font-weight:800;">Proportion</th></tr></thead><tbody>';
+
+    var total = s.total || 1; var ti = 0;
+
+    Object.keys(s.by_type || {}).forEach(function(k) {
+
+      var n = s.by_type[k]; var pct = Math.round((n/total)*100);
+
+      var col = typeColors[ti % typeColors.length]; ti++;
+
+      var bg = ti%2===0 ? '#f8faff' : '#fff';
+
+      tableHtml += '<tr style="background:'+bg+';border-bottom:1px solid #f1f5f9;"><td style="padding:.5rem .8rem;color:#1e293b;font-weight:600;">'+escHtml(k)+'</td><td style="padding:.5rem .8rem;text-align:center;font-weight:800;color:'+col+';">'+n+'</td><td style="padding:.5rem .8rem;"><div style="display:flex;align-items:center;gap:.5rem;"><div style="flex:1;height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;"><div style="height:100%;background:'+col+';width:'+pct+'%;border-radius:4px;"></div></div><span style="font-size:.75rem;color:#6b7280;min-width:30px;">'+pct+'%</span></div></td></tr>';
+
+    });
+
+    tableHtml += '</tbody></table></div>';
+
+    setTimeout(function() {
+
+      var ctxS = document.getElementById('chart-status');
+
+      if (ctxS && window.Chart) {
+
+        var sl = Object.keys(s.by_status||{}); var sd = sl.map(function(k){return s.by_status[k];}); var sb = sl.map(function(k){return statusColors[k]||'#6366f1';});
+
+        new Chart(ctxS,{type:'doughnut',data:{labels:sl,datasets:[{data:sd,backgroundColor:sb,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{size:11}}}}}});
+
+      }
+
+      var ctxT = document.getElementById('chart-types');
+
+      if (ctxT && window.Chart) {
+
+        var tl = Object.keys(s.by_type||{}).map(function(k){return k.length>18?k.substring(0,16)+'...':k;}); var td = Object.values(s.by_type||{}); var tb = tl.map(function(_,i){return typeColors[i%typeColors.length];});
+
+        new Chart(ctxT,{type:'bar',data:{labels:tl,datasets:[{label:'Reclamations',data:td,backgroundColor:tb,borderRadius:6,borderSkipped:false}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}},x:{ticks:{font:{size:10}}}}}});
+
+      }
+
+    },100);
+
+    return kpiHtml + chartsHtml + tableHtml;
+
   }
+
+
 
   function formatAnalyse(text) {
-    // Convertir le texte structuré en HTML lisible
-    var icons = {
-      '1.': '<i class="fa-solid fa-file-lines"></i>',
-      '2.': '<i class="fa-solid fa-triangle-exclamation"></i>',
-      '3.': '<i class="fa-solid fa-face-meh"></i>',
-      '4.': '<i class="fa-solid fa-lightbulb"></i>',
-      '5.': '<i class="fa-solid fa-shield-halved"></i>',
-    };
 
-    var lines = text.split('\n');
-    var html  = '';
-    var inSection = false;
+    var icons = {'1.':'<i class="fa-solid fa-file-lines"></i>','2.':'<i class="fa-solid fa-triangle-exclamation"></i>','3.':'<i class="fa-solid fa-face-meh"></i>','4.':'<i class="fa-solid fa-lightbulb"></i>','5.':'<i class="fa-solid fa-shield-halved"></i>'};
+
+    var lines = text.split('\n'); var html = '<div style="padding:0 1.5rem 1rem;">'; var inSection = false;
 
     lines.forEach(function(line) {
-      line = line.trim();
-      if (!line) return;
 
-      // Titres de section (1. RÉSUMÉ, 2. PROBLÈMES, etc.)
-      var sectionMatch = line.match(/^(\d+)\.\s+(.+)/);
-      if (sectionMatch && parseInt(sectionMatch[1]) <= 5) {
+      line = line.trim(); if (!line) return;
+
+      var sm = line.match(/^(\d+)\.\s+(.+)/);
+
+      if (sm && parseInt(sm[1])<=5) {
+
         if (inSection) html += '</div>';
-        var num = sectionMatch[1] + '.';
-        var icon = icons[num] || '<i class="fa-solid fa-circle"></i>';
-        html += '<div class="analyse-section"><h4>' + icon + ' ' + escHtml(sectionMatch[2]) + '</h4>';
-        inSection = true;
-        return;
+
+        html += '<div class="analyse-section" style="background:#fff;border:1px solid #e8f0fb;border-radius:12px;padding:1rem;margin-bottom:.8rem;"><h4 style="margin:0 0 .5rem;font-size:.8rem;font-weight:800;color:#4f46e5;text-transform:uppercase;display:flex;align-items:center;gap:6px;">'+(icons[sm[1]+'.']||'<i class="fa-solid fa-circle"></i>')+' '+escHtml(sm[2])+'</h4>';
+
+        inSection = true; return;
+
       }
 
-      // Indicateur de risque
-      if (line.toLowerCase().includes('faible')) {
-        html += '<p><span class="analyse-risk-low">🟢 ' + escHtml(line) + '</span></p>';
-      } else if (line.toLowerCase().includes('élevé') || line.toLowerCase().includes('eleve')) {
-        html += '<p><span class="analyse-risk-high">🔴 ' + escHtml(line) + '</span></p>';
-      } else if (line.toLowerCase().includes('moyen')) {
-        html += '<p><span class="analyse-risk-medium">🟡 ' + escHtml(line) + '</span></p>';
-      } else if (line.startsWith('-') || line.startsWith('•')) {
-        html += '<ul><li>' + escHtml(line.replace(/^[-•]\s*/, '')) + '</li></ul>';
-      } else {
-        html += '<p>' + escHtml(line) + '</p>';
-      }
+      if (line.toLowerCase().includes('faible')) html += '<p style="margin:.2rem 0;font-size:.84rem;"><span class="analyse-risk-low">ðŸŸ¢ '+escHtml(line)+'</span></p>';
+
+      else if (line.toLowerCase().includes('elev')) html += '<p style="margin:.2rem 0;font-size:.84rem;"><span class="analyse-risk-high">ðŸ”´ '+escHtml(line)+'</span></p>';
+
+      else if (line.toLowerCase().includes('moyen')) html += '<p style="margin:.2rem 0;font-size:.84rem;"><span class="analyse-risk-medium">ðŸŸ¡ '+escHtml(line)+'</span></p>';
+
+      else if (line.startsWith('-')||line.startsWith('â€¢')) html += '<div style="display:flex;gap:.5rem;align-items:flex-start;margin:.2rem 0;font-size:.84rem;color:#374151;"><span style="color:#6366f1;margin-top:2px;">&#9658;</span><span>'+escHtml(line.replace(/^[-â€¢]\s*/,''))+'</span></div>';
+
+      else html += '<p style="margin:.2rem 0;font-size:.84rem;color:#374151;">'+escHtml(line)+'</p>';
+
     });
 
-    if (inSection) html += '</div>';
-    return html || '<p>' + escHtml(text) + '</p>';
+    if (inSection) html += '</div>'; html += '</div>';
+
+    return html || '<p>'+escHtml(text)+'</p>';
+
   }
 
-  function escHtml(str) {
-    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
-})();
+
+
+  function escHtml(str) { return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 </script>

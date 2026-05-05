@@ -44,7 +44,7 @@ class Transactions
     #[ORM\Column(name: 'montantPaye', type: 'decimal', precision: 12, scale: 3, nullable: true)]
     private ?string $montantpaye = null;
 
-    #[ORM\ManyToOne(targetEntity: Compte::class)]
+    #[ORM\ManyToOne(targetEntity: Compte::class, inversedBy: 'transactionses')]
     #[ORM\JoinColumn(name: 'idCompte', referencedColumnName: 'idCompte', nullable: true)]
     private ?Compte $compte = null;
 
@@ -69,7 +69,7 @@ class Transactions
     #[ORM\Column(name: 'conversion_fee', type: 'decimal', precision: 12, scale: 2, nullable: true)]
     private ?string $conversionFee = null;
 
-    #[ORM\ManyToOne(targetEntity: Users::class)]
+    #[ORM\ManyToOne(targetEntity: Users::class, inversedBy: 'transactionses')]
     #[ORM\JoinColumn(name: 'idUser', referencedColumnName: 'idUser', nullable: true)]
     private ?Users $users = null;
 
@@ -78,6 +78,15 @@ class Transactions
 
     #[ORM\OneToMany(mappedBy: 'transactions', targetEntity: Reclamation::class)]
     private Collection $reclamations;
+
+    public function __construct()
+    {
+        $this->cashbacks    = new ArrayCollection();
+        $this->reclamations = new ArrayCollection();
+    }
+
+    public function getCashbacks(): Collection    { return $this->cashbacks; }
+    public function getReclamations(): Collection { return $this->reclamations; }
 
     public function getIdtransaction(): ?int { return $this->idtransaction; }
 

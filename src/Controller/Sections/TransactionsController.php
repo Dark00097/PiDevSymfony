@@ -61,9 +61,19 @@ final class TransactionsController
     public function buildPortalData(BankingService $bankingService, int $userId, array $queryParams = []): array
     {
         $dataset = $this->buildTransactionDataset($bankingService, $userId, $queryParams);
+        
+        // Pagination
+        $page = max(1, (int) ($queryParams['page'] ?? 1));
+        $perPage = 3;
+        $totalItems = count($dataset['transactions']);
+        $totalPages = max(1, (int) ceil($totalItems / $perPage));
+        $page = min($page, $totalPages); // S'assurer que la page n'excède pas le total
+        
+        $offset = ($page - 1) * $perPage;
+        $paginatedTransactions = array_slice($dataset['transactions'], $offset, $perPage);
 
         return [
-            'items' => $dataset['transactions'],
+            'items' => $paginatedTransactions,
             'support' => [
                 'accounts' => $dataset['accounts'],
                 'transaction_query' => $dataset['query'],
@@ -75,6 +85,14 @@ final class TransactionsController
                 'view_transaction' => $dataset['view_transaction'],
                 'reclamations' => $bankingService->listReclamations($userId),
                 'all_transactions' => $dataset['transactions'],
+                'pagination' => [
+                    'current_page' => $page,
+                    'total_pages' => $totalPages,
+                    'total_items' => $totalItems,
+                    'per_page' => $perPage,
+                    'has_prev' => $page > 1,
+                    'has_next' => $page < $totalPages,
+                ],
             ],
         ];
     }
@@ -100,9 +118,44 @@ final class TransactionsController
     {
         switch ($action) {
             case 'transaction_save':
-                $bankingService->saveTransaction($request->request->all(), $this->requestInt($request, 'idTransaction'), $userId);
+                $data = $request->request->all();
 
-                return ['type' => 'success', 'message' => 'Transaction saved.'];
+                // Le formulaire envoie "compte" mais BankingService attend "idCompte"
+                if (empty($data['idCompte']) && !empty($data['compte'])) {
+                    $data['idCompte'] = $data['compte'];
+                }
+
+                // Résoudre le montant — chercher dans tous les champs possibles
+                $type = strtoupper(trim((string) ($data['typeTransaction'] ?? '')));
+                $montantFinal = (float) ($data['montant'] ?? 0);
+
+                if ($montantFinal <= 0) {
+                    // Chercher dans tous les champs de montant possibles
+                    $candidates = [
+                        $data['montant_depot']    ?? '',
+                        $data['montant_retrait']  ?? '',
+                        $data['montant_virement'] ?? '',
+                        $data['montantPaye']      ?? '',
+                        $data['amount']           ?? '',
+                    ];
+                    foreach ($candidates as $c) {
+                        $v = (float) $c;
+                        if ($v > 0) {
+                            $montantFinal = $v;
+                            break;
+                        }
+                    }
+                    $data['montant'] = (string) $montantFinal;
+                }
+
+                // montantPaye = montant si non fourni
+                if (empty($data['montantPaye']) || (float) $data['montantPaye'] <= 0) {
+                    $data['montantPaye'] = (string) $montantFinal;
+                }
+
+                $bankingService->saveTransaction($data, $this->requestInt($request, 'idTransaction'), $userId);
+
+                return ['type' => 'success', 'message' => 'Transaction enregistrée avec succès.'];
 
             case 'transaction_delete':
                 $bankingService->deleteTransaction($this->requestInt($request, 'idTransaction') ?? 0, $userId);
@@ -296,7 +349,7 @@ final class TransactionsController
 
     /**
      * @param array<string, mixed> $queryParams
-     * @return array{q:string, filter:string, sort:string, dir:string, edit_id:?int, view_id:?int}
+     * @return array{q:string, filter:string, sort:string, dir:string, edit_id:?int, view_id:?int, category:string, amount_min:string, amount_max:string, account_id:string, date_from:string, date_to:string}
      */
     private function normalizePortalQuery(array $queryParams): array
     {
@@ -327,6 +380,12 @@ final class TransactionsController
             'dir' => $dir,
             'edit_id' => $this->queryInt($queryParams['edit_id'] ?? null),
             'view_id' => $this->queryInt($queryParams['view_id'] ?? null),
+            'category' => trim((string) ($queryParams['category'] ?? '')),
+            'amount_min' => trim((string) ($queryParams['amount_min'] ?? '')),
+            'amount_max' => trim((string) ($queryParams['amount_max'] ?? '')),
+            'account_id' => trim((string) ($queryParams['account_id'] ?? '')),
+            'date_from' => trim((string) ($queryParams['date_from'] ?? '')),
+            'date_to' => trim((string) ($queryParams['date_to'] ?? '')),
         ];
     }
 

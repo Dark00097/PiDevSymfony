@@ -2,6 +2,7 @@
 
 namespace App\Form;
 
+use App\Entity\Credit;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\DateType;
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
@@ -34,25 +35,12 @@ final class CreditType extends BaseCrudFormType
 
             'typeCredit' => [
                 'type' => ChoiceType::class,
-                'placeholder' => 'Selectionner',
-                'choices' => [
-                    'Professionnel' => 'Professionnel',
-                    'Immobilier' => 'Immobilier',
-                    'Auto' => 'Auto',
-                    'Consommation' => 'Consommation',
-                    'Etudes' => 'Etudes',
-                    'Travaux' => 'Travaux',
-                    'Personnel' => 'Personnel',
-                    'Hypotheque' => 'Hypotheque',
-                    'Pret auto' => 'Pret auto',
-                    'Education' => 'Education',
-                    'Sante' => 'Sante',
-                    'Autre' => 'Autre',
-                ],
+                'placeholder' => 'Selectionner un type',
+                'choices' => Credit::getTypeChoices(),
                 'constraints' => [
                     new Assert\NotBlank(message: 'Le type de credit est obligatoire.'),
                     new Assert\Choice(
-                        choices: ['Professionnel', 'Immobilier', 'Auto', 'Consommation', 'Etudes', 'Travaux', 'Personnel', 'Hypotheque', 'Pret auto', 'Education', 'Sante', 'Autre'],
+                        choices: Credit::getAllowedTypeValues(),
                         message: 'Veuillez selectionner un type de credit valide.'
                     ),
                 ],

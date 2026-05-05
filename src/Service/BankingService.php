@@ -2,6 +2,8 @@
 
 namespace App\Service;
 
+use App\Entity\Credit;
+use App\Entity\Garantiecredit;
 use Doctrine\DBAL\Connection;
 
 final class BankingService
@@ -15,6 +17,12 @@ final class BankingService
         'idiot',
         'hate',
     ];
+    private const ALLOWED_USER_ROLES = ['ROLE_USER', 'ROLE_ADMIN'];
+    private const ALLOWED_USER_STATUS = ['PENDING', 'ACTIVE', 'DECLINED', 'INACTIVE', 'BANNED'];
+    /**
+     * @var array<string, array<int, string>>
+     */
+    private array $tableColumnsCache = [];
 
     public function __construct(
         private readonly Connection $connection,
@@ -112,20 +120,39 @@ final class BankingService
         $status = strtoupper(trim((string) ($data['status'] ?? '')));
 
         if ($id === null) {
-            if ($nom === '' || $prenom === '' || $email === '') {
-                throw new \InvalidArgumentException('Nom, prenom and email are required to create a user.');
+            if ($nom === '' || $prenom === '' || $email === '' || $telephone === '') {
+                throw new \InvalidArgumentException('Last name, first name, email and phone are required.');
             }
-            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                throw new \InvalidArgumentException('Email format is invalid.');
+
+            $this->assertValidUserName($nom, 'Last name');
+            $this->assertValidUserName($prenom, 'First name');
+            $this->assertValidUserEmail($email);
+            if (!$this->isValidPhone($telephone)) {
+                throw new \InvalidArgumentException('Phone format is invalid.');
             }
+
+            $resolvedRole = $role !== '' ? $role : 'ROLE_USER';
+            $resolvedStatus = $status !== '' ? $status : 'PENDING';
+            $this->assertValidUserRole($resolvedRole);
+            $this->assertValidUserStatus($resolvedStatus);
+
+            if ($this->emailExistsForAnotherUser($email, null)) {
+                throw new \InvalidArgumentException('This email is already used by another user.');
+            }
+
+            $plainPassword = (string) ($data['password'] ?? '');
+            if ($plainPassword === '') {
+                throw new \InvalidArgumentException('Password is required to create a user.');
+            }
+            $this->assertStrongPassword($plainPassword);
 
             $payload = [
                 'nom' => $nom,
                 'prenom' => $prenom,
                 'email' => $email,
                 'telephone' => $telephone,
-                'role' => $role !== '' ? $role : 'ROLE_USER',
-                'status' => $status !== '' ? $status : 'PENDING',
+                'role' => $resolvedRole,
+                'status' => $resolvedStatus,
                 'biometric_enabled' => (int) ((string) ($data['biometric_enabled'] ?? '0') === '1'),
             ];
 
@@ -134,11 +161,7 @@ final class BankingService
                 $payload['profile_image_path'] = $profileImagePath !== '' ? $profileImagePath : null;
             }
 
-            if (($data['password'] ?? '') !== '') {
-                $payload['password'] = $this->security->hashPassword((string) $data['password']);
-            }
-
-            $payload['password'] ??= $this->security->hashPassword('ChangeMe123!');
+            $payload['password'] = $this->security->hashPassword($plainPassword);
             $payload['account_opened_from'] = 'Symfony admin';
             $payload['account_opened_location'] = 'Unknown location';
             $payload['profile_image_path'] ??= null;
@@ -149,13 +172,6 @@ final class BankingService
 
         $existing = $this->connection->fetchAssociative('SELECT * FROM users WHERE idUser = ? LIMIT 1', [$id]);
         if (!$existing) {
-            if ($nom !== '' && $prenom !== '' && $email !== '') {
-                // If a non-existing ID was sent while filling the "create" fields, fallback to create mode.
-                $this->saveUser($data, null);
-
-                return;
-            }
-
             throw new \RuntimeException('User not found. Leave ID empty to create a new user.');
         }
 
@@ -171,19 +187,28 @@ final class BankingService
                 : (int) ($existing['biometric_enabled'] ?? 0),
         ];
 
-        if (!filter_var($payload['email'], FILTER_VALIDATE_EMAIL)) {
-            throw new \InvalidArgumentException('Email format is invalid.');
+        $this->assertValidUserName((string) $payload['nom'], 'Last name');
+        $this->assertValidUserName((string) $payload['prenom'], 'First name');
+        $this->assertValidUserEmail((string) $payload['email']);
+        $this->assertValidUserRole((string) $payload['role']);
+        $this->assertValidUserStatus((string) $payload['status']);
+        if (!$this->isValidPhone((string) $payload['telephone'])) {
+            throw new \InvalidArgumentException('Phone format is invalid.');
+        }
+
+        if ($this->emailExistsForAnotherUser((string) $payload['email'], $id)) {
+            throw new \InvalidArgumentException('This email is already used by another user.');
         }
 
         if (array_key_exists('profile_image_path', $data)) {
             $profileImagePath = trim((string) $data['profile_image_path']);
-            if ($profileImagePath !== '') {
-                $payload['profile_image_path'] = $profileImagePath;
-            }
+            $payload['profile_image_path'] = $profileImagePath !== '' ? $profileImagePath : null;
         }
 
         if (($data['password'] ?? '') !== '') {
-            $payload['password'] = $this->security->hashPassword((string) $data['password']);
+            $plainPassword = (string) $data['password'];
+            $this->assertStrongPassword($plainPassword);
+            $payload['password'] = $this->security->hashPassword($plainPassword);
         }
 
         $this->connection->update('users', $payload, ['idUser' => $id]);
@@ -191,7 +216,17 @@ final class BankingService
 
     public function updateUserStatus(int $userId, string $status): void
     {
+        if ($userId <= 0) {
+            throw new \InvalidArgumentException('A valid user ID is required.');
+        }
+
         $normalized = strtoupper(trim($status));
+        $this->assertValidUserStatus($normalized);
+        $exists = (int) $this->connection->fetchOne('SELECT COUNT(*) FROM users WHERE idUser = ?', [$userId]);
+        if ($exists === 0) {
+            throw new \RuntimeException('User not found.');
+        }
+
         $this->connection->update('users', ['status' => $normalized], ['idUser' => $userId]);
         $this->notificationService->notifyUserAccountStatusChanged($userId, $normalized);
     }
@@ -513,29 +548,118 @@ final class BankingService
         return $rows;
     }
 
-    public function saveTransaction(array $data, ?int $id = null, ?int $forcedUserId = null): void
+    public function saveTransaction(array $data, ?int $id = null, ?int $forcedUserId = null): int
     {
-        $userId = $forcedUserId ?? (int) ($data['idUser'] ?? 0);
+        $existing = null;
+        if ($id !== null) {
+            $existing = $this->connection->fetchAssociative(
+                'SELECT * FROM transactions WHERE idTransaction = ? LIMIT 1',
+                [$id]
+            );
+            if (!$existing) {
+                throw new \RuntimeException('Transaction introuvable.');
+            }
+        }
+
+        $accountId = $this->nullableInt($data['idCompte'] ?? null) ?? $this->nullableInt($existing['idCompte'] ?? null);
+        if ($accountId === null) {
+            throw new \InvalidArgumentException('Compte requis pour enregistrer une transaction.');
+        }
+
+        $account = $this->connection->fetchAssociative(
+            'SELECT idCompte, idUser FROM compte WHERE idCompte = ? LIMIT 1',
+            [$accountId]
+        );
+        if (!$account) {
+            throw new \RuntimeException('Compte introuvable.');
+        }
+
+        $accountOwnerId = $this->nullableInt($account['idUser'] ?? null);
+        $userId = $forcedUserId
+            ?? $this->nullableInt($data['idUser'] ?? null)
+            ?? $accountOwnerId
+            ?? $this->nullableInt($existing['idUser'] ?? null);
+        if ($userId === null) {
+            throw new \InvalidArgumentException('Utilisateur introuvable pour cette transaction.');
+        }
+
         $amount = (float) ($data['montant'] ?? 0);
-        $paidAmount = (float) ($data['montantPaye'] ?? 0);
+        // Pour un PAIEMENT, montantPaye = 0 à la création (sera mis à jour après paiement Stripe)
+        $typeForPaid = strtoupper(trim((string) ($data['typeTransaction'] ?? '')));
+        $paidAmount = ($typeForPaid === 'PAIEMENT' && $id === null)
+            ? 0.0
+            : (float) ($data['montantPaye'] ?? $amount);
+
+        // Calculer soldeApres automatiquement si non fourni
+        $soldeApres = null;
+        if (($data['soldeApres'] ?? '') !== '') {
+            $soldeApres = (float) $data['soldeApres'];
+        } else {
+            $accountRow = $this->connection->fetchAssociative(
+                'SELECT solde FROM compte WHERE idCompte = ? LIMIT 1',
+                [$accountId]
+            );
+            if ($accountRow) {
+                $currentSolde = (float) ($accountRow['solde'] ?? 0);
+                $type = strtoupper(trim((string) ($data['typeTransaction'] ?? 'CREDIT')));
+                $soldeApres = match ($type) {
+                    'DEBIT', 'RETRAIT', 'PAIEMENT' => round($currentSolde - $amount, 2),
+                    default => round($currentSolde + $amount, 2),
+                };
+            }
+        }
+
         $payload = [
-            'idCompte' => $this->nullableInt($data['idCompte'] ?? null),
+            'idCompte' => $accountId,
             'idUser' => $userId,
             'categorie' => trim((string) ($data['categorie'] ?? '')),
             'dateTransaction' => trim((string) ($data['dateTransaction'] ?? date('Y-m-d'))),
             'montant' => $this->security->encryptAmount($amount),
             'typeTransaction' => trim((string) ($data['typeTransaction'] ?? 'Credit')),
-            'statutTransaction' => trim((string) ($data['statutTransaction'] ?? 'Terminee')),
-            'soldeApres' => ($data['soldeApres'] ?? '') !== '' ? (float) $data['soldeApres'] : null,
+            'soldeApres' => $soldeApres,
             'description' => trim((string) ($data['description'] ?? '')),
             'montantPaye' => $this->security->encryptAmount($paidAmount),
+            // Champs virement
+            'idCompteDestinataire' => trim((string) ($data['compteDestinataire'] ?? $data['idCompteDestinataire'] ?? '')) ?: null,
+            'nomDestinataire'      => trim((string) ($data['nomDestinataire']      ?? '')) ?: null,
+            'emailDestinataire'    => trim((string) ($data['emailDestinataire']    ?? '')) ?: null,
+            // Champs conversion devise
+            'original_amount'  => ($data['original_amount']  ?? '') !== '' ? (float) $data['original_amount']  : null,
+            'original_currency'=> trim((string) ($data['original_currency'] ?? 'TND')) ?: 'TND',
+            'exchange_rate'    => ($data['exchange_rate']    ?? '') !== '' ? (float) $data['exchange_rate']    : null,
+            'conversion_fee'   => ($data['conversion_fee']   ?? '') !== '' ? (float) $data['conversion_fee']   : 0.0,
         ];
 
         if ($id === null) {
             $this->connection->insert('transactions', $payload);
+            $newTransactionId = (int) $this->connection->lastInsertId();
             $this->activityService->log($userId, 'TRANSACTION_CREATE', 'Symfony portal', 'Transaction created.');
 
-            return;
+            // Envoyer email de virement au destinataire si applicable
+            $typeTransaction = strtoupper(trim((string) ($data['typeTransaction'] ?? '')));
+            if ($typeTransaction === 'VIREMENT') {
+                $emailDestinataire = trim((string) ($data['emailDestinataire'] ?? ''));
+                $nomDestinataire   = trim((string) ($data['nomDestinataire']   ?? ''));
+                if ($emailDestinataire !== '' && filter_var($emailDestinataire, FILTER_VALIDATE_EMAIL)) {
+                    $senderUser = $this->connection->fetchAssociative(
+                        'SELECT * FROM users WHERE idUser = ? LIMIT 1',
+                        [$userId]
+                    );
+                    try {
+                        $this->notificationService->sendVirementEmail(
+                            $emailDestinataire,
+                            $nomDestinataire,
+                            $amount,
+                            (string) ($data['original_currency'] ?? 'TND'),
+                            $senderUser ?: []
+                        );
+                    } catch (\Throwable) {
+                        // L'email ne doit jamais bloquer la transaction
+                    }
+                }
+            }
+
+            return $newTransactionId;
         }
 
         $criteria = ['idTransaction' => $id];
@@ -545,6 +669,8 @@ final class BankingService
 
         $this->connection->update('transactions', $payload, $criteria);
         $this->activityService->log($userId, 'TRANSACTION_UPDATE', 'Symfony portal', sprintf('Transaction #%d updated.', $id));
+
+        return $id;
     }
 
     public function deleteTransaction(int $id, ?int $forcedUserId = null): void
@@ -646,7 +772,35 @@ final class BankingService
             throw new \InvalidArgumentException('Utilisateur requis pour enregistrer un credit.');
         }
 
-        $typeCredit = trim((string) ($data['typeCredit'] ?? ''));
+        $selectedGarantieId = (int) ($data['idGarantie'] ?? 0);
+        if ($selectedGarantieId > 0) {
+            $selectedGarantie = $this->connection->fetchAssociative(
+                'SELECT g.idGarantie,
+                        g.idUser,
+                        c.idUser AS credit_user_id,
+                        cp.idUser AS compte_user_id
+                 FROM garantiecredit g
+                 LEFT JOIN credit c ON c.idCredit = g.idCredit
+                 LEFT JOIN compte cp ON cp.idCompte = c.idCompte
+                 WHERE g.idGarantie = ?
+                 LIMIT 1',
+                [$selectedGarantieId]
+            );
+            if (!$selectedGarantie) {
+                throw new \InvalidArgumentException('Garantie selectionnee introuvable.');
+            }
+
+            $garantieOwnerId = $this->nullableInt($selectedGarantie['idUser'] ?? null)
+                ?? $this->nullableInt($selectedGarantie['credit_user_id'] ?? null)
+                ?? $this->nullableInt($selectedGarantie['compte_user_id'] ?? null);
+
+            if ($garantieOwnerId !== null && $garantieOwnerId !== $effectiveUserId) {
+                throw new \InvalidArgumentException('La garantie selectionnee n\'appartient pas a cet utilisateur.');
+            }
+        }
+
+        $rawTypeCredit = trim((string) ($data['typeCredit'] ?? ''));
+        $typeCredit = Credit::normalizeTypeCreditValue($rawTypeCredit) ?? $rawTypeCredit;
         if ($typeCredit === '') {
             throw new \InvalidArgumentException('Type de credit requis.');
         }
@@ -703,6 +857,15 @@ final class BankingService
         if ($id === null) {
             $this->connection->insert('credit', $payload);
             $createdId = (int) $this->connection->lastInsertId();
+
+            if ($selectedGarantieId > 0) {
+                $this->connection->update(
+                    'garantiecredit',
+                    ['idCredit' => $createdId, 'idUser' => $effectiveUserId],
+                    ['idGarantie' => $selectedGarantieId]
+                );
+            }
+
             $this->activityService->log((int) $payload['idUser'], 'CREDIT_CREATE', 'Symfony portal', 'Credit dossier created.');
             $this->notificationService->createNotification(
                 (int) $payload['idUser'],
@@ -723,6 +886,14 @@ final class BankingService
         }
 
         $this->connection->update('credit', $payload, ['idCredit' => $id]);
+
+        if ($selectedGarantieId > 0) {
+            $this->connection->update(
+                'garantiecredit',
+                ['idCredit' => $id, 'idUser' => $effectiveUserId],
+                ['idGarantie' => $selectedGarantieId]
+            );
+        }
 
         $this->activityService->log((int) $payload['idUser'], 'CREDIT_UPDATE', 'Symfony portal', sprintf('Credit #%d updated.', $id));
         $this->notificationService->createNotification(
@@ -801,28 +972,37 @@ final class BankingService
         return $this->connection->fetchAllAssociative($sql, $params);
     }
 
-    public function saveGarantie(array $data, ?int $id = null, ?int $forcedUserId = null): void
+    public function saveGarantie(array $data, ?int $id = null, ?int $forcedUserId = null): int
     {
         $existingGarantie = $this->resolveGarantieForWrite($id, $forcedUserId);
+        $existingGarantieRaw = null;
+        if ($existingGarantie !== null && $id !== null && $id > 0) {
+            $existingGarantieRaw = $this->connection->fetchAssociative(
+                'SELECT * FROM garantiecredit WHERE idGarantie = ? LIMIT 1',
+                [$id]
+            ) ?: null;
+        }
         if ($existingGarantie === null) {
             $id = null;
         }
 
         $creditId = (int) ($data['idCredit'] ?? 0);
-        if ($creditId <= 0) {
-            throw new \InvalidArgumentException('Credit associe requis.');
+        $credit = null;
+        if ($creditId > 0) {
+            $credit = $this->connection->fetchAssociative(
+                'SELECT idCredit, idUser, typeCredit FROM credit WHERE idCredit = ? LIMIT 1',
+                [$creditId]
+            );
+            if (!$credit) {
+                throw new \RuntimeException('Credit associe introuvable.');
+            }
         }
 
-        $credit = $this->connection->fetchAssociative(
-            'SELECT idCredit, idUser, typeCredit FROM credit WHERE idCredit = ? LIMIT 1',
-            [$creditId]
-        );
-        if (!$credit) {
-            throw new \RuntimeException('Credit associe introuvable.');
-        }
-
-        $resolvedUserId = $forcedUserId ?? $this->nullableInt($data['idUser'] ?? null) ?? $this->nullableInt($credit['idUser'] ?? null);
-        $typeGarantie = trim((string) ($data['typeGarantie'] ?? ''));
+        $resolvedUserId = $forcedUserId
+            ?? $this->nullableInt($data['idUser'] ?? null)
+            ?? $this->nullableInt($credit['idUser'] ?? null)
+            ?? $this->nullableInt($existingGarantie['idUser'] ?? null);
+        $typeGarantie = $this->normalizeGarantieTypeForStorage((string) ($data['typeGarantie'] ?? ''));
         if ($typeGarantie === '') {
             throw new \InvalidArgumentException('Type de garantie requis.');
         }
@@ -847,10 +1027,17 @@ final class BankingService
 
         $dateEvaluation = $this->normalizeIsoDateNotFuture((string) ($data['dateEvaluation'] ?? ''), 'Date d\'evaluation invalide.');
         $payload = [
-            'idCredit' => $creditId,
+            'idCredit' => $creditId > 0 ? $creditId : null,
             'typeGarantie' => $typeGarantie,
             'description' => trim((string) ($data['description'] ?? '')),
             'adresseBien' => $address,
+            'adresseComplete' => trim((string) ($data['adresseComplete'] ?? $address)),
+            'ville' => trim((string) ($data['ville'] ?? '')),
+            'codePostal' => trim((string) ($data['codePostal'] ?? '')),
+            'pays' => trim((string) ($data['pays'] ?? '')),
+            'latitude' => trim((string) ($data['latitude'] ?? '')),
+            'longitude' => trim((string) ($data['longitude'] ?? '')),
+            'statutVerificationAdresse' => trim((string) ($data['statutVerificationAdresse'] ?? 'A verifier')),
             'valeurEstimee' => $estimated,
             'valeurRetenue' => $retained,
             'documentJustificatif' => trim((string) ($data['documentJustificatif'] ?? '')),
@@ -860,49 +1047,105 @@ final class BankingService
             'idUser' => $resolvedUserId ?? 0,
         ];
 
+        $requestedVerificationStatus = trim((string) ($data['statutVerificationDocument'] ?? ''));
+        $requestedDocumentStatus = trim((string) ($data['statutDocument'] ?? ''));
+        $existingVerificationStatus = trim((string) ($existingGarantieRaw['statutVerificationDocument'] ?? 'en_attente'));
+        $existingDocumentStatus = trim((string) ($existingGarantieRaw['statutDocument'] ?? ''));
+
+        if ($requestedVerificationStatus !== '') {
+            $payload['statutVerificationDocument'] = $requestedVerificationStatus;
+        } elseif ($requestedDocumentStatus !== '') {
+            $payload['statutVerificationDocument'] = $this->verificationStatusFromDocumentStatus($requestedDocumentStatus);
+        } elseif ($existingVerificationStatus !== '') {
+            $payload['statutVerificationDocument'] = $existingVerificationStatus;
+        } elseif ($existingDocumentStatus !== '') {
+            $payload['statutVerificationDocument'] = $this->verificationStatusFromDocumentStatus($existingDocumentStatus);
+        } else {
+            $payload['statutVerificationDocument'] = 'en_attente';
+        }
+
+        if ($requestedDocumentStatus !== '') {
+            $payload['statutDocument'] = $this->normalizeDocumentStatus($requestedDocumentStatus);
+        } else {
+            $payload['statutDocument'] = $this->documentStatusFromVerificationStatus((string) ($payload['statutVerificationDocument'] ?? 'en_attente'));
+        }
+        $payload['remarqueAdmin'] = array_key_exists('remarqueAdmin', $data)
+            ? trim((string) ($data['remarqueAdmin'] ?? ''))
+            : trim((string) ($existingGarantieRaw['remarqueAdmin'] ?? ''));
+        $payload['documentPublicId'] = trim((string) ($data['documentPublicId'] ?? '')) !== ''
+            ? trim((string) $data['documentPublicId'])
+            : trim((string) ($existingGarantieRaw['documentPublicId'] ?? ''));
+        $payload['documentMimeType'] = trim((string) ($data['documentMimeType'] ?? '')) !== ''
+            ? trim((string) $data['documentMimeType'])
+            : trim((string) ($existingGarantieRaw['documentMimeType'] ?? ''));
+        $payload['documentUploadedAt'] = trim((string) ($data['documentUploadedAt'] ?? '')) !== ''
+            ? trim((string) $data['documentUploadedAt'])
+            : trim((string) ($existingGarantieRaw['documentUploadedAt'] ?? ''));
+        $payload['documentUrl'] = trim((string) ($data['documentUrl'] ?? '')) !== ''
+            ? trim((string) $data['documentUrl'])
+            : trim((string) ($existingGarantieRaw['documentUrl'] ?? ($data['documentJustificatif'] ?? '')));
+
+        $payload = $this->filterPayloadForExistingColumns('garantiecredit', $payload);
+
         if ($id === null) {
             $this->connection->insert('garantiecredit', $payload);
             $this->activityService->log((int) $payload['idUser'], 'GARANTIE_CREATE', 'Symfony portal', 'Guarantee created.');
             $createdId = (int) $this->connection->lastInsertId();
             if ($resolvedUserId !== null) {
+                $notificationMessage = $creditId > 0 && $credit
+                    ? sprintf(
+                        'Votre garantie #%d (%s) a ete enregistree pour le credit #%d (%s).',
+                        $createdId,
+                        $this->garantieTypeLabel($typeGarantie),
+                        $creditId,
+                        (string) ($credit['typeCredit'] ?? 'Credit')
+                    )
+                    : sprintf(
+                        'Votre garantie #%d (%s) a ete enregistree sans credit associe.',
+                        $createdId,
+                        $this->garantieTypeLabel($typeGarantie)
+                    );
                 $this->notificationService->createNotification(
                     $resolvedUserId,
                     null,
                     $resolvedUserId,
                     'GARANTIE_CREATE',
                     'Garantie enregistree',
-                    sprintf(
-                        'Votre garantie #%d (%s) a ete enregistree pour le credit #%d (%s).',
-                        $createdId,
-                        $typeGarantie,
-                        $creditId,
-                        (string) ($credit['typeCredit'] ?? 'Credit')
-                    )
+                    $notificationMessage
                 );
             }
 
-            return;
+            return $createdId;
         }
 
         $this->connection->update('garantiecredit', $payload, ['idGarantie' => $id]);
 
         $this->activityService->log((int) $payload['idUser'], 'GARANTIE_UPDATE', 'Symfony portal', sprintf('Guarantee #%d updated.', $id));
         if ($resolvedUserId !== null) {
+            $notificationMessage = $creditId > 0 && $credit
+                ? sprintf(
+                    'Votre garantie #%d (%s) a ete mise a jour pour le credit #%d (%s).',
+                    (int) $id,
+                    $this->garantieTypeLabel($typeGarantie),
+                    $creditId,
+                    (string) ($credit['typeCredit'] ?? 'Credit')
+                )
+                : sprintf(
+                    'Votre garantie #%d (%s) a ete mise a jour sans credit associe.',
+                    (int) $id,
+                    $this->garantieTypeLabel($typeGarantie)
+                );
             $this->notificationService->createNotification(
                 $resolvedUserId,
                 null,
                 $resolvedUserId,
                 'GARANTIE_UPDATE',
                 'Garantie mise a jour',
-                sprintf(
-                    'Votre garantie #%d (%s) a ete mise a jour pour le credit #%d (%s).',
-                    (int) $id,
-                    $typeGarantie,
-                    $creditId,
-                    (string) ($credit['typeCredit'] ?? 'Credit')
-                )
+                $notificationMessage
             );
         }
+
+        return $id;
     }
 
     public function deleteGarantie(int $id, ?int $forcedUserId = null): void
@@ -919,19 +1162,27 @@ final class BankingService
 
         $resolvedUserId = $forcedUserId ?? $this->nullableInt($existing['resolved_user_id'] ?? null);
         if ($resolvedUserId !== null) {
+            $creditId = (int) ($existing['idCredit'] ?? 0);
+            $message = $creditId > 0
+                ? sprintf(
+                    'La garantie #%d (%s) liee au credit #%d (%s) a ete supprimee.',
+                    $id,
+                    (string) ($existing['typeGarantie'] ?? 'Garantie'),
+                    $creditId,
+                    (string) ($existing['typeCredit'] ?? 'Credit')
+                )
+                : sprintf(
+                    'La garantie #%d (%s) sans credit associe a ete supprimee.',
+                    $id,
+                    (string) ($existing['typeGarantie'] ?? 'Garantie')
+                );
             $this->notificationService->createNotification(
                 $resolvedUserId,
                 null,
                 $resolvedUserId,
                 'GARANTIE_DELETE',
                 'Garantie supprimee',
-                sprintf(
-                    'La garantie #%d (%s) liee au credit #%d (%s) a ete supprimee.',
-                    $id,
-                    (string) ($existing['typeGarantie'] ?? 'Garantie'),
-                    (int) ($existing['idCredit'] ?? 0),
-                    (string) ($existing['typeCredit'] ?? 'Credit')
-                )
+                $message
             );
         }
 
@@ -942,15 +1193,20 @@ final class BankingService
 
     public function listPartenaires(): array
     {
+        $this->ensurePartenaireVilleColumn();
+
         return $this->connection->fetchAllAssociative('SELECT * FROM partenaire ORDER BY nom ASC');
     }
 
     public function savePartenaire(array $data, ?int $id = null): void
     {
+        $this->ensurePartenaireVilleColumn();
+
         $payload = [
             'nom' => trim((string) ($data['nom'] ?? '')),
             'categorie' => trim((string) ($data['categorie'] ?? '')),
             'description' => trim((string) ($data['description'] ?? '')),
+            'ville' => trim((string) ($data['ville'] ?? '')),
             'tauxCashback' => (float) ($data['tauxCashback'] ?? 0),
             'tauxCashbackMax' => (float) ($data['tauxCashbackMax'] ?? 0),
             'plafondMensuel' => (float) ($data['plafondMensuel'] ?? 0),
@@ -1121,11 +1377,41 @@ final class BankingService
 
     public function saveReclamation(array $data, ?int $id = null, ?int $forcedUserId = null): void
     {
+        $existing = null;
+        if ($id !== null) {
+            $existing = $this->connection->fetchAssociative(
+                'SELECT * FROM reclamation WHERE idReclamation = ? LIMIT 1',
+                [$id]
+            );
+            if (!$existing) {
+                throw new \RuntimeException('Reclamation introuvable.');
+            }
+        }
+
+        $transactionId = $this->nullableInt($data['idTransaction'] ?? null) ?? $this->nullableInt($existing['idTransaction'] ?? null);
+        $resolvedUserId = $forcedUserId ?? $this->nullableInt($data['idUser'] ?? null) ?? $this->nullableInt($existing['idUser'] ?? null);
+
+        if ($transactionId !== null && $resolvedUserId === null) {
+            $transactionOwner = $this->connection->fetchAssociative(
+                'SELECT COALESCE(t.idUser, c.idUser) AS resolved_user_id
+                 FROM transactions t
+                 LEFT JOIN compte c ON c.idCompte = t.idCompte
+                 WHERE t.idTransaction = ? LIMIT 1',
+                [$transactionId]
+            );
+            $resolvedUserId = $this->nullableInt($transactionOwner['resolved_user_id'] ?? null);
+        }
+
+        if ($resolvedUserId === null) {
+            throw new \InvalidArgumentException('Utilisateur introuvable pour cette reclamation.');
+        }
+
         $description = trim((string) ($data['description'] ?? ''));
         $inappropriate = $this->containsBadWord($description);
+        
         $payload = [
-            'idUser' => $forcedUserId ?? (int) ($data['idUser'] ?? 0),
-            'idTransaction' => $this->nullableInt($data['idTransaction'] ?? null),
+            'idUser' => $resolvedUserId,
+            'idTransaction' => $transactionId,
             'dateReclamation' => trim((string) ($data['dateReclamation'] ?? date('Y-m-d'))),
             'typeReclamation' => trim((string) ($data['typeReclamation'] ?? '')),
             'description' => $description,
@@ -1758,6 +2044,16 @@ final class BankingService
             return $defaultStatus;
         }
 
+        // Whitelist des tables autorisées — jamais d'entrée utilisateur ici
+        $allowedTables = [
+            'credit'        => 'idCredit',
+            'garantiecredit' => 'idGarantie',
+        ];
+
+        if (!isset($allowedTables[$table]) || $allowedTables[$table] !== $idColumn) {
+            return $defaultStatus;
+        }
+
         $sql = sprintf('SELECT statut FROM %s WHERE %s = ?', $table, $idColumn);
         $params = [$id];
         if ($forcedUserId !== null) {
@@ -1835,6 +2131,79 @@ final class BankingService
         }
 
         return $existing;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    private function filterPayloadForExistingColumns(string $table, array $payload): array
+    {
+        $columns = $this->getTableColumns($table);
+        if ($columns === []) {
+            return $payload;
+        }
+
+        $filtered = [];
+        foreach ($payload as $column => $value) {
+            if (in_array($column, $columns, true)) {
+                $filtered[$column] = $value;
+            }
+        }
+
+        return $filtered;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function getTableColumns(string $table): array
+    {
+        if (isset($this->tableColumnsCache[$table])) {
+            return $this->tableColumnsCache[$table];
+        }
+
+        // Validation : nom de table alphanumérique uniquement (jamais d'entrée utilisateur)
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $table)) {
+            $this->tableColumnsCache[$table] = [];
+            return [];
+        }
+
+        try {
+            $rows = $this->connection->fetchAllAssociative('SHOW COLUMNS FROM `' . $table . '`');
+        } catch (\Throwable) {
+            $this->tableColumnsCache[$table] = [];
+
+            return [];
+        }
+
+        $columns = [];
+        foreach ($rows as $row) {
+            $field = (string) ($row['Field'] ?? '');
+            if ($field !== '') {
+                $columns[] = $field;
+            }
+        }
+        $this->tableColumnsCache[$table] = $columns;
+
+        return $columns;
+    }
+
+    private function ensurePartenaireVilleColumn(): void
+    {
+        $columns = $this->getTableColumns('partenaire');
+        if (in_array('ville', $columns, true)) {
+            return;
+        }
+
+        try {
+            $this->connection->executeStatement(
+                'ALTER TABLE partenaire ADD ville VARCHAR(120) DEFAULT NULL AFTER description'
+            );
+            unset($this->tableColumnsCache['partenaire']);
+        } catch (\Throwable) {
+            // Ignore schema update errors when the column already exists or cannot be added automatically.
+        }
     }
 
     private function containsBadWord(string $description): bool
@@ -1937,6 +2306,45 @@ final class BankingService
         }
 
         return $distribution;
+    }
+
+    private function garantieTypeLabel(string $storedValue): string
+    {
+        return Garantiecredit::typeLabel($storedValue);
+    }
+
+    private function normalizeDocumentStatus(string $status): string
+    {
+        $normalized = strtolower(trim($status));
+
+        return match ($normalized) {
+            'valide' => 'valide',
+            'refuse', 'rejete', 'rejetee', 'rejeté', 'rejetée' => 'refuse',
+            default => 'en_attente',
+        };
+    }
+
+    private function documentStatusFromVerificationStatus(string $verificationStatus): string
+    {
+        $normalized = strtolower(trim($verificationStatus));
+
+        return match ($normalized) {
+            'valide' => 'valide',
+            'rejete', 'refuse' => 'refuse',
+            default => 'en_attente',
+        };
+    }
+
+    private function verificationStatusFromDocumentStatus(string $documentStatus): string
+    {
+        return $this->normalizeDocumentStatus($documentStatus) === 'refuse'
+            ? 'rejete'
+            : $this->normalizeDocumentStatus($documentStatus);
+    }
+
+    private function normalizeGarantieTypeForStorage(string $value): string
+    {
+        return Garantiecredit::normalizeTypeValue($value) ?? '';
     }
 
     private function resolveMonthIndex(string $dateRaw): ?int

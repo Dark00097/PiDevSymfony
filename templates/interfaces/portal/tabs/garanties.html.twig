@@ -1,5 +1,11 @@
-{% set current_date = 'now'|date('Y-m-d') %}
+﻿{% set current_date = 'now'|date('Y-m-d') %}
 {% set garantie_feedback = support.garantie_form_feedback|default({}) %}
+{% set garantie_type_choices = {
+    'titre_vehicule': 'Titre vÃ©hicule',
+    'hypotheque': 'HypothÃ¨que',
+    'caution_bancaire': 'Caution bancaire',
+    'depot_garantie': 'DÃ©pÃ´t de garantie'
+} %}
 {% if garantie_feedback is empty %}
     {% set garantie_feedback = {'errors': support.form_errors_garantie|default({}), 'input': support.form_data_garantie|default({})} %}
 {% endif %}
@@ -47,8 +53,222 @@
     cursor: default;
 }
 
-tr.nx-page-hidden {
+.nx-page-hidden {
     display: none;
+}
+
+.gu-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 14px;
+    margin-top: 16px;
+}
+
+.gu-card {
+    border: 1px solid #d7e5f2;
+    border-radius: 20px;
+    background: #fff;
+    box-shadow: 0 10px 25px rgba(15, 44, 78, 0.06);
+    overflow: hidden;
+    display: grid;
+    cursor: pointer;
+    transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+
+.gu-card:hover {
+    border-color: #9dc0ff;
+    box-shadow: 0 14px 30px rgba(29, 78, 216, 0.12);
+    transform: translateY(-1px);
+}
+
+.gu-card:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+}
+
+.gu-card.is-selected {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18), 0 14px 30px rgba(29, 78, 216, 0.14);
+}
+
+.gu-card-head {
+    padding: 14px 16px 12px;
+    background: linear-gradient(125deg, #f59e0b 0%, #d98000 100%);
+    color: #fff;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    align-items: flex-start;
+}
+
+.gu-card-title {
+    margin: 0;
+    font-size: 28px;
+    line-height: 1;
+    font-weight: 800;
+}
+
+.gu-card-sub {
+    margin: 3px 0 0;
+    font-size: 22px;
+    line-height: 1.1;
+    font-weight: 700;
+}
+
+.gu-card-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    padding: 7px 12px;
+    font-size: 13px;
+    font-weight: 800;
+    background: rgba(255, 255, 255, 0.9);
+    color: #8c4f00;
+}
+
+.gu-card-badge.is-ok {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.gu-card-badge.is-bad {
+    background: #ffe4e6;
+    color: #be123c;
+}
+
+.gu-card-body {
+    padding: 14px 16px 16px;
+    display: grid;
+    gap: 10px;
+}
+
+.gu-card-amounts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    border-bottom: 1px solid #e0eaf4;
+    padding-bottom: 10px;
+}
+
+.gu-card-amounts small {
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #7590ab;
+}
+
+.gu-card-amounts strong {
+    display: block;
+    margin-top: 4px;
+    color: #0f2f4e;
+    font-size: 35px;
+    line-height: 1;
+    font-weight: 800;
+}
+
+.gu-card-amounts .gu-small {
+    font-size: 30px;
+}
+
+.gu-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    color: #4f6f8f;
+    font-size: 13px;
+}
+
+.gu-coverage-wrap {
+    border-top: 1px solid #e0eaf4;
+    border-bottom: 1px solid #e0eaf4;
+    padding: 10px 0;
+}
+
+.gu-coverage-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #6a859f;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.gu-coverage-bar {
+    margin-top: 7px;
+    height: 9px;
+    border-radius: 999px;
+    background: #dbe6f2;
+    overflow: hidden;
+}
+
+.gu-coverage-bar span {
+    display: block;
+    height: 100%;
+    width: 0;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #f59e0b, #eab308);
+}
+
+.gu-doc-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    font-size: 13px;
+    color: #4f6f8f;
+}
+
+.gu-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.gu-btn {
+    border-radius: 12px;
+    border: 1px solid transparent;
+    min-height: 40px;
+    padding: 0 9px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: center;
+}
+
+.gu-btn--edit {
+    color: #1d4ed8;
+    background: #e0ecff;
+    border-color: #bfd6ff;
+}
+
+.gu-btn--view {
+    color: #0f766e;
+    background: #d9fbf5;
+    border-color: #99f6e4;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.gu-btn--delete {
+    color: #be123c;
+    background: #ffe4e6;
+    border-color: #fecdd3;
+}
+
+@media (max-width: 680px) {
+    .gu-card-title {
+        font-size: 24px;
+    }
+    .gu-card-sub {
+        font-size: 20px;
+    }
+    .gu-card-amounts strong {
+        font-size: 28px;
+    }
 }
 
 .nx-fraud-overview {
@@ -160,6 +380,39 @@ tr.nx-page-hidden {
     font-size: 11px;
     color: #64748b;
 }
+
+.gu-file-input-native {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.gu-file-upload-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 6px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    color: #1e293b;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color .2s ease, border-color .2s ease;
+}
+
+.gu-file-upload-btn:hover {
+    background: #eef2ff;
+    border-color: #93c5fd;
+}
 </style>
 
 <section class="panel-card">
@@ -200,8 +453,8 @@ tr.nx-page-hidden {
             <span>Type garantie <span style="color:#dc2626">*</span></span>
             <select name="typeGarantie" id="portal-garantie-type" class="{{ garantie_errors.typeGarantie is defined ? 'acc-invalid' : '' }}">
                 <option value="">Selectionner</option>
-                {% for type in ['Hypotheque immobiliere', 'Titre vehicule', 'Caution personnelle', 'Garantie bancaire', 'Police assurance', 'Nantissement', 'Autre garantie'] %}
-                    <option value="{{ type }}" {{ garantie_old.typeGarantie|default('') == type ? 'selected' : '' }}>{{ type }}</option>
+                {% for value, label in garantie_type_choices %}
+                    <option value="{{ value }}" {{ garantie_old.typeGarantie|default('') == value ? 'selected' : '' }}>{{ label }}</option>
                 {% endfor %}
             </select>
             <span id="g-err-typeGarantie" class="g-val-msg">{{ garantie_errors.typeGarantie|default('') }}</span>
@@ -270,14 +523,22 @@ tr.nx-page-hidden {
             <input type="date" name="dateEvaluation" id="portal-garantie-date" value="{{ garantie_old.dateEvaluation|default(current_date) }}" class="{{ garantie_errors.dateEvaluation is defined ? 'acc-invalid' : '' }}">
             <span id="g-err-dateEvaluation" class="g-val-msg">{{ garantie_errors.dateEvaluation|default('') }}</span>
         </label>
-        <label>
+        <div>
             <span>Document justificatif <span style="color:#dc2626">*</span></span>
             <input type="hidden" name="existingDocumentJustificatif" id="portal-garantie-document-existing" value="{{ garantie_old.documentJustificatif|default('') }}">
-            <input type="file" name="documentJustificatifFile" id="portal-garantie-document" accept="image/png,image/jpeg,image/webp,image/gif" class="{{ garantie_errors.documentJustificatif is defined ? 'acc-invalid' : '' }}">
-            <small id="portal-garantie-document-label" style="display:block; margin-top:6px; color:#6b7280;">{{ garantie_old.documentJustificatif|default('') ? 'Image deja enregistree' : 'Formats acceptes: PNG, JPG, WEBP, GIF' }}</small>
+            <input type="file" name="documentJustificatifFile" id="portal-garantie-document" accept="image/png,image/jpeg,application/pdf" class="gu-file-input-native {{ garantie_errors.documentJustificatif is defined ? 'acc-invalid' : '' }}">
+            <button type="button" id="portal-garantie-document-picker" class="gu-file-upload-btn">Choisir un document</button>
+            <small id="portal-garantie-document-label" style="display:block; margin-top:6px; color:#6b7280;">{{ garantie_old.documentJustificatif|default('') ? 'Document deja enregistre' : 'Formats acceptes: PNG, JPG, PDF' }}</small>
+            <small style="display:block; margin-top:4px; color:#475569;">
+                Regles: document officiel, image nette obligatoire, capture ecran interdite.
+            </small>
+            <div style="display:flex; gap:8px; margin-top:8px; align-items:center; flex-wrap:wrap;">
+                <button type="button" class="btn btn-secondary" id="portal-garantie-analyze-btn">Analyser le justificatif</button>
+                <span id="portal-garantie-analyze-status" class="badge text-bg-secondary">En attente</span>
+            </div>
             <a id="portal-garantie-document-link" href="{{ garantie_old.documentJustificatif|default('') ? asset(garantie_old.documentJustificatif) : '#' }}" target="_blank" rel="noopener" {{ garantie_old.documentJustificatif|default('') ? '' : 'hidden' }}>Voir l'image actuelle</a>
             <span id="g-err-documentJustificatif" class="g-val-msg">{{ garantie_errors.documentJustificatif|default('') }}</span>
-        </label>
+        </div>
         <label>
             <span>Nom garant <span style="color:#dc2626">*</span></span>
             <input type="text" name="nomGarant" id="portal-garantie-guarantor" placeholder="Nom du garant" value="{{ garantie_old.nomGarant|default('') }}" class="{{ garantie_errors.nomGarant is defined ? 'acc-invalid' : '' }}">
@@ -289,86 +550,110 @@ tr.nx-page-hidden {
         </div>
     </form>
 
-    <div class="table-wrap" style="margin-top:16px;">
-        <table class="data-table">
-            <thead>
-            <tr>
-                <th>ID</th>
-                <th>Credit</th>
-                <th>Type</th>
-                <th>Estimee</th>
-                <th>Retenue</th>
-                <th>Statut</th>
-                <th>Fraude</th>
-                <th>Actions</th>
-            </tr>
-            </thead>
-            <tbody>
-            {% for item in items %}
-                {% set fraud = item.fraud_analysis|default(null) %}
-                {% set fraud_history = item.fraud_history|default([]) %}
-                <tr
-                    data-garantie-row
-                    data-garantie-id="{{ item.idGarantie }}"
-                    data-garantie-credit-id="{{ item.idCredit }}"
-                    data-garantie-type="{{ item.typeGarantie|default('')|e('html_attr') }}"
-                    data-garantie-description="{{ item.description|default('')|e('html_attr') }}"
-                    data-garantie-address="{{ item.adresseBien|default('')|e('html_attr') }}"
-                    data-garantie-address-complete="{{ item.adresseComplete|default(item.adresseBien|default(''))|e('html_attr') }}"
-                    data-garantie-city="{{ item.ville|default('')|e('html_attr') }}"
-                    data-garantie-postal="{{ item.codePostal|default('')|e('html_attr') }}"
-                    data-garantie-country="{{ item.pays|default('')|e('html_attr') }}"
-                    data-garantie-latitude="{{ item.latitude|default('') }}"
-                    data-garantie-longitude="{{ item.longitude|default('') }}"
-                    data-garantie-address-status="{{ item.statutVerificationAdresse|default('A verifier')|e('html_attr') }}"
-                    data-garantie-estimated="{{ item.valeurEstimee|default('') }}"
-                    data-garantie-retained="{{ item.valeurRetenue|default('') }}"
-                    data-garantie-document="{{ item.documentJustificatif|default('')|e('html_attr') }}"
-                    data-garantie-date="{{ item.dateEvaluation|default(current_date)|slice(0, 10) }}"
-                    data-garantie-guarantor="{{ item.nomGarant|default('')|e('html_attr') }}"
-                    data-garantie-status="{{ item.statut|default('')|e('html_attr') }}"
-                >
-                    <td>{{ item.idGarantie }}</td>
-                    <td>
-                        {% if item.linkedCreditCount|default(0) > 1 %}
-                            {{ item.linkedCreditCount }} credits
-                        {% elseif item.idCredit %}
-                            #{{ item.idCredit }}
-                        {% else %}
-                            Non associee
-                        {% endif %}
-                    </td>
-                    <td>{{ item.typeGarantie }}</td>
-                    <td>{{ item.valeurEstimee|default(0)|number_format(2, '.', ' ') }}</td>
-                    <td>{{ item.valeurRetenue|default(0)|number_format(2, '.', ' ') }}</td>
-                    <td>{{ item.statut }}</td>
-                    <td>
-                        {% if item.fraud is defined and item.fraud %}
-                            <span class="badge {{ item.fraud.badge_class }} px-2 py-1">{{ item.fraud.level|capitalize }} - {{ item.fraud.status }}</span>
-                            {% if item.fraud.reasons is defined and item.fraud.reasons|length > 0 %}
-                                <div style="margin-top:6px; font-size:12px; color:#475569;">{{ item.fraud.reasons|join(', ') }}</div>
-                            {% endif %}
-                        {% else %}
-                            <span class="badge text-bg-secondary">Non analyse</span>
-                        {% endif %}
-                    </td>
-                    <td style="display:flex; gap:8px;">
-                        <button class="btn btn-secondary js-garantie-edit" type="button">Modifier</button>
-                        <form method="post">
+    <div class="gu-cards-grid">
+        {% for item in items %}
+            {% set docPath = item.documentUrl|default(item.documentJustificatif|default('')) %}
+            {% set docHref = docPath starts with 'http' ? docPath : (docPath ? asset(docPath) : '') %}
+            {% set status_text = item.statut|default('En attente') %}
+            {% set status_key = status_text|lower %}
+            {% set badge_class = '' %}
+            {% if 'actif' in status_key or 'accepte' in status_key %}
+                {% set badge_class = 'is-ok' %}
+            {% elseif 'rejet' in status_key or 'refus' in status_key %}
+                {% set badge_class = 'is-bad' %}
+            {% endif %}
+            {% set coverage_value = item.coveragePercent|default(0) %}
+            <article
+                class="gu-card"
+                data-garantie-row
+                data-garantie-id="{{ item.idGarantie }}"
+                data-garantie-credit-id="{{ item.idCredit }}"
+                data-garantie-type="{{ item.typeGarantie|default('')|e('html_attr') }}"
+                data-garantie-description="{{ item.description|default('')|e('html_attr') }}"
+                data-garantie-address="{{ item.adresseBien|default('')|e('html_attr') }}"
+                data-garantie-address-complete="{{ item.adresseComplete|default(item.adresseBien|default(''))|e('html_attr') }}"
+                data-garantie-city="{{ item.ville|default('')|e('html_attr') }}"
+                data-garantie-postal="{{ item.codePostal|default('')|e('html_attr') }}"
+                data-garantie-country="{{ item.pays|default('')|e('html_attr') }}"
+                data-garantie-latitude="{{ item.latitude|default('') }}"
+                data-garantie-longitude="{{ item.longitude|default('') }}"
+                data-garantie-address-status="{{ item.statutVerificationAdresse|default('A verifier')|e('html_attr') }}"
+                data-garantie-estimated="{{ item.valeurEstimee|default('') }}"
+                data-garantie-retained="{{ item.valeurRetenue|default('') }}"
+                data-garantie-document="{{ item.documentJustificatif|default('')|e('html_attr') }}"
+                data-garantie-date="{{ item.dateEvaluation|default(current_date)|slice(0, 10) }}"
+                data-garantie-guarantor="{{ item.nomGarant|default('')|e('html_attr') }}"
+                data-garantie-status="{{ item.statut|default('')|e('html_attr') }}"
+            >
+                <div class="gu-card-head">
+                    <div>
+                        <p class="gu-card-title">#{{ item.idGarantie }}</p>
+                        <p class="gu-card-sub">{{ item.typeGarantie|default('Garantie') }}</p>
+                    </div>
+                    <span class="gu-card-badge {{ badge_class }}">
+                        <i class="fa-solid fa-clock" style="margin-right:6px;"></i>{{ status_text }}
+                    </span>
+                </div>
+
+                <div class="gu-card-body">
+                    <div class="gu-card-amounts">
+                        <div>
+                            <small>Valeur estimee</small>
+                            <strong>{{ item.valeurEstimee|default(0)|number_format(0, '.', ' ') }} <span style="font-size:22px;">TND</span></strong>
+                        </div>
+                        <div>
+                            <small>Valeur retenue</small>
+                            <strong class="gu-small">{{ item.valeurRetenue|default(0)|number_format(2, '.', ' ') }} DT</strong>
+                        </div>
+                    </div>
+
+                    <div class="gu-card-meta">
+                        <span><i class="fa-solid fa-link"></i> Credit associe #{{ item.idCredit|default('-') }}</span>
+                        <span><i class="fa-solid fa-calendar"></i> {{ item.dateEvaluation|default('-') }}</span>
+                        <span><i class="fa-solid fa-user"></i> {{ item.nomGarant|default('-') }}</span>
+                    </div>
+
+                    <div class="gu-coverage-wrap">
+                        <div class="gu-coverage-title">
+                            <span>Couverture retenue</span>
+                            <strong>{{ coverage_value|round(0, 'common') }}%</strong>
+                        </div>
+                        <div class="gu-coverage-bar"><span style="width:{{ coverage_value }}%;"></span></div>
+                    </div>
+
+                    <div class="gu-doc-row">
+                        <i class="fa-solid fa-file-shield" style="margin-top:2px;"></i>
+                        <div>
+                            <strong>{{ item.statutDocumentLabel|default(item.statutVerificationDocumentLabel|default('En attente')) }}</strong>
+                            <div>{{ item.documentFeedbackMessage|default('Le justificatif est en attente de verification.') }}</div>
+                        </div>
+                    </div>
+
+                    <div class="gu-actions">
+                        <a class="gu-btn gu-btn--view" href="{{ docHref ?: '#' }}" target="_blank" rel="noopener" {% if not docHref %}aria-disabled="true" style="pointer-events:none;opacity:.5;"{% endif %}>
+                            <i class="fa-solid fa-eye" style="margin-right:5px;"></i>Voir
+                        </a>
+                        <button class="gu-btn gu-btn--edit js-garantie-edit" type="button">
+                            <i class="fa-solid fa-pen-to-square" style="margin-right:5px;"></i>Modifier
+                        </button>
+                        <form method="post" style="margin:0;">
                             <input type="hidden" name="tab" value="garanties">
                             <input type="hidden" name="action" value="garantie_delete">
                             <input type="hidden" name="idGarantie" value="{{ item.idGarantie }}">
-                            <button class="btn btn-danger" type="submit" onclick="return confirm('Supprimer cette garantie ?')">Supprimer</button>
+                            <button class="gu-btn gu-btn--delete" type="submit" onclick="return confirm('Supprimer cette garantie ?')">
+                                <i class="fa-solid fa-trash" style="margin-right:5px;"></i>Supprimer
+                            </button>
                         </form>
-                    </td>
-                </tr>
-            {% else %}
-                <tr>
-                    <td colspan="8">Aucune garantie enregistree.</td>
-                </tr>
-            {% endfor %}
-            </tbody>
-        </table>
+                    </div>
+                </div>
+            </article>
+        {% else %}
+            <article class="gu-card">
+                <div class="gu-card-body">
+                    <p style="margin:0; color:#607d99;">Aucune garantie enregistree.</p>
+                </div>
+            </article>
+        {% endfor %}
     </div>
 
     {% if support.garantie_fraud_history is defined and support.garantie_fraud_history|length > 0 %}
@@ -431,9 +716,14 @@ tr.nx-page-hidden {
     const mapCanvas = document.getElementById('portal-garantie-map');
     const addressSuggestions = document.getElementById('portal-garantie-address-suggestions');
     const documentField = document.getElementById('portal-garantie-document');
+    const documentPickerBtn = document.getElementById('portal-garantie-document-picker');
     const existingDocumentField = document.getElementById('portal-garantie-document-existing');
     const documentLabel = document.getElementById('portal-garantie-document-label');
     const documentLink = document.getElementById('portal-garantie-document-link');
+    const documentAnalyzeBtn = document.getElementById('portal-garantie-analyze-btn');
+    const documentAnalyzeStatus = document.getElementById('portal-garantie-analyze-status');
+    const osmSearchEndpoint = '{{ path('portal_osm_search') }}';
+    const osmReverseEndpoint = '{{ path('portal_osm_reverse') }}';
     const currentDateIso = '{{ current_date }}';
     const todayDate = new Date(`${currentDateIso}T00:00:00`);
     const fieldNames = ['typeGarantie', 'description', 'adresseBien', 'adresseComplete', 'valeurEstimee', 'valeurRetenue', 'dateEvaluation', 'documentJustificatif', 'nomGarant'];
@@ -443,6 +733,14 @@ tr.nx-page-hidden {
     let mapResizeTimer = null;
     let reverseLookupToken = 0;
     const defaultMapCenter = { lat: 36.8065, lng: 10.1815, zoom: 11 };
+    const documentAnalysisState = {
+        status: 'pending',
+        message: 'En attente',
+        blurScore: 0,
+        width: 0,
+        height: 0,
+        fileName: '',
+    };
 
     const parseNum = (v) => {
         const normalized = String(v ?? '')
@@ -463,6 +761,123 @@ tr.nx-page-hidden {
             .trim();
         if (field.value !== normalized) {
             field.value = normalized;
+        }
+    };
+    const setDocumentAnalysisBadge = (status, message) => {
+        if (!(documentAnalyzeStatus instanceof HTMLElement)) return;
+        const cleanStatus = String(status || 'pending').trim();
+        const text = String(message || '').trim() || 'En attente';
+        documentAnalyzeStatus.textContent = text;
+        documentAnalyzeStatus.className = 'badge';
+        if (cleanStatus === 'valid') {
+            documentAnalyzeStatus.classList.add('text-bg-success');
+        } else if (cleanStatus === 'blur') {
+            documentAnalyzeStatus.classList.add('text-bg-warning');
+        } else if (cleanStatus === 'suspect') {
+            documentAnalyzeStatus.classList.add('text-bg-danger');
+        } else {
+            documentAnalyzeStatus.classList.add('text-bg-secondary');
+        }
+        documentAnalysisState.status = cleanStatus;
+        documentAnalysisState.message = text;
+    };
+
+    const hasSuspiciousDocumentName = (name) => {
+        return /(screen|screenshot|capture|captur|ecran|snip|printscreen|whatsapp)/i.test(String(name || ''));
+    };
+
+    const computeBlurScore = (imageElement) => {
+        const canvas = document.createElement('canvas');
+        const maxSize = 240;
+        const scale = Math.max(imageElement.naturalWidth / maxSize, imageElement.naturalHeight / maxSize, 1);
+        const w = Math.max(16, Math.floor(imageElement.naturalWidth / scale));
+        const h = Math.max(16, Math.floor(imageElement.naturalHeight / scale));
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) return 0;
+        ctx.drawImage(imageElement, 0, 0, w, h);
+        const { data } = ctx.getImageData(0, 0, w, h);
+        let sum = 0;
+        let sumSq = 0;
+        let count = 0;
+        for (let y = 1; y < h - 1; y += 1) {
+            for (let x = 1; x < w - 1; x += 1) {
+                const idx = (y * w + x) * 4;
+                const gray = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
+                const leftIdx = (y * w + (x - 1)) * 4;
+                const rightIdx = (y * w + (x + 1)) * 4;
+                const topIdx = ((y - 1) * w + x) * 4;
+                const bottomIdx = ((y + 1) * w + x) * 4;
+                const leftGray = (data[leftIdx] + data[leftIdx + 1] + data[leftIdx + 2]) / 3;
+                const rightGray = (data[rightIdx] + data[rightIdx + 1] + data[rightIdx + 2]) / 3;
+                const topGray = (data[topIdx] + data[topIdx + 1] + data[topIdx + 2]) / 3;
+                const bottomGray = (data[bottomIdx] + data[bottomIdx + 1] + data[bottomIdx + 2]) / 3;
+                const laplacian = Math.abs(4 * gray - leftGray - rightGray - topGray - bottomGray);
+                sum += laplacian;
+                sumSq += laplacian * laplacian;
+                count += 1;
+            }
+        }
+        if (count === 0) return 0;
+        const mean = sum / count;
+        return Math.max(0, (sumSq / count) - (mean * mean));
+    };
+
+    const analyzeSelectedDocument = async () => {
+        const file = documentField instanceof HTMLInputElement ? documentField.files?.[0] ?? null : null;
+        if (!file) {
+            const existingPath = existingDocumentField instanceof HTMLInputElement ? existingDocumentField.value.trim() : '';
+            setDocumentAnalysisBadge('pending', existingPath !== '' ? 'Document existant' : 'En attente');
+            documentAnalysisState.fileName = '';
+            return;
+        }
+        documentAnalysisState.fileName = file.name;
+
+        const suspiciousName = hasSuspiciousDocumentName(file.name);
+        const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+        if (!allowedTypes.includes(file.type)) {
+            setDocumentAnalysisBadge('suspect', 'Type non autorise');
+            return;
+        }
+        if (file.size < 25_000) {
+            setDocumentAnalysisBadge('suspect', 'Fichier trop petit');
+            return;
+        }
+        if (suspiciousName) {
+            setDocumentAnalysisBadge('suspect', 'Capture ecran detectee');
+            return;
+        }
+        if (file.type === 'application/pdf') {
+            setDocumentAnalysisBadge('valid', 'Valide (PDF)');
+            return;
+        }
+
+        const image = new Image();
+        const objectUrl = URL.createObjectURL(file);
+        try {
+            await new Promise((resolve, reject) => {
+                image.onload = resolve;
+                image.onerror = reject;
+                image.src = objectUrl;
+            });
+            documentAnalysisState.width = image.naturalWidth || 0;
+            documentAnalysisState.height = image.naturalHeight || 0;
+            if (documentAnalysisState.width < 500 || documentAnalysisState.height < 500) {
+                setDocumentAnalysisBadge('suspect', 'Resolution insuffisante');
+                return;
+            }
+            const blurScore = computeBlurScore(image);
+            documentAnalysisState.blurScore = blurScore;
+            if (blurScore < 45) {
+                setDocumentAnalysisBadge('blur', 'Image floue');
+                return;
+            }
+            setDocumentAnalysisBadge('valid', 'Valide');
+        } catch (_error) {
+            setDocumentAnalysisBadge('suspect', 'Fichier illisible');
+        } finally {
+            URL.revokeObjectURL(objectUrl);
         }
     };
     const parseInputDate = (rawValue) => {
@@ -486,7 +901,7 @@ tr.nx-page-hidden {
         field?.classList.add('acc-invalid');
         field?.classList.remove('acc-valid');
         if (msgEl) {
-            msgEl.textContent = '⚠ ' + message;
+            msgEl.textContent = 'âš  ' + message;
             msgEl.style.color = '#dc2626';
             msgEl.style.fontWeight = '600';
             msgEl.style.fontSize = '12px';
@@ -498,7 +913,7 @@ tr.nx-page-hidden {
         field?.classList.remove('acc-invalid');
         field?.classList.add('acc-valid');
         if (msgEl) {
-            msgEl.textContent = '✓ Valide';
+            msgEl.textContent = 'âœ“ Valide';
             msgEl.style.color = '#16a34a';
             msgEl.style.fontWeight = '600';
             msgEl.style.fontSize = '12px';
@@ -513,21 +928,36 @@ tr.nx-page-hidden {
         }
         return true;
     };
+    const renderStaticOpenStreetFallback = (latValue, lngValue) => {
+        if (!(mapCanvas instanceof HTMLElement)) return;
+        const lat = Number.parseFloat(String(latValue ?? '').replace(',', '.'));
+        const lng = Number.parseFloat(String(lngValue ?? '').replace(',', '.'));
+        const safeLat = Number.isFinite(lat) ? lat : defaultMapCenter.lat;
+        const safeLng = Number.isFinite(lng) ? lng : defaultMapCenter.lng;
+        const delta = 0.02;
+        const left = safeLng - delta;
+        const right = safeLng + delta;
+        const top = safeLat + delta;
+        const bottom = safeLat - delta;
+        const src = `https://staticmap.openstreetmap.de/staticmap.php?center=${encodeURIComponent(String(safeLat))},${encodeURIComponent(String(safeLng))}&zoom=14&size=900x420&markers=${encodeURIComponent(String(safeLat))},${encodeURIComponent(String(safeLng))},red-pushpin`;
+        mapCanvas.innerHTML = `<img alt="OpenStreetMap" src="${src}" style="width:100%;height:100%;object-fit:cover;border:0;border-radius:18px;" loading="lazy" referrerpolicy="no-referrer" />`; 
+    };
     const waitLeaflet = (callback) => {
         if (typeof window.L !== 'undefined') {
-            callback();
+            callback(true);
             return;
         }
         let attempts = 0;
         const intervalId = window.setInterval(() => {
             if (typeof window.L !== 'undefined') {
                 window.clearInterval(intervalId);
-                callback();
+                callback(true);
                 return;
             }
             attempts += 1;
             if (attempts > 40) {
                 window.clearInterval(intervalId);
+                callback(false);
             }
         }, 150);
     };
@@ -670,16 +1100,14 @@ tr.nx-page-hidden {
         validateField('adresseComplete');
     };
     const reverseGeocodeCoordinates = async (lat, lng) => {
-        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&zoom=18&lat=${encodeURIComponent(String(lat))}&lon=${encodeURIComponent(String(lng))}`, {
-            headers: {
-                'Accept': 'application/json',
-                'Accept-Language': 'fr',
-            },
+        const response = await fetch(`${osmReverseEndpoint}?lat=${encodeURIComponent(String(lat))}&lon=${encodeURIComponent(String(lng))}`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
         });
-        if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        if (!response.ok || !payload || payload.ok !== true || !payload.item) {
             throw new Error('Reverse geocoding indisponible.');
         }
-        return response.json();
+        return payload.item;
     };
     const applyMapSelection = async (lat, lng) => {
         const normalizedLat = Number(lat);
@@ -722,14 +1150,15 @@ tr.nx-page-hidden {
         hideAddressSuggestions();
     };
     const initGarantieMaps = () => {
-        waitLeaflet(() => {
-            if (!(addressCompleteField instanceof HTMLInputElement)) {
+        const lat = latitudeField instanceof HTMLInputElement ? latitudeField.value : '';
+        const lng = longitudeField instanceof HTMLInputElement ? longitudeField.value : '';
+        renderStaticOpenStreetFallback(lat, lng);
+        waitLeaflet((isReady) => {
+            if (isReady) {
+                updateMapMarker(lat, lng);
                 return;
             }
-            updateMapMarker(
-                latitudeField instanceof HTMLInputElement ? latitudeField.value : '',
-                longitudeField instanceof HTMLInputElement ? longitudeField.value : ''
-            );
+            renderStaticOpenStreetFallback(lat, lng);
         });
     };
     const syncDocumentMeta = (path = '', label = '') => {
@@ -738,7 +1167,7 @@ tr.nx-page-hidden {
             existingDocumentField.value = resolvedPath;
         }
         if (documentLabel) {
-            documentLabel.textContent = label || (resolvedPath !== '' ? 'Image deja enregistree' : 'Formats acceptes: PNG, JPG, WEBP, GIF');
+            documentLabel.textContent = label || (resolvedPath !== '' ? 'Document deja enregistre' : 'Formats acceptes: PNG, JPG, PDF');
         }
         if (documentLink instanceof HTMLAnchorElement) {
             if (resolvedPath !== '') {
@@ -808,7 +1237,7 @@ tr.nx-page-hidden {
                 if (value.length < 5) return setError(field, msgEl, "L'adresse doit contenir au moins 5 caracteres.");
                 return setValid(field, msgEl);
             case 'adresseComplete':
-                if (value === '') return clearValid(field, msgEl);
+                if (value === '') return setError(field, msgEl, "L'adresse complete est obligatoire.");
                 if (value.length < 5) return setError(field, msgEl, "L'adresse complete est trop courte.");
                 return setValid(field, msgEl);
             case 'valeurEstimee': {
@@ -836,10 +1265,25 @@ tr.nx-page-hidden {
             case 'documentJustificatif': {
                 const file = documentField instanceof HTMLInputElement ? documentField.files?.[0] ?? null : null;
                 const existingPath = existingDocumentField instanceof HTMLInputElement ? existingDocumentField.value.trim() : '';
-                const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+                const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
                 if (file) {
+                    if (hasSuspiciousDocumentName(file.name)) {
+                        return setError(documentField, msgEl, "Capture d'ecran interdite. Veuillez joindre un document officiel.");
+                    }
                     if (!allowedTypes.includes(file.type)) {
-                        return setError(documentField, msgEl, 'Le document justificatif doit etre une image JPG, PNG, WEBP ou GIF.');
+                        return setError(documentField, msgEl, 'Le document justificatif doit etre au format JPG, PNG ou PDF.');
+                    }
+                    if (file.size < 25_000) {
+                        return setError(documentField, msgEl, 'Le fichier est trop petit (minimum 25 Ko).');
+                    }
+                    if (file.size > 5 * 1024 * 1024) {
+                        return setError(documentField, msgEl, 'Le fichier depasse 5 Mo.');
+                    }
+                    if (documentAnalysisState.status === 'blur') {
+                        return setError(documentField, msgEl, 'Image floue detectee. Veuillez envoyer une image nette.');
+                    }
+                    if (documentAnalysisState.status === 'suspect') {
+                        return setError(documentField, msgEl, 'Document suspect. Verifiez le fichier et reessayez.');
                     }
                     return setValid(documentField, msgEl);
                 }
@@ -871,6 +1315,16 @@ tr.nx-page-hidden {
     documentField?.addEventListener('change', () => {
         const file = documentField instanceof HTMLInputElement ? documentField.files?.[0] ?? null : null;
         syncDocumentMeta(existingDocumentField instanceof HTMLInputElement ? existingDocumentField.value : '', file ? `Fichier selectionne: ${file.name}` : '');
+        analyzeSelectedDocument();
+        validateField('documentJustificatif');
+    });
+    documentPickerBtn?.addEventListener('click', () => {
+        if (documentField instanceof HTMLInputElement) {
+            documentField.click();
+        }
+    });
+    documentAnalyzeBtn?.addEventListener('click', async () => {
+        await analyzeSelectedDocument();
         validateField('documentJustificatif');
     });
     addressCompleteField?.addEventListener('input', () => {
@@ -887,17 +1341,18 @@ tr.nx-page-hidden {
         }
         addressSearchTimer = window.setTimeout(async () => {
             try {
-                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&q=${encodeURIComponent(query)}`, {
-                    headers: {
-                        'Accept': 'application/json',
-                        'Accept-Language': 'fr',
-                    },
+                const response = await fetch(`${osmSearchEndpoint}?q=${encodeURIComponent(query)}&limit=5`, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
                 });
-                if (!response.ok) {
+                const payload = await response.json().catch(() => null);
+                if (!response.ok || !payload || payload.ok !== true || !Array.isArray(payload.items)) {
                     throw new Error('OpenStreetMap indisponible');
                 }
-                const items = await response.json();
+                const items = payload.items;
                 renderAddressSuggestions(items);
+                if (Array.isArray(items) && items.length === 1) {
+                    syncAddressFieldsFromPlace(items[0], { overwriteAddress: true });
+                }
             } catch (_error) {
                 hideAddressSuggestions();
             }
@@ -922,6 +1377,7 @@ tr.nx-page-hidden {
             if (documentField instanceof HTMLInputElement) documentField.value = '';
             if (addressCompleteField instanceof HTMLInputElement) addressCompleteField.value = '';
             syncDocumentMeta('', '');
+            setDocumentAnalysisBadge('pending', 'En attente');
             clearAddressDetails();
             fieldNames.forEach((name) => clearValid(fieldElement(name), messageElement(name)));
             syncRetained();
@@ -944,37 +1400,72 @@ tr.nx-page-hidden {
         }
     };
 
+    const fillGarantieFormFromRow = (row) => {
+        if (!(row instanceof HTMLElement)) return;
+
+        document.querySelectorAll('[data-garantie-row]').forEach((card) => {
+            card.classList.toggle('is-selected', card === row);
+        });
+
+        setFieldValue('idGarantie', row.dataset.garantieId ?? '');
+        setFieldValue('typeGarantie', row.dataset.garantieType ?? '');
+        setFieldValue('description', row.dataset.garantieDescription ?? '');
+        setFieldValue('adresseBien', row.dataset.garantieAddress ?? '');
+        setFieldValue('valeurEstimee', row.dataset.garantieEstimated ?? '');
+        setFieldValue('valeurRetenue', row.dataset.garantieRetained ?? '');
+        setFieldValue('dateEvaluation', (row.dataset.garantieDate ?? '').slice(0, 10));
+        syncDateFieldConstraint();
+        setFieldValue('nomGarant', row.dataset.garantieGuarantor ?? '');
+        if (documentField instanceof HTMLInputElement) documentField.value = '';
+        syncDocumentMeta(row.dataset.garantieDocument ?? '', '');
+        setDocumentAnalysisBadge('pending', (row.dataset.garantieDocument ?? '').trim() !== '' ? 'Document existant' : 'En attente');
+        setFieldValue('adresseComplete', row.dataset.garantieAddressComplete ?? '');
+        setFieldValue('ville', row.dataset.garantieCity ?? '');
+        setFieldValue('codePostal', row.dataset.garantiePostal ?? '');
+        setFieldValue('pays', row.dataset.garantieCountry ?? '');
+        setFieldValue('latitude', row.dataset.garantieLatitude ?? '');
+        setFieldValue('longitude', row.dataset.garantieLongitude ?? '');
+        setAddressVerificationStatus(row.dataset.garantieAddressStatus ?? 'A verifier');
+        updateMapMarker(row.dataset.garantieLatitude ?? '', row.dataset.garantieLongitude ?? '');
+        syncRetained();
+        validateForm();
+        form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    const isInteractiveRowTarget = (target) => {
+        if (!(target instanceof Element)) return false;
+        return Boolean(target.closest('button, a, form, input, select, textarea, label, [role="button"]'));
+    };
+
     document.querySelectorAll('.js-garantie-edit').forEach((btn) => {
         btn.addEventListener('click', () => {
             const row = btn.closest('[data-garantie-row]');
-            if (!row) return;
-            setFieldValue('idGarantie', row.dataset.garantieId ?? '');
-            setFieldValue('typeGarantie', row.dataset.garantieType ?? '');
-            setFieldValue('description', row.dataset.garantieDescription ?? '');
-            setFieldValue('adresseBien', row.dataset.garantieAddress ?? '');
-            setFieldValue('valeurEstimee', row.dataset.garantieEstimated ?? '');
-            setFieldValue('valeurRetenue', row.dataset.garantieRetained ?? '');
-            setFieldValue('dateEvaluation', (row.dataset.garantieDate ?? '').slice(0, 10));
-            syncDateFieldConstraint();
-            setFieldValue('nomGarant', row.dataset.garantieGuarantor ?? '');
-            if (documentField instanceof HTMLInputElement) documentField.value = '';
-            syncDocumentMeta(row.dataset.garantieDocument ?? '', '');
-            setFieldValue('adresseComplete', row.dataset.garantieAddressComplete ?? '');
-            setFieldValue('ville', row.dataset.garantieCity ?? '');
-            setFieldValue('codePostal', row.dataset.garantiePostal ?? '');
-            setFieldValue('pays', row.dataset.garantieCountry ?? '');
-            setFieldValue('latitude', row.dataset.garantieLatitude ?? '');
-            setFieldValue('longitude', row.dataset.garantieLongitude ?? '');
-            setAddressVerificationStatus(row.dataset.garantieAddressStatus ?? 'A verifier');
-            updateMapMarker(row.dataset.garantieLatitude ?? '', row.dataset.garantieLongitude ?? '');
-            syncRetained();
-            validateForm();
-            form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            fillGarantieFormFromRow(row);
+        });
+    });
+
+    document.querySelectorAll('[data-garantie-row]').forEach((row) => {
+        if (!(row instanceof HTMLElement)) return;
+        row.tabIndex = 0;
+        row.setAttribute('role', 'button');
+        row.setAttribute('aria-label', 'Charger cette garantie dans le formulaire');
+        row.addEventListener('click', (event) => {
+            if (isInteractiveRowTarget(event.target)) return;
+            fillGarantieFormFromRow(row);
+        });
+        row.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            fillGarantieFormFromRow(row);
         });
     });
 
     syncDateFieldConstraint();
     syncDocumentMeta(existingDocumentField instanceof HTMLInputElement ? existingDocumentField.value : '', '');
+    setDocumentAnalysisBadge(
+        'pending',
+        existingDocumentField instanceof HTMLInputElement && existingDocumentField.value.trim() !== '' ? 'Document existant' : 'En attente'
+    );
     initGarantieMaps();
     syncRetained();
     document.addEventListener('click', (event) => {
@@ -1029,3 +1520,7 @@ tr.nx-page-hidden {
     applyPagination();
 })();
 </script>
+
+
+
+

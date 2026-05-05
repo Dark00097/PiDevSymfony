@@ -7,6 +7,7 @@ use App\Service\BankingService;
 use App\Service\BankingMlAssistantService;
 use App\Service\GamificationService;
 use App\Service\NotificationService;
+use App\Service\SmartStrategyService;
 use Symfony\Component\HttpFoundation\Request;
 
 final class AccountsController
@@ -16,16 +17,22 @@ final class AccountsController
 
     public function __construct(
         private readonly BankingMlAssistantService $bankingMlAssistantService,
-        private readonly NotificationService $notificationService
+        private readonly NotificationService $notificationService,
+        private readonly SmartStrategyService $smartStrategyService
     )
     {
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function buildAdminData(BankingService $bankingService, ?Request $request = null, ?int $filterUserId = null): array
     {
         $accounts  = $bankingService->listAccounts($filterUserId);
         $vaults    = $bankingService->listVaults($filterUserId);
         $vaultData = $this->buildVaultData($vaults);
+
+        $this->smartStrategyService->executeScheduledTransfers();
 
         // FIX PRINCIPAL : lire le panel depuis query string (GET ?panel=ia)
         // Le lien Twig génère : href="...?tab=accounts&panel=ia"
@@ -82,7 +89,7 @@ final class AccountsController
     }
 
     /**
-     * Enriches vault items with computed progression, bar color and lock state.
+     * Enriches vault items with computed progression, bar color, lock state and active strategy.
      *
      * @param array<int, array<string, mixed>> $vaults
      * @return array<int, array<string, mixed>>
@@ -106,12 +113,15 @@ final class AccountsController
             $lockIcon  = $locked ? 'fa-lock' : 'fa-lock-open';
             $lockColor = $locked ? '#ef4444' : '#22c55e';
 
+            $activeStrategy = $this->smartStrategyService->getActiveStrategy((int) ($v['idCoffre'] ?? 0));
+
             $result[] = array_merge($v, [
                 'progression' => $pct,
                 'bar_color'   => $barColor,
                 'is_locked'   => $locked,
                 'lock_icon'   => $lockIcon,
                 'lock_color'  => $lockColor,
+                'active_strategy' => $activeStrategy,
             ]);
         }
 
@@ -122,6 +132,7 @@ final class AccountsController
      * Computes vault statistics for KPI cards and charts.
      *
      * @param array<int, array<string, mixed>> $vaultData enriched vault data from buildVaultData()
+     * @return array<string, mixed>
      */
     public function buildVaultStats(array $vaultData): array
     {
@@ -161,6 +172,9 @@ final class AccountsController
 
     /**
      * Computes per-status statistics for the pie chart.
+     *
+     * @param array<int, array<string, mixed>> $accounts
+     * @return array<string, mixed>
      */
     public function buildAccountStats(array $accounts): array
     {
@@ -194,6 +208,9 @@ final class AccountsController
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function buildPortalData(
         BankingService $bankingService,
         ActivityService $activityService,
@@ -206,6 +223,8 @@ final class AccountsController
         $accounts     = $this->filterAndSortPortalAccounts($allAccounts, $accountsQuery);
         $vaults       = $bankingService->listVaults($userId);
         $vaultData    = $this->buildVaultData($vaults);
+
+        $this->smartStrategyService->executeScheduledTransfers();
 
         $formErrorsCompte = $request !== null ? $this->getFormErrors($request, 'compte') : [];
         $formDataCompte   = $request !== null ? $this->getFormData($request, 'compte') : [];
@@ -437,6 +456,10 @@ final class AccountsController
         return $counts;
     }
 
+    /**
+     * @param array<string, mixed>|null $currentUser
+     * @return array<string, mixed>|null
+     */
     public function handleAdminAction(string $action, Request $request, BankingService $bankingService, ?array $currentUser = null): ?array
     {
         switch ($action) {
@@ -551,6 +574,9 @@ final class AccountsController
         return null;
     }
 
+    /**
+     * @return array<string, mixed>|null
+     */
     public function buildAccountDetail(BankingService $bankingService, int $idCompte): ?array
     {
         $accounts = $bankingService->listAccounts();
@@ -582,6 +608,9 @@ final class AccountsController
         ];
     }
 
+    /**
+     * @return array<mixed>
+     */
     public function buildAccountPdf(BankingService $bankingService, \App\Service\ExportService $exportService, ?int $idCompte): array
     {
         if ($idCompte !== null) {
@@ -652,6 +681,9 @@ final class AccountsController
         ];
     }
 
+    /**
+     * @return array<string, mixed>|null
+     */
     public function handlePortalAction(string $action, Request $request, BankingService $bankingService, int $userId): ?array
     {
         switch ($action) {
@@ -855,10 +887,20 @@ final class AccountsController
 
         $statut = trim((string) ($data['statutCompte'] ?? ''));
         if ($statut === '' && $editId > 0) {
+            $statut = trim((string) ($existingAccount['statutCompte'] ?? ''));
+            $data['statutCompte'] = $statut;
+        }
+        if ($statut === '' && $editId > 0) {
             $errors['statutCompte'] = 'Veuillez sélectionner un statut.';
         }
 
         $retrait = $data['plafondRetrait'] ?? '';
+        if ($retrait !== '' && $retrait !== null && $existingAccount !== null && array_key_exists('plafondRetrait', $existingAccount)) {
+            $existingRetraitValue = (float) $existingAccount['plafondRetrait'];
+            if (abs(((float) $retrait) - $existingRetraitValue) < 0.00001) {
+                $retrait = '';
+            }
+        }
         if ($retrait !== '' && $retrait !== null && !$this->isWithinAccountLimitRange((float) $retrait)) {
             $errors['plafondRetrait'] = sprintf(
                 'Le plafond de retrait doit etre compris entre %.0f DT et %.0f DT.',
@@ -868,6 +910,12 @@ final class AccountsController
         }
 
         $virement = $data['plafondVirement'] ?? '';
+        if ($virement !== '' && $virement !== null && $existingAccount !== null && array_key_exists('plafondVirement', $existingAccount)) {
+            $existingVirementValue = (float) $existingAccount['plafondVirement'];
+            if (abs(((float) $virement) - $existingVirementValue) < 0.00001) {
+                $virement = '';
+            }
+        }
         if ($virement !== '' && $virement !== null && !$this->isWithinAccountLimitRange((float) $virement)) {
             $errors['plafondVirement'] = sprintf(
                 'Le plafond de virement doit etre compris entre %.0f DT et %.0f DT.',
@@ -1000,6 +1048,9 @@ final class AccountsController
         return $intValue > 0 ? $intValue : null;
     }
 
+    /**
+     * @param array<string, mixed> $data
+     */
     private function logHistory(Request $request, string $action, array $data): void
     {
         $session = $request->getSession();

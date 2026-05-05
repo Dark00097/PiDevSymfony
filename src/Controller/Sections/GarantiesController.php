@@ -2,18 +2,27 @@
 
 namespace App\Controller\Sections;
 
+use App\Domain\Garantie\DocumentVerificationStatus;
+use App\Entity\Garantiecredit;
 use App\Service\ActivityService;
 use App\Service\BankingService;
+use App\Service\CloudinaryStorageService;
 use App\Service\ExportService;
 use App\Service\FraudDetectionService;
+use App\Service\GarantieDocumentWorkflowService;
+use App\Service\NotificationService;
 use Symfony\Component\HttpFoundation\File\Exception\FileException;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 
 final class GarantiesController
 {
+
     public function __construct(
         private readonly FraudDetectionService $fraudDetectionService,
+        private readonly GarantieDocumentWorkflowService $documentWorkflowService,
+        private readonly CloudinaryStorageService $cloudinaryStorageService,
+        private readonly NotificationService $notificationService,
     ) {
     }
     // -------------------------------------------------------------------------
@@ -22,7 +31,7 @@ final class GarantiesController
 
     public function buildAdminData(BankingService $bankingService): array
     {
-        $garanties = $bankingService->listGaranties();
+        $garanties = $this->decorateGaranties($bankingService->listGaranties());
 
         return [
             'items' => $garanties,
@@ -31,6 +40,8 @@ final class GarantiesController
                 'credits'             => $bankingService->listCredits(),
                 'garantie_type_stats' => $bankingService->getGarantieTypeDistribution(),
                 'garantie_stats'      => $this->buildGarantieStats($garanties),
+                'garantie_type_choices' => Garantiecredit::getTypeChoices(),
+                'document_statuses'   => $this->documentWorkflowService->allowedStatuses(),
             ],
         ];
     }
@@ -40,6 +51,54 @@ final class GarantiesController
         switch ($action) {
             case 'garantie_save':
                 $data = $request->request->all();
+                $normalizedType = $this->normalizeGarantieTypeValue((string) ($data['typeGarantie'] ?? ''));
+                if ($normalizedType !== null) {
+                    $data['typeGarantie'] = $normalizedType;
+                }
+                $uploadedDocument = $request->files->get('documentJustificatifFile');
+                if (!$uploadedDocument instanceof UploadedFile) {
+                    $uploadedDocument = $request->files->get('documentJustificatif');
+                }
+                if ($uploadedDocument instanceof UploadedFile) {
+                    $data['documentJustificatifFile'] = $uploadedDocument;
+                }
+                $validationUserId = (int) ($data['idUser'] ?? 0);
+                $errors = $this->validateGarantie($data, $bankingService, $validationUserId > 0 ? $validationUserId : 0);
+                if ($errors !== []) {
+                    return [
+                        'type' => 'validation_error',
+                        'message' => implode(' ', array_values($errors)),
+                    ];
+                }
+
+                if ($uploadedDocument instanceof UploadedFile && $uploadedDocument->isValid()) {
+                    try {
+                        $cloudinaryDoc = $this->cloudinaryStorageService->uploadGuaranteeDocument(
+                            $uploadedDocument,
+                            $validationUserId,
+                            $this->requestInt($request, 'idGarantie')
+                        );
+                        $data['documentJustificatif'] = $cloudinaryDoc['url'];
+                        $data['documentUrl'] = $cloudinaryDoc['url'];
+                        $data['documentPublicId'] = $cloudinaryDoc['public_id'];
+                        $data['documentMimeType'] = $cloudinaryDoc['mime_type'];
+                        $data['documentUploadedAt'] = $cloudinaryDoc['uploaded_at'];
+                        $data['existingDocumentJustificatif'] = $cloudinaryDoc['url'];
+                        $data['statutVerificationDocument'] = $this->documentWorkflowService->initialStatus();
+                        $data['statutDocument'] = $this->documentStatusFromVerificationStatus((string) $data['statutVerificationDocument']);
+                    } catch (\Throwable $exception) {
+                        return [
+                            'type' => 'error',
+                            'message' => 'Upload document impossible: '.$exception->getMessage(),
+                        ];
+                    }
+                } else {
+                    $existingDocument = trim((string) ($data['existingDocumentJustificatif'] ?? ($data['existing_document'] ?? '')));
+                    if ($existingDocument !== '' && trim((string) ($data['documentJustificatif'] ?? '')) === '') {
+                        $data['documentJustificatif'] = $existingDocument;
+                    }
+                }
+                unset($data['documentJustificatifFile']);
                 $bankingService->saveGarantie($data, $this->requestInt($request, 'idGarantie'));
                 $this->logHistory($request, 'garantie_save', $data);
 
@@ -51,6 +110,72 @@ final class GarantiesController
                 $this->logHistory($request, 'garantie_delete', ['idGarantie' => $id]);
 
                 return ['type' => 'success', 'message' => 'Garantie deleted.'];
+            case 'garantie_document_review':
+                $garantieId = $this->requestInt($request, 'idGarantie') ?? 0;
+                if ($garantieId <= 0) {
+                    return ['type' => 'error', 'message' => 'Garantie introuvable.'];
+                }
+                $requestedDocumentStatus = $this->normalizeDocumentStatus((string) $request->request->get('statutDocument', ''));
+                $requestedVerificationStatus = (string) $request->request->get('statutVerificationDocument', '');
+                if (trim($requestedVerificationStatus) === '' && $requestedDocumentStatus === 'refuse') {
+                    $requestedVerificationStatus = DocumentVerificationStatus::REJETE;
+                } elseif (trim($requestedVerificationStatus) === '' && $requestedDocumentStatus === 'valide') {
+                    $requestedVerificationStatus = DocumentVerificationStatus::VALIDE;
+                }
+                $status = $this->documentWorkflowService->resolveStatus($requestedVerificationStatus);
+                $remark = trim((string) $request->request->get('remarqueAdmin', ''));
+                $garantie = $this->findGarantieById($bankingService->listGaranties(), $garantieId);
+                if ($garantie === null) {
+                    return ['type' => 'error', 'message' => 'Garantie introuvable.'];
+                }
+                $currentStatus = (string) ($garantie['statutVerificationDocument'] ?? DocumentVerificationStatus::EN_ATTENTE);
+                if (!$this->documentWorkflowService->canTransition($currentStatus, $status)) {
+                    return ['type' => 'error', 'message' => 'Transition de statut document non autorisee.'];
+                }
+                $payload = $garantie;
+                $payload['statutVerificationDocument'] = $status;
+                $payload['statutDocument'] = $this->documentStatusFromVerificationStatus($status);
+                $payload['remarqueAdmin'] = $remark;
+                $bankingService->saveGarantie($payload, $garantieId);
+                $this->notifyGarantieOwnerByMailAndSms($bankingService, $payload, sprintf(
+                    'Le statut de votre justificatif de garantie #%d est maintenant: %s.',
+                    $garantieId,
+                    DocumentVerificationStatus::label($status)
+                ));
+
+                return ['type' => 'success', 'message' => 'Statut du document mis a jour.'];
+            case 'garantie_quick_status':
+                $garantieId = $this->requestInt($request, 'idGarantie') ?? 0;
+                if ($garantieId <= 0) {
+                    return ['type' => 'error', 'message' => 'Garantie introuvable.'];
+                }
+                $garantie = $this->findGarantieById($bankingService->listGaranties(), $garantieId);
+                if ($garantie === null) {
+                    return ['type' => 'error', 'message' => 'Garantie introuvable.'];
+                }
+                $nextStatus = trim((string) $request->request->get('statut', ''));
+                $allowed = ['En attente', 'Actif', 'Rejete'];
+                if (!in_array($nextStatus, $allowed, true)) {
+                    return ['type' => 'error', 'message' => 'Statut non autorise.'];
+                }
+
+                $payload = $garantie;
+                $payload['statut'] = $nextStatus;
+                if ($nextStatus === 'Actif') {
+                    $payload['statutVerificationDocument'] = DocumentVerificationStatus::VALIDE;
+                    $payload['statutDocument'] = 'valide';
+                } elseif ($nextStatus === 'Rejete') {
+                    $payload['statutVerificationDocument'] = DocumentVerificationStatus::REJETE;
+                    $payload['statutDocument'] = 'refuse';
+                }
+                $bankingService->saveGarantie($payload, $garantieId);
+                $this->notifyGarantieOwnerByMailAndSms($bankingService, $payload, sprintf(
+                    'Le statut de votre garantie #%d a ete mis a jour: %s.',
+                    $garantieId,
+                    $nextStatus
+                ));
+
+                return ['type' => 'success', 'message' => 'Statut de garantie mis a jour.'];
         }
 
         return null;
@@ -62,7 +187,9 @@ final class GarantiesController
 
     public function buildPortalData(BankingService $bankingService, int $userId, ?Request $request = null): array
     {
-        $allGaranties    = $this->enrichGarantiesWithFraudData($bankingService->listGaranties($userId), $userId);
+        $allGaranties    = $this->decorateGaranties(
+            $this->enrichGarantiesWithFraudData($bankingService->listGaranties($userId), $userId)
+        );
         $garantieQuery   = $this->resolvePortalGarantieQuery($request);
         $garanties       = $this->filterAndSortPortalGaranties($allGaranties, $garantieQuery);
 
@@ -93,6 +220,7 @@ final class GarantiesController
                     'errors' => $formErrorsGarantie,
                     'input' => $formDataGarantie,
                 ],
+                'document_statuses'        => $this->documentWorkflowService->allowedStatuses(),
             ],
         ];
     }
@@ -102,6 +230,10 @@ final class GarantiesController
         switch ($action) {
             case 'garantie_save':
                 $data = $request->request->all();
+                $normalizedType = $this->normalizeGarantieTypeValue((string) ($data['typeGarantie'] ?? ''));
+                if ($normalizedType !== null) {
+                    $data['typeGarantie'] = $normalizedType;
+                }
                 $uploadedOriginalName = '';
                 $uploadedDocument = $request->files->get('documentJustificatifFile');
                 if ($uploadedDocument instanceof \Symfony\Component\HttpFoundation\File\UploadedFile) {
@@ -119,55 +251,84 @@ final class GarantiesController
                     unset($sessionFormData['documentJustificatifFile']);
                     $request->getSession()->set('nexora.form_errors.garantie', $errors);
                     $request->getSession()->set('nexora.form_data.garantie', $sessionFormData);
+                    $firstError = (string) (array_values($errors)[0] ?? 'Erreur de validation.');
 
-                    return ['type' => 'validation_error', 'message' => 'Veuillez corriger les erreurs du formulaire garantie.'];
+                    return ['type' => 'validation_error', 'message' => 'Erreur garantie: '.$firstError];
                 }
 
                 $request->getSession()->remove('nexora.form_errors.garantie');
                 $request->getSession()->remove('nexora.form_data.garantie');
 
                 if ($uploadedDocument instanceof UploadedFile && $uploadedDocument->isValid()) {
-                    $storedDocumentPath = $this->moveUploadedGuaranteeDocument($uploadedDocument);
-                    $data['documentJustificatif'] = $storedDocumentPath;
-                    $data['existingDocumentJustificatif'] = $storedDocumentPath;
+                    try {
+                        $cloudinaryDoc = $this->cloudinaryStorageService->uploadGuaranteeDocument(
+                            $uploadedDocument,
+                            $userId,
+                            $this->requestInt($request, 'idGarantie')
+                        );
+                    } catch (\Throwable $exception) {
+                        return [
+                            'type' => 'error',
+                            'message' => 'Upload Cloudinary impossible: '.$exception->getMessage(),
+                        ];
+                    }
+
+                    $data['documentJustificatif'] = $cloudinaryDoc['url'];
+                    $data['documentUrl'] = $cloudinaryDoc['url'];
+                    $data['documentPublicId'] = $cloudinaryDoc['public_id'];
+                    $data['documentMimeType'] = $cloudinaryDoc['mime_type'];
+                    $data['documentUploadedAt'] = $cloudinaryDoc['uploaded_at'];
+                    $data['existingDocumentJustificatif'] = $cloudinaryDoc['url'];
+                    $data['statutVerificationDocument'] = $this->documentWorkflowService->initialStatus();
+                    $data['statutDocument'] = $this->documentStatusFromVerificationStatus((string) $data['statutVerificationDocument']);
                 }
                 unset($data['documentJustificatifFile']);
 
-                $garantieId = $this->requestInt($request, 'idGarantie');
-                if ($garantieId !== null) {
-                    $existingGarantie = null;
-                    foreach ($bankingService->listGaranties($userId) as $garantie) {
-                        if ((int) ($garantie['idGarantie'] ?? 0) === $garantieId) {
-                            $existingGarantie = $garantie;
-                            break;
+                try {
+                    $garantieId = $this->requestInt($request, 'idGarantie');
+                    if ($garantieId !== null) {
+                        $existingGarantie = null;
+                        foreach ($bankingService->listGaranties($userId) as $garantie) {
+                            if ((int) ($garantie['idGarantie'] ?? 0) === $garantieId) {
+                                $existingGarantie = $garantie;
+                                break;
+                            }
                         }
+                        if ($existingGarantie === null) {
+                            return ['type' => 'error', 'message' => 'Garantie introuvable ou inaccessible.'];
+                        }
+                        $data['idUser'] = (string) $userId;
+                        $savedGarantieId = $bankingService->saveGarantie($data, $garantieId, $userId);
+                    } else {
+                        $savedGarantieId = $bankingService->saveGarantie($data, null, $userId);
                     }
-                    if ($existingGarantie === null) {
-                        return ['type' => 'error', 'message' => 'Garantie introuvable ou inaccessible.'];
-                    }
-                    $data['idUser'] = (string) $userId;
-                    $savedGarantieId = $bankingService->saveGarantie($data, $garantieId, $userId);
-                } else {
-                    $savedGarantieId = $bankingService->saveGarantie($data, null, $userId);
-                }
 
-                $analysisPayload = array_replace($data, [
-                    'idGarantie' => $savedGarantieId,
-                    'uploadedOriginalName' => $uploadedOriginalName,
-                ]);
-                $analysis = $this->fraudDetectionService->analyzeGuarantee($analysisPayload, $userId);
-                $this->fraudDetectionService->recordGuaranteeAnalysis(
-                    $userId,
-                    (int) $savedGarantieId,
-                    (string) ($analysis['document_name'] ?? ($data['documentJustificatif'] ?? '')),
-                    $analysis
-                );
+                    $analysisPayload = array_replace($data, [
+                        'idGarantie' => $savedGarantieId,
+                        'uploadedOriginalName' => $uploadedOriginalName,
+                    ]);
+                    $analysis = $this->fraudDetectionService->analyzeGuarantee($analysisPayload, $userId);
+                    $this->fraudDetectionService->recordGuaranteeAnalysis(
+                        $userId,
+                        (int) $savedGarantieId,
+                        (string) ($analysis['document_name'] ?? ($data['documentJustificatif'] ?? '')),
+                        $analysis
+                    );
+                } catch (\Throwable $exception) {
+                    return [
+                        'type' => 'error',
+                        'message' => 'Erreur enregistrement garantie: '.$exception->getMessage(),
+                    ];
+                }
 
                 $this->logHistory($request, 'garantie_save', $data);
 
                 return [
                     'type' => 'success',
-                    'message' => 'Garantie enregistree.',
+                    'message' => 'Garantie enregistree. '.$this->documentWorkflowService->userMessage(
+                        (string) ($data['statutVerificationDocument'] ?? DocumentVerificationStatus::EN_ATTENTE),
+                        (string) ($data['remarqueAdmin'] ?? '')
+                    ),
                 ];
 
             case 'garantie_delete':
@@ -203,23 +364,27 @@ final class GarantiesController
     {
         $errors = [];
         $today = new \DateTimeImmutable('today');
-        $allowedTypes = [
-            'Hypotheque immobiliere',
-            'Hypothèque immobilière',
-            'Titre vehicule',
-            'Titre véhicule',
-            'Caution personnelle',
-            'Garantie bancaire',
-            'Police assurance',
-            'Nantissement',
-            'Autre garantie',
-        ];
-
         $typeGarantie = trim((string) ($data['typeGarantie'] ?? ''));
         if ($typeGarantie === '') {
             $errors['typeGarantie'] = 'Le type de garantie est obligatoire.';
-        } elseif (!in_array($typeGarantie, $allowedTypes, true)) {
+        } elseif ($this->normalizeGarantieTypeValue($typeGarantie) === null) {
             $errors['typeGarantie'] = 'Veuillez selectionner un type de garantie valide.';
+        }
+
+        $creditId = (int) ($data['idCredit'] ?? 0);
+        if ($creditId > 0) {
+            $creditFound = false;
+            $credits = $userId > 0 ? $bankingService->listCredits($userId) : $bankingService->listCredits();
+            foreach ($credits as $credit) {
+                if ((int) ($credit['idCredit'] ?? 0) === $creditId) {
+                    $creditFound = true;
+                    break;
+                }
+            }
+
+            if (!$creditFound) {
+                $errors['idCredit'] = 'Le credit associe est introuvable.';
+            }
         }
 
         $description = trim((string) ($data['description'] ?? ''));
@@ -314,16 +479,47 @@ final class GarantiesController
         }
 
         $documentFile = $data['documentJustificatifFile'] ?? null;
-        $existingDocument = trim((string) ($data['existingDocumentJustificatif'] ?? ''));
+        $existingDocument = trim((string) ($data['existingDocumentJustificatif'] ?? ($data['existing_document'] ?? '')));
         $storedDocument = trim((string) ($data['documentJustificatif'] ?? ''));
         if ($documentFile instanceof UploadedFile && $documentFile->isValid()) {
-            $extension = strtolower($documentFile->getClientOriginalExtension());
-            if (!in_array($extension, ['png', 'jpg', 'jpeg', 'webp', 'gif'], true)) {
-                $errors['documentJustificatif'] = 'Format de document non autorisé. Utilisez PNG, JPG, WEBP ou GIF.';
+            $extension = strtolower((string) $documentFile->getClientOriginalExtension());
+            $mimeType = strtolower((string) ($documentFile->getMimeType() ?? ''));
+            $originalName = strtolower(trim((string) $documentFile->getClientOriginalName()));
+            $size = (int) ($documentFile->getSize() ?? 0);
+            $realMimeType = strtolower((string) (@mime_content_type($documentFile->getPathname()) ?: ''));
+            $allowedMimeTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+            $allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png'];
+            $isPdf = $realMimeType === 'application/pdf' || ($mimeType === 'application/pdf' && $extension === 'pdf');
+            $isImage = in_array($realMimeType, ['image/jpeg', 'image/png'], true)
+                || (in_array($mimeType, ['image/jpeg', 'image/png'], true) && in_array($extension, ['jpg', 'jpeg', 'png'], true));
+            $looksLikeScreenshot = (bool) preg_match('/(screen|screenshot|capture|captur|ecran|scrn|snip|printscreen|whatsapp)/i', $originalName);
+            $suspiciousName = (bool) preg_match('/(\.\.|[<>:"|?*]|(php|phtml|phar|js|exe|sh|bat|cmd)\b)/i', $originalName);
+            $hasAllowedMime = in_array($realMimeType, $allowedMimeTypes, true) || in_array($mimeType, $allowedMimeTypes, true);
+            $hasAllowedExtension = in_array($extension, $allowedExtensions, true);
+
+            if (!$hasAllowedMime || !$hasAllowedExtension || !($isPdf || $isImage)) {
+                $errors['documentJustificatif'] = 'Format non autorise. Utilisez uniquement JPG, PNG ou PDF.';
+            } elseif ($suspiciousName) {
+                $errors['documentJustificatif'] = 'Nom de fichier suspect. Renommez le document puis reessayez.';
+            } elseif ($looksLikeScreenshot) {
+                $errors['documentJustificatif'] = 'Capture d ecran interdite. Veuillez televerser un document officiel.';
+            } elseif ($size > 0 && $size < 25_000) {
+                $errors['documentJustificatif'] = 'Le fichier est trop petit et semble illisible (minimum 25 Ko).';
             } elseif ($documentFile->getSize() !== null && $documentFile->getSize() > 5_242_880) {
                 $errors['documentJustificatif'] = 'Le document est trop volumineux (max. 5 Mo).';
-            } else {
+            } elseif ($isImage) {
+                $imageInfo = @getimagesize($documentFile->getPathname());
+                $width = is_array($imageInfo) ? (int) ($imageInfo[0] ?? 0) : 0;
+                $height = is_array($imageInfo) ? (int) ($imageInfo[1] ?? 0) : 0;
+                if ($width < 500 || $height < 500) {
+                    $errors['documentJustificatif'] = 'Image trop petite: minimum 500x500 px pour garantir la lisibilite.';
+                }
+            }
+
+            if (!isset($errors['documentJustificatif'])) {
                 $data['documentJustificatif'] = $documentFile->getClientOriginalName();
+            } else {
+                unset($data['documentJustificatif']);
             }
         } else {
             $data['documentJustificatif'] = $storedDocument !== '' ? $storedDocument : $existingDocument;
@@ -348,6 +544,55 @@ final class GarantiesController
         }
 
         return $errors;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $garanties
+     * @return array<int, array<string, mixed>>
+     */
+    private function decorateGaranties(array $garanties): array
+    {
+        foreach ($garanties as &$garantie) {
+            $rawType = (string) ($garantie['typeGarantie'] ?? '');
+            $normalizedType = $this->normalizeGarantieTypeValue($rawType);
+            $garantie['typeGarantieRaw'] = $rawType;
+            $garantie['typeGarantieValue'] = $normalizedType ?? $rawType;
+            $garantie['typeGarantieLabel'] = $this->garantieTypeLabel($rawType);
+            $garantie['typeGarantie'] = $garantie['typeGarantieLabel'];
+
+            $status = $this->documentWorkflowService->resolveStatus((string) ($garantie['statutVerificationDocument'] ?? ''));
+            $garantie['statutVerificationDocument'] = $status;
+            $garantie['statutVerificationDocumentLabel'] = DocumentVerificationStatus::label($status);
+            $documentStatus = $this->normalizeDocumentStatus((string) ($garantie['statutDocument'] ?? $this->documentStatusFromVerificationStatus($status)));
+            $garantie['statutDocument'] = $documentStatus;
+            $garantie['statutDocumentLabel'] = $this->documentStatusLabel($documentStatus);
+            $garantie['remarqueAdmin'] = trim((string) ($garantie['remarqueAdmin'] ?? ''));
+            $garantie['documentUrl'] = (string) ($garantie['documentUrl'] ?? ($garantie['documentJustificatif'] ?? ''));
+            $garantie['documentFeedbackMessage'] = $this->documentWorkflowService->userMessage(
+                $status,
+                (string) ($garantie['remarqueAdmin'] ?? '')
+            );
+            $estimated = (float) ($garantie['valeurEstimee'] ?? 0);
+            $retained = (float) ($garantie['valeurRetenue'] ?? 0);
+            $garantie['coveragePercent'] = $estimated > 0 ? round(min(100, ($retained / $estimated) * 100), 1) : 0.0;
+        }
+        unset($garantie);
+
+        return $garanties;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $garanties
+     */
+    private function findGarantieById(array $garanties, int $garantieId): ?array
+    {
+        foreach ($garanties as $garantie) {
+            if ((int) ($garantie['idGarantie'] ?? 0) == $garantieId) {
+                return $garantie;
+            }
+        }
+
+        return null;
     }
 
     private function moveUploadedGuaranteeDocument(UploadedFile $file): string
@@ -887,7 +1132,7 @@ final class GarantiesController
 
         $idGarantie = (string) ($data['idGarantie'] ?? '—');
         $idCredit   = (string) ($data['idCredit'] ?? '—');
-        $type       = (string) ($data['typeGarantie'] ?? '');
+        $type       = $this->garantieTypeLabel((string) ($data['typeGarantie'] ?? ''));
         $estimee    = isset($data['valeurEstimee']) ? number_format((float) $data['valeurEstimee'], 2, '.', ' ').' DT' : '—';
         $statut     = (string) ($data['statut'] ?? '');
 
@@ -920,6 +1165,85 @@ final class GarantiesController
     public function getHistory(Request $request): array
     {
         return (array) $request->getSession()->get('nexora.garanties_history', []);
+    }
+
+    private function garantieTypeLabel(string $value): string
+    {
+        return Garantiecredit::typeLabel($value);
+    }
+
+    private function normalizeGarantieTypeValue(string $value): ?string
+    {
+        return Garantiecredit::normalizeTypeValue($value);
+    }
+
+    private function normalizeDocumentStatus(string $status): string
+    {
+        $normalized = strtolower(trim($status));
+
+        return match ($normalized) {
+            'valide' => 'valide',
+            'refuse', 'rejete', 'rejetee', 'rejeté', 'rejetée' => 'refuse',
+            default => 'en_attente',
+        };
+    }
+
+    private function documentStatusFromVerificationStatus(string $verificationStatus): string
+    {
+        $normalized = strtolower(trim($verificationStatus));
+
+        return match ($normalized) {
+            DocumentVerificationStatus::VALIDE => 'valide',
+            DocumentVerificationStatus::REJETE => 'refuse',
+            default => 'en_attente',
+        };
+    }
+
+    private function documentStatusLabel(string $status): string
+    {
+        return match ($this->normalizeDocumentStatus($status)) {
+            'valide' => 'Valide',
+            'refuse' => 'Refuse',
+            default => 'En attente',
+        };
+    }
+
+    /**
+     * @param array<string, mixed> $garantie
+     */
+    private function notifyGarantieOwnerByMailAndSms(BankingService $bankingService, array $garantie, string $message): void
+    {
+        $ownerId = (int) ($garantie['resolved_user_id'] ?? ($garantie['idUser'] ?? 0));
+        if ($ownerId <= 0) {
+            return;
+        }
+
+        try {
+            $title = 'Mise a jour de votre garantie';
+            $this->notificationService->createNotification(
+                $ownerId,
+                null,
+                $ownerId,
+                'GARANTIE_UPDATE',
+                $title,
+                $message,
+                true
+            );
+
+            $ownerPhone = '';
+            foreach ($bankingService->listUsers() as $user) {
+                if ((int) ($user['idUser'] ?? 0) === $ownerId) {
+                    $ownerPhone = trim((string) ($user['telephone'] ?? ''));
+                    break;
+                }
+            }
+
+            if ($ownerPhone !== '') {
+                $this->notificationService->sendSms($ownerPhone, $message);
+            }
+        } catch (\Throwable) {
+            // Ne pas bloquer le workflow admin en cas d'echec mail/SMS.
+        }
     }
 
     // -------------------------------------------------------------------------
